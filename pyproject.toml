@@ -1,0 +1,56 @@
+[project]
+name = "submit-ce"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = []
+
+[tool.poetry]
+name = "submit-ce"
+version = "0.1.0"
+description = "arXiv Submit"
+authors = ["Brian D. Caruso <bdc34@cornell.edu>"]
+readme = "README.md"
+packages = [{include = "arxiv", from="src"}]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+
+#arxiv-base = {git = "https://github.com/arXiv/arxiv-base.git", rev = "6db6e9fc", extras = []}
+#arxiv-base = "~=0.16.6"
+
+arxiv-auth = {git = "https://github.com/arXiv/arxiv-auth.git", rev = "develop", subdirectory = "arxiv-auth"}
+#arxiv-auth = "~=0.4.2rc1"
+
+backports-datetime-fromisoformat = "*"
+flask-sqlalchemy = "*"
+jsonschema = "==2.6.0"
+mimesis = "==2.1.0"
+mypy = "*"
+mypy_extensions = "*"
+
+python-dateutil = "*"
+pytz = "==2018.7"
+pyyaml = ">=4.2b1"
+retry = "*"
+unidecode = "*"
+urllib3 = ">=1.24.2"
+werkzeug = "^2.0"
+#uwsgi = "==2.0.17.1"
+semver = "^3.0.2"
+
+[tool.poetry.group.dev.dependencies]
+coverage = "*"
+coveralls = "*"
+docker = "*"
+mimesis = "*"
+openapi-spec-validator = "*"
+pydocstyle = "==3.0.0"
+pylint = "<2"
+pytest = "*"
+pytest-cov = "*"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
