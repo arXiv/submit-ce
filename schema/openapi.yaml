@@ -1,4 +1,4 @@
-openapi: "3.1.0"
+openapi: "3.0.1"
 info:
   version: "0.1"
   title: "arxiv submit"
@@ -16,51 +16,70 @@ paths:
       description: Start a submission and get a submission ID.
       responses:
         '200':
+          description: Successfully started a new submission.
           headers:
             Location:
               description: URL to use to work with the submission.
+              schema:
+                type: string
           content:
-            description: The submission_id of the submission.
             text/plain:
               schema:
-                string
+                type: string
 
   /{submission_id}:
     get:
       operationId: getSubmission
       description: Get information about a submission.
+      parameters:
+        - in: path
+          name: submission_id
+          required: true
+          description: Id of the submission to get.
+          schema:
+            type: string
       responses:
         '200':
+          description: "The submission data."
           content:
-            application:json
-            # TODO add schema
+            application/json:
+              schema:
+                type: object
+                # TODO add schema
 
   /{submission_id}/acceptPolicy:
     post:
       description: |
         Agree to a an arXiv policy to initiate a new item submission or 
         a change to an existing item.
+      parameters:
+        - in: path
+          name: submission_id
+          required: true
+          description: Id of the submission to get.
+          schema:
+            type: string
       requestBody:
         content:
           application/json:
             schema:
-              $ref: '#/components/Agreement'
+              $ref: '#/components/schemas/Agreement'
       responses:
-        '200':
+        200:
           description: The has been accepted.
           content:
             application/json:
               schema:
-                $ref: '#/components/AgreementResponse'
-        '400':
+                $ref: '#/components/schemas/AgreementResponse'
+        400:
           description: There was an problem when processing the agreement. It was not accepted.
           content:
             application/json:
               schema:
-                $ref: '#/components/Error'
-        '401':
+                $ref: '#/components/schemas/Error'
+        401:
           description: Unauthorized. Missing valid authentication information. The agreement was not accepted.
-        '403':
+        403:
           description: Forbidden. Client or user is not authorized to upload. The agreement was not accepted.
         '500':
           description: Error. There was a problem. The agreement was not accepted.
@@ -69,31 +88,84 @@ paths:
   /{submission_id}/markProcessingForDeposit:
     post:
       description: Mark that the submission is being processed for deposit.
+      parameters:
+        - in: path
+          name: submission_id
+          required: true
+          description: Id of the submission to get.
+          schema:
+            type: string
+      responses:
+        200:
+          description: The submission has been marked as in procesing for deposit.
+          
   /{submission_id}/unmarkProcessingForDeposit:
     post:
       description: |
         Indicate that an external system in no longer working on depositing this submission. 
         This does not indicate that is was successfully deposited.
-  /{submission_id}/deposit_packet:
+      parameters:
+        - in: path
+          name: submission_id
+          required: true
+          description: Id of the submission to get.
+          schema:
+            type: string
+      responses:
+        200:
+          description: The submission has been marked as no longer in procesing for deposit.
+          
+  /{submission_id}/deposit_packet/{packet_format}:
     get:
       description: Gets a tar.gz of the current state of the submission.
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                deposit_packet_format:
-                  type: string
-                  enum:
-                    - legacy
-                    - cev1
+      parameters:
+        - in: path
+          name: submission_id
+          required: true
+          description: Id of the submission to get.
+          schema:
+            type: string
+        - in: path
+          name: packet_format
+          required: true
+          schema:
+            type: string
+            enum:
+              - legacy
+              - cev1
+      responses:
+        200:
+          description: Returns a tar.gz
+          headers:
+            Content-Disposition:
+              description: Suggests filename
+              schema:
+                type: string
+          content:
+            application/gzip:
+              schema:
+                type: string
+                format: binary
+                description: A tar.gz archive with one or more files
+
+
 
   /{submission_id}/Deposited:
     post:
+      parameters:
+        - in: path
+          name: submission_id
+          required: true
+          description: Id of the submission to get.
+          schema:
+            type: string
       description: The submission has been successfully deposited by an external service.
+      responses:
+        200:
+          description: Deposited has been recorded.
 
-
+        
+        
 ################### Server informational ####################################
   /status:
    get:
@@ -107,33 +179,32 @@ paths:
 
 ############################ Components #####################################
 components:
-  Agreement:
-    description: The sender of this request agrees to the statement in the agreement
-    type: object
-    required: [submission_id, name, date, agreement ]
-    properties:
-      submission_id:
-        type: string
-      name:
-        type: string
-      agreement:
-        type: string
-
-  AgreementResponse:
-    description: |
-      Information about an agreement.
+  schemas:
+    Agreement:
+      description: The sender of this request agrees to the statement in the agreement
       type: object
-      required: [ submission_id, name, date, agreement, agreed_at ]
+      required: [submission_id, name, date, agreement ]
       properties:
         submission_id:
           type: string
-        agreed_at:
-          type: datetime
         name:
           type: string
         agreement:
           type: string
-  Error:
-    type:
-      text/plain:
-        schema: string
+  
+    AgreementResponse:
+      description: |
+        Information about an agreement.
+        type: object
+        required: [ submission_id, name, date, agreement, agreed_at ]
+        properties:
+          submission_id:
+            type: string
+          agreed_at:
+            type: datetime
+          name:
+            type: string
+          agreement:
+            type: string
+    Error:
+      type: string
