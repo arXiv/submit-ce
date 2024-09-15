@@ -1,0 +1,139 @@
+openapi: "3.1.0"
+info:
+  version: "0.1"
+  title: "arxiv submit"
+  contact:
+    name: "arXiv API Team"
+    # TODO need a non NG email
+    email: nextgen@arxiv.org
+  license:
+    name: MIT
+
+paths:
+  /:
+    post:
+      operationId: new
+      description: Start a submission and get a submission ID.
+      responses:
+        '200':
+          headers:
+            Location:
+              description: URL to use to work with the submission.
+          content:
+            description: The submission_id of the submission.
+            text/plain:
+              schema:
+                string
+
+  /{submission_id}:
+    get:
+      operationId: getSubmission
+      description: Get information about a submission.
+      responses:
+        '200':
+          content:
+            application:json
+            # TODO add schema
+
+  /{submission_id}/acceptPolicy:
+    post:
+      description: |
+        Agree to a an arXiv policy to initiate a new item submission or 
+        a change to an existing item.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/Agreement'
+      responses:
+        '200':
+          description: The has been accepted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/AgreementResponse'
+        '400':
+          description: There was an problem when processing the agreement. It was not accepted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/Error'
+        '401':
+          description: Unauthorized. Missing valid authentication information. The agreement was not accepted.
+        '403':
+          description: Forbidden. Client or user is not authorized to upload. The agreement was not accepted.
+        '500':
+          description: Error. There was a problem. The agreement was not accepted.
+
+
+  /{submission_id}/markProcessingForDeposit:
+    post:
+      description: Mark that the submission is being processed for deposit.
+  /{submission_id}/unmarkProcessingForDeposit:
+    post:
+      description: |
+        Indicate that an external system in no longer working on depositing this submission. 
+        This does not indicate that is was successfully deposited.
+  /{submission_id}/deposit_packet:
+    get:
+      description: Gets a tar.gz of the current state of the submission.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                deposit_packet_format:
+                  type: string
+                  enum:
+                    - legacy
+                    - cev1
+
+  /{submission_id}/Deposited:
+    post:
+      description: The submission has been successfully deposited by an external service.
+
+
+################### Server informational ####################################
+  /status:
+   get:
+      operationId: getServiceStatus
+      description: Get information about the current status of file management service.
+      responses:
+        '200':
+          description: "system is working correctly"
+        '500':
+          description: "system is not working correctly"
+
+############################ Components #####################################
+components:
+  Agreement:
+    description: The sender of this request agrees to the statement in the agreement
+    type: object
+    required: [submission_id, name, date, agreement ]
+    properties:
+      submission_id:
+        type: string
+      name:
+        type: string
+      agreement:
+        type: string
+
+  AgreementResponse:
+    description: |
+      Information about an agreement.
+      type: object
+      required: [ submission_id, name, date, agreement, agreed_at ]
+      properties:
+        submission_id:
+          type: string
+        agreed_at:
+          type: datetime
+        name:
+          type: string
+        agreement:
+          type: string
+  Error:
+    type:
+      text/plain:
+        schema: string
