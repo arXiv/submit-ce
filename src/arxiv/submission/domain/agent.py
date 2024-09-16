@@ -60,7 +60,7 @@ class Agent:
 
 @dataclass
 class User(Agent):
-    """An (human) end user."""
+    """A human end user."""
 
     forename: str = field(default_factory=str)
     surname: str = field(default_factory=str)
