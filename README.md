@@ -7,7 +7,7 @@ To run the server, please execute the following from the root directory:
 
 ```bash
 poetry install
-submit_fastapi dev src/arxiv/submit_fastapi/main.py
+fastapi dev src/arxiv/submit_fastapi/main.py
 ```
 
 and open your browser at `http://localhost:8000/docs/` to see the docs.

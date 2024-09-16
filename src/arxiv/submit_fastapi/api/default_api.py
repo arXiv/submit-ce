@@ -1,8 +1,6 @@
 # coding: utf-8
 
 from typing import Dict, List  # noqa: F401
-import importlib
-import pkgutil
 
 from fastapi import (  # noqa: F401
     APIRouter,
@@ -19,13 +17,14 @@ from fastapi import (  # noqa: F401
     status,
 )
 
-from .models.extra_models import TokenModel  # noqa: F401
-from .models.agreement import Agreement
+from arxiv.submit_fastapi.config import config
+from arxiv.submit_fastapi.api.models.extra_models import TokenModel  # noqa: F401
+from arxiv.submit_fastapi.api.models.agreement import Agreement
 
+implementation = config.submission_api_implementation()
+impl_depends = config.submission_api_implementation_depends_function
 
 router = APIRouter()
-
-BaseDefaultApi = None
 
 @router.get(
     "/status",
@@ -36,45 +35,38 @@ BaseDefaultApi = None
     tags=["default"],
     response_model_by_alias=True,
 )
-async def get_service_status(
-) -> None:
+async def get_service_status(impl_dep: dict = Depends(impl_depends)) -> None:
     """Get information about the current status of file management service."""
-    if not BaseDefaultApi.subclasses:
-        raise HTTPException(status_code=500, detail="Not implemented")
-    return await BaseDefaultApi.subclasses[0]().get_service_status()
+    return await implementation.get_service_status(impl_dep)
 
 
-@router.get(
-    "/{submission_id}",
-    responses={
-        200: {"model": object, "description": "The submission data."},
-    },
-    tags=["default"],
-    response_model_by_alias=True,
-)
-async def get_submission(
-    submission_id: str = Path(..., description="Id of the submission to get."),
-) -> object:
-    """Get information about a submission."""
-    if not BaseDefaultApi.subclasses:
-        raise HTTPException(status_code=500, detail="Not implemented")
-    return await BaseDefaultApi.subclasses[0]().get_submission(submission_id)
+# @router.get(
+#     "/{submission_id}",
+#     responses={
+#         200: {"model": object, "description": "The submission data."},
+#     },
+#     tags=["default"],
+#     response_model_by_alias=True,
+# )
+# async def get_submission(
+#     submission_id: str = Path(..., description="Id of the submission to get."),
+# ) -> object:
+#     """Get information about a submission."""
+#     return await implementation.get_submission(submission_id)
 
 
-@router.post(
-    "/",
-    responses={
-        200: {"model": str, "description": "Successfully started a new submission."},
-    },
-    tags=["default"],
-    response_model_by_alias=True,
-)
-async def new(
-) -> str:
-    """Start a submission and get a submission ID."""
-    if not BaseDefaultApi.subclasses:
-        raise HTTPException(status_code=500, detail="Not implemented")
-    return await BaseDefaultApi.subclasses[0]().new()
+# @router.post(
+#     "/",
+#     responses={
+#         200: {"model": str, "description": "Successfully started a new submission."},
+#     },
+#     tags=["default"],
+#     response_model_by_alias=True,
+# )
+# async def new(
+# ) -> str:
+#     """Start a submission and get a submission ID."""
+#     return await implementation.new()
 
 
 @router.post(
@@ -92,11 +84,10 @@ async def new(
 async def submission_id_accept_policy_post(
     submission_id: str = Path(..., description="Id of the submission to get."),
     agreement: Agreement = Body(None, description=""),
+    impl_dep: dict = Depends(impl_depends),
 ) -> object:
-    """Agree to a an arXiv policy to initiate a new item submission or  a change to an existing item. """
-    if not BaseDefaultApi.subclasses:
-        raise HTTPException(status_code=500, detail="Not implemented")
-    return await BaseDefaultApi.subclasses[0]().submission_id_accept_policy_post(submission_id, agreement)
+    """Agree to an arXiv policy to initiate a new item submission or  a change to an existing item. """
+    return await implementation.submission_id_accept_policy_post(impl_dep, submission_id, agreement)
 
 
 @router.post(
@@ -109,11 +100,10 @@ async def submission_id_accept_policy_post(
 )
 async def submission_id_deposited_post(
     submission_id: str = Path(..., description="Id of the submission to get."),
+    impl_dep: dict = Depends(impl_depends),
 ) -> None:
     """The submission has been successfully deposited by an external service."""
-    if not BaseDefaultApi.subclasses:
-        raise HTTPException(status_code=500, detail="Not implemented")
-    return await BaseDefaultApi.subclasses[0]().submission_id_deposited_post(submission_id)
+    return await implementation.submission_id_deposited_post(impl_dep, submission_id)
 
 
 @router.post(
@@ -126,11 +116,10 @@ async def submission_id_deposited_post(
 )
 async def submission_id_mark_processing_for_deposit_post(
     submission_id: str = Path(..., description="Id of the submission to get."),
+    impl_dep: dict = Depends(impl_depends),
 ) -> None:
     """Mark that the submission is being processed for deposit."""
-    if not BaseDefaultApi.subclasses:
-        raise HTTPException(status_code=500, detail="Not implemented")
-    return await BaseDefaultApi.subclasses[0]().submission_id_mark_processing_for_deposit_post(submission_id)
+    return await implementation.submission_id_mark_processing_for_deposit_post(impl_dep, submission_id)
 
 
 @router.post(
@@ -143,8 +132,7 @@ async def submission_id_mark_processing_for_deposit_post(
 )
 async def submission_id_unmark_processing_for_deposit_post(
     submission_id: str = Path(..., description="Id of the submission to get."),
+    impl_dep: dict = Depends(impl_depends),
 ) -> None:
     """Indicate that an external system in no longer working on depositing this submission.  This does not indicate that is was successfully deposited. """
-    if not BaseDefaultApi.subclasses:
-        raise HTTPException(status_code=500, detail="Not implemented")
-    return await BaseDefaultApi.subclasses[0]().submission_id_unmark_processing_for_deposit_post(submission_id)
+    return await implementation.submission_id_unmark_processing_for_deposit_post(impl_dep, submission_id)

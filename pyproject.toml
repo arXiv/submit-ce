@@ -16,7 +16,7 @@ packages = [{include = "arxiv", from="src"}]
 
 [tool.poetry.dependencies]
 python = "^3.11"
-arxiv-base = {git = "https://github.com/arXiv/arxiv-base.git", branch = "develop" }
+#arxiv-base = {git = "https://github.com/arXiv/arxiv-base.git", branch = "develop" }
 
 backports-datetime-fromisoformat = "*"
 jsonschema = "*"
@@ -32,6 +32,9 @@ unidecode = "*"
 urllib3 = ">=1.24.2"
 semver = "^3.0.2"
 requests-toolbelt = "^1.0.0"
+pydantic-settings = "^2.5.2"
+fastapi = {extras = ["all"], version = "^0.114.2"}
+sqlalchemy = "^2.0.34"
 
 [tool.poetry.group.dev.dependencies]
 coverage = "*"
