@@ -1,7 +1,6 @@
 from fastapi import FastAPI
 from submit_ce.submit_fastapi.api.default_api import router as DefaultApiRouter
 from .config import config
-from .implementations import legacy_implementation
 
 app = FastAPI(
     title="arxiv submit",
@@ -11,5 +10,4 @@ app = FastAPI(
 app.state.config = config
 
 config.submission_api_implementation.setup_fn(config)
-
 app.include_router(DefaultApiRouter)

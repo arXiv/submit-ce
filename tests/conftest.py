@@ -38,9 +38,8 @@ def app(test_dir, classic_db) -> FastAPI:
     settings.CLASSIC_DB_URI = url
 
     # Don't import until now so settings can be altered
-    from submit_ce.submit_fastapi import app as application
+    from submit_ce.submit_fastapi.app import app as application
     application.dependency_overrides = {}
-
     return application
 
 

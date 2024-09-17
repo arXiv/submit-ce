@@ -34,6 +34,20 @@ impl_depends: Callable = config.submission_api_implementation.depends_fn
 
 router = APIRouter()
 
+@router.get(
+    "/status",
+    responses={
+        200: {"description": "system is working correctly"},
+        500: {"description": "system is not working correctly"},
+    },
+    tags=["service"],
+    response_model_by_alias=True,
+)
+async def get_service_status(impl_dep: dict = Depends(impl_depends)) -> None:
+    """Get information about the current status of file management service."""
+    print("Here in default_api get_service_status")
+    return await implementation.get_service_status(impl_dep)
+
 
 @router.post(
     "/",
@@ -43,8 +57,7 @@ router = APIRouter()
     tags=["submit"],
     response_model_by_alias=True,
 )
-async def start(
-) -> str:
+async def start(impl_dep = Depends(impl_depends)) -> str:
     """Start a submission and get a submission ID.
 
     TODO Maybe the start needs to include accepting an agreement?
@@ -52,7 +65,7 @@ async def start(
     TODO parameters for new,replacement,withdraw,cross,jref
 
     TODO How to better indicate that the body is a string that is the submission id? Links?"""
-    return await implementation.start()
+    return await implementation.start(impl_dep)
 
 
 @router.get(
@@ -65,9 +78,10 @@ async def start(
 )
 async def get_submission(
     submission_id: str = Path(..., description="Id of the submission to get."),
+        impl_dep = Depends(impl_depends)
 ) -> object:
     """Get information about a submission."""
-    return await implementation.get_submission(submission_id)
+    return await implementation.get_submission(impl_dep, submission_id)
 
 
 @router.post(
@@ -139,15 +153,3 @@ async def submission_id_unmark_processing_for_deposit_post(
     return await implementation.submission_id_unmark_processing_for_deposit_post(impl_dep, submission_id)
 
 
-@router.get(
-    "/status",
-    responses={
-        200: {"description": "system is working correctly"},
-        500: {"description": "system is not working correctly"},
-    },
-    tags=["service"],
-    response_model_by_alias=True,
-)
-async def get_service_status(impl_dep: dict = Depends(impl_depends)) -> None:
-    """Get information about the current status of file management service."""
-    return await implementation.get_service_status(impl_dep)

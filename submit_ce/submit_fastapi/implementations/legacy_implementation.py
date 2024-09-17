@@ -1,16 +1,43 @@
+import logging
 from typing import Dict
 
+from arxiv.config import settings
 from fastapi import Depends
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
 from submit_ce.submit_fastapi.api.default_api_base import BaseDefaultApi
-import logging
-
 from submit_ce.submit_fastapi.api.models.agreement import Agreement
 from submit_ce.submit_fastapi.config import Settings
-from submit_ce.submit_fastapi.db import get_db
 from submit_ce.submit_fastapi.implementations import ImplementationConfig
 
 logger = logging.getLogger(__name__)
+
+_sessionLocal = sessionmaker(autocommit=False, autoflush=False)
+
+
+def get_sessionlocal():
+    global _sessionLocal
+    if _sessionLocal is None:
+        if 'sqlite' in settings.CLASSIC_DB_URI:
+            args = {"check_same_thread": False}
+        else:
+            args = {}
+        engine = create_engine(settings.CLASSIC_DB_URI, echo=settings.ECHO_SQL, connect_args=args)
+        _sessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+    return _sessionLocal
+
+def get_db(session_local=Depends(get_sessionlocal)):
+    """Dependency for fastapi routes"""
+    with session_local() as session:
+        try:
+            yield session
+            if session.begin or session.dirty or session.deleted:
+                session.commit()
+        except Exception:
+            session.rollback()
+            raise
 
 
 def legacy_depends(db=Depends(get_db)) -> dict:
@@ -39,6 +66,7 @@ class LegacySubmitImplementation(BaseDefaultApi):
         pass
 
     async def get_service_status(self, impl_data: dict):
+        logger.info("Here in get_service_status")
         return f"{self.__class__.__name__}  impl_data: {impl_data}"
 
 
@@ -51,3 +79,4 @@ implementation = ImplementationConfig(
     depends_fn=legacy_depends,
     setup_fn=setup,
 )
+
