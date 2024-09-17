@@ -11,6 +11,5 @@ app = FastAPI(
 app.state.config = config
 
 config.submission_api_implementation.setup_fn(config)
-legacy_implementation.legacy_bootstrap(config)
 
 app.include_router(DefaultApiRouter)

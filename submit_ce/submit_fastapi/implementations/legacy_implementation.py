@@ -7,7 +7,7 @@ import logging
 
 from submit_ce.submit_fastapi.api.models.agreement import Agreement
 from submit_ce.submit_fastapi.config import Settings
-from submit_ce.submit_fastapi.db import get_db, get_sessionlocal
+from submit_ce.submit_fastapi.db import get_db
 from submit_ce.submit_fastapi.implementations import ImplementationConfig
 
 logger = logging.getLogger(__name__)
@@ -45,12 +45,6 @@ class LegacySubmitImplementation(BaseDefaultApi):
 def setup(settings: Settings) -> None:
     pass
 
-def legacy_bootstrap(settings: Settings) -> None:
-    sessionlocal = get_sessionlocal()
-    with sessionlocal() as session:
-        import arxiv.db.models as models
-        models.configure_db_engine(session.get_bind())
-        session.create_all()
 
 implementation = ImplementationConfig(
     impl=LegacySubmitImplementation(),

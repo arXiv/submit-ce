@@ -7,10 +7,7 @@ from submit_ce.submit_fastapi.api.models.agreement import Agreement  # noqa: F40
 
 
 def test_get_service_status(client: TestClient):
-    """Test case for get_service_status
-
-    
-    """
+    """Test case for get_service_status"""
 
     headers = {
     }

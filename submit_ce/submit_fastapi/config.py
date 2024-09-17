@@ -6,11 +6,8 @@ from pydantic import SecretStr, ImportString
 
 
 class Settings(BaseSettings):
-    classic_db_uri: str = 'sqlite://legacy.db'
-    """arXiv legacy DB URL."""
+    """CLASSIC_DB_URI and other configs are from arxiv-base arxiv.config."""
 
-    jwt_secret: SecretStr = "not-set-" + secrets.token_urlsafe(16)
-    """NG JWT_SECRET from arxiv-auth login service"""
 
     submission_api_implementation: ImportString = 'submit_ce.submit_fastapi.implementations.legacy_implementation.implementation'
     """Class to use for submission API implementation."""
