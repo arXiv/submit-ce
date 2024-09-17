@@ -6,6 +6,7 @@ from fastapi import Depends
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+from submit_ce.domain.agent import Agent
 from submit_ce.submit_fastapi.api.default_api_base import BaseDefaultApi
 from submit_ce.submit_fastapi.api.models.agreement import Agreement
 from submit_ce.submit_fastapi.config import Settings
@@ -46,27 +47,27 @@ def legacy_depends(db=Depends(get_db)) -> dict:
 
 class LegacySubmitImplementation(BaseDefaultApi):
 
-    async def get_submission(self, impl_data: Dict, submission_id: str) -> object:
+    async def get_submission(self, impl_data: Dict, user: Agent, submission_id: str) -> object:
         pass
 
-    async def begin(self, impl_data: Dict) -> str:
-        pass
+    async def begin(self, impl_data: Dict, user: Agent) -> str:
+        return "bogus_id"
 
-    async def submission_id_accept_policy_post(self, impl_data: Dict, submission_id: str,
+    async def submission_id_accept_policy_post(self, impl_data: Dict, user: Agent,
+                                               submission_id: str,
                                                agreement: Agreement) -> object:
         pass
 
-    async def submission_id_deposited_post(self, impl_data: Dict, submission_id: str) -> None:
+    async def submission_id_deposited_post(self, impl_data: Dict, user: Agent, submission_id: str) -> None:
         pass
 
-    async def submission_id_mark_processing_for_deposit_post(self, impl_data: Dict, submission_id: str) -> None:
+    async def submission_id_mark_processing_for_deposit_post(self, impl_data: Dict, user: Agent, submission_id: str) -> None:
         pass
 
-    async def submission_id_unmark_processing_for_deposit_post(self, impl_data: Dict, submission_id: str) -> None:
+    async def submission_id_unmark_processing_for_deposit_post(self, impl_data: Dict, user: Agent, submission_id: str) -> None:
         pass
 
     async def get_service_status(self, impl_data: dict):
-        logger.info("Here in get_service_status")
         return f"{self.__class__.__name__}  impl_data: {impl_data}"
 
 

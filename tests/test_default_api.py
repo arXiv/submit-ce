@@ -8,18 +8,9 @@ from submit_ce.submit_fastapi.api.models.agreement import Agreement  # noqa: F40
 
 def test_get_service_status(client: TestClient):
     """Test case for get_service_status"""
-
-    headers = {
-    }
-    # uncomment below to make a request
-    #response = client.request(
-    #    "GET",
-    #    "/status",
-    #    headers=headers,
-    #)
-
-    # uncomment below to assert the status code of the HTTP response
-    #assert response.status_code == 200
+    headers = {}
+    response = client.request("GET", "/status", headers=headers)
+    assert response.status_code == 200
 
 
 def test_get_submission(client: TestClient):
@@ -41,23 +32,15 @@ def test_get_submission(client: TestClient):
     #assert response.status_code == 200
 
 
-def test_new(client: TestClient):
-    """Test case for new
-
-    
-    """
-
-    headers = {
-    }
-    # uncomment below to make a request
-    #response = client.request(
-    #    "POST",
-    #    "/",
-    #    headers=headers,
-    #)
-
-    # uncomment below to assert the status code of the HTTP response
-    #assert response.status_code == 200
+def test_begin(client: TestClient):
+    """Test case for begin."""
+    headers = {    }
+    response = client.request("POST", "/", headers=headers)
+    # assert response.status_code == 200
+    # assert response.text
+    # submission_id = response.text
+    # response = client.request(f"/{submission_id}")
+    # assert response.status_code == 200
 
 
 def test_submission_id_accept_policy_post(client: TestClient):
