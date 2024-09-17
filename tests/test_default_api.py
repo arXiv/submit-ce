@@ -3,7 +3,7 @@
 from fastapi.testclient import TestClient
 
 
-from arxiv.submit_fastapi.api.models.agreement import Agreement  # noqa: F401
+from submit_ce.submit_fastapi.api.models.agreement import Agreement  # noqa: F401
 
 
 def test_get_service_status(client: TestClient):

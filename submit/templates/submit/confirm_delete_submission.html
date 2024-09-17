@@ -1,0 +1,40 @@
+{% extends "submit/base.html" %}
+
+{% import "submit/submit_macros.html" as submit_macros %}
+
+{% block title_preamble %}{% endblock %}
+{% block title -%}{% if submission.version == 1 %}Delete Submission{% else %}Delete Replacement for Submission{% endif %} {{ submission.submission_id }}{%- endblock title %}
+
+{% block within_content %}
+<form method="POST" action="{{ url_for('ui.delete_submission', submission_id=submission_id) }}">
+  {{ form.csrf_token }}
+  <div class="columns">
+    <div class="column is-half is-offset-one-quarter">
+    <article class="message is-primary breathe-vertical">
+      <div class="message-header">
+        <p>{% if submission.version == 1 %}Delete This Submission{% else %}Delete This Replacement{% endif %}</p>
+      </div>
+      <div class="message-body">
+        <p>
+          {% if submission.version == 1 %}
+            Deleting will permanently remove all information entered and
+            uploaded for this submission from your account. Are you sure you
+            want to delete?
+          {% else %}
+            Deleting will revert your article to the most recently announced
+            version, and discard any new information entered or
+            uploaded during this replacement. Are you sure you want to delete?
+          {% endif %}
+        </p>
+        {{ form.csrf_token }}
+        <input type="hidden" name="confirmed", value="true" />
+        <div class="buttons is-centered">
+            <button class="button is-primary" type="submit">{% if submission.version == 1 %}Yes, delete this submission{% else %}Yes, delete this replacement{% endif %}</button>
+            <a class="button" href="{% if url_to_safety %}{{ url_to_safety }}{% else %}{{ url_for('ui.create_submission') }}{% endif %}">No, keep working</a>
+        </div>
+      </div>
+    </article>
+    </div>
+  </div>
+</form>
+{% endblock within_content %}

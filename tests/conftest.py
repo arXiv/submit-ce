@@ -2,7 +2,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from arxiv.submit_fastapi import app as application
+from submit_ce.submit_fastapi import app as application
 
 
 @pytest.fixture

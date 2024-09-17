@@ -1,0 +1,94 @@
+{% extends "submit/base.html" %}
+
+{% block title -%}Choose a Primary Category{%- endblock title %}
+
+{% block more_notifications -%}
+  {% if submitter.endorsements|endorsetype == 'None' %}
+  <div class="message is-danger">
+    <div class="message-header">
+      <p>Endorsements</p>
+    </div>
+    <div class="message-body">
+      <div class="is-pulled-left">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512" class="icon filter-red" role="presentation"><path d="M569.517 440.013C587.975 472.007 564.806 512 527.94 512H48.054c-36.937 0-59.999-40.055-41.577-71.987L246.423 23.985c18.467-32.009 64.72-31.951 83.154 0l239.94 416.028zM288 354c-25.405 0-46 20.595-46 46s20.595 46 46 46 46-20.595 46-46-20.595-46-46-46zm-43.673-165.346l7.418 136c.347 6.364 5.609 11.346 11.982 11.346h48.546c6.373 0 11.635-4.982 11.982-11.346l7.418-136c.375-6.874-5.098-12.654-11.982-12.654h-63.383c-6.884 0-12.356 5.78-11.981 12.654z"/></svg>
+      </div>
+      <p>Your account does not currently have any endorsed categories. You will need to <a href="{{ url_for('help_endorse') }}">seek endorsement</a> before submitting.</p>
+    </div>
+  </div>
+  {% endif %}
+  {% if submitter.endorsements|endorsetype == 'Some' %}
+    <div class="message is-link">
+      <div class="message-body">
+        <p class="has-text-weight-bold">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon filter-blue" role="presentation"><path d="M256 8C119.043 8 8 119.083 8 256c0 136.997 111.043 248 248 248s248-111.003 248-248C504 119.083 392.957 8 256 8zm0 110c23.196 0 42 18.804 42 42s-18.804 42-42 42-42-18.804-42-42 18.804-42 42-42zm56 254c0 6.627-5.373 12-12 12h-88c-6.627 0-12-5.373-12-12v-24c0-6.627 5.373-12 12-12h12v-64h-12c-6.627 0-12-5.373-12-12v-24c0-6.627 5.373-12 12-12h64c6.627 0 12 5.373 12 12v100h12c6.627 0 12 5.373 12 12v24z"/></svg>
+          Endorsements
+        </p>
+        <!-- TODO: is this how we want to filter categories? Jim prefers showing all of them. Jake prefers the method below or showing endorsed categories at the top. -->
+        <p>This list shows only the categories for which you are endorsed. If you wish to submit to a category not shown here, you will need to <a href="{{ url_for('help_endorse') }}">seek endorsement</a> prior to submission.</p>
+      </div>
+    </div>
+  {% endif %}
+{%- endblock more_notifications %}
+
+{% block within_content %}
+<!-- TODO: add link to categories with descriptions -->
+<p>Select the primary category that is most specific for your article. If there is interest in more than one category for your article, you may choose cross-lists as secondary categories on the next step.</p>
+<p>Category selection is subject to moderation which may cause a delay in announcement in some cases. Click here to view a <a href="#" target="_blank">complete list of categories and descriptions</a>.</p>
+<form method="POST" action="{{ url_for('ui.classification', submission_id=submission_id) }}">
+  <div class="action-container">
+    {{ form.csrf_token }}
+    <div class="columns">
+      <div class="column is-one-third-tablet is-half-desktop">
+        {% with field = form.category %}
+        <div class="field">
+          <div class="control">
+            <div class="is-block">
+            {{ field.label(class_="label is-inline-block") }}
+            <a href="{{ url_for('account') }}" class="help-bubble">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon filter-blue" role="presentation"><path d="M504 256c0 136.997-111.043 248-248 248S8 392.997 8 256C8 119.083 119.043 8 256 8s248 111.083 248 248zM262.655 90c-54.497 0-89.255 22.957-116.549 63.758-3.536 5.286-2.353 12.415 2.715 16.258l34.699 26.31c5.205 3.947 12.621 3.008 16.665-2.122 17.864-22.658 30.113-35.797 57.303-35.797 20.429 0 45.698 13.148 45.698 32.958 0 14.976-12.363 22.667-32.534 33.976C247.128 238.528 216 254.941 216 296v4c0 6.627 5.373 12 12 12h56c6.627 0 12-5.373 12-12v-1.333c0-28.462 83.186-29.647 83.186-106.667 0-58.002-60.165-102-116.531-102zM256 338c-25.365 0-46 20.635-46 46 0 25.364 20.635 46 46 46s46-20.636 46-46c0-25.365-20.635-46-46-46z"/></svg>
+              <span class="is-sr-only">Click to add or remove preferred categories in your user account settings.</span>
+              <div class="bubble-text">
+                Preferred categories are placed at the top of the selection list. Is your category missing? Click here to edit your account settings.
+              </div>
+            </a>
+          </div>
+            <div class="select">
+            {% if field.errors %}
+              {{ field(class="is-danger")|safe }}
+            {% else %}
+              {{ field()|safe }}
+            {% endif %}
+            </div>
+            {% if field.errors %}
+              <div class="help is-danger field-error">
+                {% for error in field.errors %}
+                    {{ error }}
+                {% endfor %}
+              </div>
+            {% endif %}
+            {% if field.description %}
+            <p class="help has-text-grey">
+              {{ field.description|safe }}
+            </p>
+            {% endif %}
+          </div>
+        </div>
+        {% endwith %}
+      </div>
+
+      <div class="column is-two-thirds-tablet is-half-desktop">
+        <div class="message">
+          <div class="message-body">
+            <p class="is-size-6">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 512" class="icon filter-grey" role="presentation"><path d="M20 424.229h20V279.771H20c-11.046 0-20-8.954-20-20V212c0-11.046 8.954-20 20-20h112c11.046 0 20 8.954 20 20v212.229h20c11.046 0 20 8.954 20 20V492c0 11.046-8.954 20-20 20H20c-11.046 0-20-8.954-20-20v-47.771c0-11.046 8.954-20 20-20zM96 0C56.235 0 24 32.235 24 72s32.235 72 72 72 72-32.235 72-72S135.764 0 96 0z"/></svg>
+              Select a category from the dropdown to view its description
+            </p>
+          </div>
+        </div>
+      </div>
+
+    </div> <!-- end columns -->
+  </div>
+  {{ submit_macros.submit_nav(submission_id) }}
+</form>
+{% endblock within_content %}

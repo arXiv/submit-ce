@@ -1,2 +1,0 @@
-"""Core submission processes."""
-

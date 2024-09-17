@@ -1,0 +1,89 @@
+{% extends "submit/base.html" %}
+
+{% block title -%}Choose Cross-List Categories (Optional){%- endblock title %}
+
+{% block within_content %}
+<p>You may cross-list your article to another relevant category here.
+  If accepted your article will appear in the regular listing for that category (in the cross-list section).
+  Cross-lists should be of direct interest to the professionals studying that field, not simply use techniques of, or derived from, that field.
+</p>
+<div class="message is-warning">
+  <div class="message-body">
+    <p><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon filter-orange" role="presentation"><path d="M256 8C119.043 8 8 119.083 8 256c0 136.997 111.043 248 248 248s248-111.003 248-248C504 119.083 392.957 8 256 8zm0 110c23.196 0 42 18.804 42 42s-18.804 42-42 42-42-18.804-42-42 18.804-42 42-42zm56 254c0 6.627-5.373 12-12 12h-88c-6.627 0-12-5.373-12-12v-24c0-6.627 5.373-12 12-12h12v-64h-12c-6.627 0-12-5.373-12-12v-24c0-6.627 5.373-12 12-12h64c6.627 0 12 5.373 12 12v100h12c6.627 0 12 5.373 12 12v24z"/></svg>
+      <span class="has-text-weight-bold">Adding more than three cross-list classifications will result in a delay in the acceptance of your submission.</span>
+      Readers consider excessive or inappropriate cross-listing to be bad etiquette.
+      It is rarely appropriate to add more than one or two cross-lists.
+      Note you are unlikely to know that a cross-list is appropriate unless you are yourself a reader of the archive which you are considering.
+    </p>
+  </div>
+</div>
+
+{% if formset.items %}
+<div class="content-container">
+  <p>(Optional) Add cross-list categories from the list below.</p>
+  {% for category, subform in formset.items() %}
+  <!-- TODO: limit number of cross links to no more than 5 total -->
+  <form method="POST" class="form form-margin control" action="{{ url_for('ui.cross_list', submission_id=submission_id) }}">
+    {{ subform.csrf_token }}
+    <ol class="file-tree">
+      <li>
+        {{ subform.operation }}
+        {{ subform.category()|safe }}
+        <span class="tag" style="border: 1px solid #999;">{{ subform.category.data }}</span>
+        <span class="category-name-label">{{ category|get_category_name }}</span>
+        <button class="button is-link" style="border: 0;background:transparent;" title="Remove category">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" class="icon filter-blue" role="presentation"><path d="M32 464a48 48 0 0 0 48 48h288a48 48 0 0 0 48-48V128H32zm272-256a16 16 0 0 1 32 0v224a16 16 0 0 1-32 0zm-96 0a16 16 0 0 1 32 0v224a16 16 0 0 1-32 0zm-96 0a16 16 0 0 1 32 0v224a16 16 0 0 1-32 0zM432 32H312l-9.4-18.7A24 24 0 0 0 281.1 0H166.8a23.72 23.72 0 0 0-21.4 13.3L136 32H16A16 16 0 0 0 0 48v32a16 16 0 0 0 16 16h416a16 16 0 0 0 16-16V48a16 16 0 0 0-16-16z"/></svg>
+          <span class="is-sr-only">Remove category</span>
+        </button>
+      </li>
+    </ol>
+  </form>
+  {% endfor %}
+</div>
+{% endif %}
+
+<form method="POST" action="{{ url_for('ui.cross_list', submission_id=submission_id) }}">
+  <div class="action-container">
+    {{ form.csrf_token }}
+    {{ form.operation }}
+
+      {% with field = form.category %}
+      <label class="label" id="crosslist" for="category" style="margin-top: 1em">Add a cross-list category
+        <a href="{{ url_for('help_cross') }}" class="help-bubble">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon filter-blue" role="presentation"><path d="M504 256c0 136.997-111.043 248-248 248S8 392.997 8 256C8 119.083 119.043 8 256 8s248 111.083 248 248zM262.655 90c-54.497 0-89.255 22.957-116.549 63.758-3.536 5.286-2.353 12.415 2.715 16.258l34.699 26.31c5.205 3.947 12.621 3.008 16.665-2.122 17.864-22.658 30.113-35.797 57.303-35.797 20.429 0 45.698 13.148 45.698 32.958 0 14.976-12.363 22.667-32.534 33.976C247.128 238.528 216 254.941 216 296v4c0 6.627 5.373 12 12 12h56c6.627 0 12-5.373 12-12v-1.333c0-28.462 83.186-29.647 83.186-106.667 0-58.002-60.165-102-116.531-102zM256 338c-25.365 0-46 20.635-46 46 0 25.364 20.635 46 46 46s46-20.636 46-46c0-25.365-20.635-46-46-46z"/></svg>
+          <span class="is-sr-only">Learn more about cross-list suggestions</span>
+          <div class="bubble-text">Cross-list suggestions indicate areas of overlapping interest for the submission. Click here to learn more.</div>
+        </a>
+      </label>
+      <div class="field has-addons" style="margin-bottom: 3em">
+        <div class="control control-cross-list">
+          <div class="select">
+          {% if field.errors %}
+            {{ field(class="is-danger")|safe }}
+          {% else %}
+            {{ field()|safe }}
+          {% endif %}
+          </div>
+          {% if field.errors %}
+            <div class="help is-danger field-error">
+              {% for error in field.errors %}
+                  {{ error }}
+              {% endfor %}
+            </div>
+          {% endif %}
+          {% if field.description %}
+          <p class="help has-text-grey">
+            {{ field.description|safe }}
+          </p>
+          {% endif %}
+        </div>
+        <div class="control">
+          <button class="button is-link">Add</button>
+        </div>
+      </div>
+      {% endwith %}
+
+  </div>
+  {{ submit_macros.submit_nav(submission_id) }}
+</form>
+{% endblock within_content %}

@@ -1,0 +1,36 @@
+{% extends "submit/base.html" %}
+
+{% import "submit/submit_macros.html" as submit_macros %}
+
+{% block title_preamble %}{% endblock %}
+{% block title -%}Cancel {{ user_request.NAME }} Request for E-print {{ submission.arxiv_id }}{%- endblock title %}
+
+
+{% block within_content %}
+<h2>{{ submission.metadata.title }}</h2>
+
+
+<form method="POST" action="{{ url_for('ui.cancel_request', submission_id=submission_id, request_id=user_request.request_id) }}">
+  {{ form.csrf_token }}
+  <div class="columns">
+    <div class="column is-half is-offset-one-quarter">
+    <article class="message is-primary breathe-vertical">
+      <div class="message-header">
+        <p>Delete {{ user_request.NAME }} Request</p>
+      </div>
+      <div class="message-body">
+        <p>
+          Are you sure that you want to cancel this {{ user_request.NAME }} request?
+        </p>
+        {{ form.csrf_token }}
+        <input type="hidden" name="confirmed", value="true" />
+        <div class="buttons is-centered">
+            <button class="button is-primary" type="submit">Yes, cancel this request</button>
+            <a class="button" href="{% if url_to_safety %}{{ url_to_safety }}{% else %}{{ url_for('ui.create_submission') }}{% endif %}">No, keep working</a>
+        </div>
+      </div>
+    </article>
+    </div>
+  </div>
+</form>
+{% endblock within_content %}

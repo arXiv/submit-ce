@@ -1,0 +1,124 @@
+{%- extends "base/base.html" %}
+
+{% import "submit/submit_macros.html" as submit_macros %}
+
+{%- macro comments_preview(comments, withdrawal_reason) -%}
+{{ comments }} Withdrawn: {{ withdrawal_reason}}
+{% endmacro %}
+
+{% block addl_head %}
+ <link rel="stylesheet" href="{{ url_for('static', filename='css/submit.css')}}" />
+ <script src="{{ url_for('static', filename='js/filewidget.js') }}"></script>
+{% endblock addl_head %}
+
+{% block content %}
+  <h1 class="title">Request Article Withdrawal</h1>
+  <h2 class="replacement subtitle is-size-5">arXiv:{{ submission.arxiv_id }}v{{ submission.version }} {{ submission.metadata.title }}</h2>
+
+  {% if require_confirmation and not confirmed %}
+  <div class="notification is-info">
+    <p>This preview shows the abstract page as it will be updated. Please
+    check carefully to ensure that it is correct. You can continue to
+    make changes until you are satisfied with the result.</p>
+  </div>
+
+  <div class="box">
+    {{ macros.abs(
+      submission.arxiv_id,
+      submission.metadata.title,
+      submission.metadata.authors_display,
+      submission.metadata.abstract,
+      submission.created,
+      submission.primary_classification.category,
+      comments = comments_preview(submission.metadata.comments, form.withdrawal_reason.data),
+      msc_class = submission.metadata.msc_class,
+      acm_class = submission.metadata.acm_class,
+      journal_ref = submission.metadata.journal_ref,
+      doi = submission.metadata.doi,
+      report_num = submission.metadata.report_num,
+      version = submission.version,
+      submission_history = [],
+      secondary_categories = submission.secondary_categories) }}
+  </div>
+  {% else %}
+  <div class="message is-link">
+    <div class="message-body">
+      <p><span class="icon is-link"><i class="fa fa-info-circle"></i></span>A reason for withdrawing the article is required and will be <span class="has-text-weight-bold">publicly posted in the Comments field</span>. The reason should be specific. For example if there was an error, describe the error and what section of the paper the error appears in.</p>
+    </div>
+  </div>
+
+  <p>Considerations for making a withdrawal request for an article:</p>
+  <ol>
+    <li>The paper cannot be completely removed. Previous versions will remain accessible.<br />See help pages on: <a href="{{ url_for('help_withdraw') }}">withdrawals</a>, <a href="{{ url_for('help_version') }}">versions</a> and <a href="{{ url_for('help_license') }}">licenses</a>.</li>
+    <li>Inappropriate withdrawal requests will be denied.</li>
+    <li>It is not appropriate to withdraw a paper because it is published or submitted to a journal. Instead you could submit a <a href="{{ url_for('ui.jref', submission_id=submission.submission_id) }}">journal-ref</a>.</li>
+    <li>It is not appropriate to withdraw a paper because it is being updated. Instead you could submit a <a href="{{ url_for('ui.create_replacement', submission_id=submission.submission_id) }}">replacement</a>.</li>
+    <li>You may modify the abstract field only if the comments field is inadequate for your explanation. Removing the abstract totally is inappropriate and will result in a denial of your withdrawal request.</li>
+  </ol>
+  {% endif %}
+
+  <form method="POST" action="{{ url_for('ui.withdraw', submission_id=submission_id) }}">
+    <div class="columns">
+      <div class="column">
+        {{ form.csrf_token }}
+        {% with field = form.withdrawal_reason %}
+        <div class="field">
+          <div class="control">
+            <label class="label" for="withdrawal_reason">{{ field.label.text }} (required) <a class="help-bubble" href="{{ url_for('help_withdraw') }}"><i class="fa fa-question-circle is-info"></i><div class="bubble-text">Specific reason for withdrawal will be placed in the Comments display for your article.</div></a></label>
+            {% if field.errors %}
+              <div class="help is-danger field-error">
+                {% for error in field.errors %}
+                    {{ error }}
+                {% endfor %}
+              </div>
+            {% endif %}
+            {% if field.description %}
+            <p class="help has-text-grey is-marginless">
+              {{ field.description|safe }}
+            </p>
+            {% endif %}
+            {% if field.errors %}
+              {{ field(class="textarea is-danger")|safe }}
+            {% else %}
+              {{ field(class="textarea")|safe }}
+            {% endif %}
+          </div>
+        </div>
+        {% endwith %}
+
+      </div>
+      <div class="column" style="align-self: flex-end">
+        <div class="message is-link">
+        {% if require_confirmation and not confirmed %}
+          <div class="message-header">
+            <p><span class="icon"><i class="fa fa-info-circle"></i></span> Noticed a typo or odd character?</p>
+          </div>
+          <div class="message-body">
+            <p>
+              If the preview doesn't look right, correct it in the form field and use the "Edit" button to make changes.
+            </p>
+          </div>
+        {% else %}
+          <div class="message-body">
+            <p>
+              Articles that have been announced and made public cannot be
+              completely removed. However, you may submit a withdrawal
+              notification for your article. Previously published versions of this article will still be publicly available.
+            </p>
+          </div>
+        {% endif %}
+        </div>
+      </div>
+    </div>
+    <div class="buttons submit-nav" role="navigation">
+        <a href="{{ url_for('ui.manage_submissions') }}" name="cancel" class="button is-outlined" value="cancel" aria-label="Cancel">Cancel</a>
+        {% if require_confirmation and not confirmed %}
+        <button name="action" type="submit" class="button is-link is-outlined" value="submit" aria-label="Edit">Edit</button>
+        <button name="confirmed" type="submit" class="button is-success" value="1" aria-label="Confirm and Submit">Confirm and Submit</button>
+        {% else %}
+        <button name="action" type="submit" class="button is-link" value="submit" aria-label="Preview">Preview Withdrawal Notice</button>
+        {% endif %}
+    </div>
+  </form>
+
+{% endblock content %}

@@ -1,0 +1,26 @@
+{% extends "submit/base.html" %}
+
+{% block title -%}Submission Received{%- endblock title %}
+
+{% block within_content %}
+<div class="columns">
+  <div class="column">
+    <div class="message is-success">
+      <div class="message-body">
+        <p class="has-font-weight-bold">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon filter-green"><path d="M504 256c0 136.967-111.033 248-248 248S8 392.967 8 256 119.033 8 256 8s248 111.033 248 248zM227.314 387.314l184-184c6.248-6.248 6.248-16.379 0-22.627l-22.627-22.627c-6.248-6.249-16.379-6.249-22.628 0L216 308.118l-70.059-70.059c-6.248-6.248-16.379-6.248-22.628 0l-22.627 22.627c-6.248 6.248-6.248 16.379 0 22.627l104 104c6.249 6.249 16.379 6.249 22.628.001z"/></svg>
+          Your submission has been successfully received.</p>
+        <p>Your submission time stamp is: {{ submission.submitted.strftime('%F, %T') }} (UTC).</p>
+        <p>All submissions are subject to moderation which may cause a delay in announcement in some cases.</p>
+        <p>If you need to make further changes click on "Manage my submission" below. To make changes you must first unsubmit your paper. Unsubmitting will remove your paper from the queue. Resubmitting will assign a new timestamp.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="buttons">
+  <a class="button is-link" href="{{ url_for('ui.manage_submissions') }}">Manage My Submissions</a>
+  <a class="button" href="{{ url_for('home') }}">arXiv Home Page</a>
+</div>
+
+{% endblock within_content %}

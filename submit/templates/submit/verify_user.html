@@ -1,0 +1,97 @@
+{% extends "submit/base.html" %}
+
+{% block title -%}Verify Your Contact Information{%- endblock title %}
+
+{% block more_notifications -%}
+  {% if submitter.endorsements|endorsetype == 'Some' %}
+  <div class="message is-warning">
+    <div class="message-header">
+      <p>Endorsements</p>
+    </div>
+    <div class="message-body">
+      <div class="is-pulled-left">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512" class="icon filter-red" role="presentation"><path d="M569.517 440.013C587.975 472.007 564.806 512 527.94 512H48.054c-36.937 0-59.999-40.055-41.577-71.987L246.423 23.985c18.467-32.009 64.72-31.951 83.154 0l239.94 416.028zM288 354c-25.405 0-46 20.595-46 46s20.595 46 46 46 46-20.595 46-46-20.595-46-46-46zm-43.673-165.346l7.418 136c.347 6.364 5.609 11.346 11.982 11.346h48.546c6.373 0 11.635-4.982 11.982-11.346l7.418-136c.375-6.874-5.098-12.654-11.982-12.654h-63.383c-6.884 0-12.356 5.78-11.981 12.654z"/></svg>
+      </div>
+      <p>You are currently endorsed for: </p>
+      <ul>
+      {% for endorsement in submitter.endorsements %}
+        <li>{{ endorsement.display }}</li>
+      {% endfor %}
+      </ul>
+      <p>If you wish to submit to a category other than those listed, you will need to <a href="{{ url_for('help_endorse') }}">seek endorsement</a> before submitting.</p>
+    </div>
+  </div>
+  {% endif %}
+  {% if submitter.endorsements|endorsetype == 'None' %}
+  <div class="message is-danger">
+    <div class="message-header">
+      <p>Endorsements</p>
+    </div>
+    <div class="message-body">
+      <div class="is-pulled-left">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512" class="icon filter-red" role="presentation"><path d="M569.517 440.013C587.975 472.007 564.806 512 527.94 512H48.054c-36.937 0-59.999-40.055-41.577-71.987L246.423 23.985c18.467-32.009 64.72-31.951 83.154 0l239.94 416.028zM288 354c-25.405 0-46 20.595-46 46s20.595 46 46 46 46-20.595 46-46-20.595-46-46-46zm-43.673-165.346l7.418 136c.347 6.364 5.609 11.346 11.982 11.346h48.546c6.373 0 11.635-4.982 11.982-11.346l7.418-136c.375-6.874-5.098-12.654-11.982-12.654h-63.383c-6.884 0-12.356 5.78-11.981 12.654z"/></svg>
+      </div>
+      <p>Your account does not currently have any endorsed categories. You will need to <a href="{{ url_for('help_endorse') }}">seek endorsement</a> before submitting.</p>
+    </div>
+  </div>
+  {% endif %}
+{%- endblock more_notifications %}
+
+{% block within_content %}
+<p>Check this information carefully! A <span class="has-text-weight-bold">current email address is required</span> to complete your submission. The name and email address of the submitter will be <a href="{{ url_for('help_email') }}"">viewable to registered arXiv users</a>.</p>
+<article class="user-info content-container">
+  <div class="field is-horizontal">
+      <div class="field-label">
+        <span class="has-text-weight-semibold">First or given name(s):</span>
+      </div>
+      <div class="field-body"><span class="is-expanded">{{ user.name.forename }}</span></div>
+  </div>
+  <div class="field is-horizontal">
+    <div class="field-label">
+      <span class="has-text-weight-semibold">Last or family name(s):</span>
+    </div>
+     <div class="field-body">{{ user.name.surname }}</div>
+  </div>
+  <div class="field is-horizontal">
+    <div class="field-label">
+      <span class="has-text-weight-semibold">Suffix:</span>
+    </div>
+    <div class="field-body">{{ user.name.suffix }}</div>
+  </div>
+  <div class="field is-horizontal">
+    <div class="field-label">
+      <span class="has-text-weight-semibold">Affiliation:</span>
+    </div>
+    <div class="field-body">{{ user.profile.affiliation }}</div>
+  </div>
+  <div class="field is-horizontal">
+    <div class="field-label">
+      <span class="has-text-weight-semibold">E-mail:</span>
+    </div>
+    <div class="field-body">{{ user.email }} <span class="field-note"> (A current email address is required)</span></div>
+  </div>
+  <div class="field is-horizontal">
+    <div class="field-label">
+    </div>
+    <div class="field-body"><a class="button is-small" href="{{ url_for('account') }}">Edit User Information</a></div>
+  </div>
+</article>
+
+<form method="POST" action="{% if submission_id %}{{ url_for('ui.verify_user', submission_id=submission_id) }}{% else %}{{ url_for('ui.verify_user') }}{% endif %}">
+  {{ form.csrf_token }}
+  <div class="field action-container">
+    {% if form.verify_user.errors %}<div class="notification is-danger">{% endif %}
+    <div class="control">
+      <div class="checkbox">
+        {{ form.verify_user }}
+        {{ form.verify_user.label }}
+      </div>
+      {% for error in form.verify_user.errors %}
+        <p class="help is-danger field-error">{{ error }}</p>
+      {% endfor %}
+    </div>
+    {% if form.verify_user.errors %}</div>{% endif %}
+  </div>
+  {{ submit_macros.submit_nav(submission_id) }}
+</form>
+{% endblock within_content %}
