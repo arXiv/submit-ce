@@ -72,66 +72,6 @@ class LegacySubmitImplementation(BaseDefaultApi):
 
     async def start(self, impl_data: Dict, user: User, client: Client, started: Union[StartedNew, StartedAlterExising]) -> str:
         session = impl_data["session"]
-
-        """Example of a started legacy sub:
-        mysql> select * from arXiv_submissions where submission_id > 100333 and stage= 0 limit 1\G                                                                                                                                      
-*************************** 1. row ***************************
-          submission_id: 100345
-            document_id: NULL
-           doc_paper_id: NULL
-               sword_id: NULL
-               userinfo: 0
-              is_author: 0
-           agree_policy: 0
-                 viewed: 0
-                  stage: 0
-           submitter_id: 14416
-         submitter_name: Bob Perox
-        submitter_email: bobp@example.com
-                created: 2010-08-31 10:30:18
-                updated: 2011-02-10 09:38:38
-                 status: 30
-          sticky_status: NULL
-           must_process: 1
-            submit_time: NULL
-           release_time: NULL
-            source_size: 0
-          source_format: NULL
-           source_flags: NULL
-         has_pilot_data: NULL
-           is_withdrawn: 0
-                  title: NULL
-                authors: NULL
-               comments: NULL
-                  proxy: NULL
-             report_num: NULL
-              msc_class: NULL
-              acm_class: NULL
-            journal_ref: NULL
-                    doi: NULL
-               abstract: NULL
-                license: NULL
-                version: 1
-                   type: new
-                  is_ok: NULL
-               admin_ok: NULL
-     allow_tex_produced: 0
-            is_oversize: 0
-            remote_addr: 195.1.1.1.
-            remote_host: example.com
-                package: 
-           rt_ticket_id: NULL
-              auto_hold: 0
-              is_locked: 0
-           agreement_id: NULL
-           data_version: 1
-       metadata_version: 1
-            data_needed: 0
-    data_version_queued: 0
-metadata_version_queued: 0
-       data_queued_time: NULL
-   metadata_queued_time: NULL
-1 row in set (0.00 sec)"""
         now = datetime.datetime.utcnow()
         submission = Submission(submitter_id=user.identifier,
                                 submitter_name=user.get_name(),
@@ -164,14 +104,19 @@ metadata_version_queued: 0
         session.commit()
         return str(submission.submission_id)
 
-
-
     async def accept_policy_post(self, impl_data: Dict, user: User, client: Client,
                                  submission_id: str,
                                  agreement: AgreedToPolicy) -> object:
         session = impl_data["session"]
         submission = check_submission_exists(session, submission_id)
-
+        if agreement.accepted_policy_id != 3:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                                detail=f"policy {agreement.accepted_policy_id} is not the currently accepted policy.")
+        if submission.agree_policy == 1:
+            return
+        submission.agreement_id = agreement.accepted_policy_id
+        submission.agree_policy = 1
+        session.commit()
 
     async def mark_deposited_post(self, impl_data: Dict, user: User, client: Client, submission_id: str) -> None:
         pass

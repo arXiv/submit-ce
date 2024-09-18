@@ -73,11 +73,26 @@ class EventInfo(BaseModel):
     """
 
 
-class AgreedToPolicy(BaseEvent):
+class AgreedToPolicy(BaseModel):
     """
     The sender of this request agrees to the statement in the agreement.
     """
-    accepted_policy: StrictStr
+    accepted_policy_id: int
+    """The ID of the policy the sender agrees to."""
+
+
+class SetLicense(BaseModel):
+    """
+    The sender of this request agrees to offer the submitted items under the statement in the license.
+    """
+    agreement_id: Literal[
+        "http://creativecommons.org/licenses/by/4.0/",
+        "http://creativecommons.org/licenses/by-sa/4.0/",
+        "http://creativecommons.org/licenses/by-nc-sa/4.0/",
+        "http://creativecommons.org/licenses/by-nc-nd/4.0/",
+        "http://arxiv.org/licenses/nonexclusive-distrib/1.0/",
+        "http://creativecommons.org/publicdomain/zero/1.0/",
+    ]
 
 
 class StartedNew(BaseModel):

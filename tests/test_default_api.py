@@ -48,24 +48,61 @@ def test_start(client: TestClient):
 
 
 def test_submission_id_accept_policy_post(client: TestClient):
-    """Test case for submission_id_accept_policy_post
+    """Test case for submission_id_accept_policy_post."""
+    headers = {}
+    response = client.request("POST", "/v1/start", headers=headers,
+                              json={"submission_type": "new"})
+    assert response.status_code == 200
+    sid = response.text
+    assert sid is not None
+    response = client.request("GET", f"/v1/submission/{sid}", headers=headers)
+    assert response.status_code == 200
+    data = response.json()
+    assert str(data['submission_id']) == sid
+    assert data['agreement_id'] != 3
+    assert data['agree_policy'] == 0
 
-    
-    """
-    agreement = {"submission_id":"submission_id","agreement":"agreement","name":"name"}
+    response = client.request(
+        "POST",
+        f"/v1/submission/888888/acceptPolicy",
+        headers=headers,
+        json={"accepted_policy_id": 3})
+    assert response.status_code == 404
 
-    headers = {
-    }
-    # uncomment below to make a request
-    #response = client.request(
-    #    "POST",
-    #    "/{submission_id}/acceptPolicy".format(submission_id='submission_id_example'),
-    #    headers=headers,
-    #    json=agreement,
-    #)
+    response = client.request(
+        "POST",
+        f"/v1/submission/{sid}/acceptPolicy",
+        headers=headers,
+        json={"junk_data": 1})
+    assert response.status_code >= 422
 
-    # uncomment below to assert the status code of the HTTP response
-    #assert response.status_code == 200
+    response = client.request(
+        "POST",
+        f"/v1/submission/{sid}/acceptPolicy",
+        headers=headers,
+        json={"accepted_policy_id": 1})
+    assert response.status_code >= 400
+
+    response = client.request(
+       "POST",
+       f"/v1/submission/{sid}/acceptPolicy",
+       headers=headers,
+       json={"accepted_policy_id":3})
+    assert response.status_code == 200
+
+    response = client.request("GET", f"/v1/submission/{sid}", headers=headers)
+    assert response.status_code == 200
+    data = response.json()
+    assert str(data['submission_id']) == sid
+    assert data['agreement_id'] == 3
+    assert data['agree_policy'] == 1
+
+    response = client.request(
+       "POST",
+       f"/v1/submission/{sid}/acceptPolicy",
+       headers=headers,
+       json={"accepted_policy_id":3})
+    assert response.status_code == 200
 
 
 def test_submission_id_deposit_packet_packet_format_get(client: TestClient):
