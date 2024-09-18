@@ -4,10 +4,22 @@ import tempfile
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import Session
-from make_test_db import legacy_db
 
+from submit_ce.submit_fastapi.config import DEV_SQLITE_FILE
+from tests.make_test_db import create_all_legacy_db
+
+
+
+@pytest.fixture(scope='session')
+def test_db_file():
+    db_path = tempfile.mkdtemp()
+    yield db_path + "/" + DEV_SQLITE_FILE
+    shutil.rmtree(db_path)
+
+
+@pytest.fixture(scope='session')
+def legacy_db(test_db_file):
+    return create_all_legacy_db(test_db_file)
 
 
 @pytest.fixture
@@ -25,3 +37,4 @@ def app(legacy_db) -> FastAPI:
 @pytest.fixture
 def client(app) -> TestClient:
     return TestClient(app)
+

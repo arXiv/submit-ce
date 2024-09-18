@@ -7,6 +7,9 @@ To run the server, please execute the following from the root directory:
 
 ```bash
 poetry install
+# TODO How to get arxiv-base?
+poetry shell # or however you do venvs
+python test/make_test_db.py  # to make sqlite dev db
 fastapi dev src/arxiv/submit_fastapi/main.py
 ```
 

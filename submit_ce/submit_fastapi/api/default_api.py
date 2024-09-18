@@ -50,7 +50,6 @@ router.prefix="/v1"
 )
 async def get_service_status(impl_dep: dict = Depends(impl_depends)) -> None:
     """Get information about the current status of file management service."""
-    print("Here in default_api get_service_status")
     return await implementation.get_service_status(impl_dep)
 
 
