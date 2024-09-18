@@ -2,14 +2,13 @@
 
 from fastapi.testclient import TestClient
 
-
-from submit_ce.submit_fastapi.api.models.agreement import Agreement  # noqa: F401
+from submit_ce.submit_fastapi.api.models.events import AgreedToPolicy
 
 
 def test_get_service_status(client: TestClient):
     """Test case for get_service_status"""
     headers = {}
-    response = client.request("GET", "/status", headers=headers)
+    response = client.request("GET", "/v1/status", headers=headers)
     assert response.status_code == 200
 
 
@@ -32,7 +31,7 @@ def test_get_submission(client: TestClient):
     #assert response.status_code == 200
 
 
-def test_begin(client: TestClient):
+def test_start(client: TestClient):
     """Test case for begin."""
     headers = {    }
     response = client.request("POST", "/", headers=headers)

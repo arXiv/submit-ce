@@ -13,7 +13,12 @@ class Agent(BaseModel):
     """
 
     native_id: str
-    """Type-specific identifier for the agent. This might be an URI."""
+    """
+    Type-specific identifier for the agent. 
+    
+    In legacy this will be the tapir user_id
+    This might be an URI.
+    """
 
     hostname: Optional[str] = Field(default=None)
     """Hostname or IP address from which user requests are originating."""

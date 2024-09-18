@@ -1,10 +1,10 @@
 # coding: utf-8
 from abc import ABC, abstractmethod
 
-from typing import ClassVar, Dict, List, Tuple  # noqa: F401
+from typing import ClassVar, Dict, List, Tuple, Union  # noqa: F401
 
-from .models.agreement import Agreement
-from ...domain.agent import Agent
+from submit_ce.submit_fastapi.api.models.events import AgreedToPolicy, StartedNew
+from submit_ce.submit_fastapi.api.models.agent import Agent
 
 
 class BaseDefaultApi(ABC):
@@ -20,8 +20,9 @@ class BaseDefaultApi(ABC):
         ...
 
     @abstractmethod
-    async def begin(
+    async def start(
             self,
+            started: Union[StartedNew],
             impl_data: Dict,
             user: Agent,
     ) -> str:
@@ -34,7 +35,7 @@ class BaseDefaultApi(ABC):
             impl_data: Dict,
             user: Agent,
             submission_id: str,
-            agreement: Agreement,
+            agreement: AgreedToPolicy,
     ) -> object:
         """Agree to an arXiv policy to initiate a new item ui-app or  a change to an existing item. """
         ...

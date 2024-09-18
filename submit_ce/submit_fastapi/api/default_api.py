@@ -1,6 +1,6 @@
 # coding: utf-8
 
-from typing import Dict, List, Callable, Annotated  # noqa: F401
+from typing import Dict, List, Callable, Annotated, Union, Literal  # noqa: F401
 
 from fastapi import (  # noqa: F401
     APIRouter,
@@ -16,14 +16,14 @@ from fastapi import (  # noqa: F401
     Security,
     status,
 )
+from pydantic import BaseModel, Field
 
 from submit_ce.submit_fastapi.config import config
 
 from .default_api_base import BaseDefaultApi
-from .models.agreement import Agreement
+from .models.events import AgreedToPolicy, StartedNew, StartedAlterExising
 from ..auth import get_user
 from ..implementations import ImplementationConfig
-from ...domain.agent import Agent
 
 if not isinstance(config.submission_api_implementation, ImplementationConfig):
     raise ValueError("submission_api_implementation must be of class ImplementationConfig.")
@@ -34,10 +34,10 @@ implementation: BaseDefaultApi = config.submission_api_implementation.impl
 impl_depends: Callable = config.submission_api_implementation.depends_fn
 """A depends the implementation depends on."""
 
-userDep = Annotated[Agent, Depends(get_user)]
+userDep = Depends(get_user)
 
 router = APIRouter()
-
+router.prefix="/v1"
 
 @router.get(
     "/status",
@@ -54,6 +54,7 @@ async def get_service_status(impl_dep: dict = Depends(impl_depends)) -> None:
     return await implementation.get_service_status(impl_dep)
 
 
+
 @router.post(
     "/",
     responses={
@@ -62,7 +63,7 @@ async def get_service_status(impl_dep: dict = Depends(impl_depends)) -> None:
     tags=["submit"],
     response_model_by_alias=True,
 )
-async def begin(impl_dep=Depends(impl_depends), user=userDep) -> str:
+async def start(started: Union[StartedNew, StartedAlterExising], impl_dep=Depends(impl_depends), user=userDep) -> str:
     """Start a submission and get a submission ID.
 
     TODO Maybe the start needs to include accepting an agreement?
@@ -70,8 +71,7 @@ async def begin(impl_dep=Depends(impl_depends), user=userDep) -> str:
     TODO parameters for new,replacement,withdraw,cross,jref
 
     TODO How to better indicate that the body is a string that is the submission id? Links?"""
-    return await implementation.begin(impl_dep, user)
-
+    return await implementation.start(started, impl_dep, user)
 
 @router.get(
     "/{submission_id}",
@@ -103,7 +103,7 @@ async def get_submission(
 )
 async def submission_id_accept_policy_post(
         submission_id: str = Path(..., description="Id of the submission to get."),
-        agreement: Agreement = Body(None, description=""),
+        agreement: AgreedToPolicy = Body(None, description=""),
         impl_dep: dict = Depends(impl_depends),
         user=userDep
 ) -> object:

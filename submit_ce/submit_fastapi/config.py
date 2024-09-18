@@ -4,6 +4,7 @@ from pydantic_settings import BaseSettings
 
 from pydantic import SecretStr, ImportString
 
+DEV_SQLITE_FILE="legacy.db"
 
 class Settings(BaseSettings):
     """CLASSIC_DB_URI and other configs are from arxiv-base arxiv.config."""
