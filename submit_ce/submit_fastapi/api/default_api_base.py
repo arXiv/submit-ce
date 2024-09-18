@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from typing import ClassVar, Dict, List, Tuple, Union  # noqa: F401
 
 from submit_ce.submit_fastapi.api.models.events import AgreedToPolicy, StartedNew
-from submit_ce.submit_fastapi.api.models.agent import Agent
+from submit_ce.submit_fastapi.api.models.agent import User, Client
 
 
 class BaseDefaultApi(ABC):
@@ -13,7 +13,8 @@ class BaseDefaultApi(ABC):
     async def get_submission(
             self,
             impl_data: Dict,
-            user: Agent,
+            user: User,
+            client: Client,
             submission_id: str,
     ) -> object:
         """Get information about a ui-app."""
@@ -22,9 +23,10 @@ class BaseDefaultApi(ABC):
     @abstractmethod
     async def start(
             self,
-            started: Union[StartedNew],
             impl_data: Dict,
-            user: Agent,
+            user: User,
+            client: Client,
+            started: Union[StartedNew],
     ) -> str:
         """Start a ui-app and get a ui-app ID."""
         ...
@@ -33,7 +35,8 @@ class BaseDefaultApi(ABC):
     async def submission_id_accept_policy_post(
             self,
             impl_data: Dict,
-            user: Agent,
+            user: User,
+            client: Client,
             submission_id: str,
             agreement: AgreedToPolicy,
     ) -> object:
@@ -44,7 +47,8 @@ class BaseDefaultApi(ABC):
     async def submission_id_deposited_post(
             self,
             impl_data: Dict,
-            user: Agent,
+            user: User,
+            client: Client,
             submission_id: str,
     ) -> None:
         """The ui-app has been successfully deposited by an external service."""
@@ -54,7 +58,8 @@ class BaseDefaultApi(ABC):
     async def submission_id_mark_processing_for_deposit_post(
             self,
             impl_data: Dict,
-            user: Agent,
+            user: User,
+            client: Client,
             submission_id: str,
     ) -> None:
         """Mark that the ui-app is being processed for deposit."""
@@ -64,7 +69,8 @@ class BaseDefaultApi(ABC):
     async def submission_id_unmark_processing_for_deposit_post(
             self,
             impl_data: Dict,
-            user: Agent,
+            user: User,
+            client: Client,
             submission_id: str,
     ) -> None:
         """Indicate that an external system in no longer working on depositing this ui-app.  This does not indicate that is was successfully deposited. """

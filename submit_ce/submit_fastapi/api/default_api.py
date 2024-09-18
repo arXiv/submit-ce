@@ -22,7 +22,7 @@ from submit_ce.submit_fastapi.config import config
 
 from .default_api_base import BaseDefaultApi
 from .models.events import AgreedToPolicy, StartedNew, StartedAlterExising
-from ..auth import get_user
+from ..auth import get_user, get_client
 from ..implementations import ImplementationConfig
 
 if not isinstance(config.submission_api_implementation, ImplementationConfig):
@@ -35,6 +35,7 @@ impl_depends: Callable = config.submission_api_implementation.depends_fn
 """A depends the implementation depends on."""
 
 userDep = Depends(get_user)
+clentDep = Depends(get_client)
 
 router = APIRouter()
 router.prefix="/v1"
@@ -62,7 +63,9 @@ async def get_service_status(impl_dep: dict = Depends(impl_depends)) -> None:
     tags=["submit"],
     response_model_by_alias=True,
 )
-async def start(started: Union[StartedNew, StartedAlterExising], impl_dep=Depends(impl_depends), user=userDep) -> str:
+async def start(started: Union[StartedNew, StartedAlterExising],
+                impl_dep=Depends(impl_depends), user=userDep, client=clentDep,
+                ) -> str:
     """Start a submission and get a submission ID.
 
     TODO Maybe the start needs to include accepting an agreement?
@@ -70,7 +73,7 @@ async def start(started: Union[StartedNew, StartedAlterExising], impl_dep=Depend
     TODO parameters for new,replacement,withdraw,cross,jref
 
     TODO How to better indicate that the body is a string that is the submission id? Links?"""
-    return await implementation.start(started, impl_dep, user)
+    return await implementation.start(impl_dep, user, client, started)
 
 @router.get(
     "/{submission_id}",
@@ -82,10 +85,10 @@ async def start(started: Union[StartedNew, StartedAlterExising], impl_dep=Depend
 )
 async def get_submission(
         submission_id: str = Path(..., description="Id of the submission to get."),
-        impl_dep=Depends(impl_depends), user=userDep
+        impl_dep=Depends(impl_depends), user=userDep, client=clentDep
 ) -> object:
     """Get information about a submission."""
-    return await implementation.get_submission(impl_dep, user, submission_id)
+    return await implementation.get_submission(impl_dep, user, client, submission_id)
 
 
 @router.post(
@@ -104,10 +107,10 @@ async def submission_id_accept_policy_post(
         submission_id: str = Path(..., description="Id of the submission to get."),
         agreement: AgreedToPolicy = Body(None, description=""),
         impl_dep: dict = Depends(impl_depends),
-        user=userDep
+        user=userDep, client=clentDep
 ) -> object:
     """Agree to an arXiv policy to initiate a new item submission or  a change to an existing item. """
-    return await implementation.submission_id_accept_policy_post(impl_dep, user, submission_id, agreement)
+    return await implementation.submission_id_accept_policy_post(impl_dep, user, client, submission_id, agreement)
 
 
 @router.post(
@@ -120,10 +123,10 @@ async def submission_id_accept_policy_post(
 )
 async def submission_id_deposited_post(
         submission_id: str = Path(..., description="Id of the submission to get."),
-        impl_dep: dict = Depends(impl_depends), user=userDep
+        impl_dep: dict = Depends(impl_depends), user=userDep, client=clentDep
 ) -> None:
     """The submission has been successfully deposited by an external service."""
-    return await implementation.submission_id_deposited_post(impl_dep, user, submission_id)
+    return await implementation.submission_id_deposited_post(impl_dep, user, client, submission_id)
 
 
 @router.post(
@@ -136,10 +139,10 @@ async def submission_id_deposited_post(
 )
 async def submission_id_mark_processing_for_deposit_post(
         submission_id: str = Path(..., description="Id of the submission to get."),
-        impl_dep: dict = Depends(impl_depends), user=userDep
+        impl_dep: dict = Depends(impl_depends), user=userDep, client=clentDep
 ) -> None:
     """Mark that the submission is being processed for deposit."""
-    return await implementation.submission_id_mark_processing_for_deposit_post(impl_dep, user, submission_id)
+    return await implementation.submission_id_mark_processing_for_deposit_post(impl_dep, user, client, submission_id)
 
 
 @router.post(
@@ -152,10 +155,10 @@ async def submission_id_mark_processing_for_deposit_post(
 )
 async def submission_id_unmark_processing_for_deposit_post(
         submission_id: str = Path(..., description="Id of the submission to get."),
-        impl_dep: dict = Depends(impl_depends), user=userDep
+        impl_dep: dict = Depends(impl_depends), user=userDep, client=clentDep
 ) -> None:
     """Indicate that an external system in no longer working on depositing this submission.
 
     This just indicates that the submission is no longer in processing state. This does not indicate that it
      was successfully deposited. """
-    return await implementation.submission_id_unmark_processing_for_deposit_post(impl_dep, user, submission_id)
+    return await implementation.submission_id_unmark_processing_for_deposit_post(impl_dep, user, client, submission_id)

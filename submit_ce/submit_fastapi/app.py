@@ -14,7 +14,7 @@ app = FastAPI(
 app.state.config = config
 
 if not os.environ.get("CLASSIC_DB_URI", None):
-    settings.CLASSIC_DB_URI = "sqlite:///{DEV_SQLITE_FILE}"
+    settings.CLASSIC_DB_URI = f"sqlite:///{DEV_SQLITE_FILE}"
 
 config.submission_api_implementation.setup_fn(config)
 app.include_router(DefaultApiRouter)

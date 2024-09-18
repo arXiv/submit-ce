@@ -5,7 +5,7 @@ from typing import Optional, Any, Dict, Literal
 
 from pydantic import BaseModel, AwareDatetime, StrictStr
 
-from submit_ce.submit_fastapi.api.models.agent import Agent
+from submit_ce.submit_fastapi.api.models.agent import User, Client
 
 
 class BaseEvent(BaseModel):
@@ -39,7 +39,8 @@ class BaseEvent(BaseModel):
 class EventInfo(BaseModel):
     event_id: str
     submission_id: str
-    user: Agent
+    user: User
+
     """
     The agent responsible for the operation represented by this event.
 
@@ -55,7 +56,7 @@ class EventInfo(BaseModel):
     Must have a timezone.
     """
 
-    proxy: Optional[Agent]
+    proxy: Optional[User]
     """
     The agent who facilitated the operation on behalf of the :attr:`.creator`.
 
@@ -63,7 +64,7 @@ class EventInfo(BaseModel):
     proxy. Note that proxy implies that the creator was not directly involved.
     """
 
-    client: Optional[Agent]
+    client: Client
     """
     The client through which the :attr:`.creator` performed the operation.
 
