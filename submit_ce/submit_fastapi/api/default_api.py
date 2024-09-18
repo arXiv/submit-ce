@@ -41,18 +41,6 @@ clentDep = Depends(get_client)
 router = APIRouter()
 router.prefix="/v1"
 
-@router.get(
-    "/status",
-    responses={
-        200: {"description": "system is working correctly"},
-        500: {"description": "system is not working correctly"},
-    },
-    tags=["service"],
-    response_model_by_alias=True,
-)
-async def get_service_status(impl_dep: dict = Depends(impl_depends)) -> None:
-    """Get information about the current status of file management service."""
-    return await implementation.get_service_status(impl_dep)
 
 
 
@@ -103,14 +91,14 @@ async def get_submission(
     tags=["submit"],
     response_model_by_alias=True,
 )
-async def submission_id_accept_policy_post(
+async def accept_policy_post(
         submission_id: str = Path(..., description="Id of the submission to get."),
         agreement: AgreedToPolicy = Body(None, description=""),
         impl_dep: dict = Depends(impl_depends),
         user=userDep, client=clentDep
 ) -> object:
     """Agree to an arXiv policy to initiate a new item submission or  a change to an existing item. """
-    return await implementation.submission_id_accept_policy_post(impl_dep, user, client, submission_id, agreement)
+    return await implementation.accept_policy_post(impl_dep, user, client, submission_id, agreement)
 
 
 @router.post(
@@ -121,12 +109,12 @@ async def submission_id_accept_policy_post(
     tags=["post submit"],
     response_model_by_alias=True,
 )
-async def submission_id_deposited_post(
+async def mark_deposited_post(
         submission_id: str = Path(..., description="Id of the submission to get."),
         impl_dep: dict = Depends(impl_depends), user=userDep, client=clentDep
 ) -> None:
     """Mark that the submission has been successfully deposited into the arxiv corpus."""
-    return await implementation.submission_id_deposited_post(impl_dep, user, client, submission_id)
+    return await implementation.mark_deposited_post(impl_dep, user, client, submission_id)
 
 
 @router.post(
@@ -137,12 +125,12 @@ async def submission_id_deposited_post(
     tags=["post submit"],
     response_model_by_alias=True,
 )
-async def submission_id_mark_processing_for_deposit_post(
+async def _mark_processing_for_deposit_post(
         submission_id: str = Path(..., description="Id of the submission to get."),
         impl_dep: dict = Depends(impl_depends), user=userDep, client=clentDep
 ) -> None:
     """Mark that the submission is being processed for deposit."""
-    return await implementation.submission_id_mark_processing_for_deposit_post(impl_dep, user, client, submission_id)
+    return await implementation.mark_processing_for_deposit_post(impl_dep, user, client, submission_id)
 
 
 @router.post(
@@ -153,7 +141,7 @@ async def submission_id_mark_processing_for_deposit_post(
     tags=["post submit"],
     response_model_by_alias=True,
 )
-async def submission_id_unmark_processing_for_deposit_post(
+async def unmark_processing_for_deposit_post(
         submission_id: str = Path(..., description="Id of the submission to get."),
         impl_dep: dict = Depends(impl_depends), user=userDep, client=clentDep
 ) -> None:
@@ -161,4 +149,17 @@ async def submission_id_unmark_processing_for_deposit_post(
 
     This just indicates that the submission is no longer in processing state. This does not indicate that it
      was successfully deposited. """
-    return await implementation.submission_id_unmark_processing_for_deposit_post(impl_dep, user, client, submission_id)
+    return await implementation.unmark_processing_for_deposit_post(impl_dep, user, client, submission_id)
+
+@router.get(
+    "/status",
+    responses={
+        200: {"description": "system is working correctly"},
+        500: {"description": "system is not working correctly"},
+    },
+    tags=["service"],
+    response_model_by_alias=True,
+)
+async def get_service_status(impl_dep: dict = Depends(impl_depends)) -> None:
+    """Get information about the current status of file management service."""
+    return await implementation.get_service_status(impl_dep)

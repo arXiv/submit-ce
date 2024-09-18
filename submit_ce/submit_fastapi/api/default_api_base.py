@@ -32,7 +32,7 @@ class BaseDefaultApi(ABC):
         ...
 
     @abstractmethod
-    async def submission_id_accept_policy_post(
+    async def accept_policy_post(
             self,
             impl_data: Dict,
             user: User,
@@ -44,18 +44,18 @@ class BaseDefaultApi(ABC):
         ...
 
     @abstractmethod
-    async def submission_id_deposited_post(
+    async def mark_deposited_post(
             self,
             impl_data: Dict,
             user: User,
             client: Client,
             submission_id: str,
     ) -> None:
-        """The ui-app has been successfully deposited by an external service."""
+        """The submission been successfully deposited into the arxiv corpus."""
         ...
 
     @abstractmethod
-    async def submission_id_mark_processing_for_deposit_post(
+    async def mark_processing_for_deposit_post(
             self,
             impl_data: Dict,
             user: User,
@@ -66,7 +66,7 @@ class BaseDefaultApi(ABC):
         ...
 
     @abstractmethod
-    async def submission_id_unmark_processing_for_deposit_post(
+    async def unmark_processing_for_deposit_post(
             self,
             impl_data: Dict,
             user: User,
