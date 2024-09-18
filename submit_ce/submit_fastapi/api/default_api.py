@@ -57,13 +57,12 @@ async def get_service_status(impl_dep: dict = Depends(impl_depends)) -> None:
 
 
 @router.post(
-    "/",
+    "/start",
     response_class=PlainTextResponse,
     responses={
         200: {"description": "Successfully started a submission."},
     },
     tags=["submit"],
-    response_model_by_alias=True,
 )
 async def start(started: Union[StartedNew, StartedAlterExising],
                 impl_dep=Depends(impl_depends), user=userDep, client=clentDep,
@@ -72,13 +71,12 @@ async def start(started: Union[StartedNew, StartedAlterExising],
 
     TODO Maybe the start needs to include accepting an agreement?
 
-    TODO parameters for new,replacement,withdraw,cross,jref
-
     TODO How to better indicate that the body is a string that is the submission id? Links?"""
     return await implementation.start(impl_dep, user, client, started)
 
+
 @router.get(
-    "/{submission_id}",
+    "/submission/{submission_id}",
     responses={
         200: {"model": object, "description": "The submission data."},
     },
@@ -94,12 +92,12 @@ async def get_submission(
 
 
 @router.post(
-    "/{submission_id}/acceptPolicy",
+    "/submission/{submission_id}/acceptPolicy",
     responses={
         200: {"model": object, "description": "The has been accepted."},
         400: {"model": str, "description": "There was an problem when processing the agreement. It was not accepted."},
         401: {"description": "Unauthorized. Missing valid authentication information. The agreement was not accepted."},
-        403: {"description": "Forbidden. Client or user is not authorized to upload. The agreement was not accepted."},
+        403: {"description": "Forbidden. User or client is not authorized to upload. The agreement was not accepted."},
         500: {"description": "Error. There was a problem. The agreement was not accepted."},
     },
     tags=["submit"],
@@ -116,7 +114,7 @@ async def submission_id_accept_policy_post(
 
 
 @router.post(
-    "/{submission_id}/deposited",
+    "/submission/{submission_id}/markDeposited",
     responses={
         200: {"description": "Deposited has been recorded."},
     },
@@ -132,7 +130,7 @@ async def submission_id_deposited_post(
 
 
 @router.post(
-    "/{submission_id}/markProcessingForDeposit",
+    "/submission/{submission_id}/markProcessingForDeposit",
     responses={
         200: {"description": "The submission has been marked as in processing for deposit."},
     },
@@ -148,7 +146,7 @@ async def submission_id_mark_processing_for_deposit_post(
 
 
 @router.post(
-    "/{submission_id}/unmarkProcessingForDeposit",
+    "/submission/{submission_id}/unmarkProcessingForDeposit",
     responses={
         200: {"description": "The submission has been marked as no longer in processing for deposit."},
     },
