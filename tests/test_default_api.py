@@ -34,12 +34,17 @@ def test_get_submission(client: TestClient):
 def test_start(client: TestClient):
     """Test case for begin."""
     headers = {    }
-    response = client.request("POST", "/", headers=headers)
-    # assert response.status_code == 200
-    # assert response.text
-    # submission_id = response.text
-    # response = client.request(f"/{submission_id}")
-    # assert response.status_code == 200
+    response = client.request("POST", "/v1/", headers=headers,
+                              json={"submission_type":"new"})
+    assert response.status_code == 200
+    sid = response.text
+    assert sid is not None
+    assert '"' not in sid
+
+    response = client.request("GET", f"/v1/{sid}", headers=headers)
+    assert response.status_code == 200
+    data = response.json()
+    assert str(data['submission_id']) == sid
 
 
 def test_submission_id_accept_policy_post(client: TestClient):

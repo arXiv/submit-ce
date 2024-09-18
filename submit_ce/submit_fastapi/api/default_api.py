@@ -16,6 +16,7 @@ from fastapi import (  # noqa: F401
     Security,
     status,
 )
+from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel, Field
 
 from submit_ce.submit_fastapi.config import config
@@ -57,8 +58,9 @@ async def get_service_status(impl_dep: dict = Depends(impl_depends)) -> None:
 
 @router.post(
     "/",
+    response_class=PlainTextResponse,
     responses={
-        200: {"model": str, "description": "Successfully started a submission."},
+        200: {"description": "Successfully started a submission."},
     },
     tags=["submit"],
     response_model_by_alias=True,

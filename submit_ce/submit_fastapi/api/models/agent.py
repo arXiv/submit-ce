@@ -7,14 +7,16 @@ from pydantic import BaseModel, Field
 
 class User(BaseModel):
     """A human end user."""
+    identifier: Optional[str] = Field(default=None)
+    """System identifier for the user. Ex a username, user_id or tapir nickname."""
 
-    username: str
     forename: str
     surname: str
     suffix: str
-    identifier: Optional[str] = Field(default=None)
-    affiliation: str
+
     email: str
+
+    affiliation: str
     endorsements: List[str] = Field(default_factory=list)
 
     def get_name(self) -> str:
@@ -26,6 +28,6 @@ class User(BaseModel):
 class Client(BaseModel):
     """A non-human tool that is making requests to the submit API, usually an API client."""
     remoteAddress: str
-    remoteHost: str
+    remoteHost: Optional[str] = Field(default=None)
     agent_type:  str
-    agent_version: str
+    agent_version: Optional[str] = Field(default=None)

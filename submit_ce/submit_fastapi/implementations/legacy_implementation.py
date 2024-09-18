@@ -35,8 +35,10 @@ def get_session():
             yield session
             if session.begin or session.dirty or session.deleted:
                 session.commit()
+                session.close()
         except Exception:
             session.rollback()
+            session.close()
             raise
 
 
@@ -48,10 +50,11 @@ class LegacySubmitImplementation(BaseDefaultApi):
 
     async def get_submission(self, impl_data: Dict, user: User, client: Client, submission_id: str) -> object:
         session = impl_data["session"]
-        stmt = select(Submission).where(Submission.submission_id==submission_id)
+        stmt = select(Submission).where(Submission.submission_id==int(submission_id))
         submission = session.scalars(stmt).first()
         if submission:
-            return submission.model
+            data = {c.name: getattr(submission, c.name) for c in Submission.__table__.columns}
+            return data
         else:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
 
@@ -69,7 +72,7 @@ class LegacySubmitImplementation(BaseDefaultApi):
             doc = session.scalars(select(Document).where(paper_id=started.paperid)).first()
             if not doc:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail="Existing paper not found.")
-            elif doc.submitter_id != user.native_id:
+            elif doc.submitter_id != user.identifier:
                 raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,detail="Not submitter of existing paper.")
             else:
                 submission.document_id = doc.document_id
