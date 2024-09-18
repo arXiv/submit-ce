@@ -125,7 +125,7 @@ async def submission_id_deposited_post(
         submission_id: str = Path(..., description="Id of the submission to get."),
         impl_dep: dict = Depends(impl_depends), user=userDep, client=clentDep
 ) -> None:
-    """The submission has been successfully deposited by an external service."""
+    """Mark that the submission has been successfully deposited into the arxiv corpus."""
     return await implementation.submission_id_deposited_post(impl_dep, user, client, submission_id)
 
 
