@@ -164,4 +164,8 @@ cython_debug/
 # morbund NG arxiv code
 graveyard/
 
+# dev database
 legacy.db
+
+# dev data new
+/data

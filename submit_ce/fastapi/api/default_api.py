@@ -132,14 +132,15 @@ async def assert_authorship_post(
 )
 async def file_post(
         uploadFile: UploadFile,  # waring: this uses https://docs.python.org/3/library/tempfile.html#tempfile.SpooledTemporaryFile
+        submission_id: str = Path(..., description="Id of the submission to add the upload to."),
         impl_dep: dict = Depends(impl_depends),
         user=userDep, client=clentDep
-):
+)->str:
     """Upload a file to a submission.
 
     The file can be a single file, a zip, or a tar.gz. Zip and tar.gz files will be unpacked.
     """
-    return await implementation.file_post(impl_dep, user, client, uploadFile)
+    return await implementation.file_post(impl_dep, user, client, submission_id, uploadFile)
 
 
 # todo

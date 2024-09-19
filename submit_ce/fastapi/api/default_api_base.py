@@ -100,7 +100,7 @@ class BaseDefaultApi(ABC):
         Or assert that the submitter has authority to submit the files as a proxy."""
         ...
 
-    async def file_post(self, impl_dep: Dict, user: User, client: Client, uploadFile: UploadFile):
+    async def file_post(self, impl_dep: Dict, user: User, client: Client, submission_id: str, uploadFile: UploadFile):
         """Upload a file to a submission.
 
         The file can be a single file, a zip, or a tar.gz. Zip and tar.gz files will be unpacked.
