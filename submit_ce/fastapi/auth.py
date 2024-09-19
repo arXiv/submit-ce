@@ -4,7 +4,7 @@ from typing import Optional
 from fastapi import HTTPException, status, Request
 
 
-from submit_ce.submit_fastapi.api.models.agent import User, Client
+from submit_ce.fastapi.api.models.agent import User, Client
 
 
 async def get_client(request: Request) -> Client:

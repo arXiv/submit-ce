@@ -2,7 +2,7 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from submit_ce.submit_fastapi.api.models.events import AgreedToPolicy
+from submit_ce.fastapi.api.models.events import AgreedToPolicy
 
 
 def test_get_service_status(client: TestClient):

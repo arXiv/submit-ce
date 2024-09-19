@@ -1,7 +1,7 @@
 import os
 
 from fastapi import FastAPI
-from submit_ce.submit_fastapi.api.default_api import router as DefaultApiRouter
+from submit_ce.fastapi.api.default_api import router as DefaultApiRouter
 from .config import config, DEV_SQLITE_FILE
 from arxiv.config import settings
 

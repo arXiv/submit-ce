@@ -14,11 +14,11 @@ from fastapi import (  # noqa: F401
     Query,
     Response,
     Security,
-    status,
+    status, UploadFile,
 )
 from fastapi.responses import PlainTextResponse
 
-from submit_ce.submit_fastapi.config import config
+from submit_ce.fastapi.config import config
 
 from .default_api_base import BaseDefaultApi
 from .models.events import AgreedToPolicy, StartedNew, StartedAlterExising, SetLicense, AuthorshipDirect, \
@@ -125,6 +125,21 @@ async def assert_authorship_post(
         user=userDep, client=clentDep
 ) -> str:
     return await implementation.assert_authorship_post(impl_dep, user, client, submission_id, authorship)
+
+@router.post(
+    "/submission/{submission_id}/files",
+    tags=["submit"],
+)
+async def file_post(
+        uploadFile: UploadFile,  # waring: this uses https://docs.python.org/3/library/tempfile.html#tempfile.SpooledTemporaryFile
+        impl_dep: dict = Depends(impl_depends),
+        user=userDep, client=clentDep
+):
+    """Upload a file to a submission.
+
+    The file can be a single file, a zip, or a tar.gz. Zip and tar.gz files will be unpacked.
+    """
+    return await implementation.file_post(impl_dep, user, client, uploadFile)
 
 
 # todo

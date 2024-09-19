@@ -3,9 +3,11 @@ from abc import ABC, abstractmethod
 
 from typing import ClassVar, Dict, List, Tuple, Union  # noqa: F401
 
-from submit_ce.submit_fastapi.api.models.events import AgreedToPolicy, StartedNew, AuthorshipDirect, AuthorshipProxy, \
+from fastapi import UploadFile
+
+from submit_ce.fastapi.api.models.events import AgreedToPolicy, StartedNew, AuthorshipDirect, AuthorshipProxy, \
     SetLicense
-from submit_ce.submit_fastapi.api.models.agent import User, Client
+from submit_ce.fastapi.api.models.agent import User, Client
 
 
 class BaseDefaultApi(ABC):
@@ -96,4 +98,11 @@ class BaseDefaultApi(ABC):
         """Assert authorship of the submission files.
 
         Or assert that the submitter has authority to submit the files as a proxy."""
+        ...
+
+    async def file_post(self, impl_dep: Dict, user: User, client: Client, uploadFile: UploadFile):
+        """Upload a file to a submission.
+
+        The file can be a single file, a zip, or a tar.gz. Zip and tar.gz files will be unpacked.
+        """
         ...

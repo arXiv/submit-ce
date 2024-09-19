@@ -5,16 +5,16 @@ from typing import Dict, Union
 from arxiv.config import settings
 import arxiv.db
 from arxiv.db.models import Submission, Document, configure_db_engine
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, UploadFile
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker, Session as SqlalchemySession, Session
 
-from submit_ce.submit_fastapi.api.models.agent import User, Client
-from submit_ce.submit_fastapi.api.default_api_base import BaseDefaultApi
-from submit_ce.submit_fastapi.api.models.events import AgreedToPolicy, StartedNew, StartedAlterExising, SetLicense, \
+from submit_ce.fastapi.api.models.agent import User, Client
+from submit_ce.fastapi.api.default_api_base import BaseDefaultApi
+from submit_ce.fastapi.api.models.events import AgreedToPolicy, StartedNew, StartedAlterExising, SetLicense, \
     AuthorshipDirect, AuthorshipProxy
-from submit_ce.submit_fastapi.config import Settings
-from submit_ce.submit_fastapi.implementations import ImplementationConfig
+from submit_ce.fastapi.config import Settings
+from submit_ce.fastapi.implementations import ImplementationConfig
 
 logger = logging.getLogger(__name__)
 
@@ -140,6 +140,8 @@ class LegacySubmitImplementation(BaseDefaultApi):
             submission.proxy=authorship.proxy
         session.commit()
 
+    async def file_post(self, impl_dep: Dict, user: User, client: Client, uploadFile: UploadFile):
+        return
 
     async def mark_deposited_post(self, impl_data: Dict, user: User, client: Client, submission_id: str) -> None:
         pass

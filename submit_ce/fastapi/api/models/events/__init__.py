@@ -5,7 +5,7 @@ from typing import Optional, Any, Dict, Literal
 
 from pydantic import BaseModel, AwareDatetime, StrictStr
 
-from submit_ce.submit_fastapi.api.models.agent import User, Client
+from submit_ce.fastapi.api.models.agent import User, Client
 
 
 class BaseEvent(BaseModel):
