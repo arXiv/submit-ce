@@ -85,7 +85,7 @@ class SetLicense(BaseModel):
     """
     The sender of this request agrees to offer the submitted items under the statement in the license.
     """
-    agreement_id: Literal[
+    license_uri: Literal[
         "http://creativecommons.org/licenses/by/4.0/",
         "http://creativecommons.org/licenses/by-sa/4.0/",
         "http://creativecommons.org/licenses/by-nc-sa/4.0/",
@@ -93,6 +93,24 @@ class SetLicense(BaseModel):
         "http://arxiv.org/licenses/nonexclusive-distrib/1.0/",
         "http://creativecommons.org/publicdomain/zero/1.0/",
     ]
+    """The license the sender offers to the arxiv users for the submitted items."""
+
+
+class AuthorshipDirect(BaseModel):
+    """
+    Asserts the sender of this request is the author of the submitted items.
+    """
+    i_am_author: bool
+    """By sending `True` the sender asserts they are the author of the submitted items."""
+
+class AuthorshipProxy(BaseModel):
+    """
+    Asserts that the sender of this request is authorized to deposit the submitted items by the author of the items.
+    """
+    i_am_authorized_to_proxy: bool
+    """By sending `True` the sender asserts they are the authorized proxy of the author of the submitted items."""
+    proxy: str
+    """Email address of the author of the submitted items."""
 
 
 class StartedNew(BaseModel):

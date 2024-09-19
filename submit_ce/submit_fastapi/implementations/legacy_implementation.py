@@ -11,7 +11,8 @@ from sqlalchemy.orm import sessionmaker, Session as SqlalchemySession, Session
 
 from submit_ce.submit_fastapi.api.models.agent import User, Client
 from submit_ce.submit_fastapi.api.default_api_base import BaseDefaultApi
-from submit_ce.submit_fastapi.api.models.events import AgreedToPolicy, StartedNew, StartedAlterExising
+from submit_ce.submit_fastapi.api.models.events import AgreedToPolicy, StartedNew, StartedAlterExising, SetLicense, \
+    AuthorshipDirect, AuthorshipProxy
 from submit_ce.submit_fastapi.config import Settings
 from submit_ce.submit_fastapi.implementations import ImplementationConfig
 
@@ -65,6 +66,7 @@ def check_submission_exists(session: Session, submission_id: str) -> Submission:
 
 class LegacySubmitImplementation(BaseDefaultApi):
 
+
     async def get_submission(self, impl_data: Dict, user: User, client: Client, submission_id: str) -> object:
         session = impl_data["session"]
         submission = check_submission_exists(session, submission_id)
@@ -117,6 +119,27 @@ class LegacySubmitImplementation(BaseDefaultApi):
         submission.agreement_id = agreement.accepted_policy_id
         submission.agree_policy = 1
         session.commit()
+
+    async def set_license_post(self, impl_dep: dict, user: User, client: Client,
+                               submission_id: str, set_license: SetLicense) -> None:
+        session = impl_dep["session"]
+        check_user_authorized(session, user, client, submission_id)
+        submission = check_submission_exists(session, submission_id)
+        submission.license = set_license.license_uri
+        session.commit()
+
+    async def assert_authorship_post(self, impl_dep: Dict, user: User, client: Client,
+                                     submission_id: str, authorship: Union[AuthorshipDirect, AuthorshipProxy]) -> str:
+        session = impl_dep["session"]
+        check_user_authorized(session, user, client, submission_id)
+        submission = check_submission_exists(session, submission_id)
+        if isinstance(authorship, AuthorshipDirect):
+            submission.is_author=1
+        else:
+            submission.is_author=0
+            submission.proxy=authorship.proxy
+        session.commit()
+
 
     async def mark_deposited_post(self, impl_data: Dict, user: User, client: Client, submission_id: str) -> None:
         pass

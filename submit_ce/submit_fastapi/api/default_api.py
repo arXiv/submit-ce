@@ -17,12 +17,12 @@ from fastapi import (  # noqa: F401
     status,
 )
 from fastapi.responses import PlainTextResponse
-from pydantic import BaseModel, Field
 
 from submit_ce.submit_fastapi.config import config
 
 from .default_api_base import BaseDefaultApi
-from .models.events import AgreedToPolicy, StartedNew, StartedAlterExising
+from .models.events import AgreedToPolicy, StartedNew, StartedAlterExising, SetLicense, AuthorshipDirect, \
+    AuthorshipProxy
 from ..auth import get_user, get_client
 from ..implementations import ImplementationConfig
 
@@ -89,7 +89,6 @@ async def get_submission(
         500: {"description": "Error. There was a problem. The agreement was not accepted."},
     },
     tags=["submit"],
-    response_model_by_alias=True,
 )
 async def accept_policy_post(
         submission_id: str = Path(..., description="Id of the submission to get."),
@@ -101,6 +100,42 @@ async def accept_policy_post(
     return await implementation.accept_policy_post(impl_dep, user, client, submission_id, agreement)
 
 
+@router.post(
+    "/submission/{submission_id}/setLicense",
+    tags=["submit"],
+)
+async def set_license_post(
+        submission_id: str = Path(..., description="Id of the submission to set the license for."),
+        license: SetLicense = Body(None, description="The license to set"),
+        impl_dep: dict = Depends(impl_depends),
+        user=userDep, client=clentDep
+) -> None:
+    """Set a license for a files of a submission."""
+    return await implementation.set_license_post(impl_dep, user, client, submission_id, license)
+
+
+@router.post(
+    "/submission/{submission_id}/assertAuthorship",
+    tags=["submit"],
+)
+async def assert_authorship_post(
+        submission_id: str = Path(..., description="Id of the submission to assert authorship for."),
+        authorship: Union[AuthorshipDirect, AuthorshipProxy] = Body(None, description=""),
+        impl_dep: dict = Depends(impl_depends),
+        user=userDep, client=clentDep
+) -> str:
+    return await implementation.assert_authorship_post(impl_dep, user, client, submission_id, authorship)
+
+
+# todo
+"""
+/files get post head delete
+/files/{path} get post head delete
+
+preview post get head delete
+
+
+"""
 @router.post(
     "/submission/{submission_id}/markDeposited",
     responses={
@@ -160,6 +195,6 @@ async def unmark_processing_for_deposit_post(
     tags=["service"],
     response_model_by_alias=True,
 )
-async def get_service_status(impl_dep: dict = Depends(impl_depends)) -> None:
+async def get_service_status(impl_dep: dict = Depends(impl_depends)) -> str:
     """Get information about the current status of file management service."""
     return await implementation.get_service_status(impl_dep)

@@ -1,5 +1,5 @@
 # coding: utf-8
-
+import pytest
 from fastapi.testclient import TestClient
 
 from submit_ce.submit_fastapi.api.models.events import AgreedToPolicy
@@ -103,6 +103,57 @@ def test_submission_id_accept_policy_post(client: TestClient):
        headers=headers,
        json={"accepted_policy_id":3})
     assert response.status_code == 200
+
+def test_license(client: TestClient):
+    headers = {}
+    response = client.request("POST", "/v1/start", headers=headers,
+                              json={"submission_type": "new"})
+    assert response.status_code == 200
+    sid = response.text
+    assert sid is not None
+    response = client.request("GET", f"/v1/submission/{sid}", headers=headers)
+    assert response.status_code == 200 and not response.json()['license']
+
+    response = client.request("POST", f"/v1/submission/{sid}/setLicense",
+        json={"license_uri":"http://arxiv.org/licenses/nonexclusive-distrib/1.0/"},
+                              headers=headers)
+    assert response.status_code == 200
+
+    response = client.request("GET", f"/v1/submission/{sid}", headers=headers)
+    assert (response.status_code == 200
+            and response.json()['license'] == "http://arxiv.org/licenses/nonexclusive-distrib/1.0/")
+
+    response = client.request("POST", f"/v1/submission/{sid}/setLicense",
+        json={"license_uri":"bogus_license"},
+                              headers=headers)
+    assert response.status_code == 422
+
+    no_longer_valid = "http://arxiv.org/licenses/assumed-1991-2003/"
+    response = client.request("POST", f"/v1/submission/{sid}/setLicense",
+        json={"license_uri":no_longer_valid}, headers=headers)
+    assert response.status_code == 422
+
+@pytest.mark.parametrize("invalid_license",[
+    "http://arxiv.org/licenses/assumed-1991-2003/",
+    "http://creativecommons.org/licenses/by/3.0/",
+    "http://creativecommons.org/licenses/by-nc-sa/3.0/",
+    "http://creativecommons.org/licenses/publicdomain/"
+    "http://creativecommons.org/licenses/fake_not_reall/",
+    "",
+    "totally_fake_not_reall",
+])
+def test_invalid_license(client: TestClient, invalid_license:str):
+    headers = {}
+    response = client.request("POST", "/v1/start", headers=headers,
+                              json={"submission_type": "new"})
+    assert response.status_code == 200
+    sid = response.text
+    assert sid is not None
+
+    no_longer_valid = "http://arxiv.org/licenses/assumed-1991-2003/"
+    response = client.request("POST", f"/v1/submission/{sid}/setLicense",
+                              json={"license_uri": invalid_license}, headers=headers)
+    assert response.status_code == 422
 
 
 def test_submission_id_deposit_packet_packet_format_get(client: TestClient):

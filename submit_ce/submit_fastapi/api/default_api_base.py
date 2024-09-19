@@ -3,7 +3,8 @@ from abc import ABC, abstractmethod
 
 from typing import ClassVar, Dict, List, Tuple, Union  # noqa: F401
 
-from submit_ce.submit_fastapi.api.models.events import AgreedToPolicy, StartedNew
+from submit_ce.submit_fastapi.api.models.events import AgreedToPolicy, StartedNew, AuthorshipDirect, AuthorshipProxy, \
+    SetLicense
 from submit_ce.submit_fastapi.api.models.agent import User, Client
 
 
@@ -82,4 +83,17 @@ class BaseDefaultApi(ABC):
             impl_data: Dict,
     ) -> Tuple[bool, str]:
         """Service health."""
+        ...
+
+    @abstractmethod
+    async def set_license_post(self, impl_dep: Dict, user: User, client: Client,
+                               submission_id: str, license: SetLicense) -> None:
+        """Sets the license of the submission files."""
+        ...
+
+    async def assert_authorship_post(self, impl_dep: Dict, user: User, client: Client,
+                                     submission_id: str, authorship: Union[AuthorshipDirect, AuthorshipProxy]) -> str:
+        """Assert authorship of the submission files.
+
+        Or assert that the submitter has authority to submit the files as a proxy."""
         ...
