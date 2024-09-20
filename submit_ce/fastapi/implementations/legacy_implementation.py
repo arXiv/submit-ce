@@ -1,6 +1,7 @@
 import datetime
 import logging
 from typing import Dict, Union, Optional
+from pydantic_settings import BaseSettings
 
 from arxiv.config import settings
 import arxiv.db
@@ -15,7 +16,8 @@ from submit_ce.fastapi.api.models.agent import User, Client
 from submit_ce.fastapi.api.default_api_base import BaseDefaultApi
 from submit_ce.fastapi.api.models.events import AgreedToPolicy, StartedNew, StartedAlterExising, SetLicense, \
     AuthorshipDirect, AuthorshipProxy
-from submit_ce.fastapi.config import Settings
+
+
 from submit_ce.fastapi.implementations import ImplementationConfig
 from submit_ce.file_store import SubmissionFileStore
 from submit_ce.file_store.legacy_file_store import LegacyFileStore
@@ -205,7 +207,7 @@ class LegacySubmitImplementation(BaseDefaultApi):
         return f"{self.__class__.__name__}  impl_data: {impl_data}"
 
 
-def setup(settings: Settings) -> None:
+def setup(settings: BaseSettings) -> None:
     pass
 
 

@@ -1,60 +1,14 @@
 [project]
 name = "submit-ce"
 version = "0.1.0"
-description = "Add your description here"
+description = "Paper submission system."
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = []
+dynamic = ["dependencies", "optional-dependencies"]
 
-[tool.poetry]
-name = "submit-ce"
-version = "0.1.0"
-description = "arXiv Submit"
-authors = ["Brian D. Caruso <bdc34@cornell.edu>"]
-readme = "README.md"
-packages = [{include = "arxiv", from="src"}]
-
-[tool.poetry.dependencies]
-python = "^3.11"
-#arxiv-base = {git = "https://github.com/arXiv/arxiv-base.git", ref = "f8827cc8" }
-
-backports-datetime-fromisoformat = "*"
-jsonschema = "*"
-mimesis = "*"
-mypy = "*"
-mypy_extensions = "*"
-
-python-dateutil = "*"
-pytz = "==2018.7"
-pyyaml = ">=4.2b1"
-retry = "*"
-unidecode = "*"
-urllib3 = ">=1.24.2"
-semver = "^3.0.2"
-requests-toolbelt = "^1.0.0"
-pydantic-settings = "^2.5.2"
-fastapi = {extras = ["all"], version = "^0.114.2"}
-sqlalchemy = "^2.0.34"
-fire = "^0.6.0"
-python-multipart = "^0.0.9"
-
-[tool.poetry.group.dev.dependencies]
-coverage = "*"
-coveralls = "*"
-docker = "*"
-mimesis = "*"
-openapi-spec-validator = "*"
-pydocstyle = "==3.0.0"
-pylint = "<2"
-pytest = "*"
-pytest-cov = "*"
-
-[tool.poetry.scripts]
-gen_server = "arxiv.scripts:gen_server"
-
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+[tool.setuptools.dynamic]
+dependencies = {file = ["requirements.txt"]}
+optional-dependencies = {dev = { file = ["requirements-dev.txt"] }}
 
 [tool.black]
 line-length = 88

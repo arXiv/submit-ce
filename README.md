@@ -6,21 +6,25 @@ arXiv paper submission system
 To run the server, please execute the following from the root directory:
 
 ```bash
-poetry install
-# TODO How to get arxiv-base?
-poetry shell # or however you do venvs
-python test/make_test_db.py  # to make sqlite dev db
-fastapi dev main.py
+# setup venv in your preferred way
+python --version
+# 3.11
+
+pip install --no-deps -r requirements.txt
+pip install --no-deps -r requirements-dev.txt
+
+# make sqlite dev db
+python test/make_test_db.py
+
+python main.py
 ```
 
 and open your browser at `http://localhost:8000/docs/` to see the docs.
 
-## Running with Docker
-
-To run the server on a Docker container, please execute the following from the root directory:
+## Build Docker Image
 
 ```bash
-docker-compose up --build
+docker build . -t arxiv/submit_ce
 ```
 
 ## Tests
@@ -28,6 +32,5 @@ docker-compose up --build
 To run the tests:
 
 ```bash
-pip3 install pytest
-PYTHONPATH=src pytest tests
+pytest tests
 ```

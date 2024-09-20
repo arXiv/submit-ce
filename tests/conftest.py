@@ -5,8 +5,14 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+# to ensure we can import this due to confusing errors if it is missing.
+import arxiv.db
+
+# to ensure we can import this due to confusing errors if deps are missing.
+import submit_ce.fastapi.implementations.legacy_implementation
+
 from submit_ce.fastapi.config import DEV_SQLITE_FILE
-from tests.make_test_db import create_all_legacy_db
+from .make_test_db import create_all_legacy_db
 
 
 
