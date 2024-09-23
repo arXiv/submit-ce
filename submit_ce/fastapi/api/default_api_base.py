@@ -5,8 +5,9 @@ from typing import ClassVar, Dict, List, Tuple, Union  # noqa: F401
 
 from fastapi import UploadFile
 
+from submit_ce.fastapi.api.models import CategoryChangeResult
 from submit_ce.fastapi.api.models.events import AgreedToPolicy, StartedNew, AuthorshipDirect, AuthorshipProxy, \
-    SetLicense
+    SetLicense, SetCategories
 from submit_ce.fastapi.api.models.agent import User, Client
 
 
@@ -106,3 +107,7 @@ class BaseDefaultApi(ABC):
         The file can be a single file, a zip, or a tar.gz. Zip and tar.gz files will be unpacked.
         """
         ...
+
+    async def set_categories_post(self, impl_dep: Dict, user: User, client: Client, submission_id: str,
+                                  set_categoires: SetCategories) -> CategoryChangeResult:
+        pass

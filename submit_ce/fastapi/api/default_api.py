@@ -21,8 +21,9 @@ from fastapi.responses import PlainTextResponse
 from submit_ce.fastapi.config import config
 
 from .default_api_base import BaseDefaultApi
+from .models import CategoryChangeResult
 from .models.events import AgreedToPolicy, StartedNew, StartedAlterExising, SetLicense, AuthorshipDirect, \
-    AuthorshipProxy
+    AuthorshipProxy, SetCategories
 from ..auth import get_user, get_client
 from ..implementations import ImplementationConfig
 
@@ -143,14 +144,33 @@ async def file_post(
     return await implementation.file_post(impl_dep, user, client, submission_id, uploadFile)
 
 
-# todo
+@router.post(
+    "/submission/{submission_id}/setCategories",
+    tags=["submit"],
+)
+async def set_categories_post(set_categoires: SetCategories,
+                              submission_id: str = Path(..., description="Id of the submission to set the categories for."),
+                              impl_dep: dict = Depends(impl_depends),
+                              user=userDep, client=clentDep
+                              ) -> CategoryChangeResult:
+    """Set the categories for a submission.
+
+    The categories will replace any categories already set on the submission."""
+    return await implementation.set_categories_post(impl_dep, user, client, submission_id, set_categoires)
 """
 /files get post head delete
+
 /files/{path} get post head delete
+
+process post
 
 preview post get head delete
 
+metadata get post head delete
 
+optional metadata get post head delete
+
+finalize (aka submit) post 
 """
 @router.post(
     "/submission/{submission_id}/markDeposited",

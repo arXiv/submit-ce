@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import pprint
-from typing import Optional, Any, Dict, Literal
+from typing import Optional, Any, Dict, Literal, List
 
-from pydantic import BaseModel, AwareDatetime, StrictStr
+from pydantic import BaseModel, AwareDatetime
 
+from submit_ce.fastapi.api.models import ACTIVE_CATEGORY
 from submit_ce.fastapi.api.models.agent import User, Client
 
 
@@ -71,6 +72,24 @@ class EventInfo(BaseModel):
     If the creator was directly involved in the operation, this property should
     be the client that facilitated the operation.
     """
+
+
+class SetCategories(BaseModel):
+    primary_category: ACTIVE_CATEGORY
+    """The primary category of research that the submission is relevant to.
+    
+    A submission must have a primary category and there may be only one primary category for the submission."""
+
+    secondary_categories: List[ACTIVE_CATEGORY]
+    """Additional categories of research the submission is relevant to.
+    
+    This is only for use with new submissions.
+    
+    The order of these does not have any significance.
+    
+    There should not be duplications in this list.
+    
+    The primary category must not be on this list."""
 
 
 class AgreedToPolicy(BaseModel):
