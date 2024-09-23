@@ -1,23 +1,20 @@
 import datetime
 import logging
 from typing import Dict, Union, Optional
-from pydantic_settings import BaseSettings
 
-from arxiv.config import settings
 import arxiv.db
+from arxiv.config import settings
 from arxiv.db.models import Submission, Document, configure_db_engine, SubmissionCategory
 from fastapi import Depends, HTTPException, status, UploadFile
-from pydantic import ImportString
 from pydantic_settings import BaseSettings
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker, Session as SqlalchemySession, Session
 
+from submit_ce.fastapi.api.default_api_base import BaseDefaultApi
 from submit_ce.fastapi.api.models import CategoryChangeResult
 from submit_ce.fastapi.api.models.agent import User, Client
-from submit_ce.fastapi.api.default_api_base import BaseDefaultApi
 from submit_ce.fastapi.api.models.events import AgreedToPolicy, StartedNew, StartedAlterExising, SetLicense, \
-    AuthorshipDirect, AuthorshipProxy, SetCategories
-
+    AuthorshipDirect, AuthorshipProxy, SetCategories, SetMetadata
 from submit_ce.fastapi.implementations import ImplementationConfig
 from submit_ce.file_store import SubmissionFileStore
 from submit_ce.file_store.legacy_file_store import LegacyFileStore
@@ -54,7 +51,7 @@ def get_session() -> SqlalchemySession:
     if not _setup:
         if 'sqlite' in settings.CLASSIC_DB_URI:
             args = {"check_same_thread": False}
-        else:
+        else:   # pragma: no cover
             args = {}
         engine = create_engine(settings.CLASSIC_DB_URI, echo=settings.ECHO_SQL, connect_args=args)
         arxiv.db.session_factory = sessionmaker(autoflush=False, bind=engine)
@@ -144,7 +141,7 @@ class LegacySubmitImplementation(BaseDefaultApi):
                                 )
 
         if isinstance(started, StartedAlterExising):
-            doc = session.scalars(select(Document).where(paper_id=started.paperid)).first()
+            doc = session.scalars(select(Document).where(Document.paper_id==started.paperid)).first()
             if not doc:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail="Existing paper not found.")
             elif doc.submitter_id != user.identifier:
@@ -193,6 +190,7 @@ class LegacySubmitImplementation(BaseDefaultApi):
             submission.is_author=0
             submission.proxy=authorship.proxy
         session.commit()
+        return "success"
 
     async def file_post(self, impl_dep: Dict, user: User, client: Client, submission_id: str, uploadFile: UploadFile):
         session: SqlalchemySession = impl_dep["session"]
@@ -217,7 +215,6 @@ class LegacySubmitImplementation(BaseDefaultApi):
                                   data: SetCategories):
         session: SqlalchemySession = impl_dep["session"]
         check_user_authorized(session, user, client, submission_id)
-        """Categories on legacy submissions are stored in the arXiv_submissions_category table."""
         submission = check_submission_exists(session, submission_id)
 
         # similar to code in modapi routes.py
@@ -256,7 +253,9 @@ class LegacySubmitImplementation(BaseDefaultApi):
             row = [row for row in early_rows if row.category == cat]
             session.delete(row[0])
 
-        #self.admin_log(session, user, f"Edited: {','.join(updates)}", command="edit metadata")
+        # if updates:
+        #       self.admin_log(session, user, f"Edited: {','.join(updates)}", command="edit metadata")
+
         result = CategoryChangeResult()
         eps = set() if not early_primary else set([early_primary])
         if early_primary != new_primary:
@@ -267,6 +266,50 @@ class LegacySubmitImplementation(BaseDefaultApi):
             result.new_secondaries = list(new_categories)
         return result
 
+    async def set_metadata_post(self, impl_dep: Dict, user: User, client: Client, submission_id: str,
+                                metadata: Union[SetMetadata]):
+        session: SqlalchemySession = impl_dep["session"]
+        check_user_authorized(session, user, client, submission_id)
+        submission = check_submission_exists(session, submission_id)
+        update = []
+        # TODO add checks
+        if metadata.abstract != submission.abstract:
+            submission.abstract = metadata.abstract
+            update.append("abstract")
+        if metadata.authors != submission.authors:
+            submission.authors = metadata.authors
+            update.append("authors")
+        if metadata.title != submission.title:
+            submission.title = metadata.title
+            update.append("title")
+        if metadata.comments != submission.comments:
+            submission.comments = metadata.comments
+            update.append("comments")
+        if metadata.acm_class != submission.acm_class:
+            submission.acm_class = metadata.acm_class
+            update.append("acm_class")
+        if metadata.msc_class != submission.msc_class:
+            submission.msc_class = metadata.msc_class
+            update.append("msc_class")
+        if metadata.report_num != submission.report_num:
+            submission.report_num = metadata.report_num
+            update.append("report_num")
+        if metadata.journal_ref != submission.journal_ref:
+            submission.journal_ref = metadata.journal_ref
+            update.append("journal_ref")
+        if metadata.doi != submission.doi:
+            submission.doi = metadata.doi
+            update.append("doi")
+
+        """Why is does it let blank fields in metadata?
+         Because those whill be handled by workflows and conditions.
+         (Or folks will tell us "absolutely no partial metadata! and we'll change this)"""
+
+        if update:
+            # TODO Write admin_log
+            session.commit()
+
+        return ",".join(update)
 
     async def mark_deposited_post(self, impl_data: Dict, user: User, client: Client, submission_id: str) -> None:
         pass

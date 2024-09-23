@@ -19,11 +19,10 @@ from fastapi import (  # noqa: F401
 from fastapi.responses import PlainTextResponse
 
 from submit_ce.fastapi.config import config
-
 from .default_api_base import BaseDefaultApi
 from .models import CategoryChangeResult
 from .models.events import AgreedToPolicy, StartedNew, StartedAlterExising, SetLicense, AuthorshipDirect, \
-    AuthorshipProxy, SetCategories
+    AuthorshipProxy, SetCategories, SetMetadata
 from ..auth import get_user, get_client
 from ..implementations import ImplementationConfig
 
@@ -157,6 +156,16 @@ async def set_categories_post(set_categoires: SetCategories,
 
     The categories will replace any categories already set on the submission."""
     return await implementation.set_categories_post(impl_dep, user, client, submission_id, set_categoires)
+
+@router.post(
+    "/submission/{submission_id}/setMetadata",
+    tags=["submit"],
+)
+async def set_metadata_post(metadata: Union[SetMetadata],
+                            submission_id: str = Path(..., description="Id of the submission to set the metadata for."),
+                            impl_dep: dict = Depends(impl_depends),
+                            user=userDep, client=clentDep) -> str:
+    return await implementation.set_metadata_post(impl_dep, user, client, submission_id, metadata)
 """
 /files get post head delete
 

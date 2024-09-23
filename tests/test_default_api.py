@@ -12,25 +12,6 @@ def test_get_service_status(client: TestClient):
     assert response.status_code == 200
 
 
-def test_get_submission(client: TestClient):
-    """Test case for get_submission
-
-    
-    """
-
-    headers = {
-    }
-    # uncomment below to make a request
-    #response = client.request(
-    #    "GET",
-    #    "/{submission_id}".format(submission_id='submission_id_example'),
-    #    headers=headers,
-    #)
-
-    # uncomment below to assert the status code of the HTTP response
-    #assert response.status_code == 200
-
-
 def test_start(client: TestClient):
     """Test case for begin."""
     headers = {    }
@@ -45,6 +26,14 @@ def test_start(client: TestClient):
     assert response.status_code == 200
     data = response.json()
     assert str(data['submission_id']) == sid
+
+
+def test_start_alter(client: TestClient):
+    response = client.request("POST", "/v1/start", headers={},
+                              json={"submission_type":"replacement",
+                                    "paperid": "totally_fake_paperid"})
+    assert response.status_code == 404
+
 
 
 def test_submission_id_accept_policy_post(client: TestClient):
@@ -155,79 +144,60 @@ def test_invalid_license(client: TestClient, invalid_license:str):
                               json={"license_uri": invalid_license}, headers=headers)
     assert response.status_code == 422
 
+def test_basic_submission(client: TestClient):
+    headers={}
+    response = client.request("POST", "/v1/start", headers=headers,
+                              json={"submission_type": "new"})
+    assert response.status_code == 200
+    sid = response.text
+    assert sid is not None and '"' not in sid
 
-def test_submission_id_deposit_packet_packet_format_get(client: TestClient):
-    """Test case for submission_id_deposit_packet_packet_format_get
+    response = client.request(
+       "POST",
+       f"/v1/submission/{sid}/acceptPolicy",
+       headers=headers,
+       json={"accepted_policy_id":3})
+    assert response.status_code == 200
 
-    
-    """
+    response = client.request("POST", f"/v1/submission/{sid}/setLicense",
+                              json={"license_uri": "http://arxiv.org/licenses/nonexclusive-distrib/1.0/"},
+                              headers=headers)
+    assert response.status_code == 200
 
-    headers = {
-    }
-    # uncomment below to make a request
-    #response = client.request(
-    #    "GET",
-    #    "/{submission_id}/deposit_packet/{packet_format}".format(submission_id='submission_id_example', packet_format='packet_format_example'),
-    #    headers=headers,
-    #)
+    response = client.request("POST", f"/v1/submission/{sid}/assertAuthorship",
+                              json={"i_am_author": True},
+                              headers=headers)
+    assert response.status_code == 200
 
-    # uncomment below to assert the status code of the HTTP response
-    #assert response.status_code == 200
+    response = client.request("POST", f"/v1/submission/{sid}/setCategories",
+                              json={"primary_category": "astro-ph.EP", "secondary_categories": ["astro-ph.GA"]},
+                              headers=headers)
+    assert response.status_code == 200 or response.content == ""
 
+    response = client.request("POST", f"/v1/submission/{sid}/setCategories",
+                              json={"primary_category": "astro-ph.EP", "secondary_categories": []},
+                              headers=headers)
+    assert response.status_code == 200 or response.content == ""
 
-def test_submission_id_deposited_post(client: TestClient):
-    """Test case for submission_id_deposited_post
+    response = client.request("POST", f"/v1/submission/{sid}/setMetadata",
+                              json={
+                                  "title": "fake title that should be good enough",
+                                  "abstract": "fake abstract that should be good enough",
+                                  "authors": "Smith, Bob",
+                                  "comments": "totally good"
+                                  },
+                              headers=headers)
+    assert response.status_code == 200
 
-    
-    """
+    response = client.request("POST", f"/v1/submission/{sid}/setMetadata",
+                        json={
+                            "msc_class": "bogus class",
+                            "acm_class": "2.34",
+                            "report_num": "24333",
+                            "doi": "totally_fake_doi",
+                            "journal_ref": "also totally fake jref",
+                        },
+                          headers=headers)
 
-    headers = {
-    }
-    # uncomment below to make a request
-    #response = client.request(
-    #    "POST",
-    #    "/{submission_id}/Deposited".format(submission_id='submission_id_example'),
-    #    headers=headers,
-    #)
-
-    # uncomment below to assert the status code of the HTTP response
-    #assert response.status_code == 200
-
-
-def test_submission_id_mark_processing_for_deposit_post(client: TestClient):
-    """Test case for submission_id_mark_processing_for_deposit_post
-
-    
-    """
-
-    headers = {
-    }
-    # uncomment below to make a request
-    #response = client.request(
-    #    "POST",
-    #    "/{submission_id}/markProcessingForDeposit".format(submission_id='submission_id_example'),
-    #    headers=headers,
-    #)
-
-    # uncomment below to assert the status code of the HTTP response
-    #assert response.status_code == 200
-
-
-def test_submission_id_unmark_processing_for_deposit_post(client: TestClient):
-    """Test case for submission_id_unmark_processing_for_deposit_post
-
-    
-    """
-
-    headers = {
-    }
-    # uncomment below to make a request
-    #response = client.request(
-    #    "POST",
-    #    "/{submission_id}/unmarkProcessingForDeposit".format(submission_id='submission_id_example'),
-    #    headers=headers,
-    #)
-
-    # uncomment below to assert the status code of the HTTP response
-    #assert response.status_code == 200
+    assert response.status_code == 200 or response.text == ""
 

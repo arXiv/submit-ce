@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import pprint
-from typing import Optional, Any, Dict, Literal, List
+from typing import Optional, Any, Dict, Literal, List, Union
 
 from pydantic import BaseModel, AwareDatetime
 
@@ -113,6 +113,44 @@ class SetLicense(BaseModel):
         "http://creativecommons.org/publicdomain/zero/1.0/",
     ]
     """The license the sender offers to the arxiv users for the submitted items."""
+
+class SetMetadata(BaseModel):
+    title: Optional[str] = None
+    authors: Optional[str] = None
+    comments: Optional[str] = None
+    abstract: Optional[str] = None
+    report_num: Optional[int] = None
+    msc_class: Optional[str] = None
+    acm_class: Optional[str] = None
+    journal_ref: Optional[str] = None
+    doi: Optional[str] = None
+
+
+class AuthorName(BaseModel):
+    """A speculative more detailed author name record."""
+
+    author_list_name: Optional[str] = None
+    """Name as it should apper in author list."""
+
+    full_name: Optional[str] = None
+    """Full name of the author."""
+
+    language: Optional[str] = None
+    """Language of the full name."""
+
+    orcid: Optional[str] = None
+    """orcid.org identifier of author"""
+
+
+class SetAuthorsMetadata(BaseModel):
+    authors: List[Union[str, AuthorName]] = None
+
+
+class SetOrganizationMetadata(BaseModel):
+    """A speculative metadata record to describe funding organizations related to the paper."""
+
+    organizations: List[str] = None
+    """RORs of funding organizations."""
 
 
 class AuthorshipDirect(BaseModel):

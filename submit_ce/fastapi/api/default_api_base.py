@@ -1,14 +1,13 @@
 # coding: utf-8
 from abc import ABC, abstractmethod
-
 from typing import ClassVar, Dict, List, Tuple, Union  # noqa: F401
 
 from fastapi import UploadFile
 
 from submit_ce.fastapi.api.models import CategoryChangeResult
-from submit_ce.fastapi.api.models.events import AgreedToPolicy, StartedNew, AuthorshipDirect, AuthorshipProxy, \
-    SetLicense, SetCategories
 from submit_ce.fastapi.api.models.agent import User, Client
+from submit_ce.fastapi.api.models.events import AgreedToPolicy, StartedNew, AuthorshipDirect, AuthorshipProxy, \
+    SetLicense, SetCategories, SetMetadata
 
 
 class BaseDefaultApi(ABC):
@@ -110,4 +109,8 @@ class BaseDefaultApi(ABC):
 
     async def set_categories_post(self, impl_dep: Dict, user: User, client: Client, submission_id: str,
                                   set_categoires: SetCategories) -> CategoryChangeResult:
+        pass
+
+    async def set_metadata_post(self, impl_dep: Dict, user: User, client: Client, submission_id: str,
+                                metadata: Union[SetMetadata]):
         pass
