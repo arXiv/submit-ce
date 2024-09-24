@@ -1,0 +1,175 @@
+{% extends "submit/base.html" %}
+
+{% block extra_head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/manage_submissions.css')}}" />{% endblock %}
+
+{% block title_preamble %}{% endblock %}
+{% block title %}Manage Submissions{% endblock %}
+
+{% block within_content %}
+<section class="columns is-marginless section">
+  <div class="column box is-one-third-tablet is-one-third-desktop">
+    <div class="box-new-submission">
+      <!-- TODO: add controller and dynamic first name user.name.forename -->
+      <h2>Welcome [First Name]</h2>
+      <p>Click to start a new submission</p>
+      <form class="form" method="POST" action="{{ url_for('ui.create_submission') }}">
+        {{ form.csrf_token }}
+        <button name="new" class="button is-success button-is-wrappable is-large is-link" value="new" aria-label="Create New Submission">Start a New Submission</button>
+      </form>
+      <p>Review arXiv's extensive submission documentation</p>
+      <a href="https://arxiv.org/help#submission-and-revision" class="button is-link is-outlined">Submission Help Pages</a><br>
+      <p>Need to make changes to your account before submitting? Manage account info here</p>
+      <a href="{{ url_for('account') }}" class="button is-link is-outlined">Manage Account</a>
+    </div>
+  </div>
+  <div class="column is-two-thirds-tablet is-two-thirds-desktop" style="padding-top:0;">
+    <div class="message is-link alpha-before">
+      <div class="message-body">
+        <p class="has-text-right help">
+          <a href="#">Submission 0.1.4 released 2019-05-04 </a>
+          <button class="button button-feedback is-small" id="feedback-button">Feedback?</button>
+        </p>
+
+        <p class="subtitle subtitle-intro">Thank you for using our new submission system!</p>
+        <p class="text-serif">
+          This interface is an alpha release, which means that we fully expect some bugs to exist.
+          If you encounter unexpected behavior or problems, or if you have suggestions for how to improve this interface,
+          please let us know by <a href="https://github.com/arXiv/arxiv-submission-ui/issues" target="_blank" rel="noopener">creating an issue via GitHub</a>.
+        </p>
+        <p>
+          <strong>Intro to Creating Issues on GitHub</strong><br/>
+          <ol>
+            <li>If you do not already have a free GitHub account, <a href="https://github.com/join" target="_blank" rel="noopener">create one</a>.</li>
+            <li>Navigate to the <a href="https://github.com/arXiv/arxiv-submission-ui/issues" target="_blank" rel="noopener">issues page</a> for this project.</li>
+            <li>Before creating a new issue, confirm whether a similar issue already exists via the search box.<br/>
+              <img src="{{ url_for('static', filename='images/github_issues_search_box.png') }}" style="max-width:50%" alt="GitHub Issues search box"/>
+            </li>
+            <li>If no similar issue exists, click the <a class="button is-success is-small" href="https://github.com/arXiv/arxiv-submission-ui/issues/new/choose" style="vertical-align:text-bottom"><strong>New issue</strong></a> button.<br/></li>
+            <li>Choose an issue type, then follow the corresponding directions to describe and submit the issue.</li>
+          </ol>
+        </p>
+      </div>
+    </div> <!-- end message -->
+  </div>
+</section>
+
+<section class="section">
+  <div class="level is-marginless">
+      <div class="level-left">
+        <h2>Submissions in Progress</h2>
+      </div>
+      <div class="level-right is-marginless">
+        <p class="help">Only submissions started with this interface are listed.
+        <a href="#">View classic list</a></p>
+      </div>
+  </div>
+  <div class="box">
+    {% if user_submissions|selectattr('is_active')|list|length > 0 %}
+        <table class="table is-fullwidth is-hoverable">
+          <thead>
+            <tr>
+              <th scope="col">Status
+                <!-- TODO: need real link to status descriptions -->
+                <a href="{{ url_for('help') }}" class="help-bubble">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon filter-blue"><path d="M256 8C119.043 8 8 119.083 8 256c0 136.997 111.043 248 248 248s248-111.003 248-248C504 119.083 392.957 8 256 8zm0 110c23.196 0 42 18.804 42 42s-18.804 42-42 42-42-18.804-42-42 18.804-42 42-42zm56 254c0 6.627-5.373 12-12 12h-88c-6.627 0-12-5.373-12-12v-24c0-6.627 5.373-12 12-12h12v-64h-12c-6.627 0-12-5.373-12-12v-24c0-6.627 5.373-12 12-12h64c6.627 0 12 5.373 12 12v100h12c6.627 0 12 5.373 12 12v24z"/></svg>
+                  <span class="is-sr-only">Read status descriptions</span>
+                  <div class="bubble-text">The current status of your submission in arXiv moderation. Click to read all status descriptinos.</div>
+                </a>
+              </th>
+              <th scope="col">Identifier</th>
+              <th scope="col">Title</th>
+              <th scope="col">Created</th>
+              <th scope="col">Actions</th>
+            </tr>
+        </thead>
+        {% for submission in user_submissions %}
+          {% if not submission.is_announced %}
+            <tr>
+              <td class="user-submission">{{ submission.status }}</td>
+              <td class="user-submission">submit/{{ submission.submission_id }}</td>
+              <td class="user-submission">{% if submission.metadata.title %}
+                  {{ submission.metadata.title }}
+                  {% else %}
+                  Submission {{ submission.submission_id }}
+                  {% endif %}</td>
+              <td class="user-submission">{{ submission.created|timesince }}</td>
+              <td class="user-submission">
+                {% if submission.status == submission.SUBMITTED and not submission.has_active_requests %}
+                  <a href="{{ url_for('ui.unsubmit_submission', submission_id=submission.submission_id) }}" class="help-bubble">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon filter-blue" role="presentation"><title>Unsubmit</title><path d="M255.545 8c-66.269.119-126.438 26.233-170.86 68.685L48.971 40.971C33.851 25.851 8 36.559 8 57.941V192c0 13.255 10.745 24 24 24h134.059c21.382 0 32.09-25.851 16.971-40.971l-41.75-41.75c30.864-28.899 70.801-44.907 113.23-45.273 92.398-.798 170.283 73.977 169.484 169.442C423.236 348.009 349.816 424 256 424c-41.127 0-79.997-14.678-110.63-41.556-4.743-4.161-11.906-3.908-16.368.553L89.34 422.659c-4.872 4.872-4.631 12.815.482 17.433C133.798 479.813 192.074 504 256 504c136.966 0 247.999-111.033 248-247.998C504.001 119.193 392.354 7.755 255.545 8z"/></svg>
+                    <span class="is-sr-only">Unsubmit submission id {{ submission.submission_id }}</span>
+                    <div class="bubble-text">Warning! Unsubmitting your paper will remove it from the publishing queue.</div>
+                  </a>
+                {% else %}
+                  <a href="{{ url_for('ui.submission_edit', submission_id=submission.submission_id) }}">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon filter-blue" role="presentation"><path d="M497.9 142.1l-46.1 46.1c-4.7 4.7-12.3 4.7-17 0l-111-111c-4.7-4.7-4.7-12.3 0-17l46.1-46.1c18.7-18.7 49.1-18.7 67.9 0l60.1 60.1c18.8 18.7 18.8 49.1 0 67.9zM284.2 99.8L21.6 362.4.4 483.9c-2.9 16.4 11.4 30.6 27.8 27.8l121.5-21.3 262.6-262.6c4.7-4.7 4.7-12.3 0-17l-111-111c-4.8-4.7-12.4-4.7-17.1 0zM124.1 339.9c-5.5-5.5-5.5-14.3 0-19.8l154-154c5.5-5.5 14.3-5.5 19.8 0s5.5 14.3 0 19.8l-154 154c-5.5 5.5-14.3 5.5-19.8 0zM88 424h48v36.3l-64.5 11.3-31.1-31.1L51.7 376H88v48z"/></svg>
+                    <span>Edit <span class="is-sr-only">submission id {{ submission.submission_id }}</span></span>
+                  </a>
+                {% endif %}
+                <a href="{{ url_for('ui.delete_submission', submission_id=submission.submission_id) }}">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" class="icon filter-blue" role="presentation"><title>Delete</title><path d="M32 464a48 48 0 0 0 48 48h288a48 48 0 0 0 48-48V128H32zm272-256a16 16 0 0 1 32 0v224a16 16 0 0 1-32 0zm-96 0a16 16 0 0 1 32 0v224a16 16 0 0 1-32 0zm-96 0a16 16 0 0 1 32 0v224a16 16 0 0 1-32 0zM432 32H312l-9.4-18.7A24 24 0 0 0 281.1 0H166.8a23.72 23.72 0 0 0-21.4 13.3L136 32H16A16 16 0 0 0 0 48v32a16 16 0 0 0 16 16h416a16 16 0 0 0 16-16V48a16 16 0 0 0-16-16z"/></svg>
+                  <span class="is-sr-only">Delete submission id {{ submission.submission_id }}</span>
+                </a>
+              </td>
+            </tr>
+          {% endif %}
+        {% endfor %}
+        </table>
+      {% else %}
+        <p>No submissions currently in progress</p>
+      {% endif %}
+  </div>
+</section>
+
+<section class="section">
+  <h2>Announced Articles</h2>
+  <div class="box">
+    {% if user_submissions|selectattr('is_announced')|list|length > 0 %}
+    <table class="table is-fullwidth is-hoverable">
+      <thead>
+        <tr>
+          <th scope="col">Identifier</th>
+          <th scope="col">Primary Classification</th>
+          <th scope="col">Title</th>
+          <th scope="col">Actions</th>
+        </tr>
+      </thead>
+      {% for submission in user_submissions %}
+        {% if submission.is_announced %}
+      <tr>
+        <td class="user-announced">{{ submission.arxiv_id }}</td>
+        <td class="user-announced"><span class="tag is-link">{{ submission.primary_classification.category }}</span></td>
+        <td class="user-announced">{{ submission.metadata.title }}</td>
+        <td class="user-announced">
+          {% if submission.has_active_requests %}
+            {% for request in submission.active_user_requests %}
+            <div class="tags has-addons">
+              <span class="tag is-warning">{{ request.NAME }} {{ request.status }}</span>
+              <a href="{{ url_for('ui.cancel_request', submission_id=submission.submission_id, request_id=request.request_id) }}" class="tag button button-delete-submission is-link is-small is-outlined">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" class="icon filter-blue" role="presentation"><title>Delete</title><path d="M32 464a48 48 0 0 0 48 48h288a48 48 0 0 0 48-48V128H32zm272-256a16 16 0 0 1 32 0v224a16 16 0 0 1-32 0zm-96 0a16 16 0 0 1 32 0v224a16 16 0 0 1-32 0zm-96 0a16 16 0 0 1 32 0v224a16 16 0 0 1-32 0zM432 32H312l-9.4-18.7A24 24 0 0 0 281.1 0H166.8a23.72 23.72 0 0 0-21.4 13.3L136 32H16A16 16 0 0 0 0 48v32a16 16 0 0 0 16 16h416a16 16 0 0 0 16-16V48a16 16 0 0 0-16-16z"/></svg>
+                <span class="is-sr-only">Delete request id {{ request.request_id }}</span>
+              </a>
+            </div>
+            {% endfor %}
+          {% else %}
+
+          <div class="buttons is-multiline">
+            <a href="{{ url_for('ui.create_replacement', submission_id=submission.submission_id) }}" class="button is-link is-outlined is-small" aria-label="New version (replacement)">Replace</a>
+            <a href="{{ url_for('ui.jref', submission_id=submission.submission_id) }}" class="button is-link is-outlined is-small" aria-label="Update journal reference">Add Journal Reference</a>
+            <a href="{{ url_for('ui.withdraw', submission_id=submission.submission_id) }}" class="button is-link is-outlined is-small" aria-label="Request withdrawal">Withdraw</a>
+            <a href="{{ url_for('ui.request_cross', submission_id=submission.submission_id) }}" class="button is-link is-outlined is-small" aria-label="Request cross-list">Add cross-list</a>
+          </div>
+
+          {% endif %}
+        </td>
+      </tr>
+      {% endif %}
+      {% endfor %}
+    </table>
+    {% else %}
+      <p>No announced articles</p>
+    {% endif %}
+  </div>
+</section>
+
+{% endblock %}

@@ -1,0 +1,30 @@
+{% extends "submit/base.html" %}
+
+{% import "submit/submit_macros.html" as submit_macros %}
+
+{% block title -%}Delete Files{%- endblock title %}
+
+{% block within_content %}
+<form method="POST" action="{{ url_for('ui.file_delete', submission_id=submission_id) }}">
+  {{ form.csrf_token }}
+  <div class="container breathe-vertical" style="max-width: 640px">
+    <div class="message is-danger is-inline-block">
+      <div class="message-body">
+        <h3 class="is-size-5 has-text-weight-bold has-text-primary">
+          This action will remove the following files from arXiv:
+        </h3>
+        <ul>
+          <li>{{ form.file_path.data }}</li>
+        </ul>
+        {{ form.file_path }}
+        {{ form.csrf_token }}
+        <input type="hidden" name="confirmed", value="true" />
+        <div class="buttons is-centered">
+            <a class="button" href="{{ url_for('ui.file_upload', submission_id=submission_id) }}">Keep these files</a>
+            <button class="button is-primary" type="submit">Delete these files</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</form>
+{% endblock within_content %}

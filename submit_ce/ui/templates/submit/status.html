@@ -1,0 +1,24 @@
+{% extends "submit/base.html" %}
+
+{% block title -%}{{ submission.status }}{%- endblock title %}
+
+{% block within_content %}
+<p>
+  This is for dev/debugging. We need to implement this page with a real
+  layout that communicates what's going on with a user's submission.
+</p>
+
+<pre>
+{{ submission|asdict|pprint }}
+</pre>
+
+{% for event in events %}
+<li class="">
+  {{ event.NAMED.capitalize() }} {{ event.created|timesince }} ({{event.event_id}})
+  <pre>
+  {{ event|asdict|pprint }}
+  </pre>
+</li>
+{% endfor %}
+
+{% endblock within_content %}

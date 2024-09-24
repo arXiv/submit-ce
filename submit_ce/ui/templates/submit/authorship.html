@@ -1,0 +1,66 @@
+{% extends "submit/base.html" %}
+
+{% block addl_head %}
+{{super()}}
+  <script src="{{ url_for('static', filename='js/authorship.js') }}"></script>
+{% endblock addl_head %}
+
+{% block title -%}Confirm Authorship{%- endblock title %}
+
+{% block within_content %}
+<form method="POST" action="{{ url_for('ui.authorship',submission_id=submission_id) }}">
+{{ form.csrf_token }}
+<div class="action-container" role="group" aria-labelledby="authorship_options">
+  <div class="columns">
+    <div class="column is-one-half-desktop is-one-half-tablet">
+      <span id="authorship_options" class="is-sr-only">Confirm the authorship of this submission</span>
+      {% if form.authorship.errors %}<div class="notification is-danger">{% endif %}
+      {% for field in form.authorship %}
+        <div class="field">
+          <div class="control">
+            <div class="radio">
+              {{ field|safe }}
+              {{ field.label }}
+            </div>
+          </div>
+        </div>
+      {% endfor %}
+
+        <div class="field">
+          <div class="control" style="margin-left: 2.5em; margin-top: -1em">
+            <div class="checkbox">
+              {{ form.proxy }}
+              {{ form.proxy.label }}
+              <a href="{{ url_for('help_third_party_submission') }}" class="help-bubble">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon filter-blue" role="presentation"><path d="M504 256c0 136.997-111.043 248-248 248S8 392.997 8 256C8 119.083 119.043 8 256 8s248 111.083 248 248zM262.655 90c-54.497 0-89.255 22.957-116.549 63.758-3.536 5.286-2.353 12.415 2.715 16.258l34.699 26.31c5.205 3.947 12.621 3.008 16.665-2.122 17.864-22.658 30.113-35.797 57.303-35.797 20.429 0 45.698 13.148 45.698 32.958 0 14.976-12.363 22.667-32.534 33.976C247.128 238.528 216 254.941 216 296v4c0 6.627 5.373 12 12 12h56c6.627 0 12-5.373 12-12v-1.333c0-28.462 83.186-29.647 83.186-106.667 0-58.002-60.165-102-116.531-102zM256 338c-25.365 0-46 20.635-46 46 0 25.364 20.635 46 46 46s46-20.636 46-46c0-25.365-20.635-46-46-46z"/></svg>
+                <div class="bubble-text">Third party submissions may have additional requirements. Click for detailed help page.</div></a>
+            </div>
+            {% if form.proxy.errors %}
+              {% for error in form.proxy.errors %}
+                <p class="help is-danger">{{ error }}</p>
+              {% endfor %}
+            {% endif %}
+          </div>
+        </div>
+        {% if form.authorship.errors %}
+          {% for error in form.authorship.errors %}
+            <p class="help is-danger">{{ error }}</p>
+          {% endfor %}
+        {% endif %}
+        {% if form.authorship.errors %}</div>{% endif %}
+    </div>
+
+    <div class="column is-one-half-desktop is-one-half-tablet">
+      <div class="message">
+        <div class="message-body">
+          <p class="is-size-6 is-white has-text-weight-semibold"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon filter-dark_grey" role="presentation"><path d="M256 8C119.043 8 8 119.083 8 256c0 136.997 111.043 248 248 248s248-111.003 248-248C504 119.083 392.957 8 256 8zm0 110c23.196 0 42 18.804 42 42s-18.804 42-42 42-42-18.804-42-42 18.804-42 42-42zm56 254c0 6.627-5.373 12-12 12h-88c-6.627 0-12-5.373-12-12v-24c0-6.627 5.373-12 12-12h12v-64h-12c-6.627 0-12-5.373-12-12v-24c0-6.627 5.373-12 12-12h64c6.627 0 12 5.373 12 12v100h12c6.627 0 12 5.373 12 12v24z"/></svg> Authorship guidelines</p>
+          <p>Complete and accurate authorship is required and will be <a href="{{ url_for('help_author') }}"">displayed in the public metadata</a>.</p>
+          <p>Third party submissions may have additional requirements, learn more on the <a href="{{ url_for('help_third_party_submission') }}" target="_blank">detailed help page</a>.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{{ submit_macros.submit_nav(submission_id) }}
+</form>
+{% endblock within_content %}

@@ -1,0 +1,281 @@
+{% extends "submit/base.html" %}
+
+{% block title -%}Process Files{%- endblock title %}
+
+{% block addl_head %}
+  {{ super() }}
+  {% if status and status == "in_progress" %}
+  <meta http-equiv="refresh" content="5;url={{ url_for('ui.file_process', submission_id=submission_id) }}" />
+  {% endif %}
+{% endblock addl_head %}
+
+
+
+{% block more_notifications -%}
+{% if status and status != "not_started" %}
+  {% if status == "in_progress" %}
+  <div id="status-message" data-status="{{ status }}" class="message is-warning">
+    <div class="message-header">
+      <p>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon filter-orange" role="presentation"><path d="M139.61 35.5a12 12 0 0 0-17 0L58.93 98.81l-22.7-22.12a12 12 0 0 0-17 0L3.53 92.41a12 12 0 0 0 0 17l47.59 47.4a12.78 12.78 0 0 0 17.61 0l15.59-15.62L156.52 69a12.09 12.09 0 0 0 .09-17zm0 159.19a12 12 0 0 0-17 0l-63.68 63.72-22.7-22.1a12 12 0 0 0-17 0L3.53 252a12 12 0 0 0 0 17L51 316.5a12.77 12.77 0 0 0 17.6 0l15.7-15.69 72.2-72.22a12 12 0 0 0 .09-16.9zM64 368c-26.49 0-48.59 21.5-48.59 48S37.53 464 64 464a48 48 0 0 0 0-96zm432 16H208a16 16 0 0 0-16 16v32a16 16 0 0 0 16 16h288a16 16 0 0 0 16-16v-32a16 16 0 0 0-16-16zm0-320H208a16 16 0 0 0-16 16v32a16 16 0 0 0 16 16h288a16 16 0 0 0 16-16V80a16 16 0 0 0-16-16zm0 160H208a16 16 0 0 0-16 16v32a16 16 0 0 0 16 16h288a16 16 0 0 0 16-16v-32a16 16 0 0 0-16-16z"/></svg>
+        Processing Underway
+      </p>
+    </div>
+    <div class="message-body">
+      <p>We are currently processing your submission. This may take up to a minute or two. This page will refresh automatically every 5 seconds. You can also refresh this page manually to check the current status.</p>
+    </div>
+  </div>
+
+  {% elif status == "failed" and reason %}
+  <div id="status-message" data-status="{{ status }}" class="message is-danger">
+    <div class="message-header">
+      <p>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512" class="icon filter-red" role="presentation"><path d="M569.517 440.013C587.975 472.007 564.806 512 527.94 512H48.054c-36.937 0-59.999-40.055-41.577-71.987L246.423 23.985c18.467-32.009 64.72-31.951 83.154 0l239.94 416.028zM288 354c-25.405 0-46 20.595-46 46s20.595 46 46 46 46-20.595 46-46-20.595-46-46-46zm-43.673-165.346l7.418 136c.347 6.364 5.609 11.346 11.982 11.346h48.546c6.373 0 11.635-4.982 11.982-11.346l7.418-136c.375-6.874-5.098-12.654-11.982-12.654h-63.383c-6.884 0-12.356 5.78-11.981 12.654z"/></svg>
+        {% if "docker" in reason %}
+        Processing Failed:  There was an unrecoverable internal error in the compilation system.
+        {% elif 'produced from TeX source' in reason %}
+        Processing Failed:  {{ reason }}
+        {% else %}
+        Processing Failed:
+        {% endif %}
+      </p>
+    </div>
+    {% if 'produced from TeX source' in reason %}
+    <div class="message-body">
+      <p>What to do next:</p>
+      <ul>
+        <li>upload the TeX source for your submission</li>
+        <li>or contact <a href="mailto:help@arxiv.org">arXiv administrators.</a> for assistance</li>
+      </ul>
+      <p class="has-text-centered"><a class="button is-link" href="{{ url_for('ui.file_upload', submission_id=submission_id) }}">Go back to Upload Files</a></p>
+      <p class="has-text-centered"><a class="button" href="{{ url_for('help_mistakes') }}">Help: Common TeX Errors</a></p>
+    </div>
+    <!-- This is an internal error message from the compilation service. -->
+    {% elif "docker" in reason %}
+     <div class="message-body">
+      <p>What to do next:</p>
+      <ul>
+        <li>There is no end-user solution to this system problem.</li>
+        <li>Please contact <a href="mailto:help@arxiv.org">arXiv administrators.</a> and provide the message above.</li>
+      </ul>
+      <p class="has-text-centered"><a class="button is-link" href="{{ url_for('ui.file_upload', submission_id=submission_id) }}">Go back to Upload Files</a></p>
+      <p class="has-text-centered"><a class="button" href="{{ url_for('help_mistakes') }}">Help: Common TeX Errors</a></p>
+    </div>
+    {% else %}
+    <div class="message-body">
+      <p>What to do next:</p>
+      <ul>
+        <li>review the log warnings and errors</li>
+        <li>correct any missing file problems</li>
+        <li>edit your files if needed</li>
+        <li>re-upload any corrected files</li>
+        <li>process your upload after corrections</li>
+      </ul>
+      <p class="has-text-centered"><a class="button is-link" href="{{ url_for('ui.file_upload', submission_id=submission_id) }}">Go back to Upload Files</a></p>
+      <p class="has-text-centered"><a class="button" href="{{ url_for('help_mistakes') }}">Help: Common TeX Errors</a></p>
+    </div>
+    {% endif %}
+  </div>
+
+  {% elif status == "failed" %}
+  <div id="status-message" data-status="{{ status }}" class="message is-danger">
+    <div class="message-header">
+      <p>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512" class="icon filter-red" role="presentation"><path d="M569.517 440.013C587.975 472.007 564.806 512 527.94 512H48.054c-36.937 0-59.999-40.055-41.577-71.987L246.423 23.985c18.467-32.009 64.72-31.951 83.154 0l239.94 416.028zM288 354c-25.405 0-46 20.595-46 46s20.595 46 46 46 46-20.595 46-46-20.595-46-46-46zm-43.673-165.346l7.418 136c.347 6.364 5.609 11.346 11.982 11.346h48.546c6.373 0 11.635-4.982 11.982-11.346l7.418-136c.375-6.874-5.098-12.654-11.982-12.654h-63.383c-6.884 0-12.356 5.78-11.981 12.654z"/></svg>
+        Processing Failed
+      </p>
+    </div>
+    <div class="message-body">
+      <p>What to do next:</p>
+      <ul>
+        <li>review the log warnings and errors</li>
+        <li>correct any missing file problems.
+        <li>make sure links to included files match the names of the files exactly (it is case sensitive)</li>
+        <li>edit your files if needed</li>
+        <li>verify your references, citations and captions.</li>
+        <li>re-upload any corrected files</li>
+        <li>process your upload after corrections</li>
+      </ul>
+      <p class="has-text-centered"><a class="button is-link" href="{{ url_for('ui.file_upload', submission_id=submission_id) }}">Go back to Upload Files</a></p>
+      <p class="has-text-centered"><a class="button" href="{{ url_for('help_mistakes') }}">Help: Common TeX Errors</a></p>
+    </div>
+  </div>
+
+  {% elif status == "succeeded" and warnings %}
+  <div id="status-message" data-status="{{ status }}" class="message is-warning">
+    <div class="message-header">
+      <p>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512" class="icon filter-white" role="presentation"><path d="M569.517 440.013C587.975 472.007 564.806 512 527.94 512H48.054c-36.937 0-59.999-40.055-41.577-71.987L246.423 23.985c18.467-32.009 64.72-31.951 83.154 0l239.94 416.028zM288 354c-25.405 0-46 20.595-46 46s20.595 46 46 46 46-20.595 46-46-20.595-46-46-46zm-43.673-165.346l7.418 136c.347 6.364 5.609 11.346 11.982 11.346h48.546c6.373 0 11.635-4.982 11.982-11.346l7.418-136c.375-6.874-5.098-12.654-11.982-12.654h-63.383c-6.884 0-12.356 5.78-11.981 12.654z"/></svg>
+        Completed With Warnings
+      </p>
+    </div>
+    <div class="message-body">
+      <p>Warnings may cause your submission to display incorrectly or be delayed in announcement.</p>
+      <ul>
+        <li>Be sure to <span class="has-text-weight-bold">check the compiled preview carefully</span> for any undesired artifacts or errors - especially references, figures, and captions.</li>
+        <li><span class="has-text-weight-bold">Check the compiler log</span> for warnings and errors.</li>
+        <li>Double check captions, references and citations.</li>
+        <li>For oversize submissions <em>fully complete your submission first</em>, then request an exception.</li>
+      </ul>
+      <p class="has-text-centered"><a class="button" href="{{ url_for('help_texprobs') }}">Help: TeX Rendering Problems</a></p>
+    </div>
+  </div>
+
+  {% elif status == "succeeded" %}
+  <div id="status-message" data-status="{{ status }}" class="message is-success">
+    <button class="delete notification-dismiss"></button>
+    <div class="message-header">
+      <p>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon filter-white" role="presentation"><path d="M504 256c0 136.967-111.033 248-248 248S8 392.967 8 256 119.033 8 256 8s248 111.033 248 248zM227.314 387.314l184-184c6.248-6.248 6.248-16.379 0-22.627l-22.627-22.627c-6.248-6.249-16.379-6.249-22.628 0L216 308.118l-70.059-70.059c-6.248-6.248-16.379-6.248-22.628 0l-22.627 22.627c-6.248 6.248-6.248 16.379 0 22.627l104 104c6.249 6.249 16.379 6.249 22.628.001z"/></svg>
+        Processing Successful
+      </p>
+    </div>
+    <div class="message-body">
+      <p class="has-text-weight-bold">Be sure to check the compiled preview carefully for any undesired artifacts or errors.</p>
+      <p>If you need to make corrections, return to the previous step and adjust your files, then reprocess your submission.</p>
+      <p>
+        <strong>Avoid common causes of delay:</strong>
+        Double check captions, references and citations.
+        For oversize submissions <em>fully complete your submission first</em>, then request an exception.
+      </p>
+      <!-- <p class="has-text-centered">
+        <a class="button is-link" href="{{ url_for('ui.file_preview', submission_id=submission_id) }}" target="_blank" title="PDF preview opens in a new tab">
+          <span>View PDF</span>
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon filter-white"><path d="M432,320H400a16,16,0,0,0-16,16V448H64V128H208a16,16,0,0,0,16-16V80a16,16,0,0,0-16-16H48A48,48,0,0,0,0,112V464a48,48,0,0,0,48,48H400a48,48,0,0,0,48-48V336A16,16,0,0,0,432,320ZM488,0h-128c-21.37,0-32.05,25.91-17,41l35.73,35.73L135,320.37a24,24,0,0,0,0,34L157.67,377a24,24,0,0,0,34,0L435.28,133.32,471,169c15,15,41,4.5,41-17V24A24,24,0,0,0,488,0Z"/></svg>
+        </a>
+      </p> -->
+    </div>
+  </div>
+  {% endif %}
+{% endif %}
+{%- endblock more_notifications %}
+
+
+
+{% block within_content %}
+<form method="POST" action="{{ url_for('ui.file_process', submission_id=submission_id) }}">
+  {{ form.csrf_token }}
+
+<div class="columns action-container">
+  <div class="column is-one-third-desktop is-half-tablet is-full-mobile">
+
+    {% if not status or status == "not_started" %}
+    <p><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon filter-dark_blue" role="presentation"><path d="M256 8C119.043 8 8 119.083 8 256c0 136.997 111.043 248 248 248s248-111.003 248-248C504 119.083 392.957 8 256 8zm0 110c23.196 0 42 18.804 42 42s-18.804 42-42 42-42-18.804-42-42 18.804-42 42-42zm56 254c0 6.627-5.373 12-12 12h-88c-6.627 0-12-5.373-12-12v-24c0-6.627 5.373-12 12-12h12v-64h-12c-6.627 0-12-5.373-12-12v-24c0-6.627 5.373-12 12-12h64c6.627 0 12 5.373 12 12v100h12c6.627 0 12 5.373 12 12v24z"/></svg> This step runs all files through a series of automatic checks and compiles TeX and LaTeX source packages into a PDF. <a href="{{ url_for('help_texlive') }}">Learn more about our compiler and included packages</a>.</p>
+    <div class="field is-grouped">
+      <div class="control">
+        <!-- Selecting a preferred compiler is not supported in v0.1
+        <label class="label" id="compiler">Compiler: <span class="icon has-text-link"><i class="fa fa-question-circle"></i></span></label>
+        <div class="select">
+          {{ form.compiler(**{"aria-labelledby": "compiler"})|safe }}
+        </div> -->
+        <button class="button is-link" type="submit" value="process" {% if status == "in_progress" %}disabled=true{% endif %}>Process submission files</button>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if status and status != "not_started" %}
+        {% if status == "in_progress" %}
+          <p>Files are processing...</p>
+        {% elif status == "failed" %}
+          <p>File processing has failed. Click below to go back to the previous page:</p>
+          <p><a class="button is-link" href="{{ url_for('ui.file_upload', submission_id=submission_id) }}">Go back to Upload Files</a></p>
+          <br><br>
+        {% elif status == "succeeded" and warnings %}
+          <p>All files have been processed with some warnings.</p>
+        {% elif status == "succeeded" %}
+          <p>All files have been processed successfully. Preview your article PDF before continuing.</p>
+          <p><a class="button is-link" href="{{ url_for('ui.file_preview', submission_id=submission_id) }}" target="_blank" title="PDF preview opens in a new tab">
+            <span>View PDF</span>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon filter-white" role="presentation"><path d="M432,320H400a16,16,0,0,0-16,16V448H64V128H208a16,16,0,0,0,16-16V80a16,16,0,0,0-16-16H48A48,48,0,0,0,0,112V464a48,48,0,0,0,48,48H400a48,48,0,0,0,48-48V336A16,16,0,0,0,432,320ZM488,0h-128c-21.37,0-32.05,25.91-17,41l35.73,35.73L135,320.37a24,24,0,0,0,0,34L157.67,377a24,24,0,0,0,34,0L435.28,133.32,471,169c15,15,41,4.5,41-17V24A24,24,0,0,0,488,0Z"/></svg>
+          </a></p>
+        {% endif %}
+        <!-- Selecting a preferred compiler is not supported in v0.1
+        <label class="label" id="compiler">Compiler: <span class="icon has-text-link"><i class="fa fa-question-circle"></i></span></label>
+        <div class="select">
+          {{ form.compiler(**{"aria-labelledby": "compiler"})|safe }}
+        </div> -->
+    {% endif %}
+
+    {% if status and log_output %}
+      <p>
+        Check the compiler log summary for any warnings and errors.
+        <a href="{{ url_for('ui.compilation_log', submission_id=submission_id) }}" target="_blank">View the raw log</a> for further details.
+      </p>
+      <div class="highlight-key">
+        <h3>Summary Highlight Key</h3>
+        <code><span class="tex-fatal">Severe warnings/errors</span></code><br/>
+        <code><span class="tex-danger">Important warnings</span></code><br/>
+        <code><span class="tex-warning">General warnings/errors from packages</span></code><br/>
+        <code><span class="tex-ignore">Unimportant warnings/errors</span></code><br/>
+        <code><span class="tex-success">Positive event</span></code><br/>
+        <code><span class="tex-info">Informational markup</span></code><br/>
+        <code><span class="tex-help">References to help documentation</span></code><br/>
+        <code><span class="tex-suggestion">Recommended solution</span></code><br/>
+      </div>
+      <br>
+      <a class="button" href="{{ url_for('ui.compilation_log', submission_id=submission_id) }}" target="_blank">
+        <span>View raw log</span>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon" role="presentation"><path d="M432,320H400a16,16,0,0,0-16,16V448H64V128H208a16,16,0,0,0,16-16V80a16,16,0,0,0-16-16H48A48,48,0,0,0,0,112V464a48,48,0,0,0,48,48H400a48,48,0,0,0,48-48V336A16,16,0,0,0,432,320ZM488,0h-128c-21.37,0-32.05,25.91-17,41l35.73,35.73L135,320.37a24,24,0,0,0,0,34L157.67,377a24,24,0,0,0,34,0L435.28,133.32,471,169c15,15,41,4.5,41-17V24A24,24,0,0,0,488,0Z"/></svg>
+      </a>
+    {% endif %}
+
+    {% if status and status != "not_started" %}
+      <br>
+      <button class="button reprocess" type="submit" value="process" {% if status == "in_progress" %}disabled=true{% endif %}>
+        <span>Reprocess</span>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon" role="presentation"><title>Reprocess</title><path d="M255.545 8c-66.269.119-126.438 26.233-170.86 68.685L48.971 40.971C33.851 25.851 8 36.559 8 57.941V192c0 13.255 10.745 24 24 24h134.059c21.382 0 32.09-25.851 16.971-40.971l-41.75-41.75c30.864-28.899 70.801-44.907 113.23-45.273 92.398-.798 170.283 73.977 169.484 169.442C423.236 348.009 349.816 424 256 424c-41.127 0-79.997-14.678-110.63-41.556-4.743-4.161-11.906-3.908-16.368.553L89.34 422.659c-4.872 4.872-4.631 12.815.482 17.433C133.798 479.813 192.074 504 256 504c136.966 0 247.999-111.033 248-247.998C504.001 119.193 392.354 7.755 255.545 8z"/></svg>
+      </button>
+    {% endif%}
+  </div>
+
+  <div class="column is-two-thirds-desktop is-half-tablet is-full-mobile">
+    {% if status and log_output %}
+    <div class="box texlive-summary">
+      <div class="level">
+        <div class="level-left level-is-shrinkable">
+          <h3>TeXLive Compiler Summary</h3>
+        </div>
+        <div class="level-right">
+          <a class="button" href="{{ url_for('ui.compilation_log', submission_id=submission_id) }}" target="_blank">
+            <span>View raw log</span>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon" role="presentation"><path d="M432,320H400a16,16,0,0,0-16,16V448H64V128H208a16,16,0,0,0,16-16V80a16,16,0,0,0-16-16H48A48,48,0,0,0,0,112V464a48,48,0,0,0,48,48H400a48,48,0,0,0,48-48V336A16,16,0,0,0,432,320ZM488,0h-128c-21.37,0-32.05,25.91-17,41l35.73,35.73L135,320.37a24,24,0,0,0,0,34L157.67,377a24,24,0,0,0,34,0L435.28,133.32,471,169c15,15,41,4.5,41-17V24A24,24,0,0,0,488,0Z"/></svg>
+          </a>
+        </div>
+      </div>
+      <div class="log-output">
+          {{ log_output | compilation_log_display(submission.submission_id, status) | replace("\n", "<br/>") | safe }}
+      </div>
+      <!-- Log parsing is not supported in v0.1
+      {% if errors %}
+      <article class="has-text-danger">
+        <h4 class="has-text-danger">Errors</h4>
+        {% for error in errors %}
+        <p>{{ error }}</p>
+        {% endfor %}
+      </article>
+      {% endif %}
+      {% if warnings %}
+      <article class="has-text-warning">
+        <h4 class="has-text-warning">Warnings</h4>
+        {% for warning in warnings %}
+        <p>{{ warning }}</p>
+        {% endfor %}
+      </article>
+      {% endif %}
+      {% if messages %}
+      <article>
+        <h4>Messages with no particular status</h4>
+        {% for message in messages %}
+        <p>{{ message }}</p>
+        <p class="has-text-weight-bold">Perhaps step completion notices in bold</p>
+        {% endfor %}
+      </article>
+      {% endif %} -->
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{{ submit_macros.submit_nav(submission_id) }}
+</form>
+{% endblock within_content %}

@@ -1,0 +1,59 @@
+{% extends "submit/base.html" %}
+
+{% block title -%}Unsubmit This Submission{%- endblock title %}
+
+{% block within_content %}
+<form method="POST" action="{{ url_for('ui.unsubmit_submission', submission_id=submission_id) }}">
+  {{ form.csrf_token }}
+  <div class="columns">
+    <div class="column is-half is-offset-one-quarter">
+    <article class="message is-primary breathe-vertical">
+      <div class="message-header">
+        {% block title_preamble %}{% endblock %}
+      </div>
+      <div class="message-body">
+        <p>
+            {#- TODO: include next announcement time as part of message. -#}
+            Unsubmitting will remove your article from the announcement
+            queue and prevent your article from being published. Are you sure
+            you want to unsubmit?
+        </p>
+        {{ form.csrf_token }}
+        <input type="hidden" name="confirmed", value="true" />
+        <div class="buttons is-centered">
+            <button class="button is-primary" type="submit">Yes, unsubmit this submission</button>
+            <a class="button" href="{{ url_for('ui.create_submission') }}">Cancel</a>
+        </div>
+      </div>
+    </article>
+    </div>
+  </div>
+</form>
+
+{% if submission.version > 1 %}
+  {% set arxiv_id = submission.arxiv_id %}
+{% else %}
+  {% set arxiv_id = "0000.00000" %}
+{% endif %}
+
+<section class="section">
+  <div class="box">
+  {{ macros.abs(
+    arxiv_id,
+    submission.metadata.title,
+    submission.metadata.authors_display,
+    submission.metadata.abstract,
+    submission.created,
+    submission.primary_classification.category,
+    comments = submission.metadata.comments,
+    msc_class = submission.metadata.msc_class,
+    acm_class = submission.metadata.acm_class,
+    journal_ref = submission.metadata.journal_ref,
+    doi = submission.metadata.doi,
+    report_num = submission.metadata.report_num,
+    version = submission.version,
+    submission_history = submission_history,
+    secondary_categories = submission.secondary_categories) }}
+  </div>
+</section>
+{% endblock within_content %}
