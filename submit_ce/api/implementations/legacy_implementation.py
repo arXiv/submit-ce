@@ -10,12 +10,12 @@ from pydantic_settings import BaseSettings
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker, Session as SqlalchemySession, Session
 
-from submit_ce.fastapi.api.default_api_base import BaseDefaultApi
-from submit_ce.fastapi.api.models import CategoryChangeResult
-from submit_ce.fastapi.api.models.agent import User, Client
-from submit_ce.fastapi.api.models.events import AgreedToPolicy, StartedNew, StartedAlterExising, SetLicense, \
+from submit_ce.api.api.default_api_base import BaseDefaultApi
+from submit_ce.api.api.models import CategoryChangeResult
+from submit_ce.api.api.models.agent import User, Client
+from submit_ce.api.api.models.events import AgreedToPolicy, StartedNew, StartedAlterExising, SetLicense, \
     AuthorshipDirect, AuthorshipProxy, SetCategories, SetMetadata
-from submit_ce.fastapi.implementations import ImplementationConfig
+from submit_ce.api.implementations import ImplementationConfig
 from submit_ce.file_store import SubmissionFileStore
 from submit_ce.file_store.legacy_file_store import LegacyFileStore
 
@@ -46,7 +46,7 @@ def db_lock_capable(session: SqlalchemySession) -> bool:
     return "sqlite" not in session.get_bind().url
 
 def get_session() -> SqlalchemySession:
-    """Dependency for fastapi routes"""
+    """Dependency for api routes"""
     global _setup
     if not _setup:
         if 'sqlite' in settings.CLASSIC_DB_URI:

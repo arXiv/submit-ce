@@ -18,12 +18,12 @@ from fastapi import (  # noqa: F401
 )
 from fastapi.responses import PlainTextResponse
 
-from submit_ce.fastapi.config import config
+from submit_ce.api.config import config
 from .default_api_base import BaseDefaultApi
 from .models import CategoryChangeResult
 from .models.events import AgreedToPolicy, StartedNew, StartedAlterExising, SetLicense, AuthorshipDirect, \
     AuthorshipProxy, SetCategories, SetMetadata
-from submit_ce.auth import get_user, get_client
+from submit_ce.api.auth import get_user, get_client
 from ..implementations import ImplementationConfig
 
 if not isinstance(config.submission_api_implementation, ImplementationConfig):

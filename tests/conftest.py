@@ -9,9 +9,9 @@ from fastapi.testclient import TestClient
 import arxiv.db
 
 # to ensure we can import this due to confusing errors if deps are missing.
-import submit_ce.fastapi.implementations.legacy_implementation
+import submit_ce.api.implementations.legacy_implementation
 
-from submit_ce.fastapi.config import DEV_SQLITE_FILE
+from submit_ce.api.config import DEV_SQLITE_FILE
 from .make_test_db import create_all_legacy_db
 
 
@@ -35,7 +35,7 @@ def app(legacy_db) -> FastAPI:
     settings.CLASSIC_DB_URI = url
 
     # Don't import until now so settings can be altered
-    from submit_ce.fastapi.app import app as application
+    from submit_ce.api.app import app as application
     application.dependency_overrides = {}
     return application
 

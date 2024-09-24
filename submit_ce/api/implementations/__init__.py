@@ -3,7 +3,7 @@ from typing import Callable
 
 from pydantic_settings import BaseSettings
 
-from submit_ce.fastapi.api.default_api_base import BaseDefaultApi
+from submit_ce.api.api.default_api_base import BaseDefaultApi
 
 
 @dataclass

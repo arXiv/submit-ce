@@ -4,9 +4,9 @@ from typing import ClassVar, Dict, List, Tuple, Union  # noqa: F401
 
 from fastapi import UploadFile
 
-from submit_ce.fastapi.api.models import CategoryChangeResult
-from submit_ce.fastapi.api.models.agent import User, Client
-from submit_ce.fastapi.api.models.events import AgreedToPolicy, StartedNew, AuthorshipDirect, AuthorshipProxy, \
+from submit_ce.api.api.models import CategoryChangeResult
+from submit_ce.api.api.models.agent import User, Client
+from submit_ce.api.api.models.events import AgreedToPolicy, StartedNew, AuthorshipDirect, AuthorshipProxy, \
     SetLicense, SetCategories, SetMetadata
 
 

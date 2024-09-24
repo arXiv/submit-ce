@@ -6,7 +6,7 @@ if __name__ == '__main__':
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 import fire
-from submit_ce.fastapi.config import DEV_SQLITE_FILE
+from submit_ce.api.config import DEV_SQLITE_FILE
 
 
 def create_all_legacy_db(test_db_file: str=DEV_SQLITE_FILE, echo: bool=False):

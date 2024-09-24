@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     """CLASSIC_DB_URI and other configs are from arxiv-base arxiv.config."""
 
 
-    submission_api_implementation: ImportString = 'submit_ce.fastapi.implementations.legacy_implementation.implementation'
+    submission_api_implementation: ImportString = 'submit_ce.api.implementations.legacy_implementation.implementation'
     """Class to use for submission API implementation."""
 
 
