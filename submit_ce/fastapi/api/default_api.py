@@ -23,7 +23,7 @@ from .default_api_base import BaseDefaultApi
 from .models import CategoryChangeResult
 from .models.events import AgreedToPolicy, StartedNew, StartedAlterExising, SetLicense, AuthorshipDirect, \
     AuthorshipProxy, SetCategories, SetMetadata
-from ..auth import get_user, get_client
+from submit_ce.auth import get_user, get_client
 from ..implementations import ImplementationConfig
 
 if not isinstance(config.submission_api_implementation, ImplementationConfig):
