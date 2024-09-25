@@ -1,3 +1,4 @@
+import os
 import tempfile
 import time
 import subprocess
@@ -25,34 +26,29 @@ def gen_openapi_json(file:str = "openapi.json"):
         process.kill()
 
 
-def gen_client(gen_spec:bool = True, file:Optional[str] = None):
+def gen_client(gen_spec:bool = True):
     """Generate the API client for the current server code.
 
     ARGS:
         gen_spec (bool): Whether to generate a spec file or attempt to use an exsiting one.
     """
-    import shutil
-    #with tempfile.TemporaryDirectory(prefix="submit-ce-gen-client") as tmpdir:
-    tmpdir = tempfile.mkdtemp(prefix="submit-ce-gen-client-")
-    print(f"tmpdir: {tmpdir}")
 
-    specpath=tmpdir + "/"
     if gen_spec:
-        file =  "openapi.json"
-        specpath += file
-        print(f"* Generating to {specpath} from current code")
-        gen_openapi_json(specpath)
-    else:
-        shutil.copyfile(file, specpath)
+        print(f"* Generating to openapi.json for current code")
+        gen_openapi_json()
 
     command = f"""
-    docker run --rm
-    -v {tmpdir}:/local
-    openapitools/openapi-generator-cli generate
-    -i /local/openapi.json
-    -g python
-    -o /local/client
+      docker run --rm
+      --user {str(os.getuid()) + ":" + str(os.getgid())}
+      -v ./:/local
+      openapitools/openapi-generator-cli generate
+      -i /local/openapi.json
+      -g python
+      -o /local/submit_client
+      --api-package submit_client
+      --minimal-update
     """
+    print(command)
     process = subprocess.Popen(command.split())
     process.wait()
 
