@@ -6,40 +6,17 @@ from pytz import UTC
 from dataclasses import asdict
 
 from arxiv import taxonomy
-# from arxiv.submission.domain.process import ProcessStatus
-# from arxiv.submission.domain.submission import Compilation
-# from arxiv.submission.domain.uploads import FileStatus
+from submit_ce.ui.domain import Compilation
 
-# TODO
-#from submit.controllers.ui.new.upload import group_files
+from submit_ce.ui.controllers.ui.new.upload import group_files
+from submit_ce.ui.util import tidy_filesize
 
 from .tex_filters import compilation_log_display
+from ..domain.process import ProcessStatus
+from ..domain.uploads import FileStatus
+
 
 # additions for compilation log markup
-import re
-
-def tidy_filesize(size: int) -> str:
-    """
-    Convert upload size to human-readable form.
-
-    Decision to use powers of 10 rather than powers of 2 to stay compatible
-    with Jinja filesizeformat filter with binary=false setting that we are
-    using in file_upload template.
-
-    Parameter: size in bytes
-    Returns: formatted string of size in units up through GB
-
-    """
-    units = ["B", "KB", "MB", "GB"]
-    if size == 0:
-        return "0B"
-    if size > 1000000000:
-        return '{} {}'.format(size, units[3])
-    units_index = 0
-    while size > 1000:
-        units_index += 1
-        size = round(size / 1000, 3)
-    return '{} {}'.format(size, units[units_index])
 
 
 def timesince(timestamp: datetime, default: str = "just now") -> str:
@@ -70,39 +47,39 @@ def duration(delta: timedelta) -> str:
         return "less than a second"
     return s
 
-#
-# def just_updated(status: FileStatus, seconds: int = 2) -> bool:
-#     """
-#     Filter to determine whether a specific file was just touched.
-#
-#     Parameters
-#     ----------
-#     status : :class:`FileStatus`
-#         Represents the state of the uploaded file, as conveyed by the file
-#         management service.
-#     seconds : int
-#         Threshold number of seconds for determining whether a file was just
-#         touched.
-#
-#     Returns
-#     -------
-#     bool
-#
-#     Examples
-#     --------
-#
-#     .. code-block:: html
-#
-#        <p>
-#            This item
-#            {% if item|just_updated %}was just updated
-#            {% else %}has been sitting here for a while
-#            {% endif %}.
-#        </p>
-#
-#     """
-#     now = datetime.now(tz=UTC)
-#     return abs((now - status.modified).seconds) < seconds
+
+def just_updated(status: FileStatus, seconds: int = 2) -> bool:
+    """
+    Filter to determine whether a specific file was just touched.
+
+    Parameters
+    ----------
+    status : :class:`FileStatus`
+        Represents the state of the uploaded file, as conveyed by the file
+        management service.
+    seconds : int
+        Threshold number of seconds for determining whether a file was just
+        touched.
+
+    Returns
+    -------
+    bool
+
+    Examples
+    --------
+
+    .. code-block:: html
+
+       <p>
+           This item
+           {% if item|just_updated %}was just updated
+           {% else %}has been sitting here for a while
+           {% endif %}.
+       </p>
+
+    """
+    now = datetime.now(tz=UTC)
+    return abs((now - status.modified).seconds) < seconds
 
 
 def get_category_name(category: str) -> str:
@@ -127,39 +104,36 @@ def get_category_name(category: str) -> str:
     """
     return taxonomy.CATEGORIES_ACTIVE[category]['name']
 
-#
-# def process_status_display(status: ProcessStatus.Status) -> str:
-#     if status is ProcessStatus.Status.REQUESTED:
-#         return "in progress"
-#     elif status is ProcessStatus.Status.FAILED:
-#         return "failed"
-#     elif status is ProcessStatus.Status.SUCCEEDED:
-#         return "suceeded"
-#     raise ValueError("Unknown status")
-#
-#
-# def compilation_status_display(status: Compilation.Status) -> str:
-#     if status is Compilation.Status.IN_PROGRESS:
-#         return "in progress"
-#     elif status is Compilation.Status.FAILED:
-#         return "failed"
-#     elif status is Compilation.Status.SUCCEEDED:
-#         return "suceeded"
-#     raise ValueError("Unknown status")
+
+def process_status_display(status: ProcessStatus.Status) -> str:
+    if status is ProcessStatus.Status.REQUESTED:
+        return "in progress"
+    elif status is ProcessStatus.Status.FAILED:
+        return "failed"
+    elif status is ProcessStatus.Status.SUCCEEDED:
+        return "suceeded"
+    raise ValueError("Unknown status")
+
+
+def compilation_status_display(status: Compilation.Status) -> str:
+    if status is Compilation.Status.IN_PROGRESS:
+        return "in progress"
+    elif status is Compilation.Status.FAILED:
+        return "failed"
+    elif status is Compilation.Status.SUCCEEDED:
+        return "suceeded"
+    raise ValueError("Unknown status")
 
 
 def get_filters() -> List[Tuple[str, Callable]]:
     """Get the filter functions available in this module."""
-
-    # Everything commented out in this list has not yet been full
-    # brought over from NG
     return [
-        #('group_files', group_files),
+        ('group_files', group_files),
         ('timesince', timesince),
-        #('just_updated', just_updated),
+        ('just_updated', just_updated),
         ('get_category_name', get_category_name),
-        #('process_status_display', process_status_display),
-        #('compilation_status_display', compilation_status_display),
+        ('process_status_display', process_status_display),
+        ('compilation_status_display', compilation_status_display),
         ('duration', duration),
         ('tidy_filesize', tidy_filesize),
         ('asdict', asdict),

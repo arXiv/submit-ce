@@ -9,8 +9,7 @@ from flask import Flask
 
 from . import filters
 from .config import Settings
-from .router import blueprint as ui_blueprint
-
+from .routes.ui.ui import UI
 
 def create_web_app(config: Optional[dict]=None) -> Flask:
     """Initialize an instance of the search frontend UI web application."""
@@ -27,7 +26,7 @@ def create_web_app(config: Optional[dict]=None) -> Flask:
 
     Base(app)
     #auth.Auth(app)
-    app.register_blueprint(ui_blueprint)
+    app.register_blueprint(UI)
     #middleware = [AuthMiddleware]
     #wrap(app, middleware)
 

@@ -76,7 +76,7 @@ def compilation_log_display(autotex_log: str, submission_id: int,
         # )
 
     run_summary = run_summary + (
-        f"Summary of TeX runs:\n\n"
+        "Summary of TeX runs:\n\n"
     )
 
     new_log = ''
@@ -387,7 +387,7 @@ def compilation_log_display(autotex_log: str, submission_id: int,
 
                     error_summary = error_summary + (
                         "\t<li>At the current time arXiv does not support XeTeX/LuaTeX.\n\n"
-                        '\tIf you believe that your ui-app requires a compilation '
+                        '\tIf you believe that your submission requires a compilation '
                         'method \n\tunsupported by arXiv, please contact '
                         '<span class=\"tex-help\">help@arxiv.org</span> for '
                         '\n\tmore information and provide us with this '
@@ -416,7 +416,7 @@ def compilation_log_display(autotex_log: str, submission_id: int,
                         "this is due to a problem with \n\tour system, please "
                         "contact <span class=\"tex-help\">help@arxiv.org</span>"
                         " with details \n\tand provide us with this "
-                        f'ui-app identifier: submit/{submission_id}.'
+                        f'submission identifier: submit/{submission_id}.'
                         '</li>')
 
                     have_detected_missing_font_markup = True
@@ -434,7 +434,7 @@ def compilation_log_display(autotex_log: str, submission_id: int,
 
                     error_summary = error_summary + (
                         "\t<li>Analysis of the compilation log indicates "
-                        "your ui-app \n\tmay need an additional TeX run. "
+                        "your submission \n\tmay need an additional TeX run. "
                         "Please add the following line \n\tto your source in "
                         "order to force an additional TeX run:\n\n"
                         "\t<span class=\"tex-help\">\\typeout{get arXiv "
@@ -467,10 +467,10 @@ def compilation_log_display(autotex_log: str, submission_id: int,
                         error_summary = error_summary + '\n'
 
                     error_summary = error_summary + (
-                        "<li>\tA file required by your ui-app was not found."
+                        "<li>\tA file required by your submission was not found."
                         f"\n\t{line}\n\tPlease upload any missing files, or "
                         "correct any file naming issues, and then reprocess"
-                        " your ui-app.</li>")
+                        " your submission.</li>")
 
                     # Don't activate this so we can see bug I created above...
                     have_detected_missing_file = True
@@ -490,7 +490,7 @@ def compilation_log_display(autotex_log: str, submission_id: int,
                         "\t<li>We detected an emergency stop during one of the TeX"
                         " compilation runs. Please review the compilation log"
                         " to determie whether there is a serious issue with "
-                        "your ui-app source.</li>")
+                        "your submission source.</li>")
 
                     have_detected_emergency_stop = True
 
@@ -532,7 +532,7 @@ def compilation_log_display(autotex_log: str, submission_id: int,
                               "log (see below).")
             status_class = 'danger'
         else:
-            display_status = f"Succeeded!"
+            display_status = "Succeeded!"
             status_class = 'success'
     else:
         status_class = 'warning'
