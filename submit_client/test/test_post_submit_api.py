@@ -14,7 +14,7 @@
 
 import unittest
 
-from submit_client.post_submit_api import PostSubmitApi
+from submit_client import PostSubmitApi
 
 
 class TestPostSubmitApi(unittest.TestCase):

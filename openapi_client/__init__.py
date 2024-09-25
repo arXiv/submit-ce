@@ -17,9 +17,9 @@
 __version__ = "1.0.0"
 
 # import apis into sdk package
-from submit_client.post_submit_api import PostSubmitApi
-from submit_client.service_api import ServiceApi
-from submit_client.submit_api import SubmitApi
+from openapi_client.api.post_submit_api import PostSubmitApi
+from openapi_client.api.service_api import ServiceApi
+from openapi_client.api.submit_api import SubmitApi
 
 # import ApiClient
 from openapi_client.api_response import ApiResponse
