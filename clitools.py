@@ -14,7 +14,7 @@ def gen_openapi_json(file:str = "openapi.json"):
     port = random.randint(9000, 12000)
     command = f"uvicorn submit_ce.api.app:app --host 127.0.0.1 --port {port}".split()
     process = subprocess.Popen(command)
-    time.sleep(1)
+    time.sleep(1.5)
     try:
         response = requests.get("http://127.0.0.1:%d/openapi.json" % port)
         if response.status_code != 200:
@@ -45,7 +45,6 @@ def gen_client(gen_spec:bool = True):
       -i /local/openapi.json
       -g python
       -o /local/submit_client
-      --api-package submit_client
       --minimal-update
     """
     print(command)

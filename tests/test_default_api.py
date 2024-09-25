@@ -2,8 +2,6 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from submit_ce.api.api.models.events import AgreedToPolicy
-
 
 def test_get_service_status(client: TestClient):
     """Test case for get_service_status"""
