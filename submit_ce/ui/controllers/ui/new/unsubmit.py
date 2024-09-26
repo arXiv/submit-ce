@@ -10,7 +10,7 @@ from werkzeug.exceptions import BadRequest, InternalServerError
 
 from arxiv.base import alerts
 from arxiv.forms import csrf
-from submit_ce.ui.core import save
+from submit_ce.ui.backend import save
 from submit_ce.ui.domain.event import UnFinalizeSubmission
 
 from submit_ce.ui.controllers.ui.util import Response, user_and_client_from_session, validate_command

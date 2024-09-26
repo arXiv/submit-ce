@@ -11,7 +11,7 @@ from wtforms import validators
 from http import HTTPStatus as status
 from arxiv.forms import csrf
 
-from submit_ce.ui.core import save, Submission, Event
+from submit_ce.ui.backend import save, Submission, Event
 from submit_ce.ui.domain import User, Client
 from submit_ce.ui.domain.event import SetTitle, SetAuthors, SetAbstract, \
     SetACMClassification, SetMSCClassification, SetComments, SetReportNumber, \

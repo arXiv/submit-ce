@@ -25,10 +25,10 @@ def create_web_app(config: Optional[dict]=None) -> Flask:
     app.config.from_object(settings)
 
     Base(app)
-    #auth.Auth(app)
+    auth.Auth(app)
     app.register_blueprint(UI)
-    #middleware = [AuthMiddleware]
-    #wrap(app, middleware)
+    middleware = [AuthMiddleware]
+    wrap(app, middleware)
 
     for filter_name, filter_func in filters.get_filters():
         app.jinja_env.filters[filter_name] = filter_func

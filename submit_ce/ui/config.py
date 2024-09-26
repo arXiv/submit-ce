@@ -25,6 +25,11 @@ class Settings(ArxivBaseSettings):
         self.api_config = APIConfiguration(**combined_dict)
 
     api_config: APIConfiguration = APIConfiguration()
+    AUTH_UPDATED_SESSION_REF: bool=True
+    """Setting related to auth to force it to use 'auth' for the location of the user session instead of
+    'session' which ususlaly has the flask session. This should always be 1 and in the future the setting should
+    be removed from arxiv-base auth."""
+
 
 settings = Settings()
 

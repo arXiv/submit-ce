@@ -10,7 +10,7 @@ from arxiv.base import logging, alerts
 from arxiv.forms import csrf
 from markupsafe import Markup
 
-from submit_ce.ui.core import save
+from submit_ce.ui.backend import save
 from submit_ce.ui.domain.event import UpdateUploadPackage
 from submit_ce.ui.exceptions import SaveError
 from werkzeug.datastructures import MultiDict
@@ -71,7 +71,7 @@ def delete_all(method: str, params: MultiDict, session: Session,
     if token is None:
         add_immediate_alert(rdata, alerts.FAILURE, 'Missing auth token')
         return stay_on_this_stage((rdata, status.OK, {}))
-    raise NotImplemented()
+    raise NotImplementedError()
     # fm = Filemanager.current_session()
     # submission, submission_events = load_submission(submission_id)
     # upload_id = submission.source_content.identifier
@@ -178,7 +178,7 @@ def delete_file(method: str, params: MultiDict, session: Session,
     if token is None:
         add_immediate_alert(rdata, alerts.FAILURE, 'Missing auth token')
         return stay_on_this_stage((rdata, status.OK, {}))
-    raise NotImplemented()
+    raise NotImplementedError()
     # fm = Filemanager.current_session()
     # submission, submission_events = load_submission(submission_id)
     # upload_id = submission.source_content.identifier

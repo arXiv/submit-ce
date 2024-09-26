@@ -17,7 +17,7 @@ from submit_ce.ui.domain.event import RequestWithdrawal
 
 from submit_ce.ui.util import load_submission
 from .util import FieldMixin, user_and_client_from_session, validate_command
-from ...core import save
+from ...backend import save
 from ...exceptions import SaveError
 
 logger = logging.getLogger(__name__)  # pylint: disable=C0103

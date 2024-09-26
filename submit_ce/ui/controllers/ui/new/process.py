@@ -16,7 +16,7 @@ from arxiv.base import logging, alerts
 from arxiv.forms import csrf
 from markupsafe import Markup
 
-from submit_ce.ui.core import save
+from submit_ce.ui.backend import save
 from submit_ce.ui.domain.event import ConfirmSourceProcessed
 from flask import url_for
 from werkzeug.datastructures import MultiDict
@@ -156,7 +156,7 @@ def compile_status(params: MultiDict, session: Session, submission_id: int,
     # Determine whether the current state of the uploaded source content has
     # been compiled.
 
-    raise NotImplemented()
+    raise NotImplementedError()
     # result: Optional[process_source.CheckResult] = None
     # try:
     #     result = process_source.check(submission, submitter, client, token)
@@ -188,7 +188,7 @@ def start_compilation(params: MultiDict, session: Session, submission_id: int,
 
     if not form.validate():
         return stay_on_this_stage((response_data,status.OK,{}))
-    raise NotImplemented()
+    raise NotImplementedError()
     # try:
     #     result = process_source.start(submission, submitter, client, token)
     # except process_source.FailedToStart as e:
@@ -220,7 +220,7 @@ def file_preview(params, session: Session, submission_id: int, token: str,
     """Serve the PDF preview for a submission."""
     submitter, client = user_and_client_from_session(session)
     submission, submission_events = load_submission(submission_id)
-    raise NotImplemented()
+    raise NotImplementedError()
     # p = PreviewService.current_session()
     # stream, pdf_checksum = p.get(submission.source_content.identifier,
     #                              submission.source_content.checksum,
@@ -234,7 +234,7 @@ def compilation_log(params, session: Session, submission_id: int, token: str,
     submitter, client = user_and_client_from_session(session)
     submission, submission_events = load_submission(submission_id)
     checksum = params.get('checksum', submission.source_content.checksum)
-    raise NotImplemented()
+    raise NotImplementedError()
     # try:
     #     log = Compiler.get_log(submission.source_content.identifier, checksum,
     #                            token)

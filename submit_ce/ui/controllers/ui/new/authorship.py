@@ -15,7 +15,7 @@ from wtforms.validators import InputRequired, ValidationError, optional
 
 from arxiv.base import logging
 from arxiv.forms import csrf
-from submit_ce.ui.core import save
+from submit_ce.ui.backend import save
 from submit_ce.ui.domain.event import ConfirmAuthorship
 from submit_ce.ui.exceptions import SaveError
 

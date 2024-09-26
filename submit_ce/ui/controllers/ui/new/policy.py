@@ -13,7 +13,7 @@ from wtforms import BooleanField
 from wtforms.validators import InputRequired
 
 from arxiv.forms import csrf
-from submit_ce.ui.core import save
+from submit_ce.ui.backend import save
 from submit_ce.ui.domain.event import ConfirmPolicy
 from submit_ce.ui.exceptions import SaveError
 

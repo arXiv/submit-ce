@@ -29,7 +29,7 @@ from wtforms import BooleanField, FileField
 
 from arxiv.base import logging, alerts
 from arxiv.forms import csrf
-from submit_ce.ui.core import save, Submission, Event
+from submit_ce.ui.backend import save, Submission, Event
 from submit_ce.ui.domain import SubmissionContent, Client, User
 from submit_ce.ui.domain.event import UpdateUploadPackage, SetUploadPackage
 from submit_ce.ui.domain.uploads import Upload, UploadStatus, FileStatus
@@ -236,7 +236,7 @@ def _get_upload(params: MultiDict, session: Session, submission: Submission,
     if submission.source_content is None:
         # Nothing to show; should generate a blank-slate upload screen.
         return rdata, status.OK, {}
-    raise NotImplemented("Filemanager moved to inside the submit api")
+    raise NotImplementedError("Filemanager moved to inside the submit api")
     # fm = Filemanager.current_session()
     #
     # upload_id = submission.source_content.identifier
@@ -290,7 +290,7 @@ def _new_upload(params: MultiDict, pointer: FileStorage, session: Session,
 
     """
     submitter, client = user_and_client_from_session(session)
-    raise NotImplemented("Filemanager moved to inside the submit api")
+    raise NotImplementedError("Filemanager moved to inside the submit api")
     # fm = Filemanager.current_session()
     #
     # params['file'] = pointer
@@ -374,7 +374,7 @@ def _new_file(params: MultiDict, pointer: FileStorage, session: Session,
 
     """
     submitter, client = user_and_client_from_session(session)
-    raise NotImplemented("Filemanager moved to inside the submit api")
+    raise NotImplementedError("Filemanager moved to inside the submit api")
     # fm = Filemanager.current_session()
     # upload_id = submission.source_content.identifier
     #

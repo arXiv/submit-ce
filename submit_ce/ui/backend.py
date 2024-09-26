@@ -1,18 +1,12 @@
 """Core persistence methods for submissions and submission events."""
 
 from typing import List, Tuple, Optional
-from datetime import datetime
-from pytz import UTC
-
-from flask import Flask
-
-from arxiv.base import logging
 
 from submit_ce.ui.domain import Submission
 from submit_ce.ui.domain.event import Event, CreateSubmission
 from submit_ce.ui.exceptions import NoSuchSubmission, NothingToDo
 
-
+import logging
 logger = logging.getLogger(__name__)
 
 
@@ -42,7 +36,7 @@ def load(submission_id: int) -> Tuple[Submission, List[Event]]:
 
     """
     #try:
-    raise NotImplemented()
+    raise NotImplementedError()
     #
 
 def load_submissions_for_user(user_id: int) -> List[Submission]:
@@ -62,7 +56,7 @@ def load_submissions_for_user(user_id: int) -> List[Submission]:
     """
     # with classic.transaction():
     #     return classic.get_user_submissions_fast(user_id)
-    raise NotImplemented()
+    raise NotImplementedError()
 
 def load_fast(submission_id: int) -> Submission:
     """
@@ -87,7 +81,7 @@ def load_fast(submission_id: int) -> Submission:
     #         return classic.get_submission_fast(submission_id)
     # except classic.NoSuchSubmission as e:
     #     raise NoSuchSubmission(f'No submission with id {submission_id}') from e
-    raise NotImplemented()
+    raise NotImplementedError()
 
 
 def save(*events: Event, submission_id: Optional[int] = None) \
@@ -180,5 +174,5 @@ def save(*events: Event, submission_id: Optional[int] = None) \
     #
     #     all_ = sorted(set(prior) | set(committed), key=lambda e: e.created)
     #     return after, list(all_)
-    raise NotImplemented()
+    raise NotImplementedError()
 

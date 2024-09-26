@@ -14,7 +14,7 @@ from wtforms.validators import ValidationError, optional
 
 from arxiv.base import logging, alerts
 from arxiv.forms import csrf
-from submit_ce.ui.core import save, Submission
+from submit_ce.ui.backend import save, Submission
 from submit_ce.ui.domain.event import RequestCrossList
 from submit_ce.ui.exceptions import SaveError
 from arxiv.taxonomy.definitions import CATEGORIES_ACTIVE as CATEGORIES

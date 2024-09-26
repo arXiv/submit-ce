@@ -16,7 +16,7 @@ from wtforms.validators import InputRequired
 from arxiv.forms import csrf
 from arxiv.base import logging
 from arxiv.license import LICENSES
-from submit_ce.ui.core import save
+from submit_ce.ui.backend import save
 from submit_ce.ui.domain.event import SetLicense
 from submit_ce.ui.exceptions import SaveError
 from submit_ce.ui.util import load_submission

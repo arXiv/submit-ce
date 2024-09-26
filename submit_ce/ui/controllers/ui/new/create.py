@@ -11,11 +11,11 @@ from retry import retry
 from arxiv.forms import csrf
 from arxiv.base import logging
 
-from submit_ce.ui.core import save
+from submit_ce.ui.backend import save
 from submit_ce.ui.domain.event import CreateSubmission, \
     CreateSubmissionVersion
 from submit_ce.ui.exceptions import SaveError
-from submit_ce.ui.core import load_submissions_for_user
+from submit_ce.ui.backend import load_submissions_for_user
 
 from submit_ce.ui.controllers.ui.util import Response, user_and_client_from_session, validate_command
 from submit_ce.ui.util import load_submission

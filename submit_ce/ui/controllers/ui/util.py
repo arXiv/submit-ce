@@ -147,7 +147,9 @@ def user_and_client_from_session(session: Session) \
         forename=getattr(session.user.name, 'forename', None),
         surname=getattr(session.user.name, 'surname', None),
         suffix=getattr(session.user.name, 'suffix', None),
-        endorsements=session.authorizations.endorsements
+        # todo from the legacy.db and jwt from tests/make_test_db.py I'm not getting endorsements
+        #endorsements=session.authorizations.endorsements
+        endorsements=[]
     )
     return user, None
 

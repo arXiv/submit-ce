@@ -9,7 +9,7 @@ from werkzeug.datastructures import MultiDict
 from werkzeug.exceptions import BadRequest, InternalServerError, NotFound
 
 from arxiv.base import alerts
-from submit_ce.ui.core import save
+from submit_ce.ui.backend import save
 from submit_ce.ui.domain.event import Rollback, CancelRequest
 from arxiv.forms import csrf
 from submit_ce.ui.controllers.ui.util import Response, user_and_client_from_session, validate_command

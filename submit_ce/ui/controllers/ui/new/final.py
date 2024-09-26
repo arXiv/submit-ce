@@ -13,7 +13,7 @@ from wtforms.validators import InputRequired
 from http import HTTPStatus as status
 from arxiv.forms import csrf
 from arxiv.base import logging
-from submit_ce.ui.core import save
+from submit_ce.ui.backend import save
 from submit_ce.ui.domain.event import FinalizeSubmission
 from submit_ce.ui.exceptions import SaveError
 from submit_ce.ui.util import load_submission
