@@ -3,7 +3,7 @@
 from unittest import TestCase
 import re
 
-from submit.filters import compilation_log_display
+from submit_ce.ui.filters import compilation_log_display
 
 class Test_TeX_Autotex_Log_Markup(TestCase):
     """
