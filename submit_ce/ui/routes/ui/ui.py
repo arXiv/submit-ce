@@ -155,7 +155,7 @@ def service_status():
                         unauthorized=redirect_to_login)
 def manage_submissions():
     """Display the submission management dashboard."""
-    return handle(cntrls.create, 'submit_ce/manage_submissions.html',
+    return handle(cntrls.create, 'submit/manage_submissions.html',
                   'Manage submissions')
 
 
@@ -164,7 +164,7 @@ def manage_submissions():
                         unauthorized=redirect_to_login)
 def create_submission():
     """Create a new submission."""
-    return handle(cntrls.create, 'submit_ce/manage_submissions.html',
+    return handle(cntrls.create, 'submit/manage_submissions.html',
                   'Create a new submission')
 
 
@@ -174,7 +174,7 @@ def create_submission():
 def unsubmit_submission(submission_id: int):
     """Unsubmit (unfinalize) a submission."""
     return handle(cntrls.new.unsubmit.unsubmit,
-                  'submit_ce/confirm_unsubmit.html',
+                  'submit/confirm_unsubmit.html',
                   'Unsubmit submission', submission_id)
 
 
@@ -184,7 +184,7 @@ def unsubmit_submission(submission_id: int):
 def delete_submission(submission_id: int):
     """Delete, or roll a submission back to the last announced state."""
     return handle(cntrls.delete.delete,
-                  'submit_ce/confirm_delete_submission.html',
+                  'submit/confirm_delete_submission.html',
                   'Delete submission or replacement', submission_id)
 
 
@@ -194,7 +194,7 @@ def delete_submission(submission_id: int):
 def cancel_request(submission_id: int, request_id: str):
     """Cancel a pending request."""
     return handle(cntrls.delete.cancel_request,
-                  'submit_ce/confirm_cancel_request.html', 'Cancel request',
+                  'submit/confirm_cancel_request.html', 'Cancel request',
                   submission_id, request_id=request_id)
 
 
@@ -203,7 +203,7 @@ def cancel_request(submission_id: int, request_id: str):
                         unauthorized=redirect_to_login)
 def create_replacement(submission_id: int):
     """Create a replacement submission."""
-    return handle(cntrls.new.create.replace, 'submit_ce/replace.html',
+    return handle(cntrls.new.create.replace, 'submit/replace.html',
                   'Create a new version (replacement)', submission_id)
 
 
@@ -212,7 +212,7 @@ def create_replacement(submission_id: int):
                         unauthorized=redirect_to_login)
 def submission_status(submission_id: int) -> Response:
     """Display the current state of the submission."""
-    return handle(cntrls.submission_status, 'submit_ce/status.html',
+    return handle(cntrls.submission_status, 'submit/status.html',
                   'Submission status', submission_id)
 
 
@@ -222,7 +222,7 @@ def submission_status(submission_id: int) -> Response:
 @flow_control()
 def submission_edit(submission_id: int) -> Response:
     """Redirects to current edit stage of the submission."""
-    return handle(cntrls.submission_edit, 'submit_ce/status.html',
+    return handle(cntrls.submission_edit, 'submit/status.html',
                   'Submission status', submission_id, flow_controlled=True)
 
 # # TODO: remove me!!
@@ -297,7 +297,7 @@ def submission_edit(submission_id: int) -> Response:
 @flow_control()
 def verify_user(submission_id: Optional[int] = None) -> Response:
     """Render the submit_ce start page."""
-    return handle(cntrls.verify, 'submit_ce/verify_user.html',
+    return handle(cntrls.verify, 'submit/verify_user.html',
                   'Verify User Information', submission_id, flow_controlled=True)
 
 
@@ -307,7 +307,7 @@ def verify_user(submission_id: Optional[int] = None) -> Response:
 @flow_control()
 def authorship(submission_id: int) -> Response:
     """Render step 2, authorship."""
-    return handle(cntrls.authorship, 'submit_ce/authorship.html',
+    return handle(cntrls.authorship, 'submit/authorship.html',
                   'Confirm Authorship', submission_id, flow_controlled=True)
 
 
@@ -317,7 +317,7 @@ def authorship(submission_id: int) -> Response:
 @flow_control()
 def license(submission_id: int) -> Response:
     """Render step 3, select license."""
-    return handle(cntrls.license, 'submit_ce/license.html',
+    return handle(cntrls.license, 'submit/license.html',
                   'Select a License', submission_id, flow_controlled=True)
 
 
@@ -327,7 +327,7 @@ def license(submission_id: int) -> Response:
 @flow_control()
 def policy(submission_id: int) -> Response:
     """Render step 4, policy agreement."""
-    return handle(cntrls.policy, 'submit_ce/policy.html',
+    return handle(cntrls.policy, 'submit/policy.html',
                   'Acknowledge Policy Statement', submission_id,
                   flow_controlled=True)
 
@@ -339,7 +339,7 @@ def policy(submission_id: int) -> Response:
 def classification(submission_id: int) -> Response:
     """Render step 5, choose classification."""
     return handle(cntrls.classification,
-                  'submit_ce/classification.html',
+                  'submit/classification.html',
                   'Choose a Primary Classification', submission_id,
                   flow_controlled=True)
 
@@ -351,7 +351,7 @@ def classification(submission_id: int) -> Response:
 def cross_list(submission_id: int) -> Response:
     """Render step 6, secondary classes."""
     return handle(cntrls.cross_list,
-                  'submit_ce/cross_list.html',
+                  'submit/cross_list.html',
                   'Choose Cross-List Classifications', submission_id,
                   flow_controlled=True)
 
@@ -362,7 +362,7 @@ def cross_list(submission_id: int) -> Response:
 @flow_control()
 def file_upload(submission_id: int) -> Response:
     """Render step 7, file upload."""
-    return handle(upload.upload_files, 'submit_ce/file_upload.html',
+    return handle(upload.upload_files, 'submit/file_upload.html',
                   'Upload Files', submission_id, files=request.files,
                   token=request.environ['token'], flow_controlled=True)
 
@@ -373,7 +373,7 @@ def file_upload(submission_id: int) -> Response:
 @flow_control(FileUpload)
 def file_delete(submission_id: int) -> Response:
     """Provide the file deletion endpoint, part of the upload step."""
-    return handle(upload_delete.delete_file, 'submit_ce/confirm_delete.html',
+    return handle(upload_delete.delete_file, 'submit/confirm_delete.html',
                   'Delete File', submission_id, get_params=True,
                   token=request.environ['token'], flow_controlled=True)
 
@@ -385,7 +385,7 @@ def file_delete(submission_id: int) -> Response:
 def file_delete_all(submission_id: int) -> Response:
     """Provide endpoint to delete all files, part of the upload step."""
     return handle(upload_delete.delete_all,
-                  'submit_ce/confirm_delete_all.html', 'Delete All Files',
+                  'submit/confirm_delete_all.html', 'Delete All Files',
                   submission_id, get_params=True,
                   token=request.environ['token'], flow_controlled=True)
 
@@ -396,7 +396,7 @@ def file_delete_all(submission_id: int) -> Response:
 @flow_control()
 def file_process(submission_id: int) -> Response:
     """Render step 8, file processing."""
-    return handle(cntrls.process.file_process, 'submit_ce/file_process.html',
+    return handle(cntrls.process.file_process, 'submit/file_process.html',
                   'Process Files', submission_id, get_params=True,
                   token=request.environ['token'], flow_controlled=True)
 
@@ -442,7 +442,7 @@ def compilation_log(submission_id: int) -> Response:
 @flow_control()
 def add_metadata(submission_id: int) -> Response:
     """Render step 9, metadata."""
-    return handle(cntrls.metadata, 'submit_ce/add_metadata.html',
+    return handle(cntrls.metadata, 'submit/add_metadata.html',
                   'Add or Edit Metadata', submission_id, flow_controlled=True)
 
 
@@ -453,7 +453,7 @@ def add_metadata(submission_id: int) -> Response:
 def add_optional_metadata(submission_id: int) -> Response:
     """Render step 9, metadata."""
     return handle(cntrls.optional,
-                  'submit_ce/add_optional_metadata.html',
+                  'submit/add_optional_metadata.html',
                   'Add or Edit Metadata', submission_id, flow_controlled=True)
 
 
@@ -463,7 +463,7 @@ def add_optional_metadata(submission_id: int) -> Response:
 @flow_control()
 def final_preview(submission_id: int) -> Response:
     """Render step 10, preview."""
-    return handle(cntrls.finalize, 'submit_ce/final_preview.html',
+    return handle(cntrls.finalize, 'submit/final_preview.html',
                   'Preview and Approve', submission_id, flow_controlled=True)
 
 
@@ -486,7 +486,7 @@ def confirmation(submission_id: int) -> Response:
                         unauthorized=redirect_to_login)
 def jref(submission_id: Optional[int] = None) -> Response:
     """Render the JREF submission page."""
-    return handle(cntrls.jref.jref, 'submit_ce/jref.html',
+    return handle(cntrls.jref.jref, 'submit/jref.html',
                   'Add journal reference', submission_id,
                   flow_controlled=False)
 
@@ -497,7 +497,7 @@ def jref(submission_id: Optional[int] = None) -> Response:
 def withdraw(submission_id: Optional[int] = None) -> Response:
     """Render the withdrawal request page."""
     return handle(cntrls.withdraw.request_withdrawal,
-                  'submit_ce/withdraw.html', 'Request withdrawal',
+                  'submit/withdraw.html', 'Request withdrawal',
                   submission_id, flow_controlled=False)
 
 
@@ -508,7 +508,7 @@ def withdraw(submission_id: Optional[int] = None) -> Response:
 def request_cross(submission_id: Optional[int] = None) -> Response:
     """Render the cross-list request page."""
     return handle(cntrls.cross.request_cross,
-                  'submit_ce/request_cross_list.html', 'Request cross-list',
+                  'submit/request_cross_list.html', 'Request cross-list',
                   submission_id, flow_controlled=True)
 
 @UI.route('/testalerts')

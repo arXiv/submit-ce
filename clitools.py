@@ -44,7 +44,8 @@ def gen_client(gen_spec:bool = True):
       openapitools/openapi-generator-cli generate
       -i /local/openapi.json
       -g python
-      -o /local/submit_client
+      -o /local/client
+      --package-name openapi_submit_client
       --minimal-update
     """
     print(command)
@@ -55,7 +56,7 @@ def gen_client(gen_spec:bool = True):
 if __name__ == "__main__":
     fire.Fire(
         {
-        "gen_openapi_json":gen_openapi_json,
+            "gen_openapi_json":gen_openapi_json,
             "gen_client":gen_client,
-            }
-        )
+        }
+    )

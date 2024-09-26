@@ -1,6 +1,18 @@
 # Change log, Reasoning and History
 (Newest at top)
 
+# 2024-09-26 UI ever so slightly working, generated client
+Brian Caruso
+
+I've got the UI working to render the first page. tests/make_test_db.py works to
+make a test db with users and auth works.
+
+There is a generated client in `client`. It can be built with `clitools.py`. I'm
+starting to wire up the UI to use that.
+
+I took the NG submission-core and submission-ui and put them in the same project
+and then refactored the pacakges. 
+
 # 2024-09-24 Start of UI
 Brian Caruso
 

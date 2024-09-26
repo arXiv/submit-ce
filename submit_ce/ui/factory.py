@@ -7,7 +7,7 @@ from arxiv.base import Base
 from arxiv.base.middleware import wrap
 from flask import Flask
 
-from . import filters
+from . import filters, backend
 from .config import Settings
 from .routes.ui.ui import UI
 
@@ -23,7 +23,7 @@ def create_web_app(config: Optional[dict]=None) -> Flask:
 
     settings = Settings(**config or {})
     app.config.from_object(settings)
-
+    backend.config_backend_api(settings.api_config)
     Base(app)
     auth.Auth(app)
     app.register_blueprint(UI)
