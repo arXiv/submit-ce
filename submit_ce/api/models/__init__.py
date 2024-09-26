@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Literal, List, Optional
 
-from arxiv.taxonomy.definitions import CATEGORIES_ACTIVE, CATEGORIES
+from arxiv.taxonomy.definitions import CATEGORIES
 from pydantic import BaseModel, Field
 
 ACTIVE_CATEGORY = Literal[tuple(cat.id for cat in CATEGORIES.values() if cat.is_active)]

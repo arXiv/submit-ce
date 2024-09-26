@@ -32,7 +32,7 @@ async def get_user() -> Optional[User]:
     # TODO some kind of implementation
     #raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
     return User(identifier="bobsmith",
-
+                agent_type="User",
                 forename="Bob",
                 suffix="Sr",
                 surname="SURn",

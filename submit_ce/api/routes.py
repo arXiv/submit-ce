@@ -1,6 +1,12 @@
-# coding: utf-8
+"""
+API Paths for submit.
+"""
 
-from typing import Dict, List, Callable, Annotated, Union, Literal  # noqa: F401
+"""
+NOTE: changes to path tags change the package names in the generated API
+"""
+
+from typing import Dict, List, Callable, Annotated, Union, Literal, Optional  # noqa: F401
 
 from fastapi import (  # noqa: F401
     APIRouter,
@@ -42,8 +48,6 @@ router = APIRouter()
 router.prefix="/v1"
 
 
-
-
 @router.post(
     "/start",
     response_class=PlainTextResponse,
@@ -61,6 +65,17 @@ async def start(started: Union[StartedNew, StartedAlterExising],
 
     TODO How to better indicate that the body is a string that is the submission id? Links?"""
     return await implementation.start(impl_dep, user, client, started)
+
+
+@router.get(
+    "/user_submissions",
+    tags=["info"],
+)
+async def user_submissions(user_id: Optional[str],
+                           impl_dep=Depends(impl_depends),
+                           user=userDep, client=clentDep) -> List[object]:
+    """Get the existing submissions and papers for a user."""
+    return await implementation.user_submissions(impl_dep, user, client, user_id)
 
 
 @router.get(

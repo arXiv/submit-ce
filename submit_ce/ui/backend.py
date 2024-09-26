@@ -78,31 +78,6 @@ def load_submissions_for_user(user_id: int) -> List[Submission]:
     #raise NotImplementedError()
     return []
 
-def load_fast(submission_id: int) -> Submission:
-    """
-    Load a :class:`.domain.submission.Submission` from its projected state.
-
-    This does not load and apply past events. The most recent stored submission
-    state is loaded directly from the database.
-
-    Parameters
-    ----------
-    submission_id : str
-        Submission identifier.
-
-    Returns
-    -------
-    :class:`.domain.submission.Submission`
-        The current state of the submission.
-
-    """
-    # try:
-    #     with classic.transaction():
-    #         return classic.get_submission_fast(submission_id)
-    # except classic.NoSuchSubmission as e:
-    #     raise NoSuchSubmission(f'No submission with id {submission_id}') from e
-    raise NotImplementedError()
-
 
 def save(*events: Event, submission_id: Optional[int] = None) \
         -> Tuple[Submission, List[Event]]:

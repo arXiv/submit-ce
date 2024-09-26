@@ -1,6 +1,6 @@
 # coding: utf-8
 from abc import ABC, abstractmethod
-from typing import ClassVar, Dict, List, Tuple, Union  # noqa: F401
+from typing import ClassVar, Dict, List, Tuple, Union, Optional  # noqa: F401
 
 from fastapi import UploadFile
 
@@ -113,4 +113,7 @@ class BaseDefaultApi(ABC):
 
     async def set_metadata_post(self, impl_dep: Dict, user: User, client: Client, submission_id: str,
                                 metadata: Union[SetMetadata]):
+        pass
+
+    async def user_submissions(self, impl_data: Dict, user: User, client: Client, user_id: Optional[str]):
         pass
