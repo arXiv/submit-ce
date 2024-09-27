@@ -15,6 +15,6 @@ def get_user_impl(request: Request, token: str) -> Optional[User]:
         suffix=session.user.name.suffix,
         email=session.user.email,
         affiliation=session.user.profile.affiliation,
-        endorsements=[], # TODO where are endorsements other than the db? submission groups?
+        endorsements=[], # TODO where are endorsements other than the db? are they submission groups in the jwt?
         agent_type="User",
     )

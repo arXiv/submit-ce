@@ -116,5 +116,5 @@ class BaseDefaultApi(ABC):
                                 metadata: Union[SetMetadata]):
         pass
 
-    async def user_submissions(self, impl_data: Dict, user: User, client: Client, user_id: Optional[str]):
+    async def user_submissions(self, impl_data: Dict, user: User, client: Client) -> List[Submission]:
         pass

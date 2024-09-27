@@ -332,29 +332,16 @@ class LegacySubmitImplementation(BaseDefaultApi):
     async def get_service_status(self, impl_data: dict):
         return f"{self.__class__.__name__}  impl_data: {impl_data}"
 
-    async def user_submissions(self, impl_data: dict, user: api.User, client: api.Client, user_id: Optional[str]) :
+    async def user_submissions(self, impl_data: dict,
+                               user: api.User, client: api.Client) -> List[Submission]:
+        # TODO Write a test for this
         session = impl_data["session"]
-        if user_id is not None:
-            raise NotImplementedError("Needs to add checking of scope of user here.")
-
-
-        stmt = select(Submission)\
-            .where(Submission.submitter_id == user_id, Submission.is_deleted != 1)\
-            .order_by(Submission.doc_paper_id.desc())
-            #.join(DBEvent)  # Only get submissions that are also in the event table
-
-        db_submissions = list(session.scalars(stmt))
-        grouped = groupby(db_submissions, key=attrgetter('doc_paper_id'))
-        submissions: List[Optional[Submission]] = []
-        for arxiv_id, dbss in grouped:
-            logger.debug('Handle group for arXiv ID %s: %s', arxiv_id, dbss)
-            if arxiv_id is None:  # This is an unannounced submission.
-                for dbs in dbss:  # Each row represents a separate e-print.
-                    # TODO need to convert row to a api model obj see submissions-core services.classic.load.to_submission()
-                    submissions.append(dbs)
-                    #submissions.append(to_submission(dbs))
-            else:
-                submissions.append(load(sorted(dbss, key=lambda dbs: dbs.submission_id)))
+        user.identifier
+        stmt = select(models.Submission)\
+            .where(models.Submission.submitter_id == int(user.identifier),
+                   models.Submission.status.in_([ 0, 1, 2, 4 ]))\
+            .order_by(Submission.submission_id.desc())
+        submissions: List[Submission] = [to_submission(row) for row in session.execute(stmt).unique().scalars().all()]
         return submissions
 
 

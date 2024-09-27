@@ -7,6 +7,7 @@ from typing import List, Optional, Iterable, Dict
 import logging
 
 from arxiv.license import LICENSES
+from arxiv.taxonomy.category import Category
 
 from . import models
 from ... import domain
@@ -143,7 +144,7 @@ def to_submission(row: models.Submission,
 
     primary_clsn: Optional[domain.Classification] = None
     if primary and primary.category:
-        _category = domain.Category(primary.category)
+        _category = Category(primary.category)
         primary_clsn = domain.Classification(category=_category)
     secondary_clsn = [
         domain.Classification(category=domain.Category(db_cat.category))

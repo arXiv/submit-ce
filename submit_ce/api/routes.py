@@ -69,11 +69,10 @@ async def start(started: Union[StartedNew, StartedAlterExising],
     "/user_submissions",
     tags=["info"],
 )
-async def user_submissions(user_id: Optional[str],
-                           impl_dep=Depends(impl_depends),
+async def user_submissions(impl_dep=Depends(impl_depends),
                            user=userDep, client=clentDep) -> List[object]:
     """Get the existing submissions and papers for a user."""
-    return await implementation.user_submissions(impl_dep, user, client, user_id)
+    return await implementation.user_submissions(impl_dep, user, client)
 
 
 @router.get(
