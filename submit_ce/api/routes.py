@@ -24,7 +24,7 @@ from fastapi.responses import PlainTextResponse
 
 from submit_ce.api.config import config
 from submit_ce.api.implementations.default_api_base import BaseDefaultApi
-from submit_ce.api.domain import CategoryChangeResult
+from submit_ce.api.domain import CategoryChangeResult, Submission
 from submit_ce.api.domain.events import AgreedToPolicy, StartedNew, StartedAlterExising, SetLicense, AuthorshipDirect, \
     AuthorshipProxy, SetCategories, SetMetadata
 from submit_ce.api.auth import get_user, get_client
@@ -87,7 +87,7 @@ async def user_submissions(user_id: Optional[str],
 async def get_submission(
         submission_id: str = Path(..., description="Id of the submission to get."),
         impl_dep=Depends(impl_depends), user=userDep, client=clentDep
-) -> object:
+) -> Submission:
     """Get information about a submission."""
     return await implementation.get_submission(impl_dep, user, client, submission_id)
 

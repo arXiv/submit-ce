@@ -208,11 +208,22 @@ class Waiver:
 #
 
 
-@dataclass
-class Submission:
+submission_status = Literal[
+    'working',
+    'submitted',
+    'scheduled',
+    'announced',
+    'deleted',
+    'error',
+    'withdrawn',
+]
+
+class Submission(BaseModel):
     """
     Represents an arXiv submission object.
 
+    Below this are some ideas from NG that we are not wed to.
+    
     Some notable differences between this view of submissions and the classic
     model:
 
@@ -232,14 +243,6 @@ class Submission:
       in the core metadata record.
 
     """
-
-    WORKING = 'working'
-    SUBMITTED = 'submitted'
-    SCHEDULED = 'scheduled'
-    ANNOUNCED = 'announced'
-    ERROR = 'error'     # TODO: eliminate this status.
-    DELETED = 'deleted'
-    WITHDRAWN = 'withdrawn'
 
     creator: Agent
     owner: Agent
@@ -263,7 +266,7 @@ class Submission:
     is_source_processed: bool = field(default=False)
     submitter_confirmed_preview: bool = field(default=False)
     license: Optional[License] = field(default=None)
-    status: str = field(default=WORKING)
+    status: submission_status = field(default='working')
     """Disposition within the submission pipeline."""
 
     arxiv_id: Optional[str] = field(default=None)
@@ -310,12 +313,12 @@ class Submission:
     @property
     def is_active(self) -> bool:
         """Actively moving through the submission workflow."""
-        return self.status not in [self.DELETED, self.ANNOUNCED]
+        return self.status not in ['deleted','announced']
 
     @property
     def is_announced(self) -> bool:
         """The submission has been announced."""
-        if self.status == self.ANNOUNCED:
+        if self.status == 'announced':
             assert self.arxiv_id is not None
             return True
         return False
@@ -323,12 +326,12 @@ class Submission:
     @property
     def is_finalized(self) -> bool:
         """Submitter has indicated submission is ready for publication."""
-        return self.status not in [self.WORKING, self.DELETED]
+        return self.status not in ['working', 'deleted']
 
     @property
     def is_deleted(self) -> bool:
         """Submission is removed."""
-        return self.status == self.DELETED
+        return self.status == 'deleted'
 
     @property
     def primary_category(self) -> str:
@@ -345,7 +348,7 @@ class Submission:
     def is_on_hold(self) -> bool:
         # We need to explicitly check ``status`` here because classic doesn't
         # have a representation for Hold events.
-        return (self.status == self.SUBMITTED
+        return (self.status == 'submitted'
                 and len(self.hold_types - self.waiver_types) > 0)
 
     def has_waiver_for(self, hold_type: Hold.Type) -> bool:

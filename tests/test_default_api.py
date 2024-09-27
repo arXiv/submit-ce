@@ -2,6 +2,8 @@
 import pytest
 from fastapi.testclient import TestClient
 
+from submit_ce.api.domain import Submission
+
 
 def test_get_service_status(client: TestClient):
     """Test case for get_service_status"""
@@ -33,7 +35,6 @@ def test_start_alter(client: TestClient):
     assert response.status_code == 404
 
 
-
 def test_submission_id_accept_policy_post(client: TestClient):
     """Test case for submission_id_accept_policy_post."""
     headers = {}
@@ -44,10 +45,22 @@ def test_submission_id_accept_policy_post(client: TestClient):
     assert sid is not None
     response = client.request("GET", f"/v1/submission/{sid}", headers=headers)
     assert response.status_code == 200
-    data = response.json()
-    assert str(data['submission_id']) == sid
-    assert data['agreement_id'] != 3
-    assert data['agree_policy'] == 0
+    submission = Submission.model_validate_json(response.text)
+    assert str(submission.submission_id) == sid
+    assert submission.is_active
+
+    assert not submission.submitter_accepts_policy
+    assert not submission.is_source_processed
+    assert not submission.submitter_contact_verified
+    assert not submission.is_announced
+    assert not submission.is_deleted
+    assert not submission.is_finalized
+    assert not submission.is_on_hold
+    assert not submission.license
+    assert not submission.source_content
+    assert not submission.primary_classification
+    assert not submission.secondary_classification
+    assert not submission.submitted
 
     response = client.request(
         "POST",
@@ -79,10 +92,9 @@ def test_submission_id_accept_policy_post(client: TestClient):
 
     response = client.request("GET", f"/v1/submission/{sid}", headers=headers)
     assert response.status_code == 200
-    data = response.json()
-    assert str(data['submission_id']) == sid
-    assert data['agreement_id'] == 3
-    assert data['agree_policy'] == 1
+    submission = Submission.model_validate_json(response.text)
+    assert str(submission.submission_id) == sid
+    assert submission.submitter_accepts_policy
 
     response = client.request(
        "POST",
@@ -107,8 +119,10 @@ def test_license(client: TestClient):
     assert response.status_code == 200
 
     response = client.request("GET", f"/v1/submission/{sid}", headers=headers)
-    assert (response.status_code == 200
-            and response.json()['license'] == "http://arxiv.org/licenses/nonexclusive-distrib/1.0/")
+    assert response.status_code == 200
+    submission = Submission.model_validate_json(response.text)
+    assert str(submission.submission_id) == sid
+    assert submission.license is not None and submission.license.uri  == "http://arxiv.org/licenses/nonexclusive-distrib/1.0/"
 
     response = client.request("POST", f"/v1/submission/{sid}/setLicense",
         json={"license_uri":"bogus_license"},

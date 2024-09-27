@@ -11,6 +11,7 @@ from arxiv.license import LICENSES
 from . import models
 from ... import domain
 from .patch import patch_withdrawal, patch_jref, patch_cross, patch_hold
+from ...domain.submission import submission_status
 
 logger = logging.getLogger(__name__)
 logger.propagate = False
@@ -200,27 +201,27 @@ def to_submission(row: models.Submission,
     return submission
 
 
-def status_from_classic(classic_status: int) -> Optional[str]:
+def status_from_classic(classic_status: int) -> Optional[submission_status]:
     """Map classic status codes to domain submission status."""
     return STATUS_MAP.get(classic_status)
 
 
 # Map classic status to Submission domain status.
 STATUS_MAP: Dict[int, str] = {
-    models.Submission.NOT_SUBMITTED: domain.Submission.WORKING,
-    models.Submission.SUBMITTED: domain.Submission.SUBMITTED,
-    models.Submission.ON_HOLD: domain.Submission.SUBMITTED,
-    models.Submission.NEXT_PUBLISH_DAY: domain.Submission.SCHEDULED,
-    models.Submission.PROCESSING: domain.Submission.SCHEDULED,
-    models.Submission.PROCESSING_SUBMISSION: domain.Submission.SCHEDULED,
-    models.Submission.NEEDS_EMAIL: domain.Submission.SCHEDULED,
-    models.Submission.ANNOUNCED: domain.Submission.ANNOUNCED,
-    models.Submission.DELETED_ANNOUNCED: domain.Submission.ANNOUNCED,
-    models.Submission.USER_DELETED:  domain.Submission.DELETED,
-    models.Submission.DELETED_EXPIRED: domain.Submission.DELETED,
-    models.Submission.DELETED_ON_HOLD: domain.Submission.DELETED,
-    models.Submission.DELETED_PROCESSING: domain.Submission.DELETED,
-    models.Submission.DELETED_REMOVED: domain.Submission.DELETED,
-    models.Submission.DELETED_USER_EXPIRED:  domain.Submission.DELETED,
-    models.Submission.ERROR_STATE: domain.Submission.ERROR
+    models.Submission.NOT_SUBMITTED: 'working',
+    models.Submission.SUBMITTED: 'submitted',
+    models.Submission.ON_HOLD: 'submitted',
+    models.Submission.NEXT_PUBLISH_DAY: 'scheduled',
+    models.Submission.PROCESSING: 'scheduled',
+    models.Submission.PROCESSING_SUBMISSION: 'scheduled',
+    models.Submission.NEEDS_EMAIL: 'scheduled',
+    models.Submission.ANNOUNCED: 'announced',
+    models.Submission.DELETED_ANNOUNCED: 'announced',
+    models.Submission.USER_DELETED:  'deleted',
+    models.Submission.DELETED_EXPIRED: 'deleted',
+    models.Submission.DELETED_ON_HOLD: 'deleted',
+    models.Submission.DELETED_PROCESSING: 'deleted',
+    models.Submission.DELETED_REMOVED: 'deleted',
+    models.Submission.DELETED_USER_EXPIRED:  'deleted',
+    models.Submission.ERROR_STATE: 'error'
 }

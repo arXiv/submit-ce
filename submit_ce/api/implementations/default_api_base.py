@@ -4,7 +4,7 @@ from typing import ClassVar, Dict, List, Tuple, Union, Optional  # noqa: F401
 
 from fastapi import UploadFile
 
-from submit_ce.api.domain import CategoryChangeResult
+from submit_ce.api.domain import CategoryChangeResult, Submission
 from submit_ce.api.domain.agent import User, Client
 from submit_ce.api.domain.events import AgreedToPolicy, StartedNew, AuthorshipDirect, AuthorshipProxy, \
     SetLicense, SetCategories, SetMetadata
@@ -20,7 +20,7 @@ class BaseDefaultApi(ABC):
             user: User,
             client: Client,
             submission_id: str,
-    ) -> object:
+    ) -> Submission:
         """Get information about a ui-app."""
         ...
 

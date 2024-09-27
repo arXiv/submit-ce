@@ -117,7 +117,8 @@ class LegacySubmitImplementation(BaseDefaultApi):
         else:
             self.store = store
 
-    async def get_submission(self, impl_data: Dict, user: api.User, client: api.Client, submission_id: str) -> object:
+    async def get_submission(self, impl_data: Dict, user: api.User, client: api.Client,
+                             submission_id: str) -> Submission:
         session = impl_data["session"]
         submission = check_submission_exists(session, submission_id)
         return to_submission(submission)

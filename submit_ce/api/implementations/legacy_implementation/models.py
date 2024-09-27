@@ -624,7 +624,6 @@ class Username(Base):  # type: ignore
     user = relationship('User')
 
 
-# TODO: what is this?
 class PolicyClass(Base):    # type: ignore
     """Defines user roles in the system."""
 
