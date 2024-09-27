@@ -1,8 +1,6 @@
 """
-API Paths for submit.
-"""
+The API Paths for submit.
 
-"""
 NOTE: changes to path tags change the package names in the generated API
 """
 
@@ -26,8 +24,8 @@ from fastapi.responses import PlainTextResponse
 
 from submit_ce.api.config import config
 from submit_ce.api.implementations.default_api_base import BaseDefaultApi
-from submit_ce.api.models import CategoryChangeResult
-from submit_ce.api.models.events import AgreedToPolicy, StartedNew, StartedAlterExising, SetLicense, AuthorshipDirect, \
+from submit_ce.api.domain import CategoryChangeResult
+from submit_ce.api.domain.events import AgreedToPolicy, StartedNew, StartedAlterExising, SetLicense, AuthorshipDirect, \
     AuthorshipProxy, SetCategories, SetMetadata
 from submit_ce.api.auth import get_user, get_client
 from submit_ce.api.implementations import ImplementationConfig

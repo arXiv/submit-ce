@@ -17,7 +17,7 @@ class Automation(Agent):
     identifier: Optional[str] = Field(default=None)
     """System identifier for the user. Ex a username, user_id or tapir nickname."""
 
-    agent_type: Literal['Automation']
+    agent_type: Literal['Automation'] = "Automation"
 
 
 class User(Agent):
@@ -31,10 +31,10 @@ class User(Agent):
 
     email: str
 
-    affiliation: str
+    affiliation: Optional[str] = None
     endorsements: List[str] = Field(default_factory=list)
 
-    agent_type: Literal['User']
+    agent_type: Literal['User'] = "User"
 
     def get_name(self) -> str:
         """Full name of the user."""

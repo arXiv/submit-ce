@@ -5,8 +5,8 @@ from typing import Optional, Any, Dict, Literal, List, Union
 
 from pydantic import BaseModel, AwareDatetime
 
-from submit_ce.api.models import ACTIVE_CATEGORY
-from submit_ce.api.models.agent import User, Client
+from submit_ce.api.domain import ACTIVE_CATEGORY
+from submit_ce.api.domain.agent import User, Client
 
 
 class BaseEvent(BaseModel):

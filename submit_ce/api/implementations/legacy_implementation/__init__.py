@@ -1,23 +1,27 @@
 import datetime
 import logging
-from typing import Dict, Union, Optional
+from itertools import groupby
+from operator import attrgetter
+from typing import Dict, Union, Optional, List
 
 import arxiv.db
 from arxiv.config import settings
-from arxiv.db.models import Submission, Document, configure_db_engine, SubmissionCategory
 from fastapi import Depends, HTTPException, status, UploadFile
 from pydantic_settings import BaseSettings
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker, Session as SqlalchemySession, Session
 
-from submit_ce.api.implementations.default_api_base import BaseDefaultApi
-from submit_ce.api.models import CategoryChangeResult
-from submit_ce.api.models.agent import User, Client
-from submit_ce.api.models.events import AgreedToPolicy, StartedNew, StartedAlterExising, SetLicense, \
+from submit_ce.api import domain as api, domain
+from submit_ce.api.domain import CategoryChangeResult
+from submit_ce.api.domain.events import AgreedToPolicy, StartedNew, StartedAlterExising, SetLicense, \
     AuthorshipDirect, AuthorshipProxy, SetCategories, SetMetadata
+from submit_ce.api.file_store import SubmissionFileStore
 from submit_ce.api.file_store.legacy_file_store import LegacyFileStore
 from submit_ce.api.implementations import ImplementationConfig
-from submit_ce.api.file_store import SubmissionFileStore
+from submit_ce.api.implementations.default_api_base import BaseDefaultApi
+from .auth import get_user_impl
+from .load import to_submission
+from .models import Submission, Document, SubmissionCategory
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +59,7 @@ def get_session() -> SqlalchemySession:
             args = {}
         engine = create_engine(settings.CLASSIC_DB_URI, echo=settings.ECHO_SQL, connect_args=args)
         arxiv.db.session_factory = sessionmaker(autoflush=False, bind=engine)
-        configure_db_engine(engine, None)
+        #configure_db_engine(engine, None)
 
     with arxiv.db.session_factory() as session:
         try:
@@ -72,7 +76,7 @@ def get_session() -> SqlalchemySession:
 def legacy_depends(db=Depends(get_session)) -> dict:
     return {"session": db}
 
-def check_user_authorized(session: Session, user: User, client: Client, submision_id: str) -> None:
+def check_user_authorized(session: Session, user: api.User, client: api.Client, submision_id: str) -> None:
     # TODO implement authorized check, use scopes from arxiv.auth?
     # TODO implement is_locked on submission
     pass
@@ -105,6 +109,7 @@ class LegacySubmitImplementation(BaseDefaultApi):
 
 
     """
+
     def __init__(self, store: Optional[SubmissionFileStore] = None):
         if store is None:
             #self.store = LegacyFileStore(root_dir=legacy_specific_settings.legacy_root_dir)
@@ -112,12 +117,14 @@ class LegacySubmitImplementation(BaseDefaultApi):
         else:
             self.store = store
 
-    async def get_submission(self, impl_data: Dict, user: User, client: Client, submission_id: str) -> object:
+    async def get_submission(self, impl_data: Dict, user: api.User, client: api.Client, submission_id: str) -> object:
         session = impl_data["session"]
         submission = check_submission_exists(session, submission_id)
-        return {c.name: getattr(submission, c.name) for c in Submission.__table__.columns}
+        return to_submission(submission)
+        #return {c.name: getattr(submission, c.name) for c in Submission.__table__.columns}
 
-    async def start(self, impl_data: Dict, user: User, client: Client, started: Union[StartedNew, StartedAlterExising]) -> str:
+
+    async def start(self, impl_data: Dict, user: api.User, client: api.Client, started: Union[StartedNew, StartedAlterExising]) -> str:
         session = impl_data["session"]
         now = datetime.datetime.utcnow()
         submission = Submission(submitter_id=user.identifier,
@@ -157,7 +164,7 @@ class LegacySubmitImplementation(BaseDefaultApi):
 
     # TODO need to do "userinfo" attestation
 
-    async def accept_policy_post(self, impl_data: Dict, user: User, client: Client,
+    async def accept_policy_post(self, impl_data: Dict, user: api.User, client: api.Client,
                                  submission_id: str,
                                  agreement: AgreedToPolicy) -> object:
         session = impl_data["session"]
@@ -171,7 +178,7 @@ class LegacySubmitImplementation(BaseDefaultApi):
         submission.agree_policy = 1
         session.commit()
 
-    async def set_license_post(self, impl_dep: dict, user: User, client: Client,
+    async def set_license_post(self, impl_dep: dict, user: api.User, client: api.Client,
                                submission_id: str, set_license: SetLicense) -> None:
         session = impl_dep["session"]
         check_user_authorized(session, user, client, submission_id)
@@ -179,7 +186,7 @@ class LegacySubmitImplementation(BaseDefaultApi):
         submission.license = set_license.license_uri
         session.commit()
 
-    async def assert_authorship_post(self, impl_dep: Dict, user: User, client: Client,
+    async def assert_authorship_post(self, impl_dep: Dict, user: api.User, client: api.Client,
                                      submission_id: str, authorship: Union[AuthorshipDirect, AuthorshipProxy]) -> str:
         session = impl_dep["session"]
         check_user_authorized(session, user, client, submission_id)
@@ -192,7 +199,7 @@ class LegacySubmitImplementation(BaseDefaultApi):
         session.commit()
         return "success"
 
-    async def file_post(self, impl_dep: Dict, user: User, client: Client, submission_id: str, uploadFile: UploadFile):
+    async def file_post(self, impl_dep: Dict, user: api.User, client: api.Client, submission_id: str, uploadFile: UploadFile):
         session: SqlalchemySession = impl_dep["session"]
         check_user_authorized(session, user, client, submission_id)
         submission = check_submission_exists(session, submission_id,
@@ -211,7 +218,7 @@ class LegacySubmitImplementation(BaseDefaultApi):
                                 " but it was {uploadFile.content_type}."
                                 )
 
-    async def set_categories_post(self, impl_dep: Dict, user: User, client: Client, submission_id: str,
+    async def set_categories_post(self, impl_dep: Dict, user: api.User, client: api.Client, submission_id: str,
                                   data: SetCategories):
         session: SqlalchemySession = impl_dep["session"]
         check_user_authorized(session, user, client, submission_id)
@@ -266,7 +273,7 @@ class LegacySubmitImplementation(BaseDefaultApi):
             result.new_secondaries = list(new_categories)
         return result
 
-    async def set_metadata_post(self, impl_dep: Dict, user: User, client: Client, submission_id: str,
+    async def set_metadata_post(self, impl_dep: Dict, user: api.User, client: api.Client, submission_id: str,
                                 metadata: Union[SetMetadata]):
         session: SqlalchemySession = impl_dep["session"]
         check_user_authorized(session, user, client, submission_id)
@@ -311,18 +318,43 @@ class LegacySubmitImplementation(BaseDefaultApi):
 
         return ",".join(update)
 
-    async def mark_deposited_post(self, impl_data: Dict, user: User, client: Client, submission_id: str) -> None:
+    async def mark_deposited_post(self, impl_data: Dict, user: api.User, client: api.Client, submission_id: str) -> None:
         pass
 
-    async def mark_processing_for_deposit_post(self, impl_data: Dict, user: User, client: Client, submission_id: str) -> None:
+    async def mark_processing_for_deposit_post(self, impl_data: Dict, user: api.User, client: api.Client, submission_id: str) -> None:
         pass
 
-    async def unmark_processing_for_deposit_post(self, impl_data: Dict, user: User, client: Client, submission_id: str) -> None:
+    async def unmark_processing_for_deposit_post(self, impl_data: Dict, user: api.User, client: api.Client, submission_id: str) -> None:
         pass
 
 
     async def get_service_status(self, impl_data: dict):
         return f"{self.__class__.__name__}  impl_data: {impl_data}"
+
+    async def user_submissions(self, impl_data: dict, user: api.User, client: api.Client, user_id: Optional[str]) :
+        session = impl_data["session"]
+        if user_id is not None:
+            raise NotImplementedError("Needs to add checking of scope of user here.")
+
+
+        stmt = select(Submission)\
+            .where(Submission.submitter_id == user_id, Submission.is_deleted != 1)\
+            .order_by(Submission.doc_paper_id.desc())
+            #.join(DBEvent)  # Only get submissions that are also in the event table
+
+        db_submissions = list(session.scalars(stmt))
+        grouped = groupby(db_submissions, key=attrgetter('doc_paper_id'))
+        submissions: List[Optional[Submission]] = []
+        for arxiv_id, dbss in grouped:
+            logger.debug('Handle group for arXiv ID %s: %s', arxiv_id, dbss)
+            if arxiv_id is None:  # This is an unannounced submission.
+                for dbs in dbss:  # Each row represents a separate e-print.
+                    # TODO need to convert row to a api model obj see submissions-core services.classic.load.to_submission()
+                    submissions.append(dbs)
+                    #submissions.append(to_submission(dbs))
+            else:
+                submissions.append(load(sorted(dbss, key=lambda dbs: dbs.submission_id)))
+        return submissions
 
 
 def setup(settings: BaseSettings) -> None:
@@ -333,5 +365,6 @@ implementation = ImplementationConfig(
     impl=LegacySubmitImplementation(),
     depends_fn=legacy_depends,
     setup_fn=setup,
+    userid_to_user=get_user_impl,
 )
 

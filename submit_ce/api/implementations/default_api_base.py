@@ -4,13 +4,14 @@ from typing import ClassVar, Dict, List, Tuple, Union, Optional  # noqa: F401
 
 from fastapi import UploadFile
 
-from submit_ce.api.models import CategoryChangeResult
-from submit_ce.api.models.agent import User, Client
-from submit_ce.api.models.events import AgreedToPolicy, StartedNew, AuthorshipDirect, AuthorshipProxy, \
+from submit_ce.api.domain import CategoryChangeResult
+from submit_ce.api.domain.agent import User, Client
+from submit_ce.api.domain.events import AgreedToPolicy, StartedNew, AuthorshipDirect, AuthorshipProxy, \
     SetLicense, SetCategories, SetMetadata
 
 
 class BaseDefaultApi(ABC):
+    """Abstract class to implement the default API."""
 
     @abstractmethod
     async def get_submission(

@@ -1,5 +1,5 @@
 """Provides :class:`.Preview`."""
-from dataclasses import dataclass
+from pydantic.dataclasses import dataclass
 from datetime import datetime
 
 

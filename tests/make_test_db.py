@@ -24,9 +24,7 @@ Then you can run it again, and it will find the existing db.
 """
 import os
 
-from arxiv.auth.auth.middleware import AuthMiddleware
 from arxiv.base import Base
-from arxiv.config import Settings
 from arxiv.taxonomy.definitions import CATEGORIES
 from flask import Flask
 from sqlalchemy.orm import Session
@@ -47,9 +45,6 @@ from arxiv.auth.auth import scopes
 from arxiv.auth.helpers import generate_token
 from arxiv.db import models
 
-# from arxiv.users.helpers import generate_token
-# from arxiv.users.auth import scopes
-
 import random
 from datetime import datetime
 from typing import List, Dict, Any, Optional
@@ -57,7 +52,6 @@ from typing import List, Dict, Any, Optional
 from mimesis import Person, Internet, Datetime
 from mimesis.locales import Locale
 
-from arxiv import taxonomy
 from arxiv.auth import auth
 
 # The logging in NG is a bit much, tone it down
@@ -231,11 +225,11 @@ def create_all_legacy_db(test_db_file: str=DEV_SQLITE_FILE, echo: bool=False, ur
             models.metadata.create_all(bind=engine)
             session.commit()
 
-    return (engine, url, test_db_file)
+    return engine, url, test_db_file
 
 
 
-def bootstrap_db(output_jwt: bool=False, db_uri = f"sqlite:///{DEV_SQLITE_FILE}"):
+def bootstrap_db(output_jwt: bool=False, db_uri = f"sqlite:///{DEV_SQLITE_FILE}", jwt_secret: str = ""):
     """
     Creates db if it does not exist and loads some tables.
 
@@ -253,7 +247,7 @@ def bootstrap_db(output_jwt: bool=False, db_uri = f"sqlite:///{DEV_SQLITE_FILE}"
 
     app = Flask("bootstrap")
     app.url_map.strict_slashes = False
-    app.config["JWT_SECRET"] = os.getenv("JWT_SECRET", "FOOBAR")
+    app.config["JWT_SECRET"] = jwt_secret or os.getenv("JWT_SECRET", "FOOBAR")
     app.config.from_object(settings)
     Base(app)
     auth.Auth(app)
@@ -343,14 +337,15 @@ def bootstrap_db(output_jwt: bool=False, db_uri = f"sqlite:///{DEV_SQLITE_FILE}"
                 if output_jwt:
                     print(user_to_jwt(created_users[0]))
                 else:
-                    for user in created_users:
-                        print(user.user_id, user.email)
-                        print(user_to_jwt(user))
+                    pass
+                return user_to_jwt(created_users[0])
 
             else:
                 logger.info("arXiv_submissions table already exists, DB bootstraped. No new users created.")
+                jwt = user_to_jwt(session.query(models.TapirUser).first())
                 if output_jwt:
-                    print(user_to_jwt(session.query(models.User).first()))
+                    print(jwt)
+                return jwt
 
 
 

@@ -47,7 +47,7 @@ class ApiClient:
 
     OpenAPI generic API client. This client handles the client-
     server communication, and is invariant across implementations. Specifics of
-    the methods and models for each application are generated from the OpenAPI
+    the methods and domain for each application are generated from the OpenAPI
     templates.
 
     :param configuration: .Configuration object for this client

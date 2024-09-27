@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     submission_api_implementation: ImportString = 'submit_ce.api.implementations.legacy_implementation.implementation'
     """Class to use for submission API implementation."""
 
+    jwt_secret: SecretStr = "not-set"
 
 config = Settings(_case_sensitive=False)
 """Settings build from defaults, env file, and env vars.

@@ -13,7 +13,7 @@
 """  # noqa: E501
 
 
-# import models into model package
+# import domain into model package
 from openapi_submit_client.models.agreed_to_policy import AgreedToPolicy
 from openapi_submit_client.models.authorship import Authorship
 from openapi_submit_client.models.authorship_direct import AuthorshipDirect

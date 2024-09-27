@@ -1,11 +1,11 @@
 """Data structures related to QA."""
-
-from dataclasses import field, dataclass
+from dataclasses import field
 from datetime import datetime
 from enum import Enum
 from typing import Optional, Union, Type, Dict, Any
 
 from mypy_extensions import TypedDict
+from pydantic.dataclasses import dataclass
 
 from .agent import Agent
 

@@ -7,7 +7,9 @@ are generated both automatically based on the results of the classifier and
 manually by moderators.
 """
 
-from dataclasses import dataclass, field
+from pydantic.dataclasses import dataclass
+from dataclasses import field
+
 from datetime import datetime
 from enum import Enum
 from typing import Optional, List
@@ -42,14 +44,6 @@ class Proposal:
         """Name (str) of the type of annotation."""
         assert self.proposed_event_type is not None
         return self.proposed_event_type.__name__
-
-    def __post_init__(self) -> None:
-        """Check our enums and agents."""
-        # if self.creator and isinstance(self.creator, dict):
-        #     self.creator = agent_factory(**self.creator)
-        # if self.proxy and isinstance(self.proxy, dict):
-        #     self.proxy = agent_factory(**self.proxy)
-        self.status = self.Status(self.status)
 
     def is_rejected(self) -> bool:
         return self.status == self.Status.REJECTED

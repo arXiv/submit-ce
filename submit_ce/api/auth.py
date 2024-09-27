@@ -1,13 +1,30 @@
 import uuid
-from typing import Optional
+from arxiv.auth.auth.tokens import decode
+from typing import Optional, Callable, Annotated
 
-from fastapi import Request
+from arxiv.auth.domain import Session
+from fastapi import Request, Depends
+from fastapi.security import OAuth2PasswordBearer
+
+from submit_ce.api.domain.agent import User, Client
+
+oauth2_schema = OAuth2PasswordBearer(
+    tokenUrl="token" # url to OAuth2 (relative)
+)
 
 
-from submit_ce.api.models.agent import User, Client
+async def user_getter_impl(request: Request)->Callable[[Request, str], User]:
+    return request.app.state.config.submission_api_implementation.userid_to_user
+
+async def get_user(token: Annotated[str, Depends(oauth2_schema)], request: Request) -> User:
+    """Decode a NG JWT token."""
+    to_user_fn = await user_getter_impl(request)
+    user = to_user_fn(request, token)
+    return user
 
 
 async def get_client(request: Request) -> Client:
+    """Gets the client tool the user is connecting with. Ex. Browser, submission ui frontend"""
     # TODO some kind of implementation
 
     ua = request.headers.get("User-Agent", None)
@@ -27,17 +44,3 @@ async def get_client(request: Request) -> Client:
         # agent_version="v223432"
     )
 
-
-async def get_user() -> Optional[User]:
-    # TODO some kind of implementation
-    #raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
-    return User(identifier="bobsmith",
-                agent_type="User",
-                forename="Bob",
-                suffix="Sr",
-                surname="SURn",
-
-                affiliation=str(uuid.uuid4()),
-                email="bob@example.com",
-                endorsements=[]
-                )
