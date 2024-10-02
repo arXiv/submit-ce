@@ -209,83 +209,84 @@ class Submission(Base):    # type: ignore
 
     def update_from_submission(self, submission: domain.Submission) -> None:
         """Update this database object from a :class:`.domain.submission.Submission`."""
-        if self.is_announced():     # Avoid doing anything. to be safe.
-            return
-
-        self.submitter_id = submission.creator.native_id
-        self.submitter_name = submission.creator.name
-        self.submitter_email = submission.creator.email
-        self.is_author = 1 if submission.submitter_is_author else 0
-        self.agree_policy = 1 if submission.submitter_accepts_policy else 0
-        self.userinfo = 1 if submission.submitter_contact_verified else 0
-        self.viewed = 1 if submission.submitter_confirmed_preview else 0
-        self.updated = submission.updated
-        self.title = submission.metadata.title
-        self.abstract = submission.metadata.abstract
-        self.authors = submission.metadata.authors_display
-        self.comments = submission.metadata.comments
-        self.report_num = submission.metadata.report_num
-        self.doi = submission.metadata.doi
-        self.msc_class = submission.metadata.msc_class
-        self.acm_class = submission.metadata.acm_class
-        self.journal_ref = submission.metadata.journal_ref
-
-        self.version = submission.version   # Numeric version.
-        self.doc_paper_id = submission.arxiv_id     # arXiv canonical ID.
-
-        # The document ID is a legacy concept, and not replicated in the NG
-        #  data model. So we need to grab it from the arXiv_documents table
-        #  using the doc_paper_id.
-
-        # The above comment is from the NG code. It might be a misunderstanding
-        # of the legacy data model. NG makes a decision to change the meaning of "submission" to the
-        # place that in legacy is "document". In legacy a submission is a submission/wdr/cross of a document.
-
-        if self.doc_paper_id and not self.document_id:
-            doc = _load_document(paper_id=self.doc_paper_id)
-            self.document_id = doc.document_id
-
-        if submission.license:
-            self.license = submission.license.uri
-
-        if submission.source_content is not None:
-            self.source_size = submission.source_content.uncompressed_size
-            if submission.source_content.source_format is not None:
-                self.source_format = \
-                    submission.source_content.source_format.value
-            else:
-                self.source_format = None
-            self.package = (f'fm://{submission.source_content.identifier}'
-                            f'@{submission.source_content.checksum}')
-
-        if submission.is_source_processed:
-            self.must_process = 0
-        else:
-            self.must_process = 1
-
-        # Not submitted -> Submitted.
-        if submission.is_finalized \
-                and self.status in [Submission.NOT_SUBMITTED, None]:
-            self.status = Submission.SUBMITTED
-            self.submit_time = submission.updated
-        # Delete.
-        elif submission.is_deleted:
-            self.status = Submission.USER_DELETED
-        elif submission.is_on_hold:
-            self.status = Submission.ON_HOLD
-        # Unsubmit.
-        elif self.status is None or self.status <= Submission.ON_HOLD:
-            if not submission.is_finalized:
-                self.status = Submission.NOT_SUBMITTED
-
-        if submission.primary_classification:
-            self._update_primary(submission)
-        self._update_secondaries(submission)
-        self._update_submitter(submission)
-
-        # We only want to set the creation datetime on the initial row.
-        if self.version == 1 and self.type == Submission.NEW_SUBMISSION:
-            self.created = submission.created
+        raise NotImplementedError()
+        # if self.is_announced():     # Avoid doing anything. to be safe.
+        #     return
+        #
+        # self.submitter_id = submission.creator.native_id
+        # self.submitter_name = submission.creator.name
+        # self.submitter_email = submission.creator.email
+        # self.is_author = 1 if submission.submitter_is_author else 0
+        # self.agree_policy = 1 if submission.submitter_accepts_policy else 0
+        # self.userinfo = 1 if submission.submitter_contact_verified else 0
+        # self.viewed = 1 if submission.submitter_confirmed_preview else 0
+        # self.updated = submission.updated
+        # self.title = submission.metadata.title
+        # self.abstract = submission.metadata.abstract
+        # self.authors = submission.metadata.authors_display
+        # self.comments = submission.metadata.comments
+        # self.report_num = submission.metadata.report_num
+        # self.doi = submission.metadata.doi
+        # self.msc_class = submission.metadata.msc_class
+        # self.acm_class = submission.metadata.acm_class
+        # self.journal_ref = submission.metadata.journal_ref
+        #
+        # self.version = submission.version   # Numeric version.
+        # self.doc_paper_id = submission.arxiv_id     # arXiv canonical ID.
+        #
+        # # The document ID is a legacy concept, and not replicated in the NG
+        # #  data model. So we need to grab it from the arXiv_documents table
+        # #  using the doc_paper_id.
+        #
+        # # The above comment is from the NG code. It might be a misunderstanding
+        # # of the legacy data model. NG makes a decision to change the meaning of "submission" to the
+        # # place that in legacy is "document". In legacy a submission is a submission/wdr/cross of a document.
+        #
+        # if self.doc_paper_id and not self.document_id:
+        #     doc = _load_document(paper_id=self.doc_paper_id)
+        #     self.document_id = doc.document_id
+        #
+        # if submission.license:
+        #     self.license = submission.license.uri
+        #
+        # if submission.source_content is not None:
+        #     self.source_size = submission.source_content.uncompressed_size
+        #     if submission.source_content.source_format is not None:
+        #         self.source_format = \
+        #             submission.source_content.source_format.value
+        #     else:
+        #         self.source_format = None
+        #     self.package = (f'fm://{submission.source_content.identifier}'
+        #                     f'@{submission.source_content.checksum}')
+        #
+        # if submission.is_source_processed:
+        #     self.must_process = 0
+        # else:
+        #     self.must_process = 1
+        #
+        # # Not submitted -> Submitted.
+        # if submission.is_finalized \
+        #         and self.status in [Submission.NOT_SUBMITTED, None]:
+        #     self.status = Submission.SUBMITTED
+        #     self.submit_time = submission.updated
+        # # Delete.
+        # elif submission.is_deleted:
+        #     self.status = Submission.USER_DELETED
+        # elif submission.is_on_hold:
+        #     self.status = Submission.ON_HOLD
+        # # Unsubmit.
+        # elif self.status is None or self.status <= Submission.ON_HOLD:
+        #     if not submission.is_finalized:
+        #         self.status = Submission.NOT_SUBMITTED
+        #
+        # if submission.primary_classification:
+        #     self._update_primary(submission)
+        # self._update_secondaries(submission)
+        # self._update_submitter(submission)
+        #
+        # # We only want to set the creation datetime on the initial row.
+        # if self.version == 1 and self.type == Submission.NEW_SUBMISSION:
+        #     self.created = submission.created
 
     @property
     def primary_classification(self) -> Optional['Category']:
@@ -886,14 +887,14 @@ class CategoryProposal(Base):   # type: ignore
 
 
 
-def _load_document(paper_id: str) -> Document:
-    #with transaction() as session:
-    document: Document = session.query(Document) \
-        .filter(Document.paper_id == paper_id) \
-        .one()
-    if document is None:
-        raise RuntimeError('No such document')
-    return document
+# def _load_document(paper_id: str) -> Document:
+#     #with transaction() as session:
+#     document: Document = session.query(Document) \
+#         .filter(Document.paper_id == paper_id) \
+#         .one()
+#     if document is None:
+#         raise RuntimeError('No such document')
+#     return document
 
 
 # def _get_user_by_username(username: str) -> User:

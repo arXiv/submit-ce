@@ -2,6 +2,7 @@
 
 from http import HTTPStatus as status
 
+from ar_xiv_submit_client.models import StartedNew
 from arxiv.auth.domain import Session
 from werkzeug.datastructures import MultiDict
 from werkzeug.exceptions import InternalServerError, BadRequest
@@ -34,26 +35,35 @@ def create(method: str, params: MultiDict, session: Session, *args,
     submitter, client = user_and_client_from_session(session)
     response_data = {}
     if method == 'GET':     # Display a splash page.
-        response_data['user_submissions'] \
-            = _load_submissions_for_user(session.user.user_id)
+        response_data['user_submissions'] = _load_submissions_for_user(session.user.user_id)
         params = MultiDict()
 
-    # We're using a form here for CSRF protection.
-    form = CreateSubmissionForm(params)
+    form = CreateSubmissionForm(params) # We're using a form here for CSRF protection
     response_data['form'] = form
 
     command = CreateSubmission(creator=submitter, client=client)
     if method == 'POST' and form.validate() and validate_command(form, command):
-        try:
-            submission, _ = save(command)
-        except SaveError as e:
-            logger.error('Could not save command: %s', e)
-            raise InternalServerError(response_data) from e
+        with backend_api() as api_client:
+            #try:
+                from ar_xiv_submit_client.api.submit import start_v1_start_post
+                api_response = start_v1_start_post.sync(client=api_client,
+                                                        body=StartedNew(submission_type="new"),
+                                                        )
+                submisison_id = api_response
 
-        # TODO Do we need a better way to enter a workflow?
-        # Maybe a controller that is defined as the entrypoint?
-        loc = url_for('ui.verify_user', submission_id=submission.submission_id)
-        return {}, status.SEE_OTHER, {'Location': loc}
+                # TODO Do we need a better way to enter a workflow for the first time with a new sub id?
+                # Maybe a controller that is defined as the entrypoint?
+                loc = url_for('ui.verify_user', submission_id=submisison_id)
+                return {}, status.SEE_OTHER, {'Location': loc}
+            # except Exception as ee:
+            #     raise RuntimeError("Could not start new submission") from ee
+
+        # try:
+        #     submission, _ = save(command)
+        # except SaveError as e:
+        #     logger.error('Could not save command: %s', e)
+        #     raise InternalServerError(response_data) from e
+
 
     return advance_to_current((response_data, status.OK, {}))
 

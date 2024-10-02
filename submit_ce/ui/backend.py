@@ -2,9 +2,7 @@
 import contextlib
 from typing import List, Tuple, Optional, Dict
 
-from openapi_submit_client.api import service_api
-
-
+from flask import request
 from submit_ce.ui.domain import Submission
 from submit_ce.ui.domain.event import Event, CreateSubmission
 from submit_ce.ui.exceptions import NoSuchSubmission, NothingToDo
@@ -12,22 +10,8 @@ from submit_ce.ui.exceptions import NoSuchSubmission, NothingToDo
 import logging
 logger = logging.getLogger(__name__)
 
-import openapi_submit_client
-
-_config: Optional[openapi_submit_client.configuration.Configuration] = None
-
-def config_backend_api(config: openapi_submit_client.configuration.Configuration) -> None:
-    """Sets the module level config for the backend submit API."""
-    global _config
-    _config = config
-
-@contextlib.contextmanager
-def backend_api():
-    global _config
-    if _config is None:
-        raise RuntimeError("Must call config_backend_api() before using backend_api.")
-    with openapi_submit_client.ApiClient(_config) as api_client:
-        yield api_client
+def config_backend_api(config: dict) -> None:
+    raise NotImplementedError()
 
 def load(submission_id: int) -> Tuple[Submission, List[Event]]:
     """
@@ -54,11 +38,7 @@ def load(submission_id: int) -> Tuple[Submission, List[Event]]:
         Raised when a submission with the passed ID cannot be found.
 
     """
-    with backend_api() as api_client:
-        api_instance = openapi_submit_client.SubmitApi(api_client)
-        response = api_instance.get_submission_v1_submission_submission_id_get(submission_id)
-        return response
-
+    raise NotImplementedError()
 
 def load_submissions_for_user(user_id: int) -> List[Submission]:
     """

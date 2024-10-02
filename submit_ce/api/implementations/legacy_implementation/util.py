@@ -81,27 +81,3 @@ def current_session() -> SqlAlchemySession:
     """Get/create :class:`.Session` for this context."""
     #return db.session()
     return arxiv.db.Session()
-
-@contextmanager
-def transaction() -> Generator:
-    """Context manager for database transaction."""
-    session = current_session()
-    logger.debug('transaction with session %s', id(session))
-    try:
-        yield session
-        # Only commit if there are un-flushed changes. The caller may commit
-        # explicitly, e.g. to do exception handling.
-        if session.dirty or session.deleted or session.new:
-            session.commit()
-        logger.debug('committed!')
-    except ClassicBaseException as e:
-        logger.debug('Command failed, rolling back: %s', str(e))
-        session.rollback()
-        raise   # Propagate exceptions raised from this module.
-    except InvalidEvent:
-        session.rollback()
-        raise
-    except Exception as e:
-        logger.debug('Command failed, rolling back: %s', str(e))
-        session.rollback()
-        raise TransactionFailed('Failed to execute transaction') from e

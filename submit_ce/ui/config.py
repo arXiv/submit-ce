@@ -1,9 +1,6 @@
 import os
 
 from arxiv.config import Settings as ArxivBaseSettings
-import openapi_submit_client
-
-from openapi_submit_client.configuration import Configuration as APIConfiguration
 
 DEV_SQLITE_FILE="legacy.db"
 
@@ -24,9 +21,9 @@ class Settings(ArxivBaseSettings):
         if "host" not in combined_dict:
             combined_dict["host"] = "http://localhost:8000"
 
-        self.api_config = APIConfiguration(**combined_dict)
+        self.api_config = combined_dict
 
-    api_config: APIConfiguration = APIConfiguration()
+    api_config: dict = {}
     """Configuration to submit backend API. 
      
      Can be set with envvars that are prefixed with SUBMIT_API_{SOMETHING}.
