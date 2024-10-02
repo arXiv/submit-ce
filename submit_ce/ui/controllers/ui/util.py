@@ -76,7 +76,8 @@ def validate_command(form: Form, event: Event,
                      field: str = 'events',
                      message: Optional[str] = None) -> bool:
     """
-    Validate an uncommitted command and apply the result to form validation.
+    Validate an uncommitted command and if there are any errors, put them on the
+     correct fields in the form.
 
     Parameters
     ----------

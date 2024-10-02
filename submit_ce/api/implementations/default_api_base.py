@@ -4,7 +4,8 @@ from typing import ClassVar, Dict, List, Tuple, Union, Optional  # noqa: F401
 
 from fastapi import UploadFile
 
-from submit_ce.api.domain import CategoryChangeResult, Submission
+from submit_ce.api.domain import Submission
+from submit_ce.api.domain.meta import CategoryChange
 from submit_ce.api.domain.agent import User, Client
 from submit_ce.api.domain.events import AgreedToPolicy, StartedNew, AuthorshipDirect, AuthorshipProxy, \
     SetLicense, SetCategories, SetMetadata
@@ -109,7 +110,7 @@ class BaseDefaultApi(ABC):
         ...
 
     async def set_categories_post(self, impl_dep: Dict, user: User, client: Client, submission_id: str,
-                                  set_categoires: SetCategories) -> CategoryChangeResult:
+                                  set_categoires: SetCategories) -> CategoryChange:
         pass
 
     async def set_metadata_post(self, impl_dep: Dict, user: User, client: Client, submission_id: str,

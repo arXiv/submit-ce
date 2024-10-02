@@ -8,6 +8,7 @@ import logging
 
 from arxiv.license import LICENSES
 from arxiv.taxonomy.category import Category
+from arxiv.taxonomy.definitions import CATEGORIES
 
 from . import models
 from ... import domain
@@ -144,8 +145,7 @@ def to_submission(row: models.Submission,
 
     primary_clsn: Optional[domain.Classification] = None
     if primary and primary.category:
-        _category = Category(primary.category)
-        primary_clsn = domain.Classification(category=_category)
+        primary_clsn = domain.Classification(category=primary.category)
     secondary_clsn = [
         domain.Classification(category=domain.Category(db_cat.category))
         for db_cat in row.categories if not db_cat.is_primary

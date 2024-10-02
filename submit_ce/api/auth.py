@@ -1,8 +1,5 @@
-import uuid
-from arxiv.auth.auth.tokens import decode
-from typing import Optional, Callable, Annotated
+from typing import Callable, Annotated
 
-from arxiv.auth.domain import Session
 from fastapi import Request, Depends
 from fastapi.security import OAuth2PasswordBearer
 

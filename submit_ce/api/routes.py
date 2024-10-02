@@ -24,7 +24,8 @@ from fastapi.responses import PlainTextResponse
 
 from submit_ce.api.config import config
 from submit_ce.api.implementations.default_api_base import BaseDefaultApi
-from submit_ce.api.domain import CategoryChangeResult, Submission
+from submit_ce.api.domain import Submission
+from submit_ce.api.domain.meta import CategoryChange
 from submit_ce.api.domain.events import AgreedToPolicy, StartedNew, StartedAlterExising, SetLicense, AuthorshipDirect, \
     AuthorshipProxy, SetCategories, SetMetadata
 from submit_ce.api.auth import get_user, get_client
@@ -163,7 +164,7 @@ async def set_categories_post(set_categoires: SetCategories,
                               submission_id: str = Path(..., description="Id of the submission to set the categories for."),
                               impl_dep: dict = Depends(impl_depends),
                               user=userDep, client=clentDep
-                              ) -> CategoryChangeResult:
+                              ) -> CategoryChange:
     """Set the categories for a submission.
 
     The categories will replace any categories already set on the submission."""

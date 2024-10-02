@@ -216,5 +216,5 @@ def test_basic_submission(client: TestClient):
     response = client.request("GET", f"/v1/user_submissions",)
     assert response.status_code == 200 or response.content == ""
     json = response.json()
-    assert json == "cheese"
+    assert isinstance(json, list) and json
 

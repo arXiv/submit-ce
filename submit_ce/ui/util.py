@@ -9,14 +9,13 @@ from arxiv.base import logging
 from arxiv.base.globals import get_application_global
 import submit_ce as events
 from submit_ce.ui.domain import Event, Submission
+from submit_ce.ui.exceptions import NoSuchSubmission
 
 logger = logging.getLogger(__name__)
 logger.propagate = False
 
 
-@retry(tries=5, delay=0.5, backoff=3,
-       #exceptions=Unavailable
-       )
+#@retry(tries=2, delay=0.5, backoff=3, ) #exceptions=Unavailable)
 def load_submission(submission_id: Optional[int]) \
         -> Tuple[Submission, List[Event]]:
     """
@@ -37,14 +36,14 @@ def load_submission(submission_id: Optional[int]) \
 
     """
     if submission_id is None:
-        logger.debug('No submission ID')
         raise NotFound('No such submission.')
 
+    # bdc34: not sure why this is caching the submission in the flask g, seems strange
     g = get_application_global()
     if g is None or f'submission_{submission_id}' not in g:
         try:
             submission, submission_events = events.load(submission_id)
-        except events.exceptions.NoSuchSubmission as e:
+        except NoSuchSubmission as e:
             raise NotFound('No such submission.') from e
         if g is not None:
             setattr(g, f'submission_{submission_id}',

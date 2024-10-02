@@ -14,17 +14,11 @@ class Agent(BaseModel):
 
 class Automation(Agent):
     """A non-human user, Ex QA check process."""
-    identifier: Optional[str] = Field(default=None)
-    """System identifier for the user. Ex a username, user_id or tapir nickname."""
-
     agent_type: Literal['Automation'] = "Automation"
 
 
 class User(Agent):
     """A human end user."""
-    identifier: Optional[str] = Field(default=None)
-    """System identifier for the user. Ex a username, user_id or tapir nickname."""
-
     forename: str
     surname: str
     suffix: str
@@ -49,3 +43,4 @@ class Client(BaseModel):
     remoteAddress: str
     remoteHost: Optional[str] = Field(default=None)
     agent_version: Optional[str] = Field(default=None)
+    #proxied_for: Optional['Client'] = Field(default=None)

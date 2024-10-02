@@ -1,5 +1,6 @@
 import datetime
 import logging
+import os
 from itertools import groupby
 from operator import attrgetter
 from typing import Dict, Union, Optional, List
@@ -12,7 +13,7 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker, Session as SqlalchemySession, Session
 
 from submit_ce.api import domain as api, domain
-from submit_ce.api.domain import CategoryChangeResult
+from ...domain.meta import CategoryChange
 from submit_ce.api.domain.events import AgreedToPolicy, StartedNew, StartedAlterExising, SetLicense, \
     AuthorshipDirect, AuthorshipProxy, SetCategories, SetMetadata
 from submit_ce.api.file_store import SubmissionFileStore
@@ -53,6 +54,8 @@ def get_session() -> SqlalchemySession:
     """Dependency for api routes"""
     global _setup
     if not _setup:
+        from submit_ce.api.config import config as api_settings
+        settings.CLASSIC_DB_URI = api_settings.CLASSIC_DB_URI
         if 'sqlite' in settings.CLASSIC_DB_URI:
             args = {"check_same_thread": False}
         else:   # pragma: no cover
@@ -264,7 +267,7 @@ class LegacySubmitImplementation(BaseDefaultApi):
         # if updates:
         #       self.admin_log(session, user, f"Edited: {','.join(updates)}", command="edit metadata")
 
-        result = CategoryChangeResult()
+        result = CategoryChange()
         eps = set() if not early_primary else set([early_primary])
         if early_primary != new_primary:
             result.old_primary = early_primary

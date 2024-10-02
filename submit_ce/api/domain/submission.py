@@ -78,8 +78,8 @@ class SubmissionContent:
 
     identifier: str
     checksum: str
-    uncompressed_size: int
-    compressed_size: int
+    uncompressed_size: int # todo change to uncompressed_bytes
+    compressed_size: int # todo change to compressed_bytes
     source_format: Format = Format.UNKNOWN
 
 
@@ -107,7 +107,7 @@ class SubmissionMetadata:
 class Hold:
     """Represents a block on announcement, usually for QA/QC purposes."""
 
-    class Type(Enum):
+    class HoldType(Enum):
         """Supported holds in the submission system."""
 
         PATCH = 'patch'
@@ -124,7 +124,7 @@ class Hold:
 
     creator: Agent
     created: AwareDatetime = field(default_factory=get_tzaware_utc_now)
-    hold_type: Type = field(default=Type.PATCH)
+    hold_type: str = field(default=HoldType.PATCH)
     hold_reason: Optional[str] = field(default_factory=str)
 
 
@@ -135,7 +135,7 @@ class Waiver:
 
     event_id: str
     """The identifier of the event that produced this waiver."""
-    waiver_type: Hold.Type
+    waiver_type: Hold.HoldType
     waiver_reason: str
     created: AwareDatetime
     creator: Agent
@@ -351,15 +351,15 @@ class Submission(BaseModel):
         return (self.status == 'submitted'
                 and len(self.hold_types - self.waiver_types) > 0)
 
-    def has_waiver_for(self, hold_type: Hold.Type) -> bool:
+    def has_waiver_for(self, hold_type: Hold.HoldType) -> bool:
         return hold_type in self.waiver_types
 
     @property
-    def hold_types(self) -> Set[Hold.Type]:
+    def hold_types(self) -> Set[Hold.HoldType]:
         return set([hold.hold_type for hold in self.holds.values()])
 
     @property
-    def waiver_types(self) -> Set[Hold.Type]:
+    def waiver_types(self) -> Set[Hold.HoldType]:
         return set([waiver.waiver_type for waiver in self.waivers.values()])
     #
     # @property

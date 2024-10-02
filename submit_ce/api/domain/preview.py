@@ -1,10 +1,8 @@
 """Provides :class:`.Preview`."""
-from pydantic.dataclasses import dataclass
-from datetime import datetime
+from pydantic import BaseModel, AwareDatetime
 
 
-@dataclass
-class Preview:
+class Preview(BaseModel):
     """Metadata about a submission preview."""
 
     source_id: int
@@ -19,5 +17,5 @@ class Preview:
     size_bytes: int
     """Size (in bytes) of the preview content."""
 
-    added: datetime
+    added: AwareDatetime
     """The datetime when the preview was deposited."""

@@ -24,7 +24,7 @@ def patch_hold(submission: domain.Submission,
         event_id = domain.Event.get_id(created, 'AddHold', creator)
         hold = domain.Hold(event_id=event_id, creator=creator,
                            created=created,
-                           hold_type=domain.Hold.Type.PATCH)
+                           hold_type=domain.Hold.HoldType.PATCH)
         submission.holds[event_id] = hold
     return submission
 

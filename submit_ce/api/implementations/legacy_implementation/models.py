@@ -847,10 +847,10 @@ class CategoryProposal(Base):   # type: ignore
     ACCEPTED_AS_SECONDARY = 2
     REJECTED = 3
     DOMAIN_STATUS = {
-        UNRESOLVED: domain.proposal.Proposal.Status.PENDING,
-        ACCEPTED_AS_PRIMARY: domain.proposal.Proposal.Status.ACCEPTED,
-        ACCEPTED_AS_SECONDARY: domain.proposal.Proposal.Status.ACCEPTED,
-        REJECTED: domain.proposal.Proposal.Status.REJECTED
+        UNRESOLVED: domain.proposal.Proposal.ProposalStatus.PENDING,
+        ACCEPTED_AS_PRIMARY: domain.proposal.Proposal.ProposalStatus.ACCEPTED,
+        ACCEPTED_AS_SECONDARY: domain.proposal.Proposal.ProposalStatus.ACCEPTED,
+        REJECTED: domain.proposal.Proposal.ProposalStatus.REJECTED
     }
 
     proposal_id = Column(Integer, primary_key=True)
@@ -872,11 +872,11 @@ class CategoryProposal(Base):   # type: ignore
                                     foreign_keys=[response_comment_id])
 
     def status_from_domain(self, proposal: domain.proposal.Proposal) -> int:
-        if proposal.status == domain.proposal.Proposal.Status.PENDING:
+        if proposal.status == domain.proposal.Proposal.ProposalStatus.PENDING:
             return self.UNRESOLVED
-        elif proposal.status == domain.proposal.Proposal.Status.REJECTED:
+        elif proposal.status == domain.proposal.Proposal.ProposalStatus.REJECTED:
             return self.REJECTED
-        elif proposal.status == domain.proposal.Proposal.Status.ACCEPTED:
+        elif proposal.status == domain.proposal.Proposal.ProposalStatus.ACCEPTED:
             if proposal.proposed_event_type \
                     is domain.event.SetPrimaryClassification:
                 return self.ACCEPTED_AS_PRIMARY
