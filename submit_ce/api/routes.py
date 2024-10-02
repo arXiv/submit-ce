@@ -63,7 +63,7 @@ async def start(started: Union[StartedNew, StartedAlterExising],
     TODO Maybe the start needs to include accepting an agreement?
 
     TODO How to better indicate that the body is a string that is the submission id? Links?"""
-    return await implementation.start(impl_dep, user, client, started)
+    return implementation.start(impl_dep, user, client, started)
 
 
 @router.get(
@@ -73,7 +73,7 @@ async def start(started: Union[StartedNew, StartedAlterExising],
 async def user_submissions(impl_dep=Depends(impl_depends),
                            user=userDep, client=clentDep) -> List[object]:
     """Get the existing submissions and papers for a user."""
-    return await implementation.user_submissions(impl_dep, user, client)
+    return implementation.user_submissions(impl_dep, user, client)
 
 
 @router.get(
@@ -89,7 +89,7 @@ async def get_submission(
         impl_dep=Depends(impl_depends), user=userDep, client=clentDep
 ) -> Submission:
     """Get information about a submission."""
-    return await implementation.get_submission(impl_dep, user, client, submission_id)
+    return implementation.get_submission(impl_dep, user, client, submission_id)
 
 
 @router.post(
@@ -110,7 +110,7 @@ async def accept_policy_post(
         user=userDep, client=clentDep
 ) -> object:
     """Agree to an arXiv policy to initiate a new item submission or  a change to an existing item. """
-    return await implementation.accept_policy_post(impl_dep, user, client, submission_id, agreement)
+    return implementation.accept_policy_post(impl_dep, user, client, submission_id, agreement)
 
 
 @router.post(
@@ -124,7 +124,7 @@ async def set_license_post(
         user=userDep, client=clentDep
 ) -> None:
     """Set a license for a files of a submission."""
-    return await implementation.set_license_post(impl_dep, user, client, submission_id, license)
+    return implementation.set_license_post(impl_dep, user, client, submission_id, license)
 
 
 @router.post(
@@ -137,7 +137,7 @@ async def assert_authorship_post(
         impl_dep: dict = Depends(impl_depends),
         user=userDep, client=clentDep
 ) -> str:
-    return await implementation.assert_authorship_post(impl_dep, user, client, submission_id, authorship)
+    return implementation.assert_authorship_post(impl_dep, user, client, submission_id, authorship)
 
 @router.post(
     "/submission/{submission_id}/files",
@@ -153,7 +153,7 @@ async def file_post(
 
     The file can be a single file, a zip, or a tar.gz. Zip and tar.gz files will be unpacked.
     """
-    return await implementation.file_post(impl_dep, user, client, submission_id, uploadFile)
+    return implementation.file_post(impl_dep, user, client, submission_id, uploadFile)
 
 
 @router.post(
@@ -168,7 +168,7 @@ async def set_categories_post(set_categoires: SetCategories,
     """Set the categories for a submission.
 
     The categories will replace any categories already set on the submission."""
-    return await implementation.set_categories_post(impl_dep, user, client, submission_id, set_categoires)
+    return implementation.set_categories_post(impl_dep, user, client, submission_id, set_categoires)
 
 @router.post(
     "/submission/{submission_id}/setMetadata",
@@ -178,7 +178,7 @@ async def set_metadata_post(metadata: Union[SetMetadata],
                             submission_id: str = Path(..., description="Id of the submission to set the metadata for."),
                             impl_dep: dict = Depends(impl_depends),
                             user=userDep, client=clentDep) -> str:
-    return await implementation.set_metadata_post(impl_dep, user, client, submission_id, metadata)
+    return implementation.set_metadata_post(impl_dep, user, client, submission_id, metadata)
 """
 /files get post head delete
 
@@ -207,7 +207,7 @@ async def mark_deposited_post(
         impl_dep: dict = Depends(impl_depends), user=userDep, client=clentDep
 ) -> None:
     """Mark that the submission has been successfully deposited into the arxiv corpus."""
-    return await implementation.mark_deposited_post(impl_dep, user, client, submission_id)
+    return implementation.mark_deposited_post(impl_dep, user, client, submission_id)
 
 
 @router.post(
@@ -223,7 +223,7 @@ async def _mark_processing_for_deposit_post(
         impl_dep: dict = Depends(impl_depends), user=userDep, client=clentDep
 ) -> None:
     """Mark that the submission is being processed for deposit."""
-    return await implementation.mark_processing_for_deposit_post(impl_dep, user, client, submission_id)
+    return implementation.mark_processing_for_deposit_post(impl_dep, user, client, submission_id)
 
 
 @router.post(
@@ -242,7 +242,7 @@ async def unmark_processing_for_deposit_post(
 
     This just indicates that the submission is no longer in processing state. This does not indicate that it
      was successfully deposited. """
-    return await implementation.unmark_processing_for_deposit_post(impl_dep, user, client, submission_id)
+    return implementation.unmark_processing_for_deposit_post(impl_dep, user, client, submission_id)
 
 @router.get(
     "/status",
@@ -255,4 +255,4 @@ async def unmark_processing_for_deposit_post(
 )
 async def get_service_status(impl_dep: dict = Depends(impl_depends)) -> str:
     """Get information about the current status of file management service."""
-    return await implementation.get_service_status(impl_dep)
+    return implementation.get_service_status(impl_dep)

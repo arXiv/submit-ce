@@ -110,7 +110,6 @@ class LegacySubmitImplementation(BaseDefaultApi):
     TODO Failure response object (general failure message)
     TODO Later: edit token similar to modapi?
 
-
     """
 
     def __init__(self, store: Optional[SubmissionFileStore] = None):
@@ -120,7 +119,7 @@ class LegacySubmitImplementation(BaseDefaultApi):
         else:
             self.store = store
 
-    async def get_submission(self, impl_data: Dict, user: api.User, client: api.Client,
+    def get_submission(self, impl_data: Dict, user: api.User, client: api.Client,
                              submission_id: str) -> Submission:
         session = impl_data["session"]
         submission = check_submission_exists(session, submission_id)
@@ -128,7 +127,7 @@ class LegacySubmitImplementation(BaseDefaultApi):
         #return {c.name: getattr(submission, c.name) for c in Submission.__table__.columns}
 
 
-    async def start(self, impl_data: Dict, user: api.User, client: api.Client, started: Union[StartedNew, StartedAlterExising]) -> str:
+    def start(self, impl_data: Dict, user: api.User, client: api.Client, started: Union[StartedNew, StartedAlterExising]) -> str:
         session = impl_data["session"]
         now = datetime.datetime.utcnow()
         submission = Submission(submitter_id=user.identifier,
@@ -168,7 +167,7 @@ class LegacySubmitImplementation(BaseDefaultApi):
 
     # TODO need to do "userinfo" attestation
 
-    async def accept_policy_post(self, impl_data: Dict, user: api.User, client: api.Client,
+    def accept_policy_post(self, impl_data: Dict, user: api.User, client: api.Client,
                                  submission_id: str,
                                  agreement: AgreedToPolicy) -> object:
         session = impl_data["session"]
@@ -182,7 +181,7 @@ class LegacySubmitImplementation(BaseDefaultApi):
         submission.agree_policy = 1
         session.commit()
 
-    async def set_license_post(self, impl_dep: dict, user: api.User, client: api.Client,
+    def set_license_post(self, impl_dep: dict, user: api.User, client: api.Client,
                                submission_id: str, set_license: SetLicense) -> None:
         session = impl_dep["session"]
         check_user_authorized(session, user, client, submission_id)
@@ -190,7 +189,7 @@ class LegacySubmitImplementation(BaseDefaultApi):
         submission.license = set_license.license_uri
         session.commit()
 
-    async def assert_authorship_post(self, impl_dep: Dict, user: api.User, client: api.Client,
+    def assert_authorship_post(self, impl_dep: Dict, user: api.User, client: api.Client,
                                      submission_id: str, authorship: Union[AuthorshipDirect, AuthorshipProxy]) -> str:
         session = impl_dep["session"]
         check_user_authorized(session, user, client, submission_id)
@@ -203,14 +202,14 @@ class LegacySubmitImplementation(BaseDefaultApi):
         session.commit()
         return "success"
 
-    async def file_post(self, impl_dep: Dict, user: api.User, client: api.Client, submission_id: str, uploadFile: UploadFile):
+    def file_post(self, impl_dep: Dict, user: api.User, client: api.Client, submission_id: str, uploadFile: UploadFile):
         session: SqlalchemySession = impl_dep["session"]
         check_user_authorized(session, user, client, submission_id)
         submission = check_submission_exists(session, submission_id,
                                              lock_row=legacy_specific_settings.legacy_serialize_file_operations)
         acceptable_types = ["application/gzip", "application/tar", "application/tar+gzip"]
         if uploadFile.content_type in acceptable_types:
-            checksum = await self.store.store_source_package(submission.submission_id, uploadFile)
+            checksum = self.store.store_source_package(submission.submission_id, uploadFile)
 
         # TODO db changes for upload: source_format
         # TODO db changes for upload: source_size
@@ -222,7 +221,7 @@ class LegacySubmitImplementation(BaseDefaultApi):
                                 " but it was {uploadFile.content_type}."
                                 )
 
-    async def set_categories_post(self, impl_dep: Dict, user: api.User, client: api.Client, submission_id: str,
+    def set_categories_post(self, impl_dep: Dict, user: api.User, client: api.Client, submission_id: str,
                                   data: SetCategories):
         session: SqlalchemySession = impl_dep["session"]
         check_user_authorized(session, user, client, submission_id)
@@ -277,7 +276,7 @@ class LegacySubmitImplementation(BaseDefaultApi):
             result.new_secondaries = list(new_categories)
         return result
 
-    async def set_metadata_post(self, impl_dep: Dict, user: api.User, client: api.Client, submission_id: str,
+    def set_metadata_post(self, impl_dep: Dict, user: api.User, client: api.Client, submission_id: str,
                                 metadata: Union[SetMetadata]):
         session: SqlalchemySession = impl_dep["session"]
         check_user_authorized(session, user, client, submission_id)
@@ -322,20 +321,20 @@ class LegacySubmitImplementation(BaseDefaultApi):
 
         return ",".join(update)
 
-    async def mark_deposited_post(self, impl_data: Dict, user: api.User, client: api.Client, submission_id: str) -> None:
+    def mark_deposited_post(self, impl_data: Dict, user: api.User, client: api.Client, submission_id: str) -> None:
         pass
 
-    async def mark_processing_for_deposit_post(self, impl_data: Dict, user: api.User, client: api.Client, submission_id: str) -> None:
+    def mark_processing_for_deposit_post(self, impl_data: Dict, user: api.User, client: api.Client, submission_id: str) -> None:
         pass
 
-    async def unmark_processing_for_deposit_post(self, impl_data: Dict, user: api.User, client: api.Client, submission_id: str) -> None:
+    def unmark_processing_for_deposit_post(self, impl_data: Dict, user: api.User, client: api.Client, submission_id: str) -> None:
         pass
 
 
-    async def get_service_status(self, impl_data: dict):
+    def get_service_status(self, impl_data: dict):
         return f"{self.__class__.__name__}  impl_data: {impl_data}"
 
-    async def user_submissions(self, impl_data: dict,
+    def user_submissions(self, impl_data: dict,
                                user: api.User, client: api.Client) -> List[Submission]:
         # TODO Write a test for this
         session = impl_data["session"]

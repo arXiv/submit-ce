@@ -7,8 +7,10 @@ from arxiv.base import Base
 from arxiv.base.middleware import wrap
 from flask import Flask
 
+from .config import settings
+from arxiv.config import settings as base_settings
+base_settings.CLASSIC_DB_URI = settings.CLASSIC_DB_URI
 from . import filters, backend
-from .config import Settings
 from .routes.ui import UI
 
 def create_web_app(config: Optional[dict]=None) -> Flask:
@@ -21,9 +23,8 @@ def create_web_app(config: Optional[dict]=None) -> Flask:
                 )
     app.url_map.strict_slashes = False
 
-    settings = Settings(**config or {})
     app.config.from_object(settings)
-    backend.config_backend_api(settings.api_config)
+    backend.config_backend_api(settings)
     Base(app)
     auth.Auth(app)
     app.register_blueprint(UI)

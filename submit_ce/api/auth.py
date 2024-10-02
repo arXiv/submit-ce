@@ -10,12 +10,12 @@ oauth2_schema = OAuth2PasswordBearer(
 )
 
 
-async def user_getter_impl(request: Request)->Callable[[Request, str], User]:
+def user_getter_impl(request: Request)->Callable[[Request, str], User]:
     return request.app.state.config.submission_api_implementation.userid_to_user
 
 async def get_user(token: Annotated[str, Depends(oauth2_schema)], request: Request) -> User:
     """Decode a NG JWT token."""
-    to_user_fn = await user_getter_impl(request)
+    to_user_fn = user_getter_impl(request)
     user = to_user_fn(request, token)
     return user
 

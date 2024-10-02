@@ -2,25 +2,86 @@
 import contextlib
 from typing import List, Tuple, Optional, Dict, Union
 
+from arxiv.auth.auth.tokens import decode
 from fastapi import UploadFile
 from flask import request
+from pydantic import SecretStr
+from werkzeug.exceptions import Unauthorized
 
 from submit_ce.api.domain import User, Client
 from submit_ce.api.domain.events import SetLicense, AgreedToPolicy, StartedNew, SetMetadata, SetCategories, \
     AuthorshipDirect, AuthorshipProxy
 from submit_ce.api.domain.meta import CategoryChange
 
+from arxiv.db import Session, session_factory, _classic_engine, configure_db
+
 from submit_ce.api.implementations import BaseDefaultApi
+from submit_ce.api.implementations.legacy_implementation import models
 from submit_ce.ui.config import settings
 from submit_ce.ui.domain import Submission
 from submit_ce.ui.domain.event import Event, CreateSubmission
 from submit_ce.ui.exceptions import NoSuchSubmission, NothingToDo
 
 import logging
+
 logger = logging.getLogger(__name__)
 
-backend: BaseDefaultApi = settings.submission_api_implementation.impl
+def config_backend_api(settings)-> None:
+    engine, _ = configure_db(settings)
+    session_factory.configure(
+        bind=engine,
+    #     binds={
+    #     models.Base: engine,
+    # },
+    )
+
+
+api: BaseDefaultApi = settings.submission_api_implementation.impl
 """BACKEND WITH LEGACY IMPL ONLY FOR TESTING."""
+
+
+def get_user() -> User:
+    # def get_user_impl(request: Request, token: str) -> Optional[User]:
+    #  secret = settings.jwt_secret
+    #  if isinstance(secret, SecretStr):
+    #      secret = secret.get_secret_value()
+
+    #session = decode(token, secret)
+    session = request.environ['auth']
+    if session is None:
+        raise Unauthorized()
+
+    return User(
+        identifier=session.user.user_id,
+        forename=session.user.name.forename,
+        surname=session.user.name.surname,
+        suffix=session.user.name.suffix,
+        email=session.user.email,
+        affiliation=session.user.profile.affiliation,
+        endorsements=[],  # TODO where are endorsements other than the db? are they submission groups in the jwt?
+        agent_type="User",
+    )
+
+
+def get_client() -> Client:
+    ua = request.headers.get("User-Agent", None)
+    if ua is None:
+        agent_type = "ua-not-set"
+    if ua.lower().startswith("mozilla"):
+        agent_type = "browser"
+    else:
+        agent_type = ua[:20]
+
+    # todo hostname
+    return Client(
+        remoteAddress=request.remote_addr,
+        remoteHost="",
+        agent_type=agent_type,
+        # agent_version="v223432"
+    )
+
+def impl_data() -> dict:
+    return {"session": Session}
 
 def load(submission_id: int) -> Tuple[Submission, List[Event]]:
     """
@@ -47,7 +108,8 @@ def load(submission_id: int) -> Tuple[Submission, List[Event]]:
         Raised when a submission with the passed ID cannot be found.
 
     """
-    raise NotImplementedError()
+    api.get_submission({"session": Session}, _get_user(), _get_client(), submission_id)
+
 
 def load_submissions_for_user(user_id: int) -> List[Submission]:
     """
@@ -64,9 +126,7 @@ def load_submissions_for_user(user_id: int) -> List[Submission]:
         Items are :class:`.domain.submission.Submission` instances.
 
     """
-    #raise NotImplementedError()
-    return []
-
+    return api.user_submissions({"session": Session}, _get_user(), user_id)
 
 def save(*events: Event, submission_id: Optional[int] = None) \
         -> Tuple[Submission, List[Event]]:
@@ -112,7 +172,7 @@ def save(*events: Event, submission_id: Optional[int] = None) \
     """
     if len(events) == 0:
         raise NothingToDo('Must pass at least one event')
-    events_list = list(events)   # Coerce to list so that we can index.
+    events_list = list(events)  # Coerce to list so that we can index.
     prior: List[Event] = []
     before: Optional[Submission] = None
 
@@ -159,4 +219,3 @@ def save(*events: Event, submission_id: Optional[int] = None) \
     #     all_ = sorted(set(prior) | set(committed), key=lambda e: e.created)
     #     return after, list(all_)
     raise NotImplementedError()
-

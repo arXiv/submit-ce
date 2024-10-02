@@ -15,7 +15,7 @@ class BaseDefaultApi(ABC):
     """Abstract class to implement the default API."""
 
     @abstractmethod
-    async def get_submission(
+    def get_submission(
             self,
             impl_data: Dict,
             user: User,
@@ -26,7 +26,7 @@ class BaseDefaultApi(ABC):
         ...
 
     @abstractmethod
-    async def start(
+    def start(
             self,
             impl_data: Dict,
             user: User,
@@ -37,7 +37,7 @@ class BaseDefaultApi(ABC):
         ...
 
     @abstractmethod
-    async def accept_policy_post(
+    def accept_policy_post(
             self,
             impl_data: Dict,
             user: User,
@@ -49,7 +49,7 @@ class BaseDefaultApi(ABC):
         ...
 
     @abstractmethod
-    async def mark_deposited_post(
+    def mark_deposited_post(
             self,
             impl_data: Dict,
             user: User,
@@ -60,7 +60,7 @@ class BaseDefaultApi(ABC):
         ...
 
     @abstractmethod
-    async def mark_processing_for_deposit_post(
+    def mark_processing_for_deposit_post(
             self,
             impl_data: Dict,
             user: User,
@@ -71,7 +71,7 @@ class BaseDefaultApi(ABC):
         ...
 
     @abstractmethod
-    async def unmark_processing_for_deposit_post(
+    def unmark_processing_for_deposit_post(
             self,
             impl_data: Dict,
             user: User,
@@ -82,7 +82,7 @@ class BaseDefaultApi(ABC):
         ...
 
     @abstractmethod
-    async def get_service_status(
+    def get_service_status(
             self,
             impl_data: Dict,
     ) -> Tuple[bool, str]:
@@ -90,13 +90,13 @@ class BaseDefaultApi(ABC):
         ...
 
     @abstractmethod
-    async def set_license_post(self, impl_dep: Dict, user: User, client: Client,
+    def set_license_post(self, impl_dep: Dict, user: User, client: Client,
                                submission_id: str, license: SetLicense) -> None:
         """Sets the license of the submission files."""
         ...
 
     @abstractmethod
-    async def assert_authorship_post(self, impl_dep: Dict, user: User, client: Client,
+    def assert_authorship_post(self, impl_dep: Dict, user: User, client: Client,
                                      submission_id: str, authorship: Union[AuthorshipDirect, AuthorshipProxy]) -> str:
         """Assert authorship of the submission files.
 
@@ -104,7 +104,7 @@ class BaseDefaultApi(ABC):
         ...
 
     @abstractmethod
-    async def file_post(self, impl_dep: Dict, user: User, client: Client, submission_id: str, uploadFile: UploadFile):
+    def file_post(self, impl_dep: Dict, user: User, client: Client, submission_id: str, uploadFile: UploadFile):
         """Upload a file to a submission.
 
         The file can be a single file, a zip, or a tar.gz. Zip and tar.gz files will be unpacked.
@@ -112,15 +112,15 @@ class BaseDefaultApi(ABC):
         ...
 
     @abstractmethod
-    async def set_categories_post(self, impl_dep: Dict, user: User, client: Client, submission_id: str,
+    def set_categories_post(self, impl_dep: Dict, user: User, client: Client, submission_id: str,
                                   set_categoires: SetCategories) -> CategoryChange:
         pass
 
     @abstractmethod
-    async def set_metadata_post(self, impl_dep: Dict, user: User, client: Client, submission_id: str,
+    def set_metadata_post(self, impl_dep: Dict, user: User, client: Client, submission_id: str,
                                 metadata: Union[SetMetadata]):
         pass
 
     @abstractmethod
-    async def user_submissions(self, impl_data: Dict, user: User, client: Client) -> List[Submission]:
+    def user_submissions(self, impl_data: Dict, user: User, client: Client) -> List[Submission]:
         pass

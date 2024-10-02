@@ -92,7 +92,7 @@ class LegacyFileStore(SubmissionFileStore):
 
         with open(package_path, 'wb') as f:
             while True:
-                chunk = await content.read(chunk_size)
+                chunk = content.read(chunk_size)
                 if not chunk:
                     break
                 f.write(chunk)

@@ -1,6 +1,6 @@
 import os
 
-from arxiv.config import Settings as ArxivBaseSettings
+from arxiv.config import settings as arxivbase_settings, Settings as ArxivBaseSettings
 from pydantic import ImportString
 
 DEV_SQLITE_FILE="legacy.db"
@@ -25,6 +25,9 @@ class Settings(ArxivBaseSettings):
 
         self.api_config = combined_dict
 
+        if "CLASSIC_DB_URI" not in os.environ:
+            self.CLASSIC_DB_URI = f"sqlite:///{DEV_SQLITE_FILE}"
+
     api_config: dict = {}
     """Configuration to submit backend API. 
      
@@ -42,5 +45,10 @@ class Settings(ArxivBaseSettings):
     CSRF_SESSION_KEY: str = ""
     """arxiv-base CSRF key, should be replaced with just normal ue of wtforms."""
     CSRF_SECRET: str = "foobar"
+
+    CLASSIC_DB_URI: str = f"sqlite:///{DEV_SQLITE_FILE}"
+
 settings = Settings()
+arxivbase_settings.CLASSIC_DB_URI = settings.CLASSIC_DB_URI
+
 
