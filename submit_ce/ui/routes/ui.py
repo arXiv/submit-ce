@@ -14,11 +14,11 @@ from werkzeug.exceptions import ServiceUnavailable
 
 from arxiv.base import logging, alerts
 
-from ..auth import is_owner
-from ... import util
-from submit_ce.ui.controllers import ui as cntrls
-from submit_ce.ui.controllers.ui.new import upload
-from submit_ce.ui.controllers.ui.new import upload_delete
+from submit_ce.ui.routes.auth import is_owner
+from submit_ce.ui import util
+from submit_ce.ui import controllers as cntrls
+from submit_ce.ui.controllers.new import upload
+from submit_ce.ui.controllers.new import upload_delete
 
 from submit_ce.ui.workflow.stages import FileUpload
 

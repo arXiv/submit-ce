@@ -18,9 +18,9 @@ from submit_ce.ui.domain.event import CreateSubmission, \
 from submit_ce.ui.exceptions import SaveError
 from submit_ce.ui.backend import load_submissions_for_user
 
-from submit_ce.ui.controllers.ui.util import Response, user_and_client_from_session, validate_command
+from submit_ce.ui.controllers.util import Response, user_and_client_from_session, validate_command
 from submit_ce.ui.util import load_submission
-from submit_ce.ui.routes.ui.flow_control import advance_to_current
+from submit_ce.ui.routes.flow_control import advance_to_current
 
 logger = logging.getLogger(__name__)    # pylint: disable=C0103
 

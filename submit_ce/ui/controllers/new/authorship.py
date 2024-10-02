@@ -20,10 +20,10 @@ from submit_ce.ui.domain.event import ConfirmAuthorship
 from submit_ce.ui.exceptions import SaveError
 
 from submit_ce.ui.util import load_submission
-from submit_ce.ui.controllers.ui.util import user_and_client_from_session, validate_command
+from submit_ce.ui.controllers.util import user_and_client_from_session, validate_command
 
 # from arxiv-submission-core.events.event import ConfirmContactInformation
-from submit_ce.ui.routes.ui.flow_control import ready_for_next
+from submit_ce.ui.routes.flow_control import ready_for_next
 
 logger = logging.getLogger(__name__)  # pylint: disable=C0103
 

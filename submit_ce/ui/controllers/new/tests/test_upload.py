@@ -13,9 +13,9 @@ from submit_ce.ui.domain import SubmissionContent
 from submit_ce.ui.domain import Upload, FileStatus, UploadLifecycleStates, UploadStatus
 
 from submit_ce.controllers.ui.new import upload
-from submit_ce.ui.controllers.ui.new import upload_delete
+from submit_ce.ui.controllers.new import upload_delete
 
-from submit_ce.ui.routes.ui.flow_control import STAGE_SUCCESS, \
+from submit_ce.ui.routes.flow_control import STAGE_SUCCESS, \
     get_controllers_desire, STAGE_RESHOW
 
 class TestUpload(TestCase):

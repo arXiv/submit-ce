@@ -9,7 +9,7 @@ from flask import Flask
 
 from . import filters, backend
 from .config import Settings
-from .routes.ui.ui import UI
+from .routes.ui import UI
 
 def create_web_app(config: Optional[dict]=None) -> Flask:
     """Initialize an instance of the search frontend UI web application."""

@@ -17,7 +17,7 @@ from submit_ce.ui.workflow import SubmissionWorkflow, ReplacementWorkflow
 from submit_ce.ui.workflow.stages import Stage
 from submit_ce.ui.workflow.processor import WorkflowProcessor
 
-from submit_ce.ui.controllers.ui.util import Response as CResponse
+from submit_ce.ui.controllers.util import Response as CResponse
 from submit_ce.ui.util import load_submission
 
 
@@ -90,7 +90,7 @@ def endpoint_name() -> Optional[str]:
 def get_seen() -> Dict[str, bool]:
     """Get seen steps from user session."""
     # TODO Fix seen to handle mutlipe submissions at the same time
-    return session.get('steps_seen', {})  # type: ignore   We know this is a dict.
+    return session.get('steps_seen', {})  # type: ignore
 
 
 def put_seen(seen: Dict[str, bool]) -> None:

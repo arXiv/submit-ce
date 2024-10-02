@@ -5,7 +5,7 @@ from werkzeug.datastructures import MultiDict
 from werkzeug.exceptions import BadRequest
 from wtforms import Form
 from http import HTTPStatus as status
-from submit_ce.ui.controllers.ui.new import unsubmit
+from submit_ce.ui.controllers.new import unsubmit
 
 from pytz import timezone
 from datetime import timedelta, datetime

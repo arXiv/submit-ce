@@ -1,11 +1,13 @@
 import os
 
 from arxiv.config import Settings as ArxivBaseSettings
+from pydantic import ImportString
 
 DEV_SQLITE_FILE="legacy.db"
 
 SUBMIT_API_CONFIG_PREFIX="SUBMIT_API_"
 """Env vars starting with this will configure the submit api client."""
+
 
 
 class Settings(ArxivBaseSettings):
@@ -29,12 +31,15 @@ class Settings(ArxivBaseSettings):
      Can be set with envvars that are prefixed with SUBMIT_API_{SOMETHING}.
      Ex. SUBMIT_API_HOST=http://localhost:8000"""
 
-    AUTH_UPDATED_SESSION_REF: bool=True
+    submission_api_implementation: ImportString = 'submit_ce.api.implementations.legacy_implementation.implementation'
+    """Class to use for submission API implementation."""
+
+    AUTH_UPDATED_SESSION_REF: bool = True
     """Setting related to auth to force it to use 'auth' for the location of the user session instead of
-    'session' which ususlaly has the flask session. This should always be 1 and in the future the setting should
+    'session' which usually has the flask session. This should always be 1 and in the future the setting should
     be removed from arxiv-base auth."""
 
-    CSRF_SESSION_KEY: str= ""
+    CSRF_SESSION_KEY: str = ""
     """arxiv-base CSRF key, should be replaced with just normal ue of wtforms."""
     CSRF_SECRET: str = "foobar"
 settings = Settings()

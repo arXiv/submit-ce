@@ -1,8 +1,17 @@
 """Core persistence methods for submissions and submission events."""
 import contextlib
-from typing import List, Tuple, Optional, Dict
+from typing import List, Tuple, Optional, Dict, Union
 
+from fastapi import UploadFile
 from flask import request
+
+from submit_ce.api.domain import User, Client
+from submit_ce.api.domain.events import SetLicense, AgreedToPolicy, StartedNew, SetMetadata, SetCategories, \
+    AuthorshipDirect, AuthorshipProxy
+from submit_ce.api.domain.meta import CategoryChange
+
+from submit_ce.api.implementations import BaseDefaultApi
+from submit_ce.ui.config import settings
 from submit_ce.ui.domain import Submission
 from submit_ce.ui.domain.event import Event, CreateSubmission
 from submit_ce.ui.exceptions import NoSuchSubmission, NothingToDo
@@ -10,8 +19,8 @@ from submit_ce.ui.exceptions import NoSuchSubmission, NothingToDo
 import logging
 logger = logging.getLogger(__name__)
 
-def config_backend_api(config: dict) -> None:
-    raise NotImplementedError()
+backend: BaseDefaultApi = settings.submission_api_implementation.impl
+"""BACKEND WITH LEGACY IMPL ONLY FOR TESTING."""
 
 def load(submission_id: int) -> Tuple[Submission, List[Event]]:
     """

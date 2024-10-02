@@ -15,7 +15,7 @@ from arxiv.users import auth, domain
 
 from submit_ce.controllers.ui.new import license
 
-from submit_ce.ui.routes.ui.flow_control import get_controllers_desire, STAGE_SUCCESS
+from submit_ce.ui.routes.flow_control import get_controllers_desire, STAGE_SUCCESS
 
 class TestSetLicense(TestCase):
     """Test behavior of :func:`.license` controller."""

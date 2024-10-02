@@ -14,7 +14,7 @@ from submit_ce.ui.domain import ConfirmPolicy
 from arxiv.users import auth, domain
 from submit_ce.controllers.ui.new import policy
 
-from submit_ce.ui.routes.ui.flow_control import get_controllers_desire, STAGE_SUCCESS
+from submit_ce.ui.routes.flow_control import get_controllers_desire, STAGE_SUCCESS
 
 class TestConfirmPolicy(TestCase):
     """Test behavior of :func:`.policy` controller."""

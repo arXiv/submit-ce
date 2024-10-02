@@ -11,18 +11,12 @@ from arxiv.forms import csrf
 from markupsafe import Markup
 
 from submit_ce.ui.backend import save
-from submit_ce.ui.domain.event import UpdateUploadPackage
-from submit_ce.ui.exceptions import SaveError
 from werkzeug.datastructures import MultiDict
-from werkzeug.exceptions import MethodNotAllowed
 from wtforms import BooleanField, HiddenField
 from wtforms.validators import DataRequired
 
-from submit_ce.ui.controllers.ui.util import validate_command, \
-    user_and_client_from_session
-from submit_ce.ui.util import load_submission
-from submit_ce.ui.routes.ui.flow_control import stay_on_this_stage, return_to_parent_stage
-from submit_ce.ui.controllers.ui.util import add_immediate_alert
+from submit_ce.ui.routes.flow_control import stay_on_this_stage
+from submit_ce.ui.controllers.util import add_immediate_alert
 
 logger = logging.getLogger(__name__)
 

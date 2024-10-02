@@ -8,7 +8,7 @@ from dataclasses import asdict
 from arxiv import taxonomy
 from submit_ce.ui.domain import Compilation
 
-from submit_ce.ui.controllers.ui.new.upload import group_files
+from submit_ce.ui.controllers.new.upload import group_files
 from submit_ce.ui.util import tidy_filesize
 
 from .tex_filters import compilation_log_display

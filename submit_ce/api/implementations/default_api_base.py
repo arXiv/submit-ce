@@ -95,6 +95,7 @@ class BaseDefaultApi(ABC):
         """Sets the license of the submission files."""
         ...
 
+    @abstractmethod
     async def assert_authorship_post(self, impl_dep: Dict, user: User, client: Client,
                                      submission_id: str, authorship: Union[AuthorshipDirect, AuthorshipProxy]) -> str:
         """Assert authorship of the submission files.
@@ -102,6 +103,7 @@ class BaseDefaultApi(ABC):
         Or assert that the submitter has authority to submit the files as a proxy."""
         ...
 
+    @abstractmethod
     async def file_post(self, impl_dep: Dict, user: User, client: Client, submission_id: str, uploadFile: UploadFile):
         """Upload a file to a submission.
 
@@ -109,13 +111,16 @@ class BaseDefaultApi(ABC):
         """
         ...
 
+    @abstractmethod
     async def set_categories_post(self, impl_dep: Dict, user: User, client: Client, submission_id: str,
                                   set_categoires: SetCategories) -> CategoryChange:
         pass
 
+    @abstractmethod
     async def set_metadata_post(self, impl_dep: Dict, user: User, client: Client, submission_id: str,
                                 metadata: Union[SetMetadata]):
         pass
 
+    @abstractmethod
     async def user_submissions(self, impl_data: Dict, user: User, client: Client) -> List[Submission]:
         pass
