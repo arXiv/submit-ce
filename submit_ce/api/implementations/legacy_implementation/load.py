@@ -131,7 +131,7 @@ def to_submission(row: models.Submission,
     status = status_from_classic(row.status)
     primary = row.primary_classification
     if row.submitter is None:
-        submitter = domain.User(native_id=row.submitter_id,
+        submitter = domain.User(identifier=row.submitter_id,
                                 email=row.submitter_email)
     else:
         submitter = row.get_submitter()

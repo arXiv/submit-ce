@@ -169,7 +169,7 @@ class Submission(Base):    # type: ignore
             extra.update(dict(forename=self.submitter.first_name,
                               surname=self.submitter.last_name,
                               suffix=self.submitter.suffix_name))
-        return domain.User(native_id=self.submitter_id,
+        return domain.User(identifier=str(self.submitter_id),
                            email=self.submitter_email, **extra)
 
 

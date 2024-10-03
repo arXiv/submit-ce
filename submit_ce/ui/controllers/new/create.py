@@ -2,7 +2,6 @@
 
 from http import HTTPStatus as status
 
-from ar_xiv_submit_client.models import StartedNew
 from arxiv.auth.domain import Session
 from werkzeug.datastructures import MultiDict
 from werkzeug.exceptions import InternalServerError, BadRequest
@@ -12,6 +11,7 @@ from retry import retry
 from arxiv.forms import csrf
 from arxiv.base import logging
 
+from submit_ce.api.domain.events import StartedNew
 from submit_ce.ui.backend import save, api, get_client, get_user, impl_data
 from submit_ce.ui.domain.event import CreateSubmission, \
     CreateSubmissionVersion
@@ -42,7 +42,7 @@ def create(method: str, params: MultiDict, session: Session, *args,
 
     command = CreateSubmission(creator=submitter, client=client)
     if method == 'POST' and form.validate() and validate_command(form, command):
-        submisison_id = api.start(impl_data(), get_user(), get_client() )
+        submisison_id = api.start(impl_data(), get_user(), get_client(), StartedNew() )
 
         # TODO Do we need a better way to enter a workflow for the first time with a new sub id?
         # Maybe a controller that is defined as the entrypoint?

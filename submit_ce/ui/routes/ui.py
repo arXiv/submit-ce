@@ -25,6 +25,7 @@ from submit_ce.ui.workflow.stages import FileUpload
 from submit_ce.ui.workflow.processor import WorkflowProcessor
 
 from .flow_control import flow_control, get_workflow, endpoint_name
+from ..backend import api, get_user, get_client, impl_data
 
 logger = logging.getLogger(__name__)
 
@@ -49,10 +50,8 @@ def load_submission() -> None:
     if request.view_args is None or 'submission_id' not in request.view_args:
         return
     submission_id = request.view_args['submission_id']
-
-    request.submission, request.events = \
-        util.load_submission(submission_id)
-
+    request.submission= api.get_submission(impl_data(), get_user(), get_client(), submission_id)
+    request.events = [] # TODO what do should we do with events in ce?
     wfp = get_workflow(request.submission)
     request.workflow = wfp
     request.current_stage = wfp.current_stage()

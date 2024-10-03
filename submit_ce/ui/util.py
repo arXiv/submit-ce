@@ -2,6 +2,8 @@
 
 from typing import Optional, Tuple, List
 from datetime import datetime
+
+from flask import request
 from werkzeug.exceptions import NotFound
 from retry import retry
 
@@ -36,21 +38,10 @@ def load_submission(submission_id: Optional[int]) \
 
     """
     if submission_id is None:
-        raise NotFound('No such submission.')
-
-    # bdc34: not sure why this is caching the submission in the flask g, seems strange
-    g = get_application_global()
-    if g is None or f'submission_{submission_id}' not in g:
-        try:
-            submission, submission_events = events.load(submission_id)
-        except NoSuchSubmission as e:
-            raise NotFound('No such submission.') from e
-        if g is not None:
-            setattr(g, f'submission_{submission_id}',
-                    (submission, submission_events))
-    if g is not None:
-        return getattr(g, f'submission_{submission_id}')
-    return submission, submission_events
+        raise NotFound('No submission id.')
+    if hasattr(request, "submission") and request.submission is not None:
+        if submission_id == request.submission.submission_id:
+            return request.submission, []
 
 
 def tidy_filesize(size: int) -> str:

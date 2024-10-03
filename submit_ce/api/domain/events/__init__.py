@@ -174,7 +174,7 @@ class StartedNew(BaseModel):
     """
     Starts a submission.
     """
-    submission_type: Literal["new"]
+    submission_type: Literal["new"] = "new"
     """What does the submission change in the system?
     
     `new`: deposit a new item or paper as version 1.
