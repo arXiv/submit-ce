@@ -27,7 +27,7 @@ from submit_ce.api.implementations.default_api_base import BaseDefaultApi
 from submit_ce.api.domain import Submission
 from submit_ce.api.domain.meta import CategoryChange
 from submit_ce.api.domain.events import AgreedToPolicy, StartedNew, StartedAlterExising, SetLicense, AuthorshipDirect, \
-    AuthorshipProxy, SetCategories, SetMetadata
+    AuthorshipProxy, SetCategories, SetMetadata, VerifyUser
 from submit_ce.api.auth import get_user, get_client
 from submit_ce.api.implementations import ImplementationConfig
 
@@ -114,17 +114,18 @@ async def accept_policy_post(
 
 
 @router.post(
-    "/submission/{submission_id}/setLicense",
+    "/submission/{submission_id}/verifyUser",
     tags=["submit"],
 )
-async def set_license_post(
-        submission_id: str = Path(..., description="Id of the submission to set the license for."),
-        license: SetLicense = Body(None, description="The license to set"),
+async def verify_user_post(
+        submission_id: str = Path(...,
+                                  description="Assert user account info is correct."),
+        verifyUser: VerifyUser = Body(None,
+                                      description="Indication that the user has reviwed their info and it is correct."),
         impl_dep: dict = Depends(impl_depends),
         user=userDep, client=clentDep
-) -> None:
-    """Set a license for a files of a submission."""
-    return implementation.set_license_post(impl_dep, user, client, submission_id, license)
+) -> str:
+    return implementation.verify_user_post(impl_dep, user, client, submission_id, verifyUser)
 
 
 @router.post(
@@ -138,6 +139,20 @@ async def assert_authorship_post(
         user=userDep, client=clentDep
 ) -> str:
     return implementation.assert_authorship_post(impl_dep, user, client, submission_id, authorship)
+
+
+@router.post(
+    "/submission/{submission_id}/setLicense",
+    tags=["submit"],
+)
+async def set_license_post(
+        submission_id: str = Path(..., description="Id of the submission to set the license for."),
+        license: SetLicense = Body(None, description="The license to set"),
+        impl_dep: dict = Depends(impl_depends),
+        user=userDep, client=clentDep
+) -> None:
+    """Set a license for a files of a submission."""
+    return implementation.set_license_post(impl_dep, user, client, submission_id, license)
 
 @router.post(
     "/submission/{submission_id}/files",

@@ -34,7 +34,7 @@ class TestNewSubmissionWorkflow(TestCase):
         cevnt = CreateSubmission(creator=submitter, client=submitter)
         submission = cevnt.apply(None)
 
-        nswfps = processor.WorkflowProcessor(workflow.SubmissionWorkflow,
+        nswfps = processor.WorkflowProcessor(workflow.NewSubmissionWorkflow,
                                              submission, seen)
 
         self.assertTrue(nswfps.can_proceed_to(nswfps.workflow[VerifyUser]))

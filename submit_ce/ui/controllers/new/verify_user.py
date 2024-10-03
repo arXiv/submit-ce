@@ -14,7 +14,9 @@ from wtforms.validators import InputRequired
 
 from arxiv.base import logging
 from arxiv.forms import csrf
-from submit_ce.ui.backend import save
+
+from submit_ce.api.domain.events import AuthorshipDirect
+from submit_ce.ui.backend import save, api, get_client, get_user, impl_data
 from submit_ce.ui.domain.event import ConfirmContactInformation
 from submit_ce.ui.exceptions import SaveError
 
@@ -59,16 +61,12 @@ def verify(method: str, params: MultiDict, session: Session,
         # Now that we have a submission, we can verify the user's contact
         # information. There is no need to do this more than once.
         if submission.submitter_contact_verified:
-            return ready_for_next((response_data, status.OK,{}))
+            return ready_for_next((response_data, status.OK))
         else:
-            cmd = ConfirmContactInformation(creator=submitter, client=client)
-            if validate_command(form, cmd, submission, 'verify_user'):
-                try:
-                    submission, _ = save(cmd, submission_id=submission_id)
-                    response_data['submission'] = submission
-                    return ready_for_next((response_data, status.OK, {}))
-                except SaveError as ex:
-                    raise InternalServerError(response_data) from ex
+            api.assert_authorship_post(impl_data(), get_user(), get_client(),
+                                       submission_id,
+                                       AuthorshipDirect(i_am_author=form.verify_user.data))
+            return ready_for_next((response_data, status.OK, {}))
 
     return stay_on_this_stage((response_data, status.OK, {}))
 

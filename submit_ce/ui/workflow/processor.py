@@ -58,7 +58,7 @@ class WorkflowProcessor:
             self.seen[self._seen_key(stage)] = True
 
     def is_seen(self, stage: Optional[Stage]) -> bool:
-        """Determine whether or not the user has seen this stage."""
+        """Determine whether the user has seen this stage."""
         if stage is None:
             return True
         return self.seen.get(self._seen_key(stage), False)

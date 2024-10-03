@@ -103,7 +103,7 @@ def get_workflow(submission: Optional[Submission]) -> WorkflowProcessor:
     """Guesses the workflow based on the submission and its version."""
     if submission is not None and submission.version > 1:
         return WorkflowProcessor(ReplacementWorkflow, submission, get_seen())
-    return WorkflowProcessor(SubmissionWorkflow, submission, get_seen())
+    return WorkflowProcessor(NewSubmissionWorkflow, submission, get_seen())
 
 
 def to_stage(stage: Optional[Stage], ident: str) -> Response:

@@ -37,28 +37,17 @@ def create(method: str, params: MultiDict, session: Session, *args,
         response_data['user_submissions'] = api.user_submissions(impl_data(),get_user(),get_client())
         params = MultiDict()
 
-    form = CreateSubmissionForm(params) # We're using a form here for CSRF protection
+    form = CreateSubmissionForm(params) # zero field form here for CSRF protection
     response_data['form'] = form
 
     command = CreateSubmission(creator=submitter, client=client)
     if method == 'POST' and form.validate() and validate_command(form, command):
         submisison_id = api.start(impl_data(), get_user(), get_client(), StartedNew() )
-
-        # TODO Do we need a better way to enter a workflow for the first time with a new sub id?
-        # Maybe a controller that is defined as the entrypoint?
+        # enter a workflow for the first time with a new sub id
         loc = url_for('ui.verify_user', submission_id=submisison_id)
         return {}, status.SEE_OTHER, {'Location': loc}
-            # except Exception as ee:
-            #     raise RuntimeError("Could not start new submission") from ee
-
-        # try:
-        #     submission, _ = save(command)
-        # except SaveError as e:
-        #     logger.error('Could not save command: %s', e)
-        #     raise InternalServerError(response_data) from e
-
-
-    return advance_to_current((response_data, status.OK, {}))
+    else:
+        return advance_to_current((response_data, status.OK, {}))
 
 
 def replace(method: str, params: MultiDict, session: Session,

@@ -114,9 +114,10 @@ class WorkflowDefinition:
                          f"endpoint or lable str or int. Not {type(query)}")
 
 
-SubmissionWorkflow = WorkflowDefinition(
-    'SubmissionWorkflow',
-    [stages.VerifyUser(),
+NewSubmissionWorkflow = WorkflowDefinition(
+    'NewSubmissionWorkflow',
+    [
+     #stages.VerifyUser(),  # skippng for now due to legacy has no place for this data
      stages.Authorship(),
      stages.License(),
      stages.Policy(),
