@@ -11,7 +11,7 @@ from werkzeug.exceptions import Unauthorized
 from submit_ce.api.domain import User, Client
 from submit_ce.api.domain.events import SetLicense, AgreedToPolicy, StartedNew, SetMetadata, SetCategories, \
     AuthorshipDirect, AuthorshipProxy
-from submit_ce.api.domain.meta import CategoryChange
+from submit_ce.api.domain.meta import CategoryChange, ACTIVE_CATEGORY
 
 from arxiv.db import Session, session_factory, _classic_engine, configure_db
 
@@ -41,13 +41,7 @@ api: BaseDefaultApi = settings.submission_api_implementation.impl
 
 
 def get_user() -> User:
-    # def get_user_impl(request: Request, token: str) -> Optional[User]:
-    #  secret = settings.jwt_secret
-    #  if isinstance(secret, SecretStr):
-    #      secret = secret.get_secret_value()
-
-    #session = decode(token, secret)
-    session = request.environ['auth']
+    session = request.environ['auth']  # was already setup by arxiv.auth.auth.middleware
     if session is None:
         raise Unauthorized()
 
@@ -80,6 +74,35 @@ def get_client() -> Client:
         # agent_version="v223432"
     )
 
+
+def endorsed_for(session: Session, category: str) -> bool:
+    """
+    Check whether category is included in this endorsement authorization.
+
+    If a user/client is authorized for all categories in a particular
+    archive, the category names in :attr:`Authorization.endorsements` will
+    be compressed to a wilcard ``archive.*`` representation. If the
+    user/client is authorized for all categories in the system, this will
+    be compressed to "*.*".
+
+    Parameters
+    ----------
+    category : str
+
+    Returns
+    -------
+    bool
+
+    """
+    # TODO implement endorsed_for, maybe move to arixv-base arxiv.auth Session?
+    return True
+    # archive = category.split(".", 1)[0] if "." in category else category
+    # return category in session.endorsements \
+    #     or f"{archive}.*" in session.endorsements \
+    #     or "*.*" in session.endorsements
+
+
+
 def impl_data() -> dict:
     return {"session": Session}
 
@@ -108,7 +131,7 @@ def load(submission_id: int) -> Tuple[Submission, List[Event]]:
         Raised when a submission with the passed ID cannot be found.
 
     """
-    api.get_submission({"session": Session}, _get_user(), _get_client(), submission_id)
+    api.get_submission({"session": Session}, get_user(), get_client(), submission_id)
 
 
 def load_submissions_for_user(user_id: int) -> List[Submission]:
@@ -126,7 +149,7 @@ def load_submissions_for_user(user_id: int) -> List[Submission]:
         Items are :class:`.domain.submission.Submission` instances.
 
     """
-    return api.user_submissions({"session": Session}, _get_user(), user_id)
+    return api.user_submissions({"session": Session}, get_user(), get_client())
 
 def save(*events: Event, submission_id: Optional[int] = None) \
         -> Tuple[Submission, List[Event]]:
@@ -170,11 +193,11 @@ def save(*events: Event, submission_id: Optional[int] = None) \
         to the database.
 
     """
-    if len(events) == 0:
-        raise NothingToDo('Must pass at least one event')
-    events_list = list(events)  # Coerce to list so that we can index.
-    prior: List[Event] = []
-    before: Optional[Submission] = None
+    # if len(events) == 0:
+    #     raise NothingToDo('Must pass at least one event')
+    # events_list = list(events)  # Coerce to list so that we can index.
+    # prior: List[Event] = []
+    # before: Optional[Submission] = None
 
     # We need ACIDity surrounding the the validation and persistence of new
     # events.

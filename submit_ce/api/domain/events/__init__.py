@@ -3,7 +3,7 @@ from __future__ import annotations
 import pprint
 from typing import Optional, Any, Dict, Literal, List, Union
 
-from pydantic import BaseModel, AwareDatetime
+from pydantic import BaseModel, AwareDatetime, Field
 
 from submit_ce.api.domain.meta import ACTIVE_CATEGORY
 from submit_ce.api.domain.agent import User, Client
@@ -78,7 +78,7 @@ class SetCategories(BaseModel):
     
     A submission must have a primary category and there may be only one primary category for the submission."""
 
-    secondary_categories: List[ACTIVE_CATEGORY]
+    secondary_categories: List[ACTIVE_CATEGORY] = Field(default_factory=list)
     """Additional categories of research the submission is relevant to.
     
     This is only for use with new submissions.

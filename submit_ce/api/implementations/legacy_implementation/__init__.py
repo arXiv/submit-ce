@@ -182,17 +182,17 @@ class LegacySubmitImplementation(BaseDefaultApi):
         submission.agree_policy = 1
         session.commit()
 
-    def set_license_post(self, impl_dep: dict, user: api.User, client: api.Client,
+    def set_license_post(self, impl_data: dict, user: api.User, client: api.Client,
                                submission_id: str, set_license: SetLicense) -> None:
-        session = impl_dep["session"]
+        session = impl_data["session"]
         check_user_authorized(session, user, client, submission_id)
         submission = check_submission_exists(session, submission_id)
         submission.license = set_license.license_uri
         session.commit()
 
-    def assert_authorship_post(self, impl_dep: Dict, user: api.User, client: api.Client,
+    def assert_authorship_post(self, impl_data: Dict, user: api.User, client: api.Client,
                                      submission_id: str, authorship: Union[AuthorshipDirect, AuthorshipProxy]) -> str:
-        session = impl_dep["session"]
+        session = impl_data["session"]
         check_user_authorized(session, user, client, submission_id)
         submission = check_submission_exists(session, submission_id)
         if isinstance(authorship, AuthorshipDirect):
@@ -203,8 +203,8 @@ class LegacySubmitImplementation(BaseDefaultApi):
         session.commit()
         return "success"
 
-    def file_post(self, impl_dep: Dict, user: api.User, client: api.Client, submission_id: str, uploadFile: UploadFile):
-        session: SqlalchemySession = impl_dep["session"]
+    def file_post(self, impl_data: Dict, user: api.User, client: api.Client, submission_id: str, uploadFile: UploadFile):
+        session: SqlalchemySession = impl_data["session"]
         check_user_authorized(session, user, client, submission_id)
         submission = check_submission_exists(session, submission_id,
                                              lock_row=legacy_specific_settings.legacy_serialize_file_operations)
@@ -222,9 +222,9 @@ class LegacySubmitImplementation(BaseDefaultApi):
                                 " but it was {uploadFile.content_type}."
                                 )
 
-    def set_categories_post(self, impl_dep: Dict, user: api.User, client: api.Client, submission_id: str,
+    def set_categories_post(self, impl_data: Dict, user: api.User, client: api.Client, submission_id: str,
                                   data: SetCategories):
-        session: SqlalchemySession = impl_dep["session"]
+        session: SqlalchemySession = impl_data["session"]
         check_user_authorized(session, user, client, submission_id)
         submission = check_submission_exists(session, submission_id)
 
@@ -277,9 +277,9 @@ class LegacySubmitImplementation(BaseDefaultApi):
             result.new_secondaries = list(new_categories)
         return result
 
-    def set_metadata_post(self, impl_dep: Dict, user: api.User, client: api.Client, submission_id: str,
+    def set_metadata_post(self, impl_data: Dict, user: api.User, client: api.Client, submission_id: str,
                                 metadata: Union[SetMetadata]):
-        session: SqlalchemySession = impl_dep["session"]
+        session: SqlalchemySession = impl_data["session"]
         check_user_authorized(session, user, client, submission_id)
         submission = check_submission_exists(session, submission_id)
         update = []
@@ -322,8 +322,8 @@ class LegacySubmitImplementation(BaseDefaultApi):
 
         return ",".join(update)
 
-    def verify_user_post(self, impl_dep: Dict, user: User, client: Client, submission_id: str, verifyUser: VerifyUser):
-        # session: SqlalchemySession = impl_dep["session"]
+    def verify_user_post(self, impl_data: Dict, user: User, client: Client, submission_id: str, verifyUser: VerifyUser):
+        # session: SqlalchemySession = impl_data["session"]
         # check_user_authorized(session, user, client, submission_id)
         # submission = check_submission_exists(session, submission_id)
         # TODO legacy lacks a concept of "users has verified their info"

@@ -90,13 +90,13 @@ class BaseDefaultApi(ABC):
         ...
 
     @abstractmethod
-    def set_license_post(self, impl_dep: Dict, user: User, client: Client,
+    def set_license_post(self, impl_data: Dict, user: User, client: Client,
                                submission_id: str, license: SetLicense) -> None:
         """Sets the license of the submission files."""
         ...
 
     @abstractmethod
-    def assert_authorship_post(self, impl_dep: Dict, user: User, client: Client,
+    def assert_authorship_post(self, impl_data: Dict, user: User, client: Client,
                                      submission_id: str, authorship: Union[AuthorshipDirect, AuthorshipProxy]) -> str:
         """Assert authorship of the submission files.
 
@@ -104,7 +104,7 @@ class BaseDefaultApi(ABC):
         ...
 
     @abstractmethod
-    def file_post(self, impl_dep: Dict, user: User, client: Client, submission_id: str, uploadFile: UploadFile):
+    def file_post(self, impl_data: Dict, user: User, client: Client, submission_id: str, uploadFile: UploadFile):
         """Upload a file to a submission.
 
         The file can be a single file, a zip, or a tar.gz. Zip and tar.gz files will be unpacked.
@@ -112,12 +112,12 @@ class BaseDefaultApi(ABC):
         ...
 
     @abstractmethod
-    def set_categories_post(self, impl_dep: Dict, user: User, client: Client, submission_id: str,
+    def set_categories_post(self, impl_data: Dict, user: User, client: Client, submission_id: str,
                                   set_categoires: SetCategories) -> CategoryChange:
         pass
 
     @abstractmethod
-    def set_metadata_post(self, impl_dep: Dict, user: User, client: Client, submission_id: str,
+    def set_metadata_post(self, impl_data: Dict, user: User, client: Client, submission_id: str,
                                 metadata: Union[SetMetadata]):
         pass
 
@@ -125,5 +125,5 @@ class BaseDefaultApi(ABC):
     def user_submissions(self, impl_data: Dict, user: User, client: Client) -> List[Submission]:
         pass
 
-    def verify_user_post(self, impl_dep: Dict, user: User, client: Client, submission_id: str, verifyUser: VerifyUser):
+    def verify_user_post(self, impl_data: Dict, user: User, client: Client, submission_id: str, verifyUser: VerifyUser):
         pass
