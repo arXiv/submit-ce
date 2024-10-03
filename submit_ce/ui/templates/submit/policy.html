@@ -54,9 +54,13 @@
       <h3>General Provisions</h3>
       <p>This Agreement will be governed by and construed in accordance with the substantive and procedural laws of the State of New York and the applicable federal law of the United States without reference to any conflicts of laws principles.  The Submitter agrees that any action, suit, arbitration, or other proceeding arising out of or related to this Agreement must be commenced in the state or federal courts serving Tompkins County, New York.  The Submitter hereby consents on behalf of the Submitter and any other authors to the personal jurisdiction of such courts.</p>
     </div>
-
-
   </div>
+
+  {# The policy id is the id of the policy statement the user has been show. If the above policy text changes the policy
+     id should change and a new entry added to the db. #}
+  {{ form.policy_id(value ="3") }}
+  {{ form.policy_id }}
+
   <div class="action-container">
       {{ form.csrf_token }}
       {% if form.policy.errors %}<div class="notification is-danger">{% endif %}
