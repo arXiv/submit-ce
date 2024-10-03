@@ -1,4 +1,5 @@
 import os
+from typing import Tuple, List
 
 from arxiv.config import settings as arxivbase_settings, Settings as ArxivBaseSettings
 from pydantic import ImportString
@@ -28,6 +29,37 @@ class Settings(ArxivBaseSettings):
         if "CLASSIC_DB_URI" not in os.environ:
             self.CLASSIC_DB_URI = f"sqlite:///{DEV_SQLITE_FILE}"
 
+        self.URLS = [
+            ("help_license", "/help/license", self.BASE_SERVER),
+            ("help_third_party_submission", "/help/third_party_submission",
+             self.BASE_SERVER),
+            ("help_cross", "/help/cross", self.BASE_SERVER),
+            ("help_submit", "/help/submit", self.BASE_SERVER),
+            ("help_ancillary_files", "/help/ancillary_files", self.BASE_SERVER),
+            ("help_texlive", "/help/faq/texlive", self.BASE_SERVER),
+            ("help_whytex", "/help/faq/whytex", self.BASE_SERVER),
+            ("help_default_packages", "/help/submit_tex#wegotem", self.BASE_SERVER),
+            ("help_submit_tex", "/help/submit_tex", self.BASE_SERVER),
+            ("help_submit_pdf", "/help/submit_pdf", self.BASE_SERVER),
+            ("help_submit_ps", "/help/submit_ps", self.BASE_SERVER),
+            ("help_submit_html", "/help/submit_html", self.BASE_SERVER),
+            ("help_submit_sizes", "/help/sizes", self.BASE_SERVER),
+            ("help_metadata", "/help/prep", self.BASE_SERVER),
+            ("help_jref", "/help/jref", self.BASE_SERVER),
+            ("help_withdraw", "/help/withdraw", self.BASE_SERVER),
+            ("help_replace", "/help/replace", self.BASE_SERVER),
+            ("help_endorse", "/help/endorsement", self.BASE_SERVER),
+            ("clickthrough", "/ct?url=<url>&v=<v>", self.BASE_SERVER),
+            ("help_endorse", "/help/endorsement", self.BASE_SERVER),
+            ("help_replace", "/help/replace", self.BASE_SERVER),
+            ("help_version", "/help/replace#versions", self.BASE_SERVER),
+            ("help_email", "/help/email-protection", self.BASE_SERVER),
+            ("help_author", "/help/prep#author", self.BASE_SERVER),
+            ("help_mistakes", "/help/faq/mistakes", self.BASE_SERVER),
+            ("help_texprobs", "/help/faq/texprobs", self.BASE_SERVER),
+            ("login", "/user/login", self.BASE_SERVER)
+        ]
+
     api_config: dict = {}
     """Configuration to submit backend API. 
      
@@ -47,6 +79,15 @@ class Settings(ArxivBaseSettings):
     CSRF_SECRET: str = "foobar"
 
     CLASSIC_DB_URI: str = f"sqlite:///{DEV_SQLITE_FILE}"
+    
+    URLS: List[Tuple[str, str, str]] = []
+    """
+    URLs for external services, for use with :func:`flask.url_for`.
+    This subset of URLs is common only within submit, for now - maybe move to base
+    if these pages seem relevant to other services.
+
+    For details, see :mod:`arxiv.base.urls`.
+    """
 
 settings = Settings()
 arxivbase_settings.CLASSIC_DB_URI = settings.CLASSIC_DB_URI
