@@ -8,7 +8,7 @@ from submit_ce.api.domain import Submission
 from submit_ce.api.domain.meta import CategoryChange
 from submit_ce.api.domain.agent import User, Client
 from submit_ce.api.domain.events import AgreedToPolicy, StartedNew, AuthorshipDirect, AuthorshipProxy, \
-    SetLicense, SetCategories, SetMetadata
+    SetLicense, SetCategories, SetMetadata, VerifyUser
 
 
 class BaseDefaultApi(ABC):
@@ -123,4 +123,7 @@ class BaseDefaultApi(ABC):
 
     @abstractmethod
     def user_submissions(self, impl_data: Dict, user: User, client: Client) -> List[Submission]:
+        pass
+
+    def verify_user_post(self, impl_dep: Dict, user: User, client: Client, submission_id: str, verifyUser: VerifyUser):
         pass

@@ -12,11 +12,9 @@ from submit_ce.api.domain.agent import User, Client
 class BaseEvent(BaseModel):
     event_info: EventInfo
 
-
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
         return pprint.pformat(self.model_dump(by_alias=True))
-
 
     def to_dict(self) -> Dict[str, Any]:
         """Return the dictionary representation of the model using alias.
@@ -114,6 +112,7 @@ class SetLicense(BaseModel):
     ]
     """The license the sender offers to the arxiv users for the submitted items."""
 
+
 class SetMetadata(BaseModel):
     title: Optional[str] = None
     authors: Optional[str] = None
@@ -160,6 +159,7 @@ class AuthorshipDirect(BaseModel):
     i_am_author: bool
     """By sending `True` the sender asserts they are the author of the submitted items."""
 
+
 class AuthorshipProxy(BaseModel):
     """
     Asserts that the sender of this request is authorized to deposit the submitted items by the author of the items.
@@ -202,3 +202,7 @@ class StartedAlterExising(BaseModel):
     paperid: str
     """The existing paper that is modified. Only valid for replacement, withdrawal, and jref and cross"""
 
+
+class VerifyUser(BaseModel):
+    """Indicate that the user's email and other fields are correct."""
+    user_info_correct: bool = False

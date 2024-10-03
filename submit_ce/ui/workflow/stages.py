@@ -6,8 +6,7 @@ from submit_ce.ui.domain import Submission
 
 
 SubmissionCheck = Callable[[Submission], (bool)]
-"""Function type that can be used to check if a submission meets
-   a condition."""
+"""Function type that can be used to check if a submission meets a condition."""
 
 
 class Stage:

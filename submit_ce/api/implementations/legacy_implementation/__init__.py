@@ -13,9 +13,10 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker, Session as SqlalchemySession, Session
 
 from submit_ce.api import domain as api, domain
+from ...domain import User, Client
 from ...domain.meta import CategoryChange
 from submit_ce.api.domain.events import AgreedToPolicy, StartedNew, StartedAlterExising, SetLicense, \
-    AuthorshipDirect, AuthorshipProxy, SetCategories, SetMetadata
+    AuthorshipDirect, AuthorshipProxy, SetCategories, SetMetadata, VerifyUser
 from submit_ce.api.file_store import SubmissionFileStore
 from submit_ce.api.file_store.legacy_file_store import LegacyFileStore
 from submit_ce.api.implementations import ImplementationConfig
@@ -321,6 +322,13 @@ class LegacySubmitImplementation(BaseDefaultApi):
 
         return ",".join(update)
 
+    def verify_user_post(self, impl_dep: Dict, user: User, client: Client, submission_id: str, verifyUser: VerifyUser):
+        # session: SqlalchemySession = impl_dep["session"]
+        # check_user_authorized(session, user, client, submission_id)
+        # submission = check_submission_exists(session, submission_id)
+        # TODO legacy lacks a concept of "users has verified their info"
+        pass
+
     def mark_deposited_post(self, impl_data: Dict, user: api.User, client: api.Client, submission_id: str) -> None:
         pass
 
@@ -345,6 +353,7 @@ class LegacySubmitImplementation(BaseDefaultApi):
             .order_by(Submission.submission_id.desc())
         submissions: List[Submission] = [to_submission(row) for row in session.execute(stmt).unique().scalars().all()]
         return submissions
+
 
 
 def setup(settings: BaseSettings) -> None:

@@ -13,7 +13,7 @@ from werkzeug.exceptions import BadRequest
 from arxiv.base import alerts, logging
 from submit_ce.ui.domain import Submission
 
-from submit_ce.ui.workflow import SubmissionWorkflow, ReplacementWorkflow
+from submit_ce.ui.workflow import NewSubmissionWorkflow, ReplacementWorkflow
 from submit_ce.ui.workflow.stages import Stage
 from submit_ce.ui.workflow.processor import WorkflowProcessor
 
@@ -103,7 +103,7 @@ def get_workflow(submission: Optional[Submission]) -> WorkflowProcessor:
     """Guesses the workflow based on the submission and its version."""
     if submission is not None and submission.version > 1:
         return WorkflowProcessor(ReplacementWorkflow, submission, get_seen())
-    return WorkflowProcessor(SubmissionWorkflow, submission, get_seen())
+    return WorkflowProcessor(NewSubmissionWorkflow, submission, get_seen())
 
 
 def to_stage(stage: Optional[Stage], ident: str) -> Response:

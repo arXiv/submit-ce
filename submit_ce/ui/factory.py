@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 from typing import Optional
 
@@ -12,6 +13,10 @@ from arxiv.config import settings as base_settings
 base_settings.CLASSIC_DB_URI = settings.CLASSIC_DB_URI
 from . import filters, backend
 from .routes.ui import UI
+
+from flask.logging import default_handler
+root = logging.getLogger()
+root.addHandler(default_handler)
 
 def create_web_app(config: Optional[dict]=None) -> Flask:
     """Initialize an instance of the search frontend UI web application."""
