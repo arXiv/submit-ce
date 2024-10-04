@@ -1,13 +1,14 @@
 """Data structures related to QA."""
-from dataclasses import field
+
 from datetime import datetime
 from enum import Enum
 from typing import Optional, Union, Type, Dict, Any
 
+from dataclasses import field, dataclass, asdict
 from mypy_extensions import TypedDict
-from pydantic.dataclasses import dataclass
 
-from .agent import Agent
+from .agent import Agent, agent_factory
+
 
 PossibleDuplicate = TypedDict('PossibleDuplicate',
                               {'id': int, 'title': str, 'owner': Agent})
@@ -31,10 +32,10 @@ class Flag:
     def __post_init__(self) -> None:
         """Set derivative fields."""
         self.flag_datatype = self.__class__.__name__
-        # if self.creator and isinstance(self.creator, dict):
-        #     self.creator = agent_factory(**self.creator)
-        # if self.proxy and isinstance(self.proxy, dict):
-        #     self.proxy = agent_factory(**self.proxy)
+        if self.creator and isinstance(self.creator, dict):
+            self.creator = agent_factory(**self.creator)
+        if self.proxy and isinstance(self.proxy, dict):
+            self.proxy = agent_factory(**self.proxy)
 
 
 @dataclass

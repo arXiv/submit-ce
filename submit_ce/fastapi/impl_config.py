@@ -3,9 +3,6 @@ from typing import Callable
 from fastapi import Request
 from pydantic_settings import BaseSettings
 
-from submit_ce.api import domain
-from submit_ce.api.implementations.default_api_base import BaseDefaultApi
-
 
 @dataclass
 class ImplementationConfig:

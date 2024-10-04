@@ -1,10 +1,12 @@
 """Data structs related to compilation."""
 
 import io
-from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Optional
+from typing import Optional, NamedTuple, Dict
+
+from dataclasses import dataclass, field
+
 
 
 @dataclass

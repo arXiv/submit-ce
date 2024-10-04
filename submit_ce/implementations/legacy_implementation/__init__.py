@@ -1,8 +1,5 @@
 import datetime
 import logging
-import os
-from itertools import groupby
-from operator import attrgetter
 from typing import Dict, Union, Optional, List
 
 import arxiv.db
@@ -12,13 +9,13 @@ from pydantic_settings import BaseSettings
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker, Session as SqlalchemySession, Session
 
-from submit_ce.api import domain as api, domain
+from submit_ce.api import domain as api
 from ...domain import User, Client
 from ...domain.meta import CategoryChange
 from submit_ce.api.domain.events import AgreedToPolicy, StartedNew, StartedAlterExising, SetLicense, \
     AuthorshipDirect, AuthorshipProxy, SetCategories, SetMetadata, VerifyUser
 from submit_ce.api.file_store import SubmissionFileStore
-from submit_ce.api.file_store.legacy_file_store import LegacyFileStore
+from submit_ce.implementations.file_store.legacy_file_store import LegacyFileStore
 from submit_ce.api.implementations import ImplementationConfig
 from submit_ce.api.implementations.default_api_base import BaseDefaultApi
 from .auth import get_user_impl

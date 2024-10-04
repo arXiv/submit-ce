@@ -1,12 +1,13 @@
 """Upload-related data structures."""
 
+from typing import NamedTuple, List, Optional, Dict, MutableMapping, Iterable
+import io
 from datetime import datetime
-from enum import Enum
-from typing import NamedTuple, List, Optional
-
 import dateutil.parser
+from enum import Enum
+import io
 
-from .submission import SubmissionContent
+from .submission import Submission, SubmissionContent
 
 
 class FileErrorLevels(Enum):

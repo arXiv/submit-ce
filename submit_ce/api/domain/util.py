@@ -1,8 +1,7 @@
 """Helpers and utilities."""
 
+from typing import Dict, Any, List, Optional, Callable, Iterable
 from datetime import datetime
-from typing import Dict, Any, List, Callable, Iterable
-
 from pytz import UTC
 
 

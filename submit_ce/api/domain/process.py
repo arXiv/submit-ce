@@ -1,12 +1,13 @@
 """Status information for external or long-running processes."""
 
-from pydantic.dataclasses import dataclass
-from dataclasses import field
-from datetime import datetime
-from enum import Enum
 from typing import Optional
+from enum import Enum
+from datetime import datetime
 
-from .agent import Agent
+from dataclasses import dataclass, field, asdict
+
+from .agent import Agent, agent_factory
+from .util import get_tzaware_utc_now
 
 
 @dataclass
@@ -39,3 +40,9 @@ class ProcessStatus:
     status: Status = field(default=Status.PENDING)
     reason: Optional[str] = field(default=None)
     """Optional context or explanatory details related to the status."""
+
+    def __post_init__(self) -> None:
+        """Check our enums and agents."""
+        if self.creator and isinstance(self.creator, dict):
+            self.creator = agent_factory(**self.creator)
+        self.status = self.Status(self.status)

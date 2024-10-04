@@ -1,16 +1,16 @@
 """Data structures for submissions."""
 
 import hashlib
-from dataclasses import field
 from enum import Enum
-from typing import Optional, Dict, List, Iterable, Set, Any, Literal
-
+from datetime import datetime
 from dateutil.parser import parse as parse_date
-from pydantic import BaseModel, AwareDatetime
-from pydantic.dataclasses import dataclass
+from typing import Optional, Dict, TypeVar, List, Iterable, Set, Union, Any
 
-from .agent import Agent
-from .annotation import Comment, Feature, Annotation
+from dataclasses import dataclass, field, asdict
+
+from .agent import Agent, agent_factory
+from .annotation import Comment, Feature, Annotation, annotation_factory
+from .compilation import Compilation
 from .flag import Flag, flag_factory
 from .meta import License, Classification
 from .preview import Preview
@@ -36,6 +36,13 @@ class Author:
 
     If not provided, will be automatically generated from the other fields.
     """
+
+    def __post_init__(self) -> None:
+        """Auto-generate an identifier, if not provided."""
+        if not self.identifier:
+            self.identifier = self._generate_identifier()
+        if not self.display:
+            self.display = self.canonical
 
     def _generate_identifier(self) -> str:
         h = hashlib.new('sha1')
@@ -78,9 +85,14 @@ class SubmissionContent:
 
     identifier: str
     checksum: str
-    uncompressed_size: int # todo change to uncompressed_bytes
-    compressed_size: int # todo change to compressed_bytes
+    uncompressed_size: int
+    compressed_size: int
     source_format: Format = Format.UNKNOWN
+
+    def __post_init__(self) -> None:
+        """Make sure that :attr:`.source_format` is a :class:`.Format`."""
+        if self.source_format and type(self.source_format) is str:
+            self.source_format = self.Format(self.source_format)
 
 
 @dataclass
@@ -90,7 +102,7 @@ class SubmissionMetadata:
     title: Optional[str] = None
     abstract: Optional[str] = None
 
-    authors: List[Author] = field(default_factory=list)
+    authors: list = field(default_factory=list)
     authors_display: str = field(default_factory=str)
     """The canonical arXiv author string."""
 
@@ -100,14 +112,36 @@ class SubmissionMetadata:
     report_num: Optional[str] = None
     journal_ref: Optional[str] = None
 
-    comments: Optional[str] = field(default_factory=str)
+    comments: str = field(default_factory=str)
+
+
+@dataclass
+class Delegation:
+    """Delegation of editing privileges to a non-owning :class:`.Agent`."""
+
+    delegate: Agent
+    creator: Agent
+    created: datetime = field(default_factory=get_tzaware_utc_now)
+    delegation_id: str = field(default_factory=str)
+
+    def __post_init__(self) -> None:
+        """Set derivative fields."""
+        self.delegation_id = self.get_delegation_id()
+
+    def get_delegation_id(self) -> str:
+        """Generate unique identifier for the delegation instance."""
+        h = hashlib.new('sha1')
+        h.update(b'%s:%s:%s' % (self.delegate.agent_identifier,
+                                self.creator.agent_identifier,
+                                self.created.isoformat()))
+        return h.hexdigest()
 
 
 @dataclass
 class Hold:
     """Represents a block on announcement, usually for QA/QC purposes."""
 
-    class HoldType(Enum):
+    class Type(Enum):
         """Supported holds in the submission system."""
 
         PATCH = 'patch'
@@ -123,10 +157,17 @@ class Hold:
     """The event that created the hold."""
 
     creator: Agent
-    created: AwareDatetime = field(default_factory=get_tzaware_utc_now)
-    hold_type: str = field(default=HoldType.PATCH)
+    created: datetime = field(default_factory=get_tzaware_utc_now)
+    hold_type: Type = field(default=Type.PATCH)
     hold_reason: Optional[str] = field(default_factory=str)
 
+    def __post_init__(self) -> None:
+        """Check enums and agents."""
+        if self.creator and isinstance(self.creator, dict):
+            self.creator = agent_factory(**self.creator)
+        self.hold_type = self.Type(self.hold_type)
+        # if not isinstance(created, datetime):
+        #     created = parse_date(created)
 
 
 @dataclass
@@ -135,95 +176,134 @@ class Waiver:
 
     event_id: str
     """The identifier of the event that produced this waiver."""
-    waiver_type: Hold.HoldType
+    waiver_type: Hold.Type
     waiver_reason: str
-    created: AwareDatetime
+    created: datetime
     creator: Agent
 
-
-# UserRequest seems to be a barely implemented feature.
-# reassess if it makes sense or of something else should be done.
-
-# class UserRequest(BaseModel):
-#     """Represents a user request related to a submission."""
-#
-#     NAME:str = "User request base"
-#
-#     class Status(Enum):
-#         WORKING = 'working'
-#         """Request is not yet submitted."""
-#         PENDING = 'pending'
-#         """Request is pending approval."""
-#         REJECTED = 'rejected'
-#         """Request has been rejected."""
-#         APPROVED = 'approved'
-#         """Request has been approved."""
-#         APPLIED = 'applied'
-#         """Submission has been updated on the basis of the approved request."""
-#         CANCELLED = 'cancelled'
-#
-#     request_id: str
-#     creator: Agent
-#     created: AwareDatetime = field(default_factory=get_tzaware_utc_now)
-#     updated: AwareDatetime = field(default_factory=get_tzaware_utc_now)
-#     status: Literal['working','pending','rejected','approved','applied','cancelled'] = field(default='pending')
-#     request_type: str = field(default_factory=str)
-#
-#     def get_request_type(self) -> str:
-#         """Name (str) of the type of user request."""
-#         return type(self).__name__
-#
-#     def is_pending(self) -> bool:
-#         """Check whether the request is pending."""
-#         return self.status == 'pending'
-#
-#     def is_approved(self) -> bool:
-#         """Check whether the request has been approved."""
-#         return self.status == 'approved'
-#
-#     def is_applied(self) -> bool:
-#         """Check whether the request has been applied."""
-#         return self.status == 'applied'
-#
-#     def is_rejected(self) -> bool:
-#         """Check whether the request has been rejected."""
-#         return self.status == 'rejected'
-#
-#     def is_active(self) -> bool:
-#         """Check whether the request is active."""
-#         return self.is_pending() or self.is_approved()
-#
-#     @classmethod
-#     def generate_request_id(cls, submission: 'Submission', N: int = -1) -> str:
-#         """Generate a unique identifier for this request."""
-#         h = hashlib.new('sha1')
-#         if N < 0:
-#             N = len([rq for rq in submission.iter_requests if type(rq) is cls])
-#         h.update(f'{submission.submission_id}:{cls.NAME}:{N}'.encode('utf-8'))
-#         return h.hexdigest()
-#
-#     def apply(self, submission: 'Submission') -> 'Submission':
-#         """Stub for applying the proposal."""
-#         raise NotImplementedError('Must be implemented by child class')
-#
+    def __post_init__(self) -> None:
+        """Check enums and agents."""
+        if self.creator and isinstance(self.creator, dict):
+            self.creator = agent_factory(**self.creator)
+        self.waiver_type = Hold.Type(self.waiver_type)
 
 
-submission_status = Literal[
-    'working',
-    'submitted',
-    'scheduled',
-    'announced',
-    'deleted',
-    'error',
-    'withdrawn',
-]
+# TODO: add identification mechanism; consider using mechanism similar to
+# comments, below.
+@dataclass
+class UserRequest:
+    """Represents a user request related to a submission."""
 
-class Submission(BaseModel):
+    NAME = "User request base"
+
+    WORKING = 'working'
+    """Request is not yet submitted."""
+
+    PENDING = 'pending'
+    """Request is pending approval."""
+
+    REJECTED = 'rejected'
+    """Request has been rejected."""
+
+    APPROVED = 'approved'
+    """Request has been approved."""
+
+    APPLIED = 'applied'
+    """Submission has been updated on the basis of the approved request."""
+
+    CANCELLED = 'cancelled'
+
+    request_id: str
+    creator: Agent
+    created: datetime = field(default_factory=get_tzaware_utc_now)
+    updated: datetime = field(default_factory=get_tzaware_utc_now)
+    status: str = field(default=PENDING)
+    request_type: str = field(default_factory=str)
+
+    def __post_init__(self) -> None:
+        """Check agents."""
+        if self.creator and isinstance(self.creator, dict):
+            self.creator = agent_factory(**self.creator)
+        self.request_type = self.get_request_type()
+
+    def get_request_type(self) -> str:
+        """Name (str) of the type of user request."""
+        return type(self).__name__
+
+    def is_pending(self) -> bool:
+        """Check whether the request is pending."""
+        return self.status == UserRequest.PENDING
+
+    def is_approved(self) -> bool:
+        """Check whether the request has been approved."""
+        return self.status == UserRequest.APPROVED
+
+    def is_applied(self) -> bool:
+        """Check whether the request has been applied."""
+        return self.status == UserRequest.APPLIED
+
+    def is_rejected(self) -> bool:
+        """Check whether the request has been rejected."""
+        return self.status == UserRequest.REJECTED
+
+    def is_active(self) -> bool:
+        """Check whether the request is active."""
+        return self.is_pending() or self.is_approved()
+
+    @classmethod
+    def generate_request_id(cls, submission: 'Submission', N: int = -1) -> str:
+        """Generate a unique identifier for this request."""
+        h = hashlib.new('sha1')
+        if N < 0:
+            N = len([rq for rq in submission.iter_requests if type(rq) is cls])
+        h.update(f'{submission.submission_id}:{cls.NAME}:{N}'.encode('utf-8'))
+        return h.hexdigest()
+
+    def apply(self, submission: 'Submission') -> 'Submission':
+        """Stub for applying the proposal."""
+        raise NotImplementedError('Must be implemented by child class')
+
+
+@dataclass
+class WithdrawalRequest(UserRequest):
+    """Represents a request to withdraw a submission."""
+
+    NAME = "Withdrawal"
+
+    reason_for_withdrawal: Optional[str] = field(default=None)
+    """If an e-print is withdrawn, the submitter is asked to explain why."""
+
+    def apply(self, submission: 'Submission') -> 'Submission':
+        """Apply the withdrawal."""
+        submission.reason_for_withdrawal = self.reason_for_withdrawal
+        submission.status = Submission.WITHDRAWN
+        return submission
+
+
+@dataclass
+class CrossListClassificationRequest(UserRequest):
+    """Represents a request to add secondary classifications."""
+
+    NAME = "Cross-list"
+
+    classifications: List[Classification] = field(default_factory=list)
+
+    def apply(self, submission: 'Submission') -> 'Submission':
+        """Apply the cross-list request."""
+        submission.secondary_classification.extend(self.classifications)
+        return submission
+
+    @property
+    def categories(self) -> List[str]:
+        """Get the requested cross-list categories."""
+        return [c.category for c in self.classifications]
+
+
+@dataclass
+class Submission:
     """
     Represents an arXiv submission object.
 
-    Below this are some ideas from NG that we are not wed to.
-    
     Some notable differences between this view of submissions and the classic
     model:
 
@@ -244,13 +324,21 @@ class Submission(BaseModel):
 
     """
 
+    WORKING = 'working'
+    SUBMITTED = 'submitted'
+    SCHEDULED = 'scheduled'
+    ANNOUNCED = 'announced'
+    ERROR = 'error'     # TODO: eliminate this status.
+    DELETED = 'deleted'
+    WITHDRAWN = 'withdrawn'
+
     creator: Agent
     owner: Agent
-    proxy: Optional[Agent] = None
+    proxy: Optional[Agent] = field(default=None)
     client: Optional[Agent] = field(default=None)
-    created: Optional[AwareDatetime] = field(default=None)
-    updated: Optional[AwareDatetime] = field(default=None)
-    submitted: Optional[AwareDatetime] = field(default=None)
+    created: Optional[datetime] = field(default=None)
+    updated: Optional[datetime] = field(default=None)
+    submitted: Optional[datetime] = field(default=None)
     submission_id: Optional[int] = field(default=None)
 
     source_content: Optional[SubmissionContent] = field(default=None)
@@ -266,7 +354,7 @@ class Submission(BaseModel):
     is_source_processed: bool = field(default=False)
     submitter_confirmed_preview: bool = field(default=False)
     license: Optional[License] = field(default=None)
-    status: submission_status = field(default='working')
+    status: str = field(default=WORKING)
     """Disposition within the submission pipeline."""
 
     arxiv_id: Optional[str] = field(default=None)
@@ -281,8 +369,8 @@ class Submission(BaseModel):
     """Announced versions of this :class:`.domain.submission.Submission`."""
 
     # These fields are related to moderation/quality control.
-    # user_requests: Dict[str, UserRequest] = field(default_factory=dict)
-    # """Requests from the owner for changes that require approval."""
+    user_requests: Dict[str, UserRequest] = field(default_factory=dict)
+    """Requests from the owner for changes that require approval."""
 
     proposals: Dict[str, Proposal] = field(default_factory=dict)
     """Proposed changes to the submission, e.g. reclassification."""
@@ -313,12 +401,12 @@ class Submission(BaseModel):
     @property
     def is_active(self) -> bool:
         """Actively moving through the submission workflow."""
-        return self.status not in ['deleted','announced']
+        return self.status not in [self.DELETED, self.ANNOUNCED]
 
     @property
     def is_announced(self) -> bool:
         """The submission has been announced."""
-        if self.status == 'announced':
+        if self.status == self.ANNOUNCED:
             assert self.arxiv_id is not None
             return True
         return False
@@ -326,12 +414,12 @@ class Submission(BaseModel):
     @property
     def is_finalized(self) -> bool:
         """Submitter has indicated submission is ready for publication."""
-        return self.status not in ['working', 'deleted']
+        return self.status not in [self.WORKING, self.DELETED]
 
     @property
     def is_deleted(self) -> bool:
         """Submission is removed."""
-        return self.status == 'deleted'
+        return self.status == self.DELETED
 
     @property
     def primary_category(self) -> str:
@@ -348,62 +436,62 @@ class Submission(BaseModel):
     def is_on_hold(self) -> bool:
         # We need to explicitly check ``status`` here because classic doesn't
         # have a representation for Hold events.
-        return (self.status == 'submitted'
+        return (self.status == self.SUBMITTED
                 and len(self.hold_types - self.waiver_types) > 0)
 
-    def has_waiver_for(self, hold_type: Hold.HoldType) -> bool:
+    def has_waiver_for(self, hold_type: Hold.Type) -> bool:
         return hold_type in self.waiver_types
 
     @property
-    def hold_types(self) -> Set[Hold.HoldType]:
+    def hold_types(self) -> Set[Hold.Type]:
         return set([hold.hold_type for hold in self.holds.values()])
 
     @property
-    def waiver_types(self) -> Set[Hold.HoldType]:
+    def waiver_types(self) -> Set[Hold.Type]:
         return set([waiver.waiver_type for waiver in self.waivers.values()])
-    #
-    # @property
-    # def has_active_requests(self) -> bool:
-    #     return len(self.active_user_requests) > 0
-    #
-    # @property
-    # def iter_requests(self) -> Iterable[UserRequest]:
-    #     return self.user_requests.values()
-    #
-    # @property
-    # def active_user_requests(self) -> List[UserRequest]:
-    #     return sorted(filter(lambda r: r.is_active(), self.iter_requests),
-    #                   key=lambda r: r.created)
-    #
-    # @property
-    # def pending_user_requests(self) -> List[UserRequest]:
-    #     return sorted(filter(lambda r: r.is_pending(), self.iter_requests),
-    #                   key=lambda r: r.created)
-    #
-    # @property
-    # def rejected_user_requests(self) -> List[UserRequest]:
-    #     return sorted(filter(lambda r: r.is_rejected(), self.iter_requests),
-    #                   key=lambda r: r.created)
-    #
-    # @property
-    # def approved_user_requests(self) -> List[UserRequest]:
-    #     return sorted(filter(lambda r: r.is_approved(), self.iter_requests),
-    #                   key=lambda r: r.created)
-    #
-    # @property
-    # def applied_user_requests(self) -> List[UserRequest]:
-    #     return sorted(filter(lambda r: r.is_applied(), self.iter_requests),
-    #                   key=lambda r: r.created)
+
+    @property
+    def has_active_requests(self) -> bool:
+        return len(self.active_user_requests) > 0
+
+    @property
+    def iter_requests(self) -> Iterable[UserRequest]:
+        return self.user_requests.values()
+
+    @property
+    def active_user_requests(self) -> List[UserRequest]:
+        return sorted(filter(lambda r: r.is_active(), self.iter_requests),
+                      key=lambda r: r.created)
+
+    @property
+    def pending_user_requests(self) -> List[UserRequest]:
+        return sorted(filter(lambda r: r.is_pending(), self.iter_requests),
+                      key=lambda r: r.created)
+
+    @property
+    def rejected_user_requests(self) -> List[UserRequest]:
+        return sorted(filter(lambda r: r.is_rejected(), self.iter_requests),
+                      key=lambda r: r.created)
+
+    @property
+    def approved_user_requests(self) -> List[UserRequest]:
+        return sorted(filter(lambda r: r.is_approved(), self.iter_requests),
+                      key=lambda r: r.created)
+
+    @property
+    def applied_user_requests(self) -> List[UserRequest]:
+        return sorted(filter(lambda r: r.is_applied(), self.iter_requests),
+                      key=lambda r: r.created)
 
     def __post_init__(self) -> None:
-        # if isinstance(self.creator, dict):
-        #     self.creator = agent_factory(**self.creator)
-        # if isinstance(self.owner, dict):
-        #     self.owner = agent_factory(**self.owner)
-        # if self.proxy and isinstance(self.proxy, dict):
-        #     self.proxy = agent_factory(**self.proxy)
-        # if self.client and isinstance(self.client, dict):
-        #     self.client = agent_factory(**self.client)
+        if isinstance(self.creator, dict):
+            self.creator = agent_factory(**self.creator)
+        if isinstance(self.owner, dict):
+            self.owner = agent_factory(**self.owner)
+        if self.proxy and isinstance(self.proxy, dict):
+            self.proxy = agent_factory(**self.proxy)
+        if self.client and isinstance(self.client, dict):
+            self.client = agent_factory(**self.client)
         if isinstance(self.created, str):
             self.created = parse_date(self.created)
         if isinstance(self.updated, str):
@@ -425,11 +513,22 @@ class Submission(BaseModel):
         if isinstance(self.license, dict):
             self.license = License(**self.license)
         self.versions = list_coerce(Submission, self.versions)
-        # self.user_requests = dict_coerce(request_factory, self.user_requests)
+        self.user_requests = dict_coerce(request_factory, self.user_requests)
         self.proposals = dict_coerce(Proposal, self.proposals)
         self.processes = list_coerce(ProcessStatus, self.processes)
-        #self.annotations = dict_coerce(annotation_factory, self.annotations)
+        self.annotations = dict_coerce(annotation_factory, self.annotations)
         self.flags = dict_coerce(flag_factory, self.flags)
         self.comments = dict_coerce(Comment, self.comments)
         self.holds = dict_coerce(Hold, self.holds)
         self.waivers = dict_coerce(Waiver, self.waivers)
+
+
+def request_factory(**data: Any) -> UserRequest:
+    """Generate a :class:`.UserRequest` from raw data."""
+    for cls in UserRequest.__subclasses__():
+        if data['request_type'] == cls.__name__:
+            # Kind of defeats the purpose of this pattern if we have to type
+            # the params here. We can revisit the way this is implemented if
+            # it becomes an issue.
+            return cls(**data)    # type: ignore
+    raise ValueError('Invalid request type')
