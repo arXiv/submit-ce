@@ -198,6 +198,7 @@ def cross_list(method: str, params: MultiDict, session: Session,
         #     return stay_on_this_stage((response_data, status.OK, {}))
         # except SaveError as ex:
         #     raise InternalServerError(response_data) from ex
+
         raise NotImplementedError()
         
     if len(submission.secondary_categories) > 3:

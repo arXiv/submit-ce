@@ -9,35 +9,30 @@ Things that still need to be done:
   displaying it as a notification to the user).
 
 """
-
-import traceback
+import logging
 from collections import OrderedDict
 from http import HTTPStatus as status
 from locale import strxfrm
 from typing import Tuple, Dict, Any, Optional, List, Union
 
 from arxiv.auth.domain import Session
+from arxiv.base import alerts
+from arxiv.forms import csrf
 from markupsafe import Markup
-from werkzeug.datastructures import MultiDict
 from werkzeug.datastructures import FileStorage
+from werkzeug.datastructures import MultiDict
 from werkzeug.exceptions import (
-    InternalServerError,
     MethodNotAllowed,
     RequestEntityTooLarge
 )
 from wtforms import BooleanField, FileField
 
-from arxiv.base import logging, alerts
-from arxiv.forms import csrf
-from submit_ce.ui.backend import save, Submission, Event
-from submit_ce.ui.controllers.util import add_immediate_alert, validate_command, user_and_client_from_session
-from submit_ce.ui.domain import SubmissionContent, Client, User
-from submit_ce.ui.domain.event import UpdateUploadPackage, SetUploadPackage
-from submit_ce.ui.domain.uploads import Upload, UploadStatus, FileStatus
-from submit_ce.ui.exceptions import SaveError
-
-from submit_ce.ui.util import load_submission, tidy_filesize
+from submit_ce.api.domain import SubmissionContent, User, Client
+from submit_ce.api.domain.uploads import UploadStatus, Upload, FileStatus
+from submit_ce.ui.backend import save, Submission, Event, api, impl_data, get_user, get_client
+from submit_ce.ui.controllers.util import add_immediate_alert
 from submit_ce.ui.routes.flow_control import stay_on_this_stage
+from submit_ce.ui.util import load_submission
 
 logger = logging.getLogger(__name__)
 
@@ -108,14 +103,8 @@ def upload_files(method: str, params: MultiDict, session: Session,
         logger.debug('GET; load current upload state')
         return _get_upload(params, session, submission, rdata, token)
     elif method == 'POST':
-        try:    # Make sure that we have a file to work with.
-            pointer = files['file']
-        except KeyError:   # User is going back, saving/exiting, or next step.
-            pointer = None
-
-        if not pointer:
-            # Don't flash a message if the user is just trying to go back to the
-            # previous page.
+        if "file" not in files or not files["file"]:
+            # Don't flash a message if the user is just trying to go back to the previous page.
             logger.debug('No files on request')
             action = params.get('action', None)
             if action:
@@ -126,17 +115,11 @@ def upload_files(method: str, params: MultiDict, session: Session,
                                                       submission, rdata, token))
 
         try:
+            pointer = files["file"]
             if submission.source_content is None:
-                logger.debug('New upload package')
                 return _new_upload(params, pointer, session, submission, rdata, token)
             else:
-                logger.debug('Adding additional files')
                 return _new_file(params, pointer, session, submission, rdata, token)
-        # except ConnectionFailed as ex:
-        #     logger.debug('Problem POSTing upload: %s', ex)
-        #     alerts.flash_failure(Markup(
-        #         'There was a problem uploading your file. '
-        #         f'{PLEASE_CONTACT_SUPPORT}'))
         except RequestEntityTooLarge as ex:
             logger.debug('Problem POSTing upload: %s', ex)
             alerts.flash_failure(Markup(
@@ -173,34 +156,36 @@ def _update(form: UploadForm, submission: Submission, stat: Upload,
     client : :class:`Client` or None
 
     """
-    existing_upload = getattr(submission.source_content, 'identifier', None)
+    # existing_upload = getattr(submission.source_content, 'identifier', None)
+    #
+    # command: Event
+    # if existing_upload == stat.identifier:
+    #     command = UpdateUploadPackage(creator=submitter, client=client,
+    #                                   checksum=stat.checksum,
+    #                                   uncompressed_size=stat.size,
+    #                                   compressed_size=stat.compressed_size,
+    #                                   source_format=stat.source_format)
+    # else:
+    #     command = SetUploadPackage(creator=submitter, client=client,
+    #                                identifier=stat.identifier,
+    #                                checksum=stat.checksum,
+    #                                compressed_size=stat.compressed_size,
+    #                                uncompressed_size=stat.size,
+    #                                source_format=stat.source_format)
+    #
+    # if not validate_command(form, command, submission):
+    #     return None
+    #
+    # try:
+    #     submission, _ = save(command, submission_id=submission.submission_id)
+    # except SaveError:
+    #     alerts.flash_failure(Markup(
+    #         'There was a problem carrying out your request. Please try'
+    #         f' again. {PLEASE_CONTACT_SUPPORT}'
+    #     ))
+    # return submission
 
-    command: Event
-    if existing_upload == stat.identifier:
-        command = UpdateUploadPackage(creator=submitter, client=client,
-                                      checksum=stat.checksum,
-                                      uncompressed_size=stat.size,
-                                      compressed_size=stat.compressed_size,
-                                      source_format=stat.source_format)
-    else:
-        command = SetUploadPackage(creator=submitter, client=client,
-                                   identifier=stat.identifier,
-                                   checksum=stat.checksum,
-                                   compressed_size=stat.compressed_size,
-                                   uncompressed_size=stat.size,
-                                   source_format=stat.source_format)
-
-    if not validate_command(form, command, submission):
-        return None
-
-    try:
-        submission, _ = save(command, submission_id=submission.submission_id)
-    except SaveError:
-        alerts.flash_failure(Markup(
-            'There was a problem carrying out your request. Please try'
-            f' again. {PLEASE_CONTACT_SUPPORT}'
-        ))
-    return submission
+    return api.get_submission(impl_data(), submitter, client, submission_id=submission.submission_id)
 
 
 def _get_upload(params: MultiDict, session: Session, submission: Submission,
@@ -232,7 +217,19 @@ def _get_upload(params: MultiDict, session: Session, submission: Submission,
     if submission.source_content is None:
         # Nothing to show; should generate a blank-slate upload screen.
         return rdata, status.OK, {}
-    raise NotImplementedError("Filemanager moved to inside the submit api")
+
+    upload_id = submission.source_content.identifier
+    status_data = alerts.get_hidden_alerts('_status')
+    if type(status_data) is dict and status_data['identifier'] == upload_id:
+        stat = Upload.from_dict(status_data)
+    else:
+        #stat = fm.get_upload_status(upload_id, token)
+        stat = submission.source_content
+    rdata.update({'status': stat})
+    if stat:
+        rdata.update({'immediate_notifications': _get_notifications(stat)})
+    return rdata, status.OK, {}
+
     # fm = Filemanager.current_session()
     #
     # upload_id = submission.source_content.identifier
@@ -285,17 +282,19 @@ def _new_upload(params: MultiDict, pointer: FileStorage, session: Session,
         the `Location` header for use in the 303 redirect response.
 
     """
-    submitter, client = user_and_client_from_session(session)
-    raise NotImplementedError("Filemanager moved to inside the submit api")
+    user, client = get_user(), get_client()
     # fm = Filemanager.current_session()
-    #
-    # params['file'] = pointer
-    # form = UploadForm(params)
-    # rdata.update({'form': form})
-    #
-    # if not form.validate():
-    #     logger.debug('Invalid form data')
-    #     return stay_on_this_stage((rdata, status.OK, {}))
+
+    params['file'] = pointer
+    form = UploadForm(params)
+    rdata.update({'form': form})
+
+    if not form.validate():
+        logger.debug('Invalid form data')
+        return stay_on_this_stage((rdata, status.OK, {}))
+
+    api.file_post(impl_data(), user, client, submission.submission_id, uploadFile=pointer)
+
     #
     # try:
     #     stat = fm.upload_package(pointer, token)

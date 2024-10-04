@@ -6,6 +6,7 @@ from arxiv.auth import auth
 from arxiv.auth.auth.middleware import AuthMiddleware
 from arxiv.base import Base
 from arxiv.base.middleware import wrap
+from arxiv.db import Session
 from flask import Flask
 
 from .config import settings
@@ -38,5 +39,9 @@ def create_web_app(config: Optional[dict]=None) -> Flask:
 
     for filter_name, filter_func in filters.get_filters():
         app.jinja_env.filters[filter_name] = filter_func
+
+    @app.teardown_appcontext
+    def shutdown_session(exception=None):
+        Session.remove()
 
     return app

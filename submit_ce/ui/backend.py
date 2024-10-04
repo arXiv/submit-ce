@@ -104,7 +104,7 @@ def endorsed_for(session: Session, category: str) -> bool:
 
 
 def impl_data() -> dict:
-    return {"session": Session}
+    return {"session": Session()}
 
 def load(submission_id: int) -> Tuple[Submission, List[Event]]:
     """

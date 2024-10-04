@@ -22,7 +22,7 @@ from submit_ce.ui.util import load_submission
 
 
 logger = logging.getLogger(__name__)
-
+logger.setLevel(logging.DEBUG)
 EXIT = 'ui.create_submission'
 
 PREVIOUS = 'previous'

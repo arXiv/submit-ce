@@ -264,8 +264,9 @@ class LegacySubmitImplementation(BaseDefaultApi):
             row = [row for row in early_rows if row.category == cat]
             session.delete(row[0])
 
-        # if updates:
-        #       self.admin_log(session, user, f"Edited: {','.join(updates)}", command="edit metadata")
+        if updates:
+            session.commit()
+            #self.admin_log(session, user, f"Edited: {','.join(updates)}", command="edit metadata")
 
         result = CategoryChange()
         eps = set() if not early_primary else set([early_primary])

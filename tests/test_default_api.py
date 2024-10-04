@@ -185,11 +185,19 @@ def test_basic_submission(client: TestClient):
                               json={"primary_category": "astro-ph.EP", "secondary_categories": ["astro-ph.GA"]},
                               headers=headers)
     assert response.status_code == 200 or response.content == ""
+    submission = client.request("GET", f"/v1/submission/{sid}", headers=headers)
+    data = submission.json()
+    assert data["primary_classification"]["category"] == "astro-ph.EP"
+    assert data["secondary_classification"][0]["category"] == "astro-ph.GA"
 
     response = client.request("POST", f"/v1/submission/{sid}/setCategories",
                               json={"primary_category": "astro-ph.EP", "secondary_categories": []},
                               headers=headers)
     assert response.status_code == 200 or response.content == ""
+    submission = client.request("GET", f"/v1/submission/{sid}", headers=headers)
+    data = submission.json()
+    assert data["primary_classification"]["category"] == "astro-ph.EP"
+    assert not data["secondary_classification"] 
 
     response = client.request("POST", f"/v1/submission/{sid}/setMetadata",
                               json={
