@@ -1,11 +1,12 @@
 """Core persistence methods for submissions and submission events."""
-from abc import ABC
+from abc import ABC, abstractmethod
 from typing import List, Tuple, Optional
 
 from .domain.event import Event
 from .domain.submission import Submission
 
 class core_submit_api(ABC):
+        @abstractmethod
         def load(submission_id: int) -> Tuple[Submission, List[Event]]:
             """
             Load a submission and its history.
@@ -31,9 +32,10 @@ class core_submit_api(ABC):
                 Raised when a submission with the passed ID cannot be found.
 
             """
-            pass
+            ...
 
-        def load_submissions_for_user(user_id: int) -> List[Submission]:
+    @abstractmethod
+    def load_submissions_for_user(user_id: int) -> List[Submission]:
             """
             Load active :class:`.domain.submission.Submission` for a specific user.
 
@@ -48,10 +50,11 @@ class core_submit_api(ABC):
                 Items are :class:`.domain.submission.Submission` instances.
 
             """
-            pass
+            ...
 
 
-        def load_fast(submission_id: int) -> Submission:
+    @abstractmethod
+    def load_fast(submission_id: int) -> Submission:
             """
             Load a :class:`.domain.submission.Submission` from its projected state.
 
@@ -69,9 +72,10 @@ class core_submit_api(ABC):
                 The current state of the submission.
 
             """
-            pass
+            ...
 
-        def save(*events: Event, submission_id: Optional[int] = None) \
+    @abstractmethod
+    def save(*events: Event, submission_id: Optional[int] = None) \
             -> Tuple[Submission, List[Event]]:
             """
             Commit a set of new :class:`.Event` instances for a submission.
@@ -113,7 +117,7 @@ class core_submit_api(ABC):
                 to the database.
 
             """
-            pass
+            ...
             # if len(events) == 0:
             #     raise NothingToDo('Must pass at least one event')
             # events_list = list(events)   # Coerce to list so that we can index.
