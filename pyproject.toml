@@ -1,0 +1,38 @@
+[project]
+name = "submit-ce"
+version = "0.1.0"
+description = "Paper submission system."
+readme = "README.md"
+requires-python = ">=3.11"
+dynamic = ["dependencies", "optional-dependencies"]
+
+[tool.setuptools.dynamic]
+dependencies = {file = ["requirements.txt"]}
+optional-dependencies = {dev = { file = ["requirements-dev.txt"] }}
+
+[tool.black]
+line-length = 88
+exclude = '''
+(
+  /(
+      \.eggs         # exclude a few common directories in the
+    | \.git          # root of the project
+    | \.hg
+    | \.mypy_cache
+    | \.tox
+    | \.venv
+    | _build
+    | buck-out
+    | build
+    | dist
+  )/
+)
+'''
+
+[tool.isort]
+profile = "black"
+skip = [
+    '.eggs', '.git', '.hg', '.mypy_cache', '.nox', '.pants.d', '.tox',
+    '.venv', '_build', 'buck-out', 'build', 'dist', 'node_modules', 'venv',
+]
+skip_gitignore = true
