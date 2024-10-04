@@ -2,7 +2,7 @@
 
 import re
 
-from arxiv.taxonomy import CATEGORIES, CATEGORIES_ACTIVE
+from arxiv.taxonomy.definitions import CATEGORIES
 
 from .base import Event
 from ..submission import Submission
@@ -41,7 +41,7 @@ def no_trailing_period(event: Event, submission: Submission,
 def must_be_an_active_category(event: Event, category: str,
                                submission: Submission) -> None:
     """Valid arXiv categories are defined in :mod:`arxiv.taxonomy`."""
-    if not category or category not in CATEGORIES_ACTIVE:
+    if not category or category not in CATEGORIES or not CATEGORIES[category].is_active:
         raise InvalidEvent(event, "Not a valid category")
 
 

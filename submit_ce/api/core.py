@@ -5,37 +5,37 @@ from typing import List, Tuple, Optional
 from .domain.event import Event
 from .domain.submission import Submission
 
-class core_submit_api(ABC):
-        @abstractmethod
-        def load(submission_id: int) -> Tuple[Submission, List[Event]]:
-            """
-            Load a submission and its history.
+class CoreSubmitApi(ABC):
+    @abstractmethod
+    def load(self, submission_id: int) -> Tuple[Submission, List[Event]]:
+        """
+        Load a submission and its history.
 
-            This loads all events for the submission, and generates the most up-to-date representation based on
-            those events.
+        This loads all events for the submission, and generates the most up-to-date representation based on
+        those events.
 
-            Parameters
-            ----------
-            submission_id : str
-                Submission identifier.
+        Parameters
+        ----------
+        submission_id : str
+            Submission identifier.
 
-            Returns
-            -------
-            :class:`.domain.submission.Submission`
-                The current state of the submission.
-            list
-                Items are :class:`.Event` instances, in order of their occurrence.
+        Returns
+        -------
+        :class:`.domain.submission.Submission`
+            The current state of the submission.
+        list
+            Items are :class:`.Event` instances, in order of their occurrence.
 
-            Raises
-            ------
-            :class:`arxiv.submission.exceptions.NoSuchSubmission`
-                Raised when a submission with the passed ID cannot be found.
+        Raises
+        ------
+        :class:`arxiv.submission.exceptions.NoSuchSubmission`
+            Raised when a submission with the passed ID cannot be found.
 
-            """
-            ...
+        """
+        ...
 
     @abstractmethod
-    def load_submissions_for_user(user_id: int) -> List[Submission]:
+    def load_submissions_for_user(self, user_id: int) -> List[Submission]:
             """
             Load active :class:`.domain.submission.Submission` for a specific user.
 
@@ -54,7 +54,7 @@ class core_submit_api(ABC):
 
 
     @abstractmethod
-    def load_fast(submission_id: int) -> Submission:
+    def load_fast(self, submission_id: int) -> Submission:
             """
             Load a :class:`.domain.submission.Submission` from its projected state.
 
@@ -75,7 +75,7 @@ class core_submit_api(ABC):
             ...
 
     @abstractmethod
-    def save(*events: Event, submission_id: Optional[int] = None) \
+    def save(self, *events: Event, submission_id: Optional[int] = None) \
             -> Tuple[Submission, List[Event]]:
             """
             Commit a set of new :class:`.Event` instances for a submission.

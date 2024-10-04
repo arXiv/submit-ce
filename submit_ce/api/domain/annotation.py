@@ -9,8 +9,6 @@ from typing import Optional, Union, List, Dict, Type, Any
 from dataclasses import dataclass, field
 from mypy_extensions import TypedDict
 
-from arxiv.taxonomy import Category
-
 from .agent import Agent, agent_factory
 
 
@@ -33,7 +31,7 @@ class Comment:
 
 
 ClassifierResult = TypedDict('ClassifierResult',
-                             {'category': Category, 'probability': float})
+                             {'category': str, 'probability': float})
 
 
 @dataclass

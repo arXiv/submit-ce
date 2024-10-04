@@ -1,7 +1,6 @@
 """Metadata objects in support of submissions."""
 
 from typing import Optional
-from arxiv.taxonomy import Category
 from dataclasses import dataclass
 
 
@@ -9,7 +8,7 @@ from dataclasses import dataclass
 class Classification:
     """A classification for a :class:`.domain.submission.Submission`."""
 
-    category: Category
+    category: str
 
 
 @dataclass

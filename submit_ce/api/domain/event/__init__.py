@@ -100,35 +100,15 @@ entirely.
 """
 
 import copy
-import hashlib
 import re
-from collections import defaultdict
+from dataclasses import field
 from datetime import datetime
-from functools import wraps
-from typing import Optional, TypeVar, List, Tuple, Any, Dict, Union, Iterable,\
-    Callable, ClassVar, Mapping
-from urllib.parse import urlparse
+from typing import Optional, List, Union
 
 import bleach
-from dataclasses import field, asdict
-from pytz import UTC
-
 from arxiv import taxonomy
-#from arxiv import identifier as arxiv_identifier
 from arxiv.base import logging
-from arxiv.base.globals import get_application_config
-from arxiv.util import schema
-
-from ...exceptions import InvalidEvent
-
-from ..agent import Agent, System, agent_factory
-from ..annotation import Comment, Feature, ClassifierResults, \
-    ClassifierResult
-from ..preview import Preview
-from ..submission import Submission, SubmissionMetadata, Author, \
-    Classification, License, Delegation,  \
-    SubmissionContent, WithdrawalRequest, CrossListClassificationRequest
-from ..util import get_tzaware_utc_now
+from pytz import UTC
 
 from . import validators
 from .base import Event, event_factory, EventType
@@ -139,6 +119,13 @@ from .proposal import AddProposal, RejectProposal, AcceptProposal
 from .request import RequestCrossList, RequestWithdrawal, ApplyRequest, \
     RejectRequest, ApproveRequest, CancelRequest
 from .util import dataclass
+from ..agent import System
+from ..annotation import Feature, ClassifierResults, \
+    ClassifierResult
+from ..preview import Preview
+from ..submission import Submission, Author, \
+    Classification, License, SubmissionContent
+from ...exceptions import InvalidEvent
 
 logger = logging.getLogger(__name__)
 
@@ -304,7 +291,8 @@ class SetPrimaryClassification(Event):
     NAME = "set primary classification"
     NAMED = "primary classification set"
 
-    category: Optional[taxonomy.Category] = None
+    #category: Optional[taxonomy.Category] = None
+    category: Optional[str] = None
 
     def validate(self, submission: Submission) -> None:
         """Validate the primary classification category."""
@@ -356,7 +344,8 @@ class AddSecondaryClassification(Event):
     NAME = "add cross-list classification"
     NAMED = "cross-list classification added"
 
-    category: Optional[taxonomy.Category] = field(default=None)
+    #category: Optional[taxonomy.Category] = field(default=None)
+    category: Optional[str] = None
 
     def validate(self, submission: Submission) -> None:
         """Validate the secondary classification category to add."""
@@ -1333,7 +1322,8 @@ class Reclassify(Event):
     NAME = "reclassify submission"
     NAMED = "submission reclassified"
 
-    category: Optional[taxonomy.Category] = None
+    #category: Optional[taxonomy.Category] = None
+    category: Optional[str] = None
 
     def validate(self, submission: Submission) -> None:
         """Validate the primary classification category."""
