@@ -4,7 +4,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Optional, Union, Type, Dict, Any
 
-from dataclasses import field, dataclass, asdict
+from dataclasses import field, dataclass
 from mypy_extensions import TypedDict
 
 from .agent import Agent, agent_factory

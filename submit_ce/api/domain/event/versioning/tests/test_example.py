@@ -2,8 +2,6 @@
 
 from unittest import TestCase
 
-from .. import map_to_version
-from .._base import BaseVersionMapping
 from .. import version_0_0_0_example
 
 

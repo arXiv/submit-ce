@@ -1,7 +1,6 @@
 """Provides :class:`.Preview`."""
-from typing import Optional, IO
 from datetime import datetime
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass
 
 
 @dataclass

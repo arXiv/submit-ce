@@ -1,33 +1,19 @@
 """Commands for working with :class:`.Proposal` instances on submissions."""
 
-import hashlib
-import re
 import copy
-from datetime import datetime
-from pytz import UTC
-from typing import Optional, TypeVar, List, Tuple, Any, Dict, Iterable
-from urllib.parse import urlparse
-from dataclasses import field, asdict
+from typing import Optional, Iterable
+from dataclasses import field
 from .util import dataclass
-import bleach
 
-from arxiv.util import schema
-from arxiv import taxonomy
 from arxiv.base import logging
 
 from ..agent import Agent
-from ..submission import Submission, SubmissionMetadata, Author, \
-    Classification, License, Delegation,  \
-    SubmissionContent, WithdrawalRequest, CrossListClassificationRequest
+from ..submission import Submission
 from ..proposal import Proposal
 from ..annotation import Comment
 
 from ...exceptions import InvalidEvent
-from ..util import get_tzaware_utc_now
 from .base import Event
-from .request import RequestCrossList, RequestWithdrawal, ApplyRequest, \
-    RejectRequest, ApproveRequest
-from . import validators
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +32,7 @@ class AddProposal(Event):
     def validate(self, submission: Submission) -> None:
         """Simulate applying the proposal to check for validity."""
         if self.proposed_event_type is None:
-            raise InvalidEvent(self, f"Proposed event type is required")
+            raise InvalidEvent(self, "Proposed event type is required")
         proposed_event_data = copy.deepcopy(self.proposed_event_data)
         proposed_event_data.update({'creator': self.creator})
         event = self.proposed_event_type(**proposed_event_data)

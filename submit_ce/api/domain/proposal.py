@@ -7,14 +7,12 @@ are generated both automatically based on the results of the classifier and
 manually by moderators.
 """
 
-from typing import Optional, Union, List
+from typing import Optional, List
 from datetime import datetime
-import hashlib
 
-from dataclasses import dataclass, asdict, field
+from dataclasses import dataclass, field
 from enum import Enum
 
-from arxiv.taxonomy import Category
 
 from .annotation import Comment
 from .util import get_tzaware_utc_now

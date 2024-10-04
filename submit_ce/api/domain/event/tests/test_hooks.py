@@ -1,7 +1,7 @@
 """Test callback hook functionality on :class:`Event`."""
 
 from unittest import TestCase, mock
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from ..base import Event
 from ...agent import System
 

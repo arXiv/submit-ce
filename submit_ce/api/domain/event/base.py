@@ -6,19 +6,16 @@ from collections import defaultdict
 from datetime import datetime
 from functools import wraps
 from typing import Optional, Callable, Tuple, Iterable, List, ClassVar, \
-    Mapping, Type, Any, overload
+    Mapping, Type, Any
 
-from dataclasses import field, asdict
-from flask import current_app
+from dataclasses import field
 from pytz import UTC
 
 from arxiv.base import logging
 from arxiv.base.globals import get_application_config
 
-from ...exceptions import InvalidEvent
 from ..agent import Agent, System, agent_factory
 from ..submission import Submission
-from ..util import get_tzaware_utc_now
 from .util import dataclass
 from .versioning import EventData, map_to_current_version
 

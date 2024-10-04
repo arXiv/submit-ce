@@ -4,13 +4,12 @@ import hashlib
 from enum import Enum
 from datetime import datetime
 from dateutil.parser import parse as parse_date
-from typing import Optional, Dict, TypeVar, List, Iterable, Set, Union, Any
+from typing import Optional, Dict, List, Iterable, Set, Any
 
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field
 
 from .agent import Agent, agent_factory
 from .annotation import Comment, Feature, Annotation, annotation_factory
-from .compilation import Compilation
 from .flag import Flag, flag_factory
 from .meta import License, Classification
 from .preview import Preview

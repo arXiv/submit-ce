@@ -2,18 +2,16 @@
 Provides quality-assurance annotations for the submission & moderation system.
 """
 
-import hashlib
 from datetime import datetime
 from enum import Enum
 from typing import Optional, Union, List, Dict, Type, Any
 
-from dataclasses import dataclass, asdict, field
+from dataclasses import dataclass, field
 from mypy_extensions import TypedDict
 
 from arxiv.taxonomy import Category
 
 from .agent import Agent, agent_factory
-from .util import get_tzaware_utc_now
 
 
 @dataclass

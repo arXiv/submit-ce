@@ -6,7 +6,6 @@ from pytz import UTC
 from mimesis import Text
 
 from arxiv import taxonomy
-from ... import save
 from .. import event, agent, submission, meta
 from ...exceptions import InvalidEvent
 

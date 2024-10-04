@@ -4,10 +4,9 @@ from typing import Optional
 from enum import Enum
 from datetime import datetime
 
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field
 
 from .agent import Agent, agent_factory
-from .util import get_tzaware_utc_now
 
 
 @dataclass

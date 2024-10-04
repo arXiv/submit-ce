@@ -4,9 +4,7 @@ import hashlib
 from typing import Any, Optional, List, Union, Type, Dict
 
 from dataclasses import dataclass, field
-from dataclasses import asdict
 
-from .meta import Classification
 
 __all__ = ('Agent', 'User', 'System', 'Client', 'agent_factory')
 

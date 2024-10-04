@@ -1,7 +1,6 @@
 """Commands/events related to user requests."""
 
 from typing import Optional, List
-import hashlib
 from dataclasses import field
 from .util import dataclass
 

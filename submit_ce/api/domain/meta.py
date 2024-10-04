@@ -1,8 +1,8 @@
 """Metadata objects in support of submissions."""
 
-from typing import Optional, List
+from typing import Optional
 from arxiv.taxonomy import Category
-from dataclasses import dataclass, asdict, field
+from dataclasses import dataclass
 
 
 @dataclass
