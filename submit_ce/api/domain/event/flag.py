@@ -11,7 +11,6 @@ from ..submission import Submission, SubmissionMetadata, Hold, Waiver
 from ...exceptions import InvalidEvent
 
 
-@dataclass()
 class AddFlag(Event):
     """Base class for flag events; not for direct use."""
 
@@ -31,7 +30,6 @@ class AddFlag(Event):
         raise NotImplementedError("Invoke a child event instead")
 
 
-@dataclass()
 class RemoveFlag(Event):
     """Remove a :class:`.domain.Flag` from a submission."""
 
@@ -53,7 +51,6 @@ class RemoveFlag(Event):
         return submission
 
 
-@dataclass()
 class AddContentFlag(AddFlag):
     """Add a :class:`.domain.ContentFlag` related to content."""
 
@@ -88,7 +85,6 @@ class AddContentFlag(AddFlag):
         super(AddContentFlag, self).__post_init__()
 
 
-@dataclass()
 class AddMetadataFlag(AddFlag):
     """Add a :class:`.domain.MetadataFlag` related to the metadata."""
 
@@ -128,7 +124,6 @@ class AddMetadataFlag(AddFlag):
         super(AddMetadataFlag, self).__post_init__()
 
 
-@dataclass()
 class AddUserFlag(AddFlag):
     """Add a :class:`.domain.UserFlag` related to the submitter."""
 
@@ -163,7 +158,6 @@ class AddUserFlag(AddFlag):
         super(AddUserFlag, self).__post_init__()
 
 
-@dataclass()
 class AddHold(Event):
     """Add a :class:`.Hold` to a :class:`.Submission`."""
 
@@ -196,7 +190,6 @@ class AddHold(Event):
         super(AddHold, self).__post_init__()
 
 
-@dataclass()
 class RemoveHold(Event):
     """Remove a :class:`.Hold` from a :class:`.Submission`."""
 
@@ -224,7 +217,6 @@ class RemoveHold(Event):
         super(RemoveHold, self).__post_init__()
 
 
-@dataclass()
 class AddWaiver(Event):
     """Add a :class:`.Waiver` to a :class:`.Submission`."""
 

@@ -21,9 +21,11 @@ from fastapi import (  # noqa: F401
     status, UploadFile,
 )
 from fastapi.responses import PlainTextResponse
+from pydantic import BaseModel
 
 from submit_ce.api.core import CoreSubmitApi
-from submit_ce.api.domain import Submission
+from submit_ce.api.domain import Submission, Event
+from submit_ce.api.exceptions import EventType
 from submit_ce.fastapi.auth import get_user, get_client
 from submit_ce.fastapi import ImplementationConfig
 from submit_ce.fastapi.config import config
@@ -46,6 +48,7 @@ clentDep = Depends(get_client)
 
 router = APIRouter()
 router.prefix="/v1"
+
 
 @router.get(
     "/submission/{submission_id}",
@@ -70,3 +73,12 @@ async def load_submissions_for_user(user_id: str) -> List[Submission]:
 async def load_submissions_for_user(user_id: str) -> List[Submission]:
     raise HTTPException(status_code=404)
     #return implementation.load_submissions_for_user(user_id)
+
+
+AllEventTypes= Union[tuple(Event.__subclasses__())]
+@router.post(
+    "/submission/{submission_id}",
+    response_model=Submission,
+)
+async def save(submission_id: str, events: AllEventTypes) -> Submission:
+    raise HTTPException(status_code=404)

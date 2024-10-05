@@ -11,7 +11,6 @@ from .base import Event
 from .util import dataclass
 
 
-@dataclass()
 class AddProcessStatus(Event):
     """Add the status of an external/long-running process to a submission."""
 

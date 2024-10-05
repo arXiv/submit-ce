@@ -3,14 +3,14 @@
 import hashlib
 from typing import Any, Optional, List, Union, Type, Dict
 
-from dataclasses import dataclass, field
+from dataclasses import field
 
+from pydantic import BaseModel
 
 __all__ = ('Agent', 'User', 'System', 'Client', 'agent_factory')
 
 
-@dataclass
-class Agent:
+class Agent(BaseModel):
     """
     Base class for agents in the submission system.
 
@@ -20,7 +20,7 @@ class Agent:
     native_id: str
     """Type-specific identifier for the agent. This might be an URI."""
 
-    hostname: Optional[str] = field(default=None)
+    hostname: Optional[str] = None
     """Hostname or IP address from which user requests are originating."""
 
     name: str = field(default_factory=str)
@@ -56,7 +56,6 @@ class Agent:
         return self.agent_identifier == other.agent_identifier
 
 
-@dataclass
 class User(Agent):
     """An (human) end user."""
 
@@ -80,7 +79,6 @@ class User(Agent):
 
 
 # TODO: extend this to support arXiv-internal services.
-@dataclass
 class System(Agent):
     """The submission application (this application)."""
 
@@ -96,7 +94,6 @@ class System(Agent):
         self.agent_type = self.get_agent_type()
 
 
-@dataclass
 class Client(Agent):
     """A non-human third party, usually an API client."""
 

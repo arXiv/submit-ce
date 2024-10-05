@@ -5,12 +5,11 @@ from datetime import datetime
 from enum import Enum
 from typing import Optional
 
-from dataclasses import dataclass, field
+from dataclasses import field
 
+from pydantic import BaseModel
 
-
-@dataclass
-class Compilation:
+class Compilation(BaseModel):
     """The state of a compilation attempt from the :mod:`.compiler` service."""
 
     class Status(Enum):      # type: ignore
@@ -122,8 +121,7 @@ class Compilation:
         return bool(not self.is_finished)
 
 
-@dataclass
-class CompilationProduct:
+class CompilationProduct(BaseModel):
     """Content of a compilation product itself."""
 
     stream: io.BytesIO
@@ -144,8 +142,7 @@ class CompilationProduct:
             self.status = Compilation(**self.status)
 
 
-@dataclass
-class CompilationLog:
+class CompilationLog(BaseModel):
     """Content of a compilation log."""
 
     stream: io.BytesIO

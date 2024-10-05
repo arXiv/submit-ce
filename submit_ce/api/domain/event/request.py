@@ -1,6 +1,6 @@
 """Commands/events related to user requests."""
 
-from typing import Optional, List
+from typing import Optional, List, ClassVar
 from dataclasses import field
 from .util import dataclass
 
@@ -13,7 +13,6 @@ from ..submission import Submission, Classification, WithdrawalRequest, \
 from ...exceptions import InvalidEvent
 
 
-@dataclass()
 class ApproveRequest(Event):
     """Approve a user request."""
 
@@ -42,7 +41,6 @@ class ApproveRequest(Event):
         return submission
 
 
-@dataclass()
 class RejectRequest(Event):
     NAME = "reject user request"
     NAMED = "user request rejected"
@@ -69,7 +67,6 @@ class RejectRequest(Event):
         return submission
 
 
-@dataclass()
 class CancelRequest(Event):
     NAME = "cancel user request"
     NAMED = "user request cancelled"
@@ -97,7 +94,6 @@ class CancelRequest(Event):
         return submission
 
 
-@dataclass()
 class ApplyRequest(Event):
     NAME = "apply user request"
     NAMED = "user request applied"
@@ -128,7 +124,6 @@ class ApplyRequest(Event):
         return submission
 
 
-@dataclass()
 class RequestCrossList(Event):
     """Request that a secondary classification be added after announcement."""
 
@@ -177,7 +172,6 @@ class RequestCrossList(Event):
         return submission
 
 
-@dataclass()
 class RequestWithdrawal(Event):
     """Request that a paper be withdrawn."""
 
@@ -186,7 +180,7 @@ class RequestWithdrawal(Event):
 
     reason: str = field(default_factory=str)
 
-    MAX_LENGTH = 400
+    MAX_LENGTH: ClassVar[int]= 400
 
     def __hash__(self) -> int:
         """Use event ID as object hash."""

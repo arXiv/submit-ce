@@ -18,7 +18,6 @@ from .base import Event
 logger = logging.getLogger(__name__)
 
 
-@dataclass()
 class AddProposal(Event):
     """Add a new proposal to a :class:`Submission`."""
 
@@ -56,7 +55,6 @@ class AddProposal(Event):
         return submission
 
 
-@dataclass()
 class RejectProposal(Event):
     """Reject a :class:`.Proposal` on a submission."""
 
@@ -88,7 +86,6 @@ class RejectProposal(Event):
         return submission
 
 
-@dataclass()
 class AcceptProposal(Event):
     """Accept a :class:`.Proposal` on a submission."""
 

@@ -8,7 +8,7 @@ from functools import wraps
 from typing import Optional, Callable, Tuple, Iterable, List, ClassVar, \
     Mapping, Type, Any
 
-from dataclasses import field
+from pydantic import BaseModel
 from pytz import UTC
 
 from arxiv.base import logging
@@ -31,12 +31,7 @@ Store = Callable[['Event', Optional[Submission], Submission],
                  Tuple['Event', Submission]]
 
 
-class EventType(type):
-    """Metaclass for :class:`.Event`\."""
-
-
-@dataclass()
-class Event(metaclass=EventType):
+class Event(BaseModel):
     """
     Base class for submission-related events/commands.
 
@@ -56,8 +51,8 @@ class Event(metaclass=EventType):
     is committed, use the :func:`bind` method.
     """
 
-    NAME = 'base event'
-    NAMED = 'base event'
+    NAME: ClassVar[str] = 'base event'
+    NAMED: ClassVar[str] = 'base event'
 
     creator: Agent
     """
@@ -66,10 +61,10 @@ class Event(metaclass=EventType):
     This is **not** necessarily the creator of the submission.
     """
 
-    created: Optional[datetime] = field(default=None)   # get_tzaware_utc_now
+    created: Optional[datetime] = None   # get_tzaware_utc_now
     """The timestamp when the event was originally committed."""
 
-    proxy: Optional[Agent] = field(default=None)
+    proxy: Optional[Agent] = None
     """
     The agent who facilitated the operation on behalf of the :attr:`.creator`.
 
@@ -77,7 +72,7 @@ class Event(metaclass=EventType):
     proxy. Note that proxy implies that the creator was not directly involved.
     """
 
-    client: Optional[Agent] = field(default=None)
+    client: Optional[Agent] = None
     """
     The client through which the :attr:`.creator` performed the operation.
 
@@ -85,7 +80,7 @@ class Event(metaclass=EventType):
     be the client that facilitated the operation.
     """
 
-    submission_id: Optional[int] = field(default=None)
+    submission_id: Optional[int] = None
     """
     The primary identifier of the submission being operated upon.
 
@@ -93,7 +88,7 @@ class Event(metaclass=EventType):
     chaining of events with creation events in the same transaction.
     """
 
-    committed: bool = field(default=False)
+    committed: bool = False
     """
     Indicates whether the event has been committed to the database.
 
@@ -106,15 +101,13 @@ class Event(metaclass=EventType):
     after: Optional[Submission] = None
     """The state of the submission after the event."""
 
-    event_type: str = field(default_factory=str)
-    event_version: str = field(default_factory=str)
+    event_type: str = "Event"
 
     _hooks: ClassVar[Mapping[type, List[Rule]]] = defaultdict(list)
 
-    def __post_init__(self) -> None:
+    def model_post_init(self) -> None:
         """Make sure data look right."""
         self.event_type = self.get_event_type()
-        self.event_version = self.get_event_version()
         if self.client and isinstance(self.client, dict):
             self.client = agent_factory(**self.client)
         if self.creator and isinstance(self.creator, dict):
@@ -125,10 +118,6 @@ class Event(metaclass=EventType):
             self.before = Submission(**self.before)
         if self.after and isinstance(self.after, dict):
             self.after = Submission(**self.after)
-
-    @staticmethod
-    def get_event_version() -> str:
-        return str(get_application_config().get('CORE_VERSION', '0.0.0'))
 
     @classmethod
     def get_event_type(cls) -> str:
@@ -236,7 +225,7 @@ class Event(metaclass=EventType):
         def decorator(func: Callback) -> Callback:
             """Register a callback for an event type and condition."""
             name = f'{cls.__name__}::{func.__module__}.{func.__name__}'
-            sys = System(name)
+            sys = System(agnet_identifier=name, native_id=name)
             setattr(func, '__name__', name)
 
             @wraps(func)

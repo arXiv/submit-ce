@@ -6,14 +6,14 @@ from datetime import datetime
 from enum import Enum
 from typing import Optional, Union, List, Dict, Type, Any
 
-from dataclasses import dataclass, field
+from dataclasses import field
 from mypy_extensions import TypedDict
 
 from .agent import Agent, agent_factory
 
+from pydantic import BaseModel
 
-@dataclass
-class Comment:
+class Comment(BaseModel):
     """A freeform textual annotation."""
 
     event_id: str
@@ -30,12 +30,13 @@ class Comment:
             self.proxy = agent_factory(**self.proxy)
 
 
-ClassifierResult = TypedDict('ClassifierResult',
-                             {'category': str, 'probability': float})
+
+class ClassifierResult(BaseModel):
+    category: str
+    probability: float
 
 
-@dataclass
-class Annotation:
+class Annotation(BaseModel):
     event_id: str
     creator: Agent
     created: datetime
@@ -46,7 +47,6 @@ class Annotation:
             self.creator = agent_factory(**self.creator)
 
 
-@dataclass
 class ClassifierResults(Annotation):
     """Represents suggested classifications from an auto-classifier."""
 
@@ -71,7 +71,6 @@ class ClassifierResults(Annotation):
         self.classifier = self.Classifiers(self.classifier)
 
 
-@dataclass
 class Feature(Annotation):
     """Represents features drawn from the content of the submission."""
 

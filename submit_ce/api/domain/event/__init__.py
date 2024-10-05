@@ -103,22 +103,20 @@ import copy
 import re
 from dataclasses import field
 from datetime import datetime
-from typing import Optional, List, Union
+from typing import Optional, List, Union, ClassVar
 
 import bleach
 from arxiv import taxonomy
-from arxiv.base import logging
 from pytz import UTC
 
 from . import validators
-from .base import Event, event_factory, EventType
+from .base import Event, event_factory
 from .flag import AddMetadataFlag, AddUserFlag, AddContentFlag, RemoveFlag, \
     AddHold, RemoveHold
 from .process import AddProcessStatus
 from .proposal import AddProposal, RejectProposal, AcceptProposal
 from .request import RequestCrossList, RequestWithdrawal, ApplyRequest, \
     RejectRequest, ApproveRequest, CancelRequest
-from .util import dataclass
 from ..agent import System
 from ..annotation import Feature, ClassifierResults, \
     ClassifierResult
@@ -127,6 +125,7 @@ from ..submission import Submission, Author, \
     Classification, License, SubmissionContent
 from ...exceptions import InvalidEvent
 
+import logging
 logger = logging.getLogger(__name__)
 
 
@@ -135,7 +134,6 @@ logger = logging.getLogger(__name__)
 # These are largely the domain of the metadata API, and the submission UI.
 
 
-@dataclass()
 class CreateSubmission(Event):
     """Creation of a new :class:`.domain.submission.Submission`."""
 
@@ -160,7 +158,6 @@ class CreateSubmission(Event):
                           client=self.client)
 
 
-@dataclass(init=False)
 class CreateSubmissionVersion(Event):
     """
     Creates a new version of a submission.
@@ -196,7 +193,6 @@ class CreateSubmissionVersion(Event):
         return submission
 
 
-@dataclass(init=False)
 class Rollback(Event):
     """Roll back to the most recent announced version, or delete."""
 
@@ -231,7 +227,6 @@ class Rollback(Event):
         return submission
 
 
-@dataclass(init=False)
 class ConfirmContactInformation(Event):
     """Submitter has verified their contact information."""
 
@@ -248,7 +243,6 @@ class ConfirmContactInformation(Event):
         return submission
 
 
-@dataclass()
 class ConfirmAuthorship(Event):
     """The submitting user asserts whether they are an author of the paper."""
 
@@ -267,7 +261,6 @@ class ConfirmAuthorship(Event):
         return submission
 
 
-@dataclass(init=False)
 class ConfirmPolicy(Event):
     """The submitting user accepts the arXiv submission policy."""
 
@@ -284,7 +277,6 @@ class ConfirmPolicy(Event):
         return submission
 
 
-@dataclass()
 class SetPrimaryClassification(Event):
     """Update the primary classification of a submission."""
 
@@ -337,7 +329,6 @@ class SetPrimaryClassification(Event):
             self.category = taxonomy.Category(self.category)
 
 
-@dataclass()
 class AddSecondaryClassification(Event):
     """Add a secondary :class:`.Classification` to a submission."""
 
@@ -372,7 +363,6 @@ class AddSecondaryClassification(Event):
             self.category = taxonomy.Category(self.category)
 
 
-@dataclass()
 class RemoveSecondaryClassification(Event):
     """Remove secondary :class:`.Classification` from submission."""
 
@@ -403,7 +393,6 @@ class RemoveSecondaryClassification(Event):
             raise InvalidEvent(self, 'No such category on submission')
 
 
-@dataclass()
 class SetLicense(Event):
     """The submitter has selected a license for their submission."""
 
@@ -425,7 +414,6 @@ class SetLicense(Event):
         return submission
 
 
-@dataclass()
 class SetTitle(Event):
     """Update the title of a submission."""
 
@@ -434,9 +422,9 @@ class SetTitle(Event):
 
     title: str = field(default='')
 
-    MIN_LENGTH = 5
-    MAX_LENGTH = 240
-    ALLOWED_HTML = ["br", "sup", "sub", "hr", "em", "strong", "h"]
+    MIN_LENGTH: ClassVar[str] = 5
+    MAX_LENGTH: ClassVar[int] = 240
+    ALLOWED_HTML: ClassVar[List[str]] = ["br", "sup", "sub", "hr", "em", "strong", "h"]
 
     def __post_init__(self) -> None:
         """Perform some light cleanup on the provided value."""
@@ -486,7 +474,6 @@ class SetTitle(Event):
         return value
 
 
-@dataclass()
 class SetAbstract(Event):
     """Update the abstract of a submission."""
 
@@ -495,8 +482,8 @@ class SetAbstract(Event):
 
     abstract: str = field(default='')
 
-    MIN_LENGTH = 20
-    MAX_LENGTH = 1920
+    MIN_LENGTH: ClassVar[int] = 20
+    MAX_LENGTH: ClassVar[int] = 1920
 
     def __post_init__(self) -> None:
         """Perform some light cleanup on the provided value."""
@@ -541,7 +528,6 @@ class SetAbstract(Event):
         return value
 
 
-@dataclass()
 class SetDOI(Event):
     """Update the external DOI of a submission."""
 
@@ -583,7 +569,6 @@ class SetDOI(Event):
         return value
 
 
-@dataclass()
 class SetMSCClassification(Event):
     """Update the MSC classification codes of a submission."""
 
@@ -592,7 +577,7 @@ class SetMSCClassification(Event):
 
     msc_class: str = field(default='')
 
-    MAX_LENGTH = 160
+    MAX_LENGTH: ClassVar[int] = 160
 
     def __post_init__(self) -> None:
         """Perform some light cleanup on the provided value."""
@@ -623,7 +608,6 @@ class SetMSCClassification(Event):
         return value
 
 
-@dataclass()
 class SetACMClassification(Event):
     """Update the ACM classification codes of a submission."""
 
@@ -633,7 +617,7 @@ class SetACMClassification(Event):
     acm_class: str = field(default='')
     """E.g. F.2.2; I.2.7"""
 
-    MAX_LENGTH = 160
+    MAX_LENGTH: ClassVar[int] = 160
 
     def __post_init__(self) -> None:
         """Perform some light cleanup on the provided value."""
@@ -676,7 +660,6 @@ class SetACMClassification(Event):
         return value
 
 
-@dataclass()
 class SetJournalReference(Event):
     """Update the journal reference of a submission."""
 
@@ -725,7 +708,6 @@ class SetJournalReference(Event):
         return value
 
 
-@dataclass()
 class SetReportNumber(Event):
     """Update the report number of a submission."""
 
@@ -760,7 +742,6 @@ class SetReportNumber(Event):
         return value
 
 
-@dataclass()
 class SetComments(Event):
     """Update the comments of a submission."""
 
@@ -769,7 +750,7 @@ class SetComments(Event):
 
     comments: str = field(default='')
 
-    MAX_LENGTH = 400
+    MAX_LENGTH: ClassVar[int] = 400
 
     def __post_init__(self) -> None:
         """Perform some light cleanup on the provided value."""
@@ -798,7 +779,6 @@ class SetComments(Event):
         return value
 
 
-@dataclass()
 class SetAuthors(Event):
     """Update the authors on a :class:`.domain.submission.Submission`."""
 
@@ -857,7 +837,6 @@ class SetAuthors(Event):
         return submission
 
 
-@dataclass()
 class SetUploadPackage(Event):
     """Set the upload workspace for this submission."""
 
@@ -897,7 +876,6 @@ class SetUploadPackage(Event):
         return submission
 
 
-@dataclass()
 class UpdateUploadPackage(Event):
     """Update the upload workspace on this submission."""
 
@@ -935,7 +913,6 @@ class UpdateUploadPackage(Event):
         return submission
 
 
-@dataclass()
 class UnsetUploadPackage(Event):
     """Unset the upload workspace for this submission."""
 
@@ -953,7 +930,6 @@ class UnsetUploadPackage(Event):
         return submission
 
 
-@dataclass()
 class ConfirmSourceProcessed(Event):
     """
     Confirm that the submission source was successfully processed.
@@ -1007,7 +983,6 @@ class ConfirmSourceProcessed(Event):
         return submission
 
 
-@dataclass()
 class UnConfirmSourceProcessed(Event):
     """
     Unconfirm that the submission source was successfully processed.
@@ -1030,7 +1005,6 @@ class UnConfirmSourceProcessed(Event):
         return submission
 
 
-@dataclass()
 class ConfirmPreview(Event):
     """
     Confirm that the paper and abstract previews are acceptable.
@@ -1064,18 +1038,17 @@ class ConfirmPreview(Event):
         return submission
 
 
-@dataclass(init=False)
 class FinalizeSubmission(Event):
     """Send the submission to the queue for announcement."""
 
     NAME = "finalize submission for announcement"
     NAMED = "submission finalized"
 
-    REQUIRED = [
+    REQUIRED: ClassVar[str] = [
         'creator', 'primary_classification', 'submitter_contact_verified',
         'submitter_accepts_policy', 'license', 'source_content', 'metadata',
     ]
-    REQUIRED_METADATA = ['title', 'abstract', 'authors_display']
+    REQUIRED_METADATA: ClassVar[str] = ['title', 'abstract', 'authors_display']
 
     def validate(self, submission: Submission) -> None:
         """Ensure that all required data/steps are complete."""
@@ -1101,7 +1074,6 @@ class FinalizeSubmission(Event):
                 raise InvalidEvent(self, f"Missing {key}")
 
 
-@dataclass()
 class UnFinalizeSubmission(Event):
     """Withdraw the submission from the queue for announcement."""
 
@@ -1126,7 +1098,6 @@ class UnFinalizeSubmission(Event):
         return submission
 
 
-@dataclass()
 class Announce(Event):
     """Announce the current version of the submission."""
 
@@ -1161,8 +1132,7 @@ class Announce(Event):
 # Moderation-related events.
 
 
-# @dataclass()
-# class CreateComment(Event):
+# # class CreateComment(Event):
 #     """Creation of a :class:`.Comment` on a :class:`.domain.submission.Submission`."""
 #
 #     read_scope = 'submission:moderate'
@@ -1189,8 +1159,7 @@ class Announce(Event):
 #         return submission
 #
 #
-# @dataclass()
-# class DeleteComment(Event):
+# # class DeleteComment(Event):
 #     """Deletion of a :class:`.Comment` on a :class:`.domain.submission.Submission`."""
 #
 #     read_scope = 'submission:moderate'
@@ -1213,8 +1182,7 @@ class Announce(Event):
 #         return submission
 #
 #
-# @dataclass()
-# class AddDelegate(Event):
+# # class AddDelegate(Event):
 #     """Owner delegates authority to another agent."""
 #
 #     delegate: Optional[Agent] = None
@@ -1235,8 +1203,7 @@ class Announce(Event):
 #         return submission
 #
 #
-# @dataclass()
-# class RemoveDelegate(Event):
+# # class RemoveDelegate(Event):
 #     """Owner revokes authority from another agent."""
 #
 #     delegation_id: str = field(default_factory=str)
@@ -1253,7 +1220,6 @@ class Announce(Event):
 #         return submission
 
 
-@dataclass()
 class AddFeature(Event):
     """Add feature metadata to a submission."""
 
@@ -1284,7 +1250,6 @@ class AddFeature(Event):
         return submission
 
 
-@dataclass()
 class AddClassifierResults(Event):
     """Add the results of a classifier to a submission."""
 
@@ -1315,31 +1280,30 @@ class AddClassifierResults(Event):
         return submission
 
 
-@dataclass()
-class Reclassify(Event):
-    """Reclassify a submission."""
-
-    NAME = "reclassify submission"
-    NAMED = "submission reclassified"
-
-    #category: Optional[taxonomy.Category] = None
-    category: Optional[str] = None
-
-    def validate(self, submission: Submission) -> None:
-        """Validate the primary classification category."""
-        assert isinstance(self.category, str)
-        validators.must_be_an_active_category(self, self.category, submission)
-        self._must_be_unannounced(submission)
-        validators.cannot_be_secondary(self, self.category, submission)
-
-    def _must_be_unannounced(self, submission: Submission) -> None:
-        """Can only be set on the first version before publication."""
-        if submission.arxiv_id is not None or submission.version > 1:
-            raise InvalidEvent(self, "Can only be set on the first version,"
-                                     " before publication.")
-
-    def project(self, submission: Submission) -> Submission:
-        """Set :attr:`.domain.Submission.primary_classification`."""
-        clsn = Classification(category=self.category)
-        submission.primary_classification = clsn
-        return submission
+# # class Reclassify(Event):
+#     """Reclassify a submission."""
+#
+#     NAME = "reclassify submission"
+#     NAMED = "submission reclassified"
+#
+#     #category: Optional[taxonomy.Category] = None
+#     category: Optional[str] = None
+#
+#     def validate(self, submission: Submission) -> None:
+#         """Validate the primary classification category."""
+#         assert isinstance(self.category, str)
+#         validators.must_be_an_active_category(self, self.category, submission)
+#         self._must_be_unannounced(submission)
+#         validators.cannot_be_secondary(self, self.category, submission)
+#
+#     def _must_be_unannounced(self, submission: Submission) -> None:
+#         """Can only be set on the first version before publication."""
+#         if submission.arxiv_id is not None or submission.version > 1:
+#             raise InvalidEvent(self, "Can only be set on the first version,"
+#                                      " before publication.")
+#
+#     def project(self, submission: Submission) -> Submission:
+#         """Set :attr:`.domain.Submission.primary_classification`."""
+#         clsn = Classification(category=self.category)
+#         submission.primary_classification = clsn
+#         return submission
