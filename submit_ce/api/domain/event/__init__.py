@@ -107,6 +107,7 @@ from typing import Optional, List, Union, ClassVar
 
 import bleach
 from arxiv import taxonomy
+from arxiv.taxonomy.definitions import CATEGORIES
 from pytz import UTC
 
 from . import validators
@@ -306,7 +307,8 @@ class SetPrimaryClassification(Event):
         if isinstance(self.creator, System):
             return
         try:
-            archive = taxonomy.CATEGORIES[self.category]['in_archive']
+            #archive = taxonomy.CATEGORIES[self.category]['in_archive']
+            archive = CATEGORIES[self.category].in_archive
         except KeyError:
             archive = self.category
         if self.category not in self.creator.endorsements \
@@ -485,9 +487,9 @@ class SetAbstract(Event):
     MIN_LENGTH: ClassVar[int] = 20
     MAX_LENGTH: ClassVar[int] = 1920
 
-    def __post_init__(self) -> None:
+    def model_post_init(self, *args) -> None:
         """Perform some light cleanup on the provided value."""
-        super(SetAbstract, self).__post_init__()
+        #super(SetAbstract, self).__post_init__()
         self.abstract = self.cleanup(self.abstract)
 
     def validate(self, submission: Submission) -> None:

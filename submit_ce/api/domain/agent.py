@@ -28,17 +28,12 @@ class Agent(BaseModel):
     email: str = field(default_factory=str)
     endorsements: List[str] = field(default_factory=list)
 
-    def __post_init__(self) -> None:
-        """Set derivative fields."""
-        self.agent_type = self.__class__.get_agent_type()
-        self.agent_identifier = self.get_agent_identifier()
+    @property
+    def agent_type(self):
+        return self.__class__.__name__
 
-    @classmethod
-    def get_agent_type(cls) -> str:
-        """Get the name of the instance's class."""
-        return cls.__name__
-
-    def get_agent_identifier(self) -> str:
+    @property
+    def agent_identifier(self):
         """
         Get the unique identifier for this agent instance.
 
@@ -49,6 +44,22 @@ class Agent(BaseModel):
                              str(self.native_id).encode('utf-8')))
         return h.hexdigest()
 
+    @classmethod
+    def get_agent_type(cls):
+        return cls.__name__
+
+    # def model_post_init(self, *args) -> None:
+    #     """Set derivative fields."""
+    #     self.agent_type = self.__class__.get_agent_type()
+    #     self.agent_identifier = self.get_agent_identifier()
+    #
+    # @classmethod
+    # def get_agent_type(cls) -> str:
+    #     """Get the name of the instance's class."""
+    #     return cls.__name__
+    #
+    # def get_agent_identifier(self) -> str:
+
     def __eq__(self, other: Any) -> bool:
         """Equality comparison for agents based on type and identifier."""
         if not isinstance(other, self.__class__):
@@ -57,7 +68,7 @@ class Agent(BaseModel):
 
 
 class User(Agent):
-    """An (human) end user."""
+    """A human end user."""
 
     forename: str = field(default_factory=str)
     surname: str = field(default_factory=str)
@@ -68,10 +79,9 @@ class User(Agent):
     agent_type: str = field(default_factory=str)
     agent_identifier: str = field(default_factory=str)
 
-    def __post_init__(self) -> None:
+    def model_post_init(self, *args) -> None:
         """Set derivative fields."""
         self.name = self.get_name()
-        self.agent_type = self.get_agent_type()
 
     def get_name(self) -> str:
         """Full name of the user."""
@@ -85,13 +95,11 @@ class System(Agent):
     agent_type: str = field(default_factory=str)
     agent_identifier: str = field(default_factory=str)
 
-    def __post_init__(self) -> None:
+    def model_post_init(self, *args) -> None:
         """Set derivative fields."""
-        super(System, self).__post_init__()
         self.username = self.native_id
         self.name = self.native_id
         self.hostname = self.native_id
-        self.agent_type = self.get_agent_type()
 
 
 class Client(Agent):

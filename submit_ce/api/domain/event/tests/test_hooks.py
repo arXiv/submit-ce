@@ -3,7 +3,7 @@
 from unittest import TestCase, mock
 from dataclasses import dataclass
 from ..base import Event
-from ...agent import System
+from ...agent import System, Agent
 
 
 class TestCommitEvent(TestCase):
@@ -11,12 +11,10 @@ class TestCommitEvent(TestCase):
 
     def test_commit_event(self):
         """Test a simple commit hook."""
-        @dataclass
         class ChildEvent(Event):
             def _should_apply_callbacks(self):
                 return True
 
-        @dataclass
         class OtherChildEvent(Event):
             def _should_apply_callbacks(self):
                 return True
@@ -27,9 +25,10 @@ class TestCommitEvent(TestCase):
         save = mock.MagicMock(
             return_value=(mock.MagicMock(), mock.MagicMock())
         )
-        event = ChildEvent(creator=System('system'))
+        agent = Agent(native_id="fake", name="fake", username="fake", email="fake")
+        event = ChildEvent(creator=agent)
         event.after = mock.MagicMock()
-        OtherChildEvent(creator=System('system'))
+        OtherChildEvent(creator=agent)
         event.commit(save)
         self.assertEqual(callback.call_count, 1,
                          "Callback is only executed on the class to which it"
@@ -37,12 +36,10 @@ class TestCommitEvent(TestCase):
 
     def test_callback_inheritance(self):
         """Callback is inherited by subclasses."""
-        @dataclass
         class ParentEvent(Event):
             def _should_apply_callbacks(self):
                 return True
 
-        @dataclass
         class ChildEvent(ParentEvent):
             def _should_apply_callbacks(self):
                 return True
@@ -53,7 +50,7 @@ class TestCommitEvent(TestCase):
         save = mock.MagicMock(
             return_value=(mock.MagicMock(), mock.MagicMock())
         )
-        event = ChildEvent(creator=System('system'))
+        event = ChildEvent(creator=System(native_id='system'))
         event.after = mock.MagicMock()
         event.commit(save)
         self.assertEqual(callback.call_count, 1,

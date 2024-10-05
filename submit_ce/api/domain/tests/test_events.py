@@ -2,6 +2,8 @@
 
 from unittest import TestCase, mock
 from datetime import datetime
+
+from arxiv.taxonomy.definitions import CATEGORIES, CATEGORIES_ACTIVE
 from pytz import UTC
 from mimesis import Text
 
@@ -9,18 +11,18 @@ from arxiv import taxonomy
 from .. import event, agent, submission, meta
 from ...exceptions import InvalidEvent
 
+user = agent.User(
+            native_id = "12345",
+            email='uuser@cornell.edu',
+            endorsements=['astro-ph.GA', 'astro-ph.CO']
+        )
 
 class TestWithdrawalSubmission(TestCase):
     """Test :class:`event.RequestWithdrawal`."""
 
     def setUp(self):
         """Initialize auxiliary data for test cases."""
-        self.user = agent.User(
-            12345,
-            'uuser@cornell.edu',
-            endorsements=[meta.Classification('astro-ph.GA'),
-                          meta.Classification('astro-ph.CO')]
-        )
+        self.user = user
         self.submission = submission.Submission(
             submission_id=1,
             status=submission.Submission.ANNOUNCED,
@@ -85,12 +87,7 @@ class TestReplacementSubmission(TestCase):
 
     def setUp(self):
         """Initialize auxiliary data for test cases."""
-        self.user = agent.User(
-            12345,
-            'uuser@cornell.edu',
-            endorsements=[meta.Classification('astro-ph.GA'),
-                          meta.Classification('astro-ph.CO')]
-        )
+        self.user = user
         self.submission = submission.Submission(
             submission_id=1,
             status=submission.Submission.ANNOUNCED,
@@ -164,12 +161,7 @@ class TestDOIorJREFAfterAnnounce(TestCase):
 
     def setUp(self):
         """Initialize auxiliary data for test cases."""
-        self.user = agent.User(
-            12345,
-            'uuser@cornell.edu',
-            endorsements=[meta.Classification('astro-ph.GA'),
-                          meta.Classification('astro-ph.CO')]
-        )
+        self.user = user
         self.submission = submission.Submission(
             submission_id=1,
             status=submission.Submission.ANNOUNCED,
@@ -245,12 +237,7 @@ class TestSetPrimaryClassification(TestCase):
 
     def setUp(self):
         """Initialize auxiliary data for test cases."""
-        self.user = agent.User(
-            12345,
-            'uuser@cornell.edu',
-            endorsements=[meta.Classification('astro-ph.GA'),
-                          meta.Classification('astro-ph.CO')]
-        )
+        self.user = user
         self.submission = submission.Submission(
             submission_id=1,
             creator=self.user,
@@ -280,7 +267,7 @@ class TestSetPrimaryClassification(TestCase):
 
     def test_set_primary_with_valid_category(self):
         """Category is from the arXiv taxonomy."""
-        for category in taxonomy.CATEGORIES.keys():
+        for category in CATEGORIES.keys():
             e = event.SetPrimaryClassification(
                 creator=self.user,
                 submission_id=1,
@@ -313,7 +300,7 @@ class TestAddSecondaryClassification(TestCase):
 
     def setUp(self):
         """Initialize auxiliary data for test cases."""
-        self.user = agent.User(12345, 'uuser@cornell.edu')
+        self.user = user
         self.submission = submission.Submission(
             submission_id=1,
             creator=self.user,
@@ -344,7 +331,7 @@ class TestAddSecondaryClassification(TestCase):
 
     def test_add_secondary_with_valid_category(self):
         """Category is from the arXiv taxonomy."""
-        for category in taxonomy.CATEGORIES_ACTIVE.keys():
+        for category in CATEGORIES_ACTIVE.keys():
             e = event.AddSecondaryClassification(
                 creator=self.user,
                 submission_id=1,
@@ -468,7 +455,7 @@ class TestRemoveSecondaryClassification(TestCase):
 
     def setUp(self):
         """Initialize auxiliary data for test cases."""
-        self.user = agent.User(12345, 'uuser@cornell.edu')
+        self.user = user
         self.submission = submission.Submission(
             submission_id=1,
             creator=self.user,
@@ -517,7 +504,7 @@ class TestSetAuthors(TestCase):
 
     def setUp(self):
         """Initialize auxiliary data for test cases."""
-        self.user = agent.User(12345, 'uuser@cornell.edu')
+        self.user = user
         self.submission = submission.Submission(
             submission_id=1,
             creator=self.user,
@@ -577,7 +564,7 @@ class TestSetTitle(TestCase):
 
     def setUp(self):
         """Initialize auxiliary data for test cases."""
-        self.user = agent.User(12345, 'uuser@cornell.edu')
+        self.user = user
         self.submission = submission.Submission(
             submission_id=1,
             creator=self.user,
@@ -649,7 +636,7 @@ class TestSetAbstract(TestCase):
 
     def setUp(self):
         """Initialize auxiliary data for test cases."""
-        self.user = agent.User(12345, 'uuser@cornell.edu')
+        self.user = user
         self.submission = submission.Submission(
             submission_id=1,
             creator=self.user,
@@ -686,7 +673,7 @@ class TestSetDOI(TestCase):
 
     def setUp(self):
         """Initialize auxiliary data for test cases."""
-        self.user = agent.User(12345, 'uuser@cornell.edu')
+        self.user = user
         self.submission = submission.Submission(
             submission_id=1,
             creator=self.user,
@@ -734,7 +721,7 @@ class TestSetReportNumber(TestCase):
 
     def setUp(self):
         """Initialize auxiliary data for test cases."""
-        self.user = agent.User(12345, 'uuser@cornell.edu')
+        self.user = user
         self.submission = submission.Submission(
             submission_id=1,
             creator=self.user,
@@ -790,7 +777,7 @@ class TestSetJournalReference(TestCase):
 
     def setUp(self):
         """Initialize auxiliary data for test cases."""
-        self.user = agent.User(12345, 'uuser@cornell.edu')
+        self.user = user
         self.submission = submission.Submission(
             submission_id=1,
             creator=self.user,
@@ -850,7 +837,7 @@ class TestSetACMClassification(TestCase):
 
     def setUp(self):
         """Initialize auxiliary data for test cases."""
-        self.user = agent.User(12345, 'uuser@cornell.edu')
+        self.user = user
         self.submission = submission.Submission(
             submission_id=1,
             creator=self.user,
@@ -897,7 +884,7 @@ class TestSetMSCClassification(TestCase):
 
     def setUp(self):
         """Initialize auxiliary data for test cases."""
-        self.user = agent.User(12345, 'uuser@cornell.edu')
+        self.user = user
         self.submission = submission.Submission(
             submission_id=1,
             creator=self.user,
@@ -943,7 +930,7 @@ class TestSetComments(TestCase):
 
     def setUp(self):
         """Initialize auxiliary data for test cases."""
-        self.user = agent.User(12345, 'uuser@cornell.edu')
+        self.user = user
         self.submission = submission.Submission(
             submission_id=1,
             creator=self.user,
