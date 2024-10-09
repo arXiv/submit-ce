@@ -9,8 +9,15 @@ from pydantic import BaseModel
 
 __all__ = ('Agent', 'User', 'System', 'Client', 'agent_factory')
 
+from pydantic.dataclasses import dataclass
 
-class Agent(BaseModel):
+# BDC: This uses dataclass instead of pydantic BaseModel only because it is more work to setup
+# init vars from both the parent class and subclass in the instance.
+# I'm tyring to get this working quickly, I didn't bother.
+# Pydantic objects that are dataclasses need to be converted to and from JSON differently
+# https://docs.pydantic.dev/latest/concepts/dataclasses/#json-dumping
+@dataclass
+class Agent:
     """
     Base class for agents in the submission system.
 

@@ -124,6 +124,7 @@ from ..annotation import Feature, ClassifierResults, \
 from ..preview import Preview
 from ..submission import Submission, Author, \
     Classification, License, SubmissionContent
+from ... import ActiveCategory
 from ...exceptions import InvalidEvent
 
 import logging
@@ -284,12 +285,12 @@ class SetPrimaryClassification(Event):
     NAME = "set primary classification"
     NAMED = "primary classification set"
 
-    #category: Optional[taxonomy.Category] = None
-    category: Optional[str] = None
+    category: Optional[ActiveCategory] = None
 
     def validate(self, submission: Submission) -> None:
         """Validate the primary classification category."""
-        assert self.category is not None
+        if self.category is None:
+            raise InvalidEvent(self, "Must have a category")
         validators.must_be_an_active_category(self, self.category, submission)
         self._creator_must_be_endorsed(submission)
         self._must_be_unannounced(submission)
@@ -324,12 +325,6 @@ class SetPrimaryClassification(Event):
         submission.primary_classification = clsn
         return submission
 
-    def __post_init__(self) -> None:
-        """Ensure that we have an :class:`arxiv.taxonomy.Category`."""
-        super(SetPrimaryClassification, self).__post_init__()
-        if self.category and not isinstance(self.category, taxonomy.Category):
-            self.category = taxonomy.Category(self.category)
-
 
 class AddSecondaryClassification(Event):
     """Add a secondary :class:`.Classification` to a submission."""
@@ -338,7 +333,7 @@ class AddSecondaryClassification(Event):
     NAMED = "cross-list classification added"
 
     #category: Optional[taxonomy.Category] = field(default=None)
-    category: Optional[str] = None
+    category: Optional[ActiveCategory] = None
 
     def validate(self, submission: Submission) -> None:
         """Validate the secondary classification category to add."""
@@ -357,12 +352,6 @@ class AddSecondaryClassification(Event):
         classification = Classification(category=self.category)
         submission.secondary_classification.append(classification)
         return submission
-
-    def __post_init__(self) -> None:
-        """Ensure that we have an :class:`arxiv.taxonomy.Category`."""
-        super(AddSecondaryClassification, self).__post_init__()
-        if self.category and not isinstance(self.category, taxonomy.Category):
-            self.category = taxonomy.Category(self.category)
 
 
 class RemoveSecondaryClassification(Event):
@@ -428,9 +417,8 @@ class SetTitle(Event):
     MAX_LENGTH: ClassVar[int] = 240
     ALLOWED_HTML: ClassVar[List[str]] = ["br", "sup", "sub", "hr", "em", "strong", "h"]
 
-    def __post_init__(self) -> None:
+    def model_post_init(self, *args, **kwargs) -> None:
         """Perform some light cleanup on the provided value."""
-        super(SetTitle, self).__post_init__()
         self.title = self.cleanup(self.title)
 
     def validate(self, submission: Submission) -> None:
@@ -538,9 +526,8 @@ class SetDOI(Event):
 
     doi: str = field(default='')
 
-    def __post_init__(self) -> None:
+    def model_post_init(self, *args, **kwargs) -> None:
         """Perform some light cleanup on the provided value."""
-        super(SetDOI, self).__post_init__()
         self.doi = self.cleanup(self.doi)
 
     def validate(self, submission: Submission) -> None:
@@ -581,9 +568,8 @@ class SetMSCClassification(Event):
 
     MAX_LENGTH: ClassVar[int] = 160
 
-    def __post_init__(self) -> None:
+    def model_post_init(self, *args, **kwargs) -> None:
         """Perform some light cleanup on the provided value."""
-        super(SetMSCClassification, self).__post_init__()
         self.msc_class = self.cleanup(self.msc_class)
 
     def validate(self, submission: Submission) -> None:
@@ -621,9 +607,8 @@ class SetACMClassification(Event):
 
     MAX_LENGTH: ClassVar[int] = 160
 
-    def __post_init__(self) -> None:
+    def model_post_init(self, *args, **kwargs) -> None:
         """Perform some light cleanup on the provided value."""
-        super(SetACMClassification, self).__post_init__()
         self.acm_class = self.cleanup(self.acm_class)
 
     def validate(self, submission: Submission) -> None:
@@ -670,9 +655,8 @@ class SetJournalReference(Event):
 
     journal_ref: str = field(default='')
 
-    def __post_init__(self) -> None:
+    def model_post_init(self, *args, **kwargs) -> None:
         """Perform some light cleanup on the provided value."""
-        super(SetJournalReference, self).__post_init__()
         self.journal_ref = self.cleanup(self.journal_ref)
 
     def validate(self, submission: Submission) -> None:
@@ -718,9 +702,8 @@ class SetReportNumber(Event):
 
     report_num: str = field(default='')
 
-    def __post_init__(self) -> None:
+    def model_post_init(self, *args, **kwargs) -> None:
         """Perform some light cleanup on the provided value."""
-        super(SetReportNumber, self).__post_init__()
         self.report_num = self.cleanup(self.report_num)
 
     def validate(self, submission: Submission) -> None:
@@ -754,9 +737,8 @@ class SetComments(Event):
 
     MAX_LENGTH: ClassVar[int] = 400
 
-    def __post_init__(self) -> None:
+    def model_post_init(self, *args, **kwargs) -> None:
         """Perform some light cleanup on the provided value."""
-        super(SetComments, self).__post_init__()
         self.comments = self.cleanup(self.comments)
 
     def validate(self, submission: Submission) -> None:
@@ -791,9 +773,8 @@ class SetAuthors(Event):
     authors_display: Optional[str] = field(default=None)
     """The authors string may be provided."""
 
-    def __post_init__(self) -> None:
+    def model_post_init(self, *args, **kwargs) -> None:
         """Autogenerate and/or clean display names."""
-        super(SetAuthors, self).__post_init__()
         self.authors = [
             Author(**a) if isinstance(a, dict) else a   # type: ignore
             for a in self.authors
@@ -852,9 +833,8 @@ class SetUploadPackage(Event):
     source_format: SubmissionContent.Format = \
         field(default=SubmissionContent.Format.UNKNOWN)
 
-    def __post_init__(self) -> None:
+    def model_post_init(self, *args, **kwargs) -> None:
         """Make sure that `source_format` is an enum instance."""
-        super(SetUploadPackage, self).__post_init__()
         if type(self.source_format) is str:
             self.source_format = SubmissionContent.Format(self.source_format)
 
@@ -890,9 +870,8 @@ class UpdateUploadPackage(Event):
     source_format: SubmissionContent.Format = \
         field(default=SubmissionContent.Format.UNKNOWN)
 
-    def __post_init__(self) -> None:
+    def model_post_init(self, *args, **kwargs) -> None:
         """Make sure that `source_format` is an enum instance."""
-        super(UpdateUploadPackage, self).__post_init__()
         if type(self.source_format) is str:
             self.source_format = SubmissionContent.Format(self.source_format)
 

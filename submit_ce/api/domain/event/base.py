@@ -101,23 +101,12 @@ class Event(BaseModel):
     after: Optional[Submission] = None
     """The state of the submission after the event."""
 
-    event_type: str = "Event"
-
     _hooks: ClassVar[Mapping[type, List[Rule]]] = defaultdict(list)
 
-    def model_post_init(self, *args) -> None:
-        """Make sure data look right."""
-        self.event_type = self.get_event_type()
-        # if self.client and isinstance(self.client, dict):
-        #     self.client = agent_factory(**self.client)
-        # if self.creator and isinstance(self.creator, dict):
-        #     self.creator = agent_factory(**self.creator)
-        # if self.proxy and isinstance(self.proxy, dict):
-        #     self.proxy = agent_factory(**self.proxy)
-        # if self.before and isinstance(self.before, dict):
-        #     self.before = Submission(**self.before)
-        # if self.after and isinstance(self.after, dict):
-        #     self.after = Submission(**self.after)
+
+    @property
+    def event_type(self) -> str:
+        return self.__class__.__name__
 
     @classmethod
     def get_event_type(cls) -> str:
