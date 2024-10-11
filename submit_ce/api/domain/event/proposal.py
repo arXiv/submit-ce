@@ -24,18 +24,20 @@ class AddProposal(Event):
     NAME = 'add proposal'
     NAMED = 'proposal added'
 
-    proposed_event_type: Optional[type] = field(default=None)
+    # TODO pydantic does not like this
+    #proposed_event_type: Optional[type] = field(default=None)
     proposed_event_data: dict = field(default_factory=dict)
     comment: Optional[str] = field(default=None)
 
     def validate(self, submission: Submission) -> None:
         """Simulate applying the proposal to check for validity."""
-        if self.proposed_event_type is None:
-            raise InvalidEvent(self, "Proposed event type is required")
-        proposed_event_data = copy.deepcopy(self.proposed_event_data)
-        proposed_event_data.update({'creator': self.creator})
-        event = self.proposed_event_type(**proposed_event_data)
-        event.validate(submission)
+        # if self.proposed_event_type is None:
+        #     raise InvalidEvent(self, "Proposed event type is required")
+        # proposed_event_data = copy.deepcopy(self.proposed_event_data)
+        # proposed_event_data.update({'creator': self.creator})
+        # event = self.proposed_event_type(**proposed_event_data)
+        # event.validate(submission)
+        pass
 
     def project(self, submission: Submission) -> Submission:
         """Add the proposal to the submission."""

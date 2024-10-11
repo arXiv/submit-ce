@@ -21,15 +21,15 @@ class ApproveRequest(Event):
 
     request_id: Optional[str] = field(default=None)
 
-    def __hash__(self) -> int:
-        """Use event ID as object hash."""
-        return hash(self.event_id)
-
-    def __eq__(self, other: object) -> bool:
-        """Compare this event to another event."""
-        if not isinstance(other, Event):
-            return NotImplemented
-        return hash(self) == hash(other)
+    # def __hash__(self) -> int:
+    #     """Use event ID as object hash."""
+    #     return hash(self.event_id)
+    #
+    # def __eq__(self, other: object) -> bool:
+    #     """Compare this event to another event."""
+    #     if not isinstance(other, Event):
+    #         return NotImplemented
+    #     return hash(self) == hash(other)
 
     def validate(self, submission: Submission) -> None:
         if self.request_id not in submission.user_requests:
@@ -47,15 +47,15 @@ class RejectRequest(Event):
 
     request_id: Optional[str] = field(default=None)
 
-    def __hash__(self) -> int:
-        """Use event ID as object hash."""
-        return hash(self.event_id)
-
-    def __eq__(self, other: object) -> bool:
-        """Compare this event to another event."""
-        if not isinstance(other, Event):
-            return NotImplemented
-        return hash(self) == hash(other)
+    # def __hash__(self) -> int:
+    #     """Use event ID as object hash."""
+    #     return hash(self.event_id)
+    #
+    # def __eq__(self, other: object) -> bool:
+    #     """Compare this event to another event."""
+    #     if not isinstance(other, Event):
+    #         return NotImplemented
+    #     return hash(self) == hash(other)
 
     def validate(self, submission: Submission) -> None:
         if self.request_id not in submission.user_requests:
@@ -73,15 +73,15 @@ class CancelRequest(Event):
 
     request_id: Optional[str] = field(default=None)
 
-    def __hash__(self) -> int:
-        """Use event ID as object hash."""
-        return hash(self.event_id)
+    # def __hash__(self) -> int:
+    #     """Use event ID as object hash."""
+    #     return hash(self.event_id)
 
-    def __eq__(self, other: object) -> bool:
-        """Compare this event to another event."""
-        if not isinstance(other, Event):
-            return NotImplemented
-        return hash(self) == hash(other)
+    # def __eq__(self, other: object) -> bool:
+    #     """Compare this event to another event."""
+    #     if not isinstance(other, Event):
+    #         return NotImplemented
+    #     return hash(self) == hash(other)
 
     def validate(self, submission: Submission) -> None:
         if self.request_id not in submission.user_requests:
@@ -100,15 +100,15 @@ class ApplyRequest(Event):
 
     request_id: Optional[str] = field(default=None)
 
-    def __hash__(self) -> int:
-        """Use event ID as object hash."""
-        return hash(self.event_id)
+    # def __hash__(self) -> int:
+    #     """Use event ID as object hash."""
+    #     return hash(self.event_id)
 
-    def __eq__(self, other: object) -> bool:
-        """Compare this event to another event."""
-        if not isinstance(other, Event):
-            return NotImplemented
-        return hash(self) == hash(other)
+    # def __eq__(self, other: object) -> bool:
+    #     """Compare this event to another event."""
+    #     if not isinstance(other, Event):
+    #         return NotImplemented
+    #     return hash(self) == hash(other)
 
     def validate(self, submission: Submission) -> None:
         if self.request_id not in submission.user_requests:
@@ -133,15 +133,15 @@ class RequestCrossList(Event):
     #categories: List[taxonomy.Category] = field(default_factory=list)
     categories: List[str] = field(default_factory=list)
 
-    def __hash__(self) -> int:
-        """Use event ID as object hash."""
-        return hash(self.event_id)
+    # def __hash__(self) -> int:
+    #     """Use event ID as object hash."""
+    #     return hash(self.event_id)
 
-    def __eq__(self, other: object) -> bool:
-        """Compare this event to another event."""
-        if not isinstance(other, Event):
-            return NotImplemented
-        return hash(self) == hash(other)
+    # def __eq__(self, other: object) -> bool:
+    #     """Compare this event to another event."""
+    #     if not isinstance(other, Event):
+    #         return NotImplemented
+    #     return hash(self) == hash(other)
 
     def validate(self, submission: Submission) -> None:
         """Validate the cross-list request."""
@@ -182,15 +182,15 @@ class RequestWithdrawal(Event):
 
     MAX_LENGTH: ClassVar[int]= 400
 
-    def __hash__(self) -> int:
-        """Use event ID as object hash."""
-        return hash(self.event_id)
+    # def __hash__(self) -> int:
+    #     """Use event ID as object hash."""
+    #     return hash(self.event_id)
 
-    def __eq__(self, other: object) -> bool:
-        """Compare this event to another event."""
-        if not isinstance(other, Event):
-            return NotImplemented
-        return hash(self) == hash(other)
+    # def __eq__(self, other: object) -> bool:
+    #     """Compare this event to another event."""
+    #     if not isinstance(other, Event):
+    #         return NotImplemented
+    #     return hash(self) == hash(other)
 
     def validate(self, submission: Submission) -> None:
         """Make sure that a reason was provided."""

@@ -364,7 +364,9 @@ class Submission:
     reason_for_withdrawal: Optional[str] = field(default=None)
     """If an e-print is withdrawn, the submitter is asked to explain why."""
 
-    versions: List['Submission'] = field(default_factory=list)
+    # bdc34:causing circular references in json schema, which breaks use of
+    # from_schema() during testing
+    #versions: List['Submission'] = field(default_factory=list)
     """Announced versions of this :class:`.domain.submission.Submission`."""
 
     # These fields are related to moderation/quality control.
