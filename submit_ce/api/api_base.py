@@ -5,125 +5,125 @@ from typing import ClassVar, Dict, List, Tuple, Union, Optional  # noqa: F401
 from fastapi import UploadFile
 
 from submit_ce.api.domain import Submission
-from submit_ce.api.domain.meta import CategoryChange
+#from submit_ce.api.domain.meta import CategoryChange
 from submit_ce.api.domain.agent import User, Client
-from submit_ce.api.domain.events import AgreedToPolicy, StartedNew, AuthorshipDirect, AuthorshipProxy, \
-    SetLicense, SetCategories, SetMetadata, VerifyUser
+#from submit_ce.api.domain.events import AgreedToPolicy, StartedNew, AuthorshipDirect, AuthorshipProxy, \
+#    SetLicense, SetCategories, SetMetadata, VerifyUser
 
 
 class BaseDefaultApi(ABC):
     """Abstract class to implement the default API."""
 
-    @abstractmethod
-    def get_submission(
-            self,
-            impl_data: Dict,
-            user: User,
-            client: Client,
-            submission_id: str,
-    ) -> Submission:
-        """Get information about a ui-app."""
-        ...
-
-    @abstractmethod
-    def start(
-            self,
-            impl_data: Dict,
-            user: User,
-            client: Client,
-            started: Union[StartedNew],
-    ) -> str:
-        """Start a ui-app and get a ui-app ID."""
-        ...
-
-    @abstractmethod
-    def accept_policy_post(
-            self,
-            impl_data: Dict,
-            user: User,
-            client: Client,
-            submission_id: str,
-            agreement: AgreedToPolicy,
-    ) -> object:
-        """Agree to an arXiv policy to initiate a new item ui-app or  a change to an existing item. """
-        ...
-
-    @abstractmethod
-    def mark_deposited_post(
-            self,
-            impl_data: Dict,
-            user: User,
-            client: Client,
-            submission_id: str,
-    ) -> None:
-        """The submission been successfully deposited into the arxiv corpus."""
-        ...
-
-    @abstractmethod
-    def mark_processing_for_deposit_post(
-            self,
-            impl_data: Dict,
-            user: User,
-            client: Client,
-            submission_id: str,
-    ) -> None:
-        """Mark that the ui-app is being processed for deposit."""
-        ...
-
-    @abstractmethod
-    def unmark_processing_for_deposit_post(
-            self,
-            impl_data: Dict,
-            user: User,
-            client: Client,
-            submission_id: str,
-    ) -> None:
-        """Indicate that an external system in no longer working on depositing this ui-app.  This does not indicate that is was successfully deposited. """
-        ...
-
-    @abstractmethod
-    def get_service_status(
-            self,
-            impl_data: Dict,
-    ) -> Tuple[bool, str]:
-        """Service health."""
-        ...
-
-    @abstractmethod
-    def set_license_post(self, impl_data: Dict, user: User, client: Client,
-                               submission_id: str, license: SetLicense) -> None:
-        """Sets the license of the submission files."""
-        ...
-
-    @abstractmethod
-    def assert_authorship_post(self, impl_data: Dict, user: User, client: Client,
-                                     submission_id: str, authorship: Union[AuthorshipDirect, AuthorshipProxy]) -> str:
-        """Assert authorship of the submission files.
-
-        Or assert that the submitter has authority to submit the files as a proxy."""
-        ...
-
-    @abstractmethod
-    def file_post(self, impl_data: Dict, user: User, client: Client, submission_id: str, uploadFile: UploadFile):
-        """Upload a file to a submission.
-
-        The file can be a single file, a zip, or a tar.gz. Zip and tar.gz files will be unpacked.
-        """
-        ...
-
-    @abstractmethod
-    def set_categories_post(self, impl_data: Dict, user: User, client: Client, submission_id: str,
-                                  set_categoires: SetCategories) -> CategoryChange:
-        pass
-
-    @abstractmethod
-    def set_metadata_post(self, impl_data: Dict, user: User, client: Client, submission_id: str,
-                                metadata: Union[SetMetadata]):
-        pass
-
-    @abstractmethod
-    def user_submissions(self, impl_data: Dict, user: User, client: Client) -> List[Submission]:
-        pass
-
-    def verify_user_post(self, impl_data: Dict, user: User, client: Client, submission_id: str, verifyUser: VerifyUser):
-        pass
+    # @abstractmethod
+    # def get_submission(
+    #         self,
+    #         impl_data: Dict,
+    #         user: User,
+    #         client: Client,
+    #         submission_id: str,
+    # ) -> Submission:
+    #     """Get information about a ui-app."""
+    #     ...
+    #
+    # @abstractmethod
+    # def start(
+    #         self,
+    #         impl_data: Dict,
+    #         user: User,
+    #         client: Client,
+    #         started: Union[StartedNew],
+    # ) -> str:
+    #     """Start a ui-app and get a ui-app ID."""
+    #     ...
+    #
+    # @abstractmethod
+    # def accept_policy_post(
+    #         self,
+    #         impl_data: Dict,
+    #         user: User,
+    #         client: Client,
+    #         submission_id: str,
+    #         agreement: AgreedToPolicy,
+    # ) -> object:
+    #     """Agree to an arXiv policy to initiate a new item ui-app or  a change to an existing item. """
+    #     ...
+    #
+    # @abstractmethod
+    # def mark_deposited_post(
+    #         self,
+    #         impl_data: Dict,
+    #         user: User,
+    #         client: Client,
+    #         submission_id: str,
+    # ) -> None:
+    #     """The submission been successfully deposited into the arxiv corpus."""
+    #     ...
+    #
+    # @abstractmethod
+    # def mark_processing_for_deposit_post(
+    #         self,
+    #         impl_data: Dict,
+    #         user: User,
+    #         client: Client,
+    #         submission_id: str,
+    # ) -> None:
+    #     """Mark that the ui-app is being processed for deposit."""
+    #     ...
+    #
+    # @abstractmethod
+    # def unmark_processing_for_deposit_post(
+    #         self,
+    #         impl_data: Dict,
+    #         user: User,
+    #         client: Client,
+    #         submission_id: str,
+    # ) -> None:
+    #     """Indicate that an external system in no longer working on depositing this ui-app.  This does not indicate that is was successfully deposited. """
+    #     ...
+    #
+    # @abstractmethod
+    # def get_service_status(
+    #         self,
+    #         impl_data: Dict,
+    # ) -> Tuple[bool, str]:
+    #     """Service health."""
+    #     ...
+    #
+    # @abstractmethod
+    # def set_license_post(self, impl_data: Dict, user: User, client: Client,
+    #                            submission_id: str, license: SetLicense) -> None:
+    #     """Sets the license of the submission files."""
+    #     ...
+    #
+    # @abstractmethod
+    # def assert_authorship_post(self, impl_data: Dict, user: User, client: Client,
+    #                                  submission_id: str, authorship: Union[AuthorshipDirect, AuthorshipProxy]) -> str:
+    #     """Assert authorship of the submission files.
+    #
+    #     Or assert that the submitter has authority to submit the files as a proxy."""
+    #     ...
+    #
+    # @abstractmethod
+    # def file_post(self, impl_data: Dict, user: User, client: Client, submission_id: str, uploadFile: UploadFile):
+    #     """Upload a file to a submission.
+    #
+    #     The file can be a single file, a zip, or a tar.gz. Zip and tar.gz files will be unpacked.
+    #     """
+    #     ...
+    #
+    # @abstractmethod
+    # def set_categories_post(self, impl_data: Dict, user: User, client: Client, submission_id: str,
+    #                               set_categoires: SetCategories) -> CategoryChange:
+    #     pass
+    #
+    # @abstractmethod
+    # def set_metadata_post(self, impl_data: Dict, user: User, client: Client, submission_id: str,
+    #                             metadata: Union[SetMetadata]):
+    #     pass
+    #
+    # @abstractmethod
+    # def user_submissions(self, impl_data: Dict, user: User, client: Client) -> List[Submission]:
+    #     pass
+    #
+    # def verify_user_post(self, impl_data: Dict, user: User, client: Client, submission_id: str, verifyUser: VerifyUser):
+    #     pass

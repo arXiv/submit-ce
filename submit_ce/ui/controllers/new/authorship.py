@@ -5,25 +5,28 @@ Creates an event of type `core.events.event.ConfirmAuthorship`
 """
 
 from http import HTTPStatus as status
-from typing import Tuple, Dict, Any
+from typing import Tuple, Dict, Any, Optional
 
-from arxiv.auth.domain import Session
+from flask import url_for
 from werkzeug.datastructures import MultiDict
-from werkzeug.exceptions import InternalServerError
+from werkzeug.exceptions import InternalServerError, NotFound, BadRequest
 from wtforms import BooleanField, RadioField
 from wtforms.validators import InputRequired, ValidationError, optional
 
 from arxiv.base import logging
 from arxiv.forms import csrf
+from arxiv.auth.domain import Session
 from submit_ce.ui.backend import save
-from submit_ce.ui.domain.event import ConfirmAuthorship
-from submit_ce.ui.exceptions import SaveError
+from submit_ce.api.domain import Submission
+from submit_ce.api.domain.event import ConfirmAuthorship
+from submit_ce.api.exceptions import InvalidEvent, SaveError
 
-from submit_ce.ui.util import load_submission
-from submit_ce.ui.controllers.util import user_and_client_from_session, validate_command
+from submit_ce.ui.util import load_submission,  user_and_client_from_session
+from submit_ce.ui.controllers.util import validate_command
 
-# from arxiv-submission-core.events.event import ConfirmContactInformation
 from submit_ce.ui.routes.flow_control import ready_for_next
+
+# from arxiv-ui-app-core.events.event import ConfirmContactInformation
 
 logger = logging.getLogger(__name__)  # pylint: disable=C0103
 
@@ -37,9 +40,9 @@ def authorship(method: str, params: MultiDict, session: Session,
     submission, submission_events = load_submission(submission_id)
 
     # The form should be prepopulated based on the current state of the
-    # submission.
+    # ui-app.
     if method == 'GET':
-        # Update form data based on the current state of the submission.
+        # Update form data based on the current state of the ui-app.
         if submission.submitter_is_author is not None:
             if submission.submitter_is_author:
                 params['authorship'] = AuthorshipForm.YES
@@ -52,7 +55,7 @@ def authorship(method: str, params: MultiDict, session: Session,
     response_data = {
         'submission_id': submission_id,
         'form': form,
-        'submission': submission,
+        'ui-app': submission,
         'submitter': submitter,
         'client': client,
     }
@@ -66,7 +69,7 @@ def authorship(method: str, params: MultiDict, session: Session,
             if validate_command(form, command, submission, 'authorship'):
                 try:
                     submission, _ = save(command, submission_id=submission_id)
-                    response_data['submission'] = submission
+                    response_data['ui-app'] = submission
                     return response_data, status.SEE_OTHER, {}
                 except SaveError as e:
                     raise InternalServerError(response_data) from e
@@ -85,12 +88,12 @@ class AuthorshipForm(csrf.CSRFForm):
                                      (NO, 'I am not an author of this paper')],
                             validators=[InputRequired('Please choose one')])
     proxy = BooleanField('By checking this box, I certify that I have '
-                         'received authorization from arXiv to submit_ce papers '
+                         'received authorization from arXiv to submit papers '
                          'on behalf of the author(s).',
                          validators=[optional()])
 
     def validate_authorship(self, field: RadioField) -> None:
         """Require proxy field if submitter is not author."""
         if field.data == self.NO and not self.data.get('proxy'):
-                raise ValidationError('You must get prior approval to submit_ce '
+                raise ValidationError('You must get prior approval to submit '
                                       'on behalf of authors')

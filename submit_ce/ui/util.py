@@ -3,21 +3,18 @@
 from typing import Optional, Tuple, List
 from datetime import datetime
 
+from arxiv.auth.domain import Session
 from flask import request
 from werkzeug.exceptions import NotFound
-from retry import retry
 
 from arxiv.base import logging
-from arxiv.base.globals import get_application_global
 import submit_ce as events
-from submit_ce.ui.domain import Event, Submission
-from submit_ce.ui.exceptions import NoSuchSubmission
+from submit_ce.api.domain import User, Client, Submission, Event
 
 logger = logging.getLogger(__name__)
 logger.propagate = False
 
 
-#@retry(tries=2, delay=0.5, backoff=3, ) #exceptions=Unavailable)
 def load_submission(submission_id: Optional[int]) \
         -> Tuple[Submission, List[Event]]:
     """
@@ -147,3 +144,28 @@ def reject_withdrawal(submission_id: int) -> None:
             dbs.status = events.services.classic.models.Submission.REMOVED
             session.add(dbs)
             session.commit()
+
+
+# TODO: currently this does nothing with the client. We will need to add that
+# bit once we have a plan for handling client information in this interface.
+def user_and_client_from_session(session: Session) \
+        -> Tuple[User, Optional[Client]]:
+    """
+    Get submission user/client representations from a :class:`.Session`.
+
+    When we're building submission-related events, we frequently need a
+    submission-friendly representation of the user or client responsible for
+    those events. This function generates those event-domain representations
+    from a :class:`arxiv.users.domain.Submission` object.
+    """
+    user = User(
+        session.user.user_id,
+        email=session.user.email,
+        forename=getattr(session.user.name, 'forename', None),
+        surname=getattr(session.user.name, 'surname', None),
+        suffix=getattr(session.user.name, 'suffix', None),
+        # todo from the legacy.db and jwt from tests/make_test_db.py I'm not getting endorsements
+        #endorsements=session.authorizations.endorsements
+        endorsements=[]
+    )
+    return user, None

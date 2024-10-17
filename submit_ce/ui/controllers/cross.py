@@ -20,8 +20,8 @@ from submit_ce.ui.exceptions import SaveError
 from arxiv.taxonomy.definitions import CATEGORIES_ACTIVE as CATEGORIES
 from arxiv.taxonomy.definitions import ARCHIVES_ACTIVE as ARCHIVES
 
-from submit_ce.ui.util import load_submission
-from .util import user_and_client_from_session, OptGroupSelectField, \
+from submit_ce.ui.util import load_submission, user_and_client_from_session
+from .util import OptGroupSelectField, \
     validate_command
 
 logger = logging.getLogger(__name__)  # pylint: disable=C0103

@@ -4,25 +4,23 @@ Controller for verify_user action.
 Creates an event of type `core.events.event.ConfirmContactInformation`
 """
 from http import HTTPStatus as status
-from typing import Tuple, Dict, Any
+from typing import Tuple, Dict, Any, Optional
 
-from arxiv.auth.domain import Session
+from flask import url_for
 from werkzeug.datastructures import MultiDict
-from werkzeug.exceptions import InternalServerError
+from werkzeug.exceptions import InternalServerError, NotFound, BadRequest
 from wtforms import BooleanField
 from wtforms.validators import InputRequired
 
 from arxiv.base import logging
 from arxiv.forms import csrf
-
-from submit_ce.api.domain.events import AuthorshipDirect
-from submit_ce.ui.backend import save, api, get_client, get_user, impl_data
-from submit_ce.ui.domain.event import ConfirmContactInformation
-from submit_ce.ui.exceptions import SaveError
+from arxiv.auth.domain import Session
+from submit_ce.ui.backend import save
+from submit_ce.api.domain.event import ConfirmContactInformation
 
 from submit_ce.ui.util import load_submission
-from submit_ce.ui.controllers.util import validate_command, \
-    user_and_client_from_session
+from submit_ce.ui.controllers.util import validate_command
+from submit_ce.ui.util import    user_and_client_from_session
 from submit_ce.ui.routes.flow_control import ready_for_next, stay_on_this_stage
     
 logger = logging.getLogger(__name__)    # pylint: disable=C0103
@@ -37,13 +35,13 @@ def verify(method: str, params: MultiDict, session: Session,
 
     Generates a `ConfirmContactInformation` event when valid data are POSTed.
     """
-    logger.debug(f'method: {method}, submission: {submission_id}. {params}')
+    logger.debug(f'method: {method}, ui-app: {submission_id}. {params}')
     submitter, client = user_and_client_from_session(session)
 
-    # Will raise NotFound if there is no such submission.
+    # Will raise NotFound if there is no such ui-app.
     submission, _ = load_submission(submission_id)
 
-    # Initialize the form with the current state of the submission.
+    # Initialize the form with the current state of the ui-app.
     if method == 'GET':
         if submission.submitter_contact_verified:
             params['verify_user'] = 'true'
@@ -52,21 +50,22 @@ def verify(method: str, params: MultiDict, session: Session,
     response_data = {
         'submission_id': submission_id,
         'form': form,
-        'submission': submission,
+        'ui-app': submission,
         'submitter': submitter,
         'user': session.user,   # We want the most up-to-date representation.
     }
 
     if method == 'POST' and form.validate() and form.verify_user.data:
-        # Now that we have a submission, we can verify the user's contact
+        # Now that we have a ui-app, we can verify the user's contact
         # information. There is no need to do this more than once.
         if submission.submitter_contact_verified:
-            return ready_for_next((response_data, status.OK))
+            return ready_for_next((response_data, status.OK,{}))
         else:
-            api.assert_authorship_post(impl_data(), get_user(), get_client(),
-                                       submission_id,
-                                       AuthorshipDirect(i_am_author=form.verify_user.data))
-            return ready_for_next((response_data, status.OK, {}))
+            cmd = ConfirmContactInformation(creator=submitter, client=client)
+            if validate_command(form, cmd, submission, 'verify_user'):
+                submission, _ = save(cmd, submission_id=submission_id)
+                response_data['ui-app'] = submission
+                return ready_for_next((response_data, status.OK, {}))
 
     return stay_on_this_stage((response_data, status.OK, {}))
 

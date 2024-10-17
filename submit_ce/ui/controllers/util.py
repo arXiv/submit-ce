@@ -2,14 +2,13 @@
 
 from typing import Any, Dict, Tuple, Optional, List, Union
 
-from arxiv.auth.domain import Session
 from markupsafe import Markup
 from wtforms.widgets import Select, html_params
 from wtforms import SelectField, \
     SelectMultipleField, Form
 from wtforms.fields.core import UnboundField
 
-from submit_ce.ui.domain import User, Client, Event, Submission
+from submit_ce.ui.domain import Event, Submission
 from submit_ce.ui.exceptions import InvalidEvent
 
 Response = Tuple[Dict[str, Any], int, Dict[str, Any]]   # pylint: disable=C0103
@@ -128,31 +127,6 @@ class FieldMixin:
         """Convenience accessor for form field names."""
         return [key for key in dir(cls)
                 if isinstance(getattr(cls, key), UnboundField)]
-
-
-# TODO: currently this does nothing with the client. We will need to add that
-# bit once we have a plan for handling client information in this interface.
-def user_and_client_from_session(session: Session) \
-        -> Tuple[User, Optional[Client]]:
-    """
-    Get submission user/client representations from a :class:`.Session`.
-
-    When we're building submission-related events, we frequently need a
-    submission-friendly representation of the user or client responsible for
-    those events. This function generates those event-domain representations
-    from a :class:`arxiv.users.domain.Submission` object.
-    """
-    user = User(
-        session.user.user_id,
-        email=session.user.email,
-        forename=getattr(session.user.name, 'forename', None),
-        surname=getattr(session.user.name, 'surname', None),
-        suffix=getattr(session.user.name, 'suffix', None),
-        # todo from the legacy.db and jwt from tests/make_test_db.py I'm not getting endorsements
-        #endorsements=session.authorizations.endorsements
-        endorsements=[]
-    )
-    return user, None
 
 
 def add_immediate_alert(context: dict, severity: str,

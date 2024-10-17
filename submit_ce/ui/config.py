@@ -66,7 +66,7 @@ class Settings(ArxivBaseSettings):
      Can be set with envvars that are prefixed with SUBMIT_API_{SOMETHING}.
      Ex. SUBMIT_API_HOST=http://localhost:8000"""
 
-    submission_api_implementation: ImportString = 'submit_ce.api.implementations.legacy_implementation.implementation'
+    #submission_api_implementation: ImportString = 'submit_ce.implementations.legacy_implementation.implementation'
     """Class to use for submission API implementation."""
 
     AUTH_UPDATED_SESSION_REF: bool = True

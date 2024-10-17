@@ -1,34 +1,36 @@
-"""Provides a controller for updating metadata on a submission."""
+"""Provides a controller for updating metadata on a ui-app."""
 
 from typing import Tuple, Dict, Any, List
 
-from arxiv.auth.domain import Session
 from werkzeug.datastructures import MultiDict
-from werkzeug.exceptions import InternalServerError
-from wtforms.fields import StringField, TextAreaField
+from werkzeug.exceptions import InternalServerError, BadRequest
+from wtforms.fields import StringField, TextAreaField, Field
 from wtforms import validators
 
 from http import HTTPStatus as status
 from arxiv.forms import csrf
+from arxiv.base import logging
+from arxiv.auth.domain import Session, User, Client
+from submit_ce.ui.backend import save
 
-from submit_ce.ui.backend import save, Submission, Event
-from submit_ce.ui.domain import User, Client
-from submit_ce.ui.domain.event import SetTitle, SetAuthors, SetAbstract, \
+from submit_ce.api.domain import Submission, Event
+from submit_ce.api.domain.event import SetTitle, SetAuthors, SetAbstract, \
     SetACMClassification, SetMSCClassification, SetComments, SetReportNumber, \
     SetJournalReference, SetDOI
-from submit_ce.ui.exceptions import SaveError
+from submit_ce.api.exceptions import SaveError
 
 from submit_ce.ui.util import load_submission
-from submit_ce.ui.controllers.util import validate_command, FieldMixin, user_and_client_from_session
+from submit_ce.ui.util import user_and_client_from_session
+from submit_ce.ui.controllers.util import validate_command, FieldMixin
+
 from submit_ce.ui.routes.flow_control import ready_for_next, stay_on_this_stage
-import logging
 logger = logging.getLogger(__name__)  # pylint: disable=C0103
 
 Response = Tuple[Dict[str, Any], int, Dict[str, Any]]  # pylint: disable=C0103
 
 
 class CoreMetadataForm(csrf.CSRFForm, FieldMixin):
-    """Handles core metadata fields on a submission."""
+    """Handles core metadata fields on a ui-app."""
 
     title = StringField('*Title', validators=[validators.DataRequired()])
     authors_display = TextAreaField(
@@ -53,7 +55,7 @@ class CoreMetadataForm(csrf.CSRFForm, FieldMixin):
 
 
 class OptionalMetadataForm(csrf.CSRFForm, FieldMixin):
-    """Handles optional metadata fields on a submission."""
+    """Handles optional metadata fields on a ui-app."""
 
     doi = StringField('DOI',
                     validators=[validators.optional()],
@@ -91,14 +93,14 @@ def _data_from_submission(params: MultiDict, submission: Submission,
 
 def metadata(method: str, params: MultiDict, session: Session,
              submission_id: int, **kwargs) -> Response:
-    """Update metadata on the submission."""
+    """Update metadata on the ui-app."""
     submitter, client = user_and_client_from_session(session)
-    logger.debug(f'method: {method}, submission: {submission_id}. {params}')
+    logger.debug(f'method: {method}, ui-app: {submission_id}. {params}')
 
-    # Will raise NotFound if there is no such submission.
+    # Will raise NotFound if there is no such ui-app.
     submission, submission_events = load_submission(submission_id)
     # The form should be prepopulated based on the current state of the
-    # submission.
+    # ui-app.
     if method == 'GET':
         params = _data_from_submission(params, submission, CoreMetadataForm)
 
@@ -106,7 +108,7 @@ def metadata(method: str, params: MultiDict, session: Session,
     response_data = {
         'submission_id': submission_id,
         'form': form,
-        'submission': submission
+        'ui-app': submission
     }
 
     if method == 'POST' and form.validate():
@@ -117,7 +119,7 @@ def metadata(method: str, params: MultiDict, session: Session,
             try:
                 # Save the events created during form validation.
                 submission, _ = save(*commands, submission_id=submission_id)
-                response_data['submission'] = submission
+                response_data['ui-app'] = submission
                 return ready_for_next((response_data, status.OK, {}))
             except SaveError as e:
                 raise InternalServerError(response_data) from e
@@ -131,15 +133,15 @@ def metadata(method: str, params: MultiDict, session: Session,
 
 def optional(method: str, params: MultiDict, session: Session,
              submission_id: int, **kwargs) -> Response:
-    """Update optional metadata on the submission."""
+    """Update optional metadata on the ui-app."""
     submitter, client = user_and_client_from_session(session)
 
-    logger.debug(f'method: {method}, submission: {submission_id}. {params}')
+    logger.debug(f'method: {method}, ui-app: {submission_id}. {params}')
 
-    # Will raise NotFound if there is no such submission.
+    # Will raise NotFound if there is no such ui-app.
     submission, submission_events = load_submission(submission_id)
     # The form should be prepopulated based on the current state of the
-    # submission.
+    # ui-app.
     if method == 'GET':
         params = _data_from_submission(params, submission,
                                        OptionalMetadataForm)
@@ -148,7 +150,7 @@ def optional(method: str, params: MultiDict, session: Session,
     response_data = {
         'submission_id': submission_id,
         'form': form,
-        'submission': submission
+        'ui-app': submission
     }
 
     if method == 'POST' and form.validate():
@@ -161,7 +163,7 @@ def optional(method: str, params: MultiDict, session: Session,
         if all(valid):  # Metadata has changed and is all valid
             try:
                 submission, _ = save(*commands, submission_id=submission_id)
-                response_data['submission'] = submission
+                response_data['ui-app'] = submission
                 return ready_for_next((response_data, status.OK, {}))
             except SaveError as e:
                 raise InternalServerError(response_data) from e

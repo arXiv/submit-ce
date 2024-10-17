@@ -35,6 +35,9 @@ class Agent:
     email: str = field(default_factory=str)
     endorsements: List[str] = field(default_factory=list)
 
+    class Config:
+        orm_model = True
+
     @property
     def agent_type(self):
         return self.__class__.__name__

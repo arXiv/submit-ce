@@ -2,7 +2,7 @@
 Controllers for process-related requests.
 
 The controllers in this module leverage
-:mod:`arxiv.submission.core.process.process_source`, which provides an
+:mod:`arxiv.ui-app.core.process.process_source`, which provides an
 high-level API for orchestrating source processing for all supported source
 types.
 """
@@ -11,21 +11,19 @@ import io
 from http import HTTPStatus as status
 from typing import Tuple, Dict, Any, Optional
 
-from arxiv.auth.domain import Session
 from arxiv.base import logging, alerts
 from arxiv.forms import csrf
 from markupsafe import Markup
 
-from submit_ce.ui.backend import save
-from submit_ce.ui.domain.event import ConfirmSourceProcessed
+from submit_ce.ui.backend import save, SaveError
+from submit_ce.api.domain.event import ConfirmSourceProcessed
+from arxiv.auth.domain import Session
 from flask import url_for
 from werkzeug.datastructures import MultiDict
 from werkzeug.exceptions import InternalServerError, NotFound, MethodNotAllowed
 from wtforms import SelectField
-
-from submit_ce.ui.exceptions import SaveError
 from .reasons import TEX_PRODUCED_MARKUP, DOCKER_ERROR_MARKUOP, SUCCESS_MARKUP
-from submit_ce.ui.controllers.util import user_and_client_from_session
+from submit_ce.ui.util import user_and_client_from_session
 from submit_ce.ui.routes.flow_control import ready_for_next, stay_on_this_stage
 from submit_ce.ui.util import load_submission
 
@@ -52,7 +50,7 @@ def file_process(method: str, params: MultiDict, session: Session,
     session : :class:`Session`
         The authenticated session for the request.
     submission_id : int
-        The identifier of the submission for which the upload is being made.
+        The identifier of the ui-app for which the upload is being made.
     token : str
         The original (encrypted) auth token on the request. Used to perform
         subrequests to the file management service.
@@ -89,7 +87,7 @@ def _check_status(params: MultiDict, session: Session,  submission_id: int,
     """
     Check for cases in which the preview already exists.
 
-    This will catch cases in which the submission is PDF-only, or otherwise
+    This will catch cases in which the ui-app is PDF-only, or otherwise
     requires no further compilation.
     """
     submitter, client = user_and_client_from_session(session)
@@ -126,7 +124,7 @@ def compile_status(params: MultiDict, session: Session, submission_id: int,
     session : :class:`Session`
         The authenticated session for the request.
     submission_id : int
-        The identifier of the submission for which the upload is being made.
+        The identifier of the ui-app for which the upload is being made.
     token : str
         The original (encrypted) auth token on the request. Used to perform
         subrequests to the file management service.
@@ -149,7 +147,7 @@ def compile_status(params: MultiDict, session: Session, submission_id: int,
     form = CompilationForm()
     response_data = {
         'submission_id': submission_id,
-        'submission': submission,
+        'ui-app': submission,
         'form': form,
         'status': None,
     }
@@ -160,7 +158,7 @@ def compile_status(params: MultiDict, session: Session, submission_id: int,
     # result: Optional[process_source.CheckResult] = None
     # try:
     #     result = process_source.check(submission, submitter, client, token)
-    # except process_source.NoProcessToCheck:
+    # except process_source.NoProcessToCheck as e:
     #     pass
     # except process_source.FailedToCheckStatus as e:
     #     logger.error('Failed to check status: %s', e)
@@ -168,10 +166,10 @@ def compile_status(params: MultiDict, session: Session, submission_id: int,
     #         'There was a problem carrying out your request. Please try'
     #         f' again. {SUPPORT}'
     #     ))
-    if result is not None:
-        response_data['status'] = result.status
-        response_data.update(**result.extra)
-    return stay_on_this_stage((response_data, status.OK, {}))
+    # if result is not None:
+    #     response_data['status'] = result.status
+    #     response_data.update(**result.extra)
+    # return stay_on_this_stage((response_data, status.OK, {}))
 
 
 def start_compilation(params: MultiDict, session: Session, submission_id: int,
@@ -181,18 +179,19 @@ def start_compilation(params: MultiDict, session: Session, submission_id: int,
     form = CompilationForm(params)
     response_data = {
         'submission_id': submission_id,
-        'submission': submission,
+        'ui-app': submission,
         'form': form,
         'status': None,
     }
 
     if not form.validate():
         return stay_on_this_stage((response_data,status.OK,{}))
+
     raise NotImplementedError()
     # try:
     #     result = process_source.start(submission, submitter, client, token)
     # except process_source.FailedToStart as e:
-    #     alerts.flash_failure(f"We couldn't process your submission. {SUPPORT}",
+    #     alerts.flash_failure(f"We couldn't process your ui-app. {SUPPORT}",
     #                          title="Processing failed")
     #     logger.error('Error while requesting compilation for %s: %s',
     #                  submission_id, e)
@@ -207,7 +206,7 @@ def start_compilation(params: MultiDict, session: Session, submission_id: int,
     #     elif 'reason' in result.extra and 'docker' in result.extra['reason']:
     #         alerts.flash_failure(DOCKER_ERROR_MARKUOP)
     #     else:
-    #         alerts.flash_failure("Processing failed")
+    #         alerts.flash_failure(f"Processing failed")
     # else:
     #     alerts.flash_success(SUCCESS_MARKUP, title="Processing started"
     #     )
@@ -217,10 +216,10 @@ def start_compilation(params: MultiDict, session: Session, submission_id: int,
 
 def file_preview(params, session: Session, submission_id: int, token: str,
                  **kwargs: Any) -> Tuple[io.BytesIO, int, Dict[str, str]]:
-    """Serve the PDF preview for a submission."""
+    """Serve the PDF preview for a ui-app."""
     submitter, client = user_and_client_from_session(session)
-    submission, submission_events = load_submission(submission_id)
     raise NotImplementedError()
+    # submission, submission_events = load_submission(submission_id)
     # p = PreviewService.current_session()
     # stream, pdf_checksum = p.get(submission.source_content.identifier,
     #                              submission.source_content.checksum,
@@ -234,7 +233,7 @@ def compilation_log(params, session: Session, submission_id: int, token: str,
     submitter, client = user_and_client_from_session(session)
     submission, submission_events = load_submission(submission_id)
     checksum = params.get('checksum', submission.source_content.checksum)
-    raise NotImplementedError()
+    NotImplementedError()
     # try:
     #     log = Compiler.get_log(submission.source_content.identifier, checksum,
     #                            token)

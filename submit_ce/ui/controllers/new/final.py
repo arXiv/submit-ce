@@ -2,23 +2,24 @@
 Provides the final preview and confirmation step.
 """
 
+from http import HTTPStatus as status
 from typing import Tuple, Dict, Any
 
 from arxiv.auth.domain import Session
+from arxiv.base import logging
+from arxiv.forms import csrf
 from werkzeug.datastructures import MultiDict
 from werkzeug.exceptions import InternalServerError
 from wtforms import BooleanField
 from wtforms.validators import InputRequired
 
-from http import HTTPStatus as status
-from arxiv.forms import csrf
-from arxiv.base import logging
 from submit_ce.ui.backend import save
-from submit_ce.ui.domain.event import FinalizeSubmission
-from submit_ce.ui.exceptions import SaveError
-from submit_ce.ui.util import load_submission
-from submit_ce.ui.controllers.util import validate_command, user_and_client_from_session
+from submit_ce.api.domain.event import FinalizeSubmission
+from submit_ce.api.exceptions import SaveError
+from submit_ce.ui.controllers.util import validate_command
 from submit_ce.ui.routes.flow_control import ready_for_next, stay_on_this_stage
+from submit_ce.ui.util import load_submission
+from submit_ce.ui.util import user_and_client_from_session
 
 logger = logging.getLogger(__name__)  # pylint: disable=C0103
 
@@ -29,18 +30,18 @@ def finalize(method: str, params: MultiDict, session: Session,
              submission_id: int, **kwargs) -> Response:
     submitter, client = user_and_client_from_session(session)
 
-    logger.debug(f'method: {method}, submission: {submission_id}. {params}')
+    logger.debug(f'method: {method}, ui-app: {submission_id}. {params}')
     submission, submission_events = load_submission(submission_id)
 
     form = FinalizationForm(params)
 
-    # The abs preview macro expects a specific struct for submission history.
+    # The abs preview macro expects a specific struct for ui-app history.
     submission_history = [{'submitted_date': s.created, 'version': s.version}
                           for s in submission.versions]
     response_data = {
         'submission_id': submission_id,
         'form': form,
-        'submission': submission,
+        'ui-app': submission,
         'submission_history': submission_history
     }
 
@@ -63,12 +64,12 @@ def finalize(method: str, params: MultiDict, session: Session,
 
 
 class FinalizationForm(csrf.CSRFForm):
-    """Make sure the user is really really really ready to submit_ce."""
+    """Make sure the user is really really really ready to submit."""
 
     proceed = BooleanField(
-        'By checking this box, I confirm that I have reviewed my submission as'
+        'By checking this box, I confirm that I have reviewed my ui-app as'
         ' it will appear on arXiv.',
-        [InputRequired('Please confirm that the submission is ready')]
+        [InputRequired('Please confirm that the ui-app is ready')]
     )
 
 
@@ -77,6 +78,6 @@ def confirm(method: str, params: MultiDict, session: Session,
     submission, submission_events = load_submission(submission_id)
     response_data = {
         'submission_id': submission_id,
-        'submission': submission
+        'ui-app': submission
     }
     return response_data, status.OK, {}

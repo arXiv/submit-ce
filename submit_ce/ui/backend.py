@@ -8,15 +8,11 @@ from flask import request
 from pydantic import SecretStr
 from werkzeug.exceptions import Unauthorized
 
+#from submit_ce.api.api_base import BaseDefaultApi
 from submit_ce.api.domain import User, Client
-from submit_ce.api.domain.events import SetLicense, AgreedToPolicy, StartedNew, SetMetadata, SetCategories, \
-    AuthorshipDirect, AuthorshipProxy
-from submit_ce.api.domain.meta import CategoryChange, ACTIVE_CATEGORY
 
 from arxiv.db import Session, session_factory, _classic_engine, configure_db
 
-from submit_ce.api.implementations import BaseDefaultApi
-from submit_ce.api.implementations.legacy_implementation import models
 from submit_ce.ui.config import settings
 from submit_ce.ui.domain import Submission
 from submit_ce.ui.domain.event import Event, CreateSubmission
@@ -36,7 +32,7 @@ def config_backend_api(settings)-> None:
     )
 
 
-api: BaseDefaultApi = settings.submission_api_implementation.impl
+#api: BaseDefaultApi = settings.submission_api_implementation.impl
 """BACKEND WITH LEGACY IMPL ONLY FOR TESTING."""
 
 
@@ -131,7 +127,7 @@ def load(submission_id: int) -> Tuple[Submission, List[Event]]:
         Raised when a submission with the passed ID cannot be found.
 
     """
-    api.get_submission({"session": Session}, get_user(), get_client(), submission_id)
+    #api.get_submission({"session": Session}, get_user(), get_client(), submission_id)
 
 
 def load_submissions_for_user(user_id: int) -> List[Submission]:
@@ -149,7 +145,7 @@ def load_submissions_for_user(user_id: int) -> List[Submission]:
         Items are :class:`.domain.submission.Submission` instances.
 
     """
-    return api.user_submissions({"session": Session}, get_user(), get_client())
+    #return api.user_submissions({"session": Session}, get_user(), get_client())
 
 def save(*events: Event, submission_id: Optional[int] = None) \
         -> Tuple[Submission, List[Event]]:

@@ -10,17 +10,12 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker, Session as SqlalchemySession, Session
 
 from submit_ce.api import domain as api
-from ...domain import User, Client
-from ...domain.meta import CategoryChange
-from submit_ce.api.domain.events import AgreedToPolicy, StartedNew, StartedAlterExising, SetLicense, \
-    AuthorshipDirect, AuthorshipProxy, SetCategories, SetMetadata, VerifyUser
 from submit_ce.api.file_store import SubmissionFileStore
 from submit_ce.implementations.file_store.legacy_file_store import LegacyFileStore
-from submit_ce.api.implementations import ImplementationConfig
-from submit_ce.api.implementations.default_api_base import BaseDefaultApi
 from .auth import get_user_impl
 from .load import to_submission
 from .models import Submission, Document, SubmissionCategory
+from ...api.api_base import BaseDefaultApi
 
 logger = logging.getLogger(__name__)
 
@@ -52,8 +47,8 @@ def get_session() -> SqlalchemySession:
     """Dependency for api routes"""
     global _setup
     if not _setup:
-        from submit_ce.api.config import config as api_settings
-        settings.CLASSIC_DB_URI = api_settings.CLASSIC_DB_URI
+        from arxiv.config import config as base_settings
+        settings.CLASSIC_DB_URI = base_settings.CLASSIC_DB_URI
         if 'sqlite' in settings.CLASSIC_DB_URI:
             args = {"check_same_thread": False}
         else:   # pragma: no cover

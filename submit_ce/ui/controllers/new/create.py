@@ -1,25 +1,24 @@
-"""Controller for creating a new submission."""
+"""Controller for creating a new ui-app."""
 
 from http import HTTPStatus as status
 
 from arxiv.auth.domain import Session
-from werkzeug.datastructures import MultiDict
-from werkzeug.exceptions import InternalServerError, BadRequest
+from arxiv.base import logging
+from arxiv.forms import csrf
+from submit_ce.ui.backend import save, load_submissions_for_user
 from flask import url_for
 from retry import retry
+from werkzeug.datastructures import MultiDict
+from werkzeug.exceptions import InternalServerError, BadRequest
 
-from arxiv.forms import csrf
-from arxiv.base import logging
-
-from submit_ce.api.domain.events import StartedNew
-from submit_ce.ui.backend import save, api, get_client, get_user, impl_data
-from submit_ce.ui.domain.event import CreateSubmission, \
+from submit_ce.api.domain.event import CreateSubmission, \
     CreateSubmissionVersion
-from submit_ce.ui.exceptions import SaveError
-
-from submit_ce.ui.controllers.util import Response, user_and_client_from_session, validate_command
+from submit_ce.api.exceptions import SaveError
+from submit_ce.ui.controllers.util import validate_command
+from submit_ce.ui.routes.flow_control import advance_to_current, Response
 from submit_ce.ui.util import load_submission
-from submit_ce.ui.routes.flow_control import advance_to_current
+from submit_ce.ui.util import user_and_client_from_session
+from submit_ce.ui.controllers.util import validate_command
 
 logger = logging.getLogger(__name__)    # pylint: disable=C0103
 
@@ -30,24 +29,32 @@ class CreateSubmissionForm(csrf.CSRFForm):
 
 def create(method: str, params: MultiDict, session: Session, *args,
            **kwargs) -> Response:
-    """Create a new submission, and redirect to workflow."""
+    """Create a new ui-app, and redirect to workflow."""
     submitter, client = user_and_client_from_session(session)
     response_data = {}
     if method == 'GET':     # Display a splash page.
-        response_data['user_submissions'] = api.user_submissions(impl_data(),get_user(),get_client())
+        response_data['user_submissions'] \
+            = load_submissions_for_user(session.user.user_id)
         params = MultiDict()
 
-    form = CreateSubmissionForm(params) # zero field form here for CSRF protection
+    # We're using a form here for CSRF protection.
+    form = CreateSubmissionForm(params)
     response_data['form'] = form
 
     command = CreateSubmission(creator=submitter, client=client)
     if method == 'POST' and form.validate() and validate_command(form, command):
-        submisison_id = api.start(impl_data(), get_user(), get_client(), StartedNew() )
-        # enter a workflow for the first time with a new sub id
-        loc = url_for('ui.verify_user', submission_id=submisison_id)
+        try:
+            submission, _ = save(command)
+        except SaveError as e:
+            logger.error('Could not save command: %s', e)
+            raise InternalServerError(response_data) from e
+
+        # TODO Do we need a better way to enter a workflow?
+        # Maybe a controller that is defined as the entrypoint?
+        loc = url_for('ui.verify_user', submission_id=submission.submission_id)
         return {}, status.SEE_OTHER, {'Location': loc}
-    else:
-        return advance_to_current((response_data, status.OK, {}))
+
+    return advance_to_current((response_data, status.OK, {}))
 
 
 def replace(method: str, params: MultiDict, session: Session,
@@ -57,7 +64,7 @@ def replace(method: str, params: MultiDict, session: Session,
     submission, submission_events = load_submission(submission_id)
     response_data = {
         'submission_id': submission_id,
-        'submission': submission,
+        'ui-app': submission,
         'submitter': submitter,
         'client': client,
     }
@@ -87,3 +94,4 @@ def replace(method: str, params: MultiDict, session: Session,
         loc = url_for('ui.verify_user', submission_id=submission.submission_id)
         return {}, status.SEE_OTHER, {'Location': loc}
     return response_data, status.OK, {}
+

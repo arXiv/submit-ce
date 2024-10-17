@@ -1,8 +1,7 @@
-"""Provide the controller used to unsubmit/unfinalize a submission."""
+"""Provide the controller used to unsubmit/unfinalize a ui-app."""
 
 from http import HTTPStatus as status
 
-from arxiv.auth.domain import Session
 from flask import url_for
 from wtforms import BooleanField, validators
 from werkzeug.datastructures import MultiDict
@@ -11,13 +10,17 @@ from werkzeug.exceptions import BadRequest, InternalServerError
 from arxiv.base import alerts
 from arxiv.forms import csrf
 from submit_ce.ui.backend import save
-from submit_ce.ui.domain.event import UnFinalizeSubmission
+from submit_ce.api.domain.event import UnFinalizeSubmission
+from arxiv.auth.domain import Session
 
-from submit_ce.ui.controllers.util import Response, user_and_client_from_session, validate_command
+from submit_ce.ui.routes.flow_control import Response
+from submit_ce.ui.util import user_and_client_from_session
+from submit_ce.ui.controllers.util import validate_command
+
 from submit_ce.ui.util import load_submission
 
 class UnsubmitForm(csrf.CSRFForm):
-    """Form for unsubmitting a submission."""
+    """Form for unsubmitting a ui-app."""
 
     confirmed = BooleanField('Confirmed',
                              validators=[validators.DataRequired()])
@@ -25,10 +28,10 @@ class UnsubmitForm(csrf.CSRFForm):
 
 def unsubmit(method: str, params: MultiDict, session: Session,
              submission_id: int, **kwargs) -> Response:
-    """Unsubmit a submission."""
+    """Unsubmit a ui-app."""
     submission, submission_events = load_submission(submission_id)
     response_data = {
-        'submission': submission,
+        'ui-app': submission,
         'submission_id': submission.submission_id,
     }
 

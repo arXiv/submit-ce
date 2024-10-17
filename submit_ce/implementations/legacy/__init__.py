@@ -1,7 +1,23 @@
-from typing import Optional, Tuple, List
+import copy
+import logging
+from itertools import groupby
+from operator import attrgetter
+from typing import Optional, Tuple, List, Iterable, Dict
 
+from arxiv.license import LICENSES
+from sqlalchemy import or_
+
+from submit_ce.api import domain
 from submit_ce.api.core import CoreSubmitApi
 from submit_ce.api.domain import Event, Submission
+from submit_ce.api.exceptions import NoSuchSubmission
+from submit_ce.implementations.legacy_implementation import models
+from submit_ce.implementations.legacy_implementation.patch import patch_jref, patch_withdrawal, patch_cross, patch_hold
+from submit_ce.implementations.legacy_implementation.util import current_session
+
+import logging
+logger = logging.getLogger(__name__)
+
 
 def _get_db_submission_rows(submission_id: int) -> List[models.Submission]:
     session = current_session()
@@ -231,7 +247,7 @@ STATUS_MAP: Dict[int, str] = {
 
 
 class LegacySubmitImplementation(CoreSubmitApi):
-    def load(self, submission_id: int) -> Tuple[Submission, List[Event]]:
+    def load(self, submission_id: int, classic=None) -> Tuple[Submission, List[Event]]:
         try:
             with classic.transaction():
                 submission = load.load(_get_db_submission_rows(submission_id))
