@@ -79,6 +79,47 @@ class Submission(Base):    # type: ignore
     type = Column(String(8), index=True)
     """Submission type (e.g. ``new``, ``jref``, ``cross``)."""
 
+    """
+     type: 'new'
+     document_id: None
+     doc_paper_id: None
+     sword_id: None
+     userinfo: 0
+     is_author: 0
+     agree_policy: 0
+     viewed: 0
+     submitter_id: '10'
+     submitter_name: ''
+     submitter_email: 'hyundai1987@yandex.com'
+     created: '2024-10-18 20:52:51.870778'
+     updated: '2024-10-18 20:52:51.870778'
+     status: 0
+     sticky_status: None
+     must_process: 1
+     submit_time: None
+     release_time: None
+     source_format: None
+     source_flags: None
+     has_pilot_data: None
+     title: None
+     authors: ''
+     comments: ''
+     proxy: None
+     report_num: None
+     msc_class: None
+     acm_class: None
+     journal_ref: None
+     doi: None
+     abstract: None
+     license: None
+     version: 1
+     is_ok: None
+     admin_ok: None
+     remote_addr: '127.0.0.1'
+     rt_ticket_id: None
+
+    probably needs: package, is_withdrawn, version,
+     """
     document_id = Column(
         ForeignKey('arXiv_documents.document_id',
                    ondelete='CASCADE',
@@ -102,8 +143,7 @@ class Submission(Base):    # type: ignore
     submitter_email = Column(String(64))
     created = Column(DateTime, default=lambda: datetime.now(UTC))
     updated = Column(DateTime, onupdate=lambda: datetime.now(UTC))
-    status = Column(Integer, nullable=False, index=True,
-                    server_default=text("'0'"))
+    status = Column(Integer, nullable=False, index=True, server_default=text("'0'"))
     sticky_status = Column(Integer)
     """
     If the submission goes out of queue (e.g. submitter makes changes),
@@ -140,8 +180,7 @@ class Submission(Base):    # type: ignore
     journal_ref = Column(Text)
     doi = Column(String(255))
     abstract = Column(Text)
-    license = Column(ForeignKey('arXiv_licenses.name', onupdate='CASCADE'),
-                     index=True)
+    license = Column(ForeignKey('arXiv_licenses.name', onupdate='CASCADE'), index=True)
     version = Column(Integer, nullable=False, server_default=text("'1'"))
 
     is_ok = Column(Integer, index=True)
@@ -150,8 +189,7 @@ class Submission(Base):    # type: ignore
     """Used by administrators for reporting/bookkeeping."""
 
     remote_addr = Column(String(16), nullable=False, server_default=text("''"))
-    remote_host = Column(String(255), nullable=False,
-                         server_default=text("''"))
+    remote_host = Column(String(255), nullable=False, server_default=text("''"))
     rt_ticket_id = Column(Integer, index=True)
     auto_hold = Column(Integer, server_default=text("'0'"))
     """Should be placed on hold when submission comes out of working status."""
@@ -212,84 +250,86 @@ class Submission(Base):    # type: ignore
 
     def update_from_submission(self, submission: domain.Submission) -> None:
         """Update this database object from a :class:`.domain.submission.Submission`."""
-        raise NotImplementedError()
-        # if self.is_announced():     # Avoid doing anything. to be safe.
-        #     return
-        #
-        # self.submitter_id = submission.creator.native_id
-        # self.submitter_name = submission.creator.name
-        # self.submitter_email = submission.creator.email
-        # self.is_author = 1 if submission.submitter_is_author else 0
-        # self.agree_policy = 1 if submission.submitter_accepts_policy else 0
-        # self.userinfo = 1 if submission.submitter_contact_verified else 0
-        # self.viewed = 1 if submission.submitter_confirmed_preview else 0
-        # self.updated = submission.updated
-        # self.title = submission.metadata.title
-        # self.abstract = submission.metadata.abstract
-        # self.authors = submission.metadata.authors_display
-        # self.comments = submission.metadata.comments
-        # self.report_num = submission.metadata.report_num
-        # self.doi = submission.metadata.doi
-        # self.msc_class = submission.metadata.msc_class
-        # self.acm_class = submission.metadata.acm_class
-        # self.journal_ref = submission.metadata.journal_ref
-        #
-        # self.version = submission.version   # Numeric version.
-        # self.doc_paper_id = submission.arxiv_id     # arXiv canonical ID.
-        #
-        # # The document ID is a legacy concept, and not replicated in the NG
-        # #  data model. So we need to grab it from the arXiv_documents table
-        # #  using the doc_paper_id.
-        #
-        # # The above comment is from the NG code. It might be a misunderstanding
-        # # of the legacy data model. NG makes a decision to change the meaning of "submission" to the
-        # # place that in legacy is "document". In legacy a submission is a submission/wdr/cross of a document.
-        #
-        # if self.doc_paper_id and not self.document_id:
-        #     doc = _load_document(paper_id=self.doc_paper_id)
-        #     self.document_id = doc.document_id
-        #
-        # if submission.license:
-        #     self.license = submission.license.uri
-        #
-        # if submission.source_content is not None:
-        #     self.source_size = submission.source_content.uncompressed_size
-        #     if submission.source_content.source_format is not None:
-        #         self.source_format = \
-        #             submission.source_content.source_format.value
-        #     else:
-        #         self.source_format = None
-        #     self.package = (f'fm://{submission.source_content.identifier}'
-        #                     f'@{submission.source_content.checksum}')
-        #
-        # if submission.is_source_processed:
-        #     self.must_process = 0
-        # else:
-        #     self.must_process = 1
-        #
-        # # Not submitted -> Submitted.
-        # if submission.is_finalized \
-        #         and self.status in [Submission.NOT_SUBMITTED, None]:
-        #     self.status = Submission.SUBMITTED
-        #     self.submit_time = submission.updated
-        # # Delete.
-        # elif submission.is_deleted:
-        #     self.status = Submission.USER_DELETED
-        # elif submission.is_on_hold:
-        #     self.status = Submission.ON_HOLD
-        # # Unsubmit.
-        # elif self.status is None or self.status <= Submission.ON_HOLD:
-        #     if not submission.is_finalized:
-        #         self.status = Submission.NOT_SUBMITTED
-        #
-        # if submission.primary_classification:
-        #     self._update_primary(submission)
-        # self._update_secondaries(submission)
-        # self._update_submitter(submission)
-        #
-        # # We only want to set the creation datetime on the initial row.
-        # if self.version == 1 and self.type == Submission.NEW_SUBMISSION:
-        #     self.created = submission.created
+        if self.is_announced():     # Avoid doing anything. to be safe.
+            return
+
+        self.submitter_id = submission.creator.native_id
+        self.submitter_name = submission.creator.name
+        self.submitter_email = submission.creator.email
+        self.is_author = 1 if submission.submitter_is_author else 0
+        self.agree_policy = 1 if submission.submitter_accepts_policy else 0
+        self.userinfo = 1 if submission.submitter_contact_verified else 0
+        self.viewed = 1 if submission.submitter_confirmed_preview else 0
+        self.updated = submission.updated
+        self.title = submission.metadata.title
+        self.abstract = submission.metadata.abstract
+        self.authors = submission.metadata.authors_display
+        self.comments = submission.metadata.comments
+        self.report_num = submission.metadata.report_num
+        self.doi = submission.metadata.doi
+        self.msc_class = submission.metadata.msc_class
+        self.acm_class = submission.metadata.acm_class
+        self.journal_ref = submission.metadata.journal_ref
+
+        self.version = submission.version   # Numeric version.
+        self.doc_paper_id = submission.arxiv_id     # arXiv canonical ID.
+
+        # The document ID is a legacy concept, and not replicated in the NG
+        #  data model. So we need to grab it from the arXiv_documents table
+        #  using the doc_paper_id.
+
+        # BDC34 2024-10-18 The above comment is from the NG code. It might be a misunderstanding
+        # of the legacy data model. NG made a decision to change the meaning of "submission" to the
+        # place that in legacy is "document". In legacy a submission is a new/wdr/cross of a document.
+        if self.doc_paper_id and not self.document_id:
+            raise NotImplementedError()
+            doc = _load_document(paper_id=self.doc_paper_id)
+            self.document_id = doc.document_id
+
+        if submission.license:
+            self.license = submission.license.uri
+
+        if submission.source_content is not None:
+            self.source_size = submission.source_content.uncompressed_size
+            if submission.source_content.source_format is not None:
+                self.source_format = \
+                    submission.source_content.source_format.value
+            else:
+                self.source_format = None
+            self.package = (f'fm://{submission.source_content.identifier}'
+                            f'@{submission.source_content.checksum}')
+
+        if submission.is_source_processed:
+            self.must_process = 0
+        else:
+            self.must_process = 1
+
+        # Not submitted -> Submitted.
+        if submission.is_finalized \
+                and self.status in [Submission.NOT_SUBMITTED, None]:
+            self.status = Submission.SUBMITTED
+            self.submit_time = submission.updated
+        # Delete.
+        elif submission.is_deleted:
+            self.status = Submission.USER_DELETED
+        elif submission.is_on_hold:
+            self.status = Submission.ON_HOLD
+        # Unsubmit.
+        elif self.status is None or self.status <= Submission.ON_HOLD:
+            if not submission.is_finalized:
+                self.status = Submission.NOT_SUBMITTED
+
+        if submission.primary_classification:
+            self._update_primary(submission)
+        self._update_secondaries(submission)
+        self._update_submitter(submission)
+
+        # We only want to set the creation datetime on the initial row.
+        if self.version == 1 and self.type == Submission.NEW_SUBMISSION:
+            self.created = submission.created
+            self.remote_addr = str(submission.client.remote_addr)
+            self.remote_host = submission.client.hostname or ""
+            self.package = ""
 
     @property
     def primary_classification(self) -> Optional['Category']:

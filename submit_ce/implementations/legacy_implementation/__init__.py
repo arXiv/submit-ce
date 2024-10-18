@@ -14,6 +14,7 @@ from .db import to_submission
 from .models import Submission, Document, SubmissionCategory
 from ...api.domain.event import CreateSubmission
 from ...api.exceptions import NoSuchSubmission, NothingToDo
+from . import db
 
 logger = logging.getLogger(__name__)
 
@@ -55,17 +56,18 @@ class LegacySubmitImplementation(SubmitApi):
         return self._load(self.get_session(), submission_id)
 
     def _load(self, session: SqlalchemySession, submission_id: str, lock_row: bool = False) -> Tuple[Submission, List[Event]]:
-        if not submission_id or not submission_id.isdigit():
+        if not submission_id:
+            raise NoSuchSubmission()
+        if isinstance(submission_id, str) and not submission_id.isdigit():
             raise NoSuchSubmission(f"Submission {submission_id[0:20]} does not exist (legacy must use int ids)")
         stmt = select(Submission).where(Submission.submission_id == int(submission_id))
         if lock_row:  # row will be locked until .commit() use .flush() to get auto inc ids without unlocking
-            session.begin()
             stmt = stmt.with_for_update()
         submission = session.scalars(stmt).first()
         if not submission:
             raise NoSuchSubmission()
         else:
-            return to_submission(submission)
+            return (to_submission(submission), [])
 
     def load_submissions_for_user(self, user_id: str) -> List[Submission]:
         session = self.get_session()
@@ -80,15 +82,15 @@ class LegacySubmitImplementation(SubmitApi):
         if not events:
             raise NothingToDo()
         with self.get_session() as session:
+            before: Optional[Submission] = None
+            existing_events: List[Event] = []
             if submission_id is not None:
-                submission, existing_events = self._load(session, submission_id, lock_row=True)
+                before, existing_events = self._load(session, submission_id, lock_row=True)
             elif events[0].submission_id is None and not isinstance(events[0], CreateSubmission):
                 raise NoSuchSubmission('Unable to determine submission')
 
-            before = submission
             committed: List[Event] = []
             for event in events:
-                # Fill in submission IDs, if they are missing.
                 if event.submission_id is None and submission_id is not None:
                     event.submission_id = submission_id
 
@@ -99,161 +101,17 @@ class LegacySubmitImplementation(SubmitApi):
                 event.created = datetime.now(UTC)
                 logger.debug('Apply event %s: %s', event.event_id, event.NAME)
                 after = event.apply(before)
-                committed.append(event)
                 if not event.committed:
-                    after, consequent_events =self._store_event(session, event, before, after)
-                    committed += consequent_events
+                    consequent_event, after =db.store_event(session, event, before, after)
+                    committed.append(consequent_event)
 
                 before = after  # Prepare for the next event.
 
-            all_ = sorted(set(existing_events) | set(committed), key=lambda e: e.created)
+            all_ = sorted(existing_events + committed, key=lambda e: e.created)
+            session.commit()
             return after, list(all_)
 
-    def _store_event(self, session: SqlalchemySession, event: Event, before: Optional[Submission], after: Submission,
-                    *call: Callable) -> Tuple[Event, Submission]:
-        """
-        Store an event, and update submission state.
 
-        This is where we map the NG event domain onto the classic database. The
-        main differences are that:
-
-        - In the event domain, a submission is a single stream of events, but
-          in the classic system we create new rows in the submission database
-          for things like replacements, adding DOIs, and withdrawing papers.
-        - In the event domain, the only concept of the announced paper is the
-          paper ID. In the classic submission database, we also have to worry about
-          the row in the Document database.
-
-        We assume that the submission states passed to this function have the
-        correct paper ID and version number, if announced. The submission ID on
-        the event and the before/after states refer to the original classic
-        submission only.
-
-        Parameters
-        ----------
-        event : :class:`Event`
-        before : :class:`Submission`
-            The state of the submission before the event occurred.
-        after : :class:`Submission`
-            The state of the submission after the event occurred.
-        call : list
-            Items are callables that accept args ``Event, Submission, Submission``.
-            These are called within the transaction context; if an exception is
-            raised, the transaction is rolled back.
-
-        """
-        # Let the caller determine the transaction scope.
-        session
-        if event.committed:
-            raise ValueError('%s already committed', event.event_id)
-        if event.created is None:
-            raise ValueError('Event creation timestamp not set')
-        logger.debug('store event %s', event.event_type)
-
-        doc_id: Optional[int] = None
-
-        # This is the case that we have a new submission.
-        if before is None:  # and isinstance(after, Submission):
-            dbs = models.Submission(type=models.Submission.NEW_SUBMISSION)
-            dbs.update_from_submission(after)
-            this_is_a_new_submission = True
-
-        else:  # Otherwise we're making an update for an existing submission.
-            this_is_a_new_submission = False
-
-            if before.arxiv_id is not None:  #:
-                # After the original submission is announced, a new Document row is
-                # created. This Document is shared by all subsequent Submission rows.
-                doc_id = _load_document_id(before.arxiv_id, before.version)
-
-                # From the perspective of the database, a replacement is mainly an
-                # incremented version number. This requires a new row in the
-                # database.
-                if after.version > before.version:
-                    dbs = _create_replacement(doc_id, before.arxiv_id,
-                                              after.version, after, event.created)
-                elif isinstance(event, Rollback) and before.version > 1:
-                    dbs = _delete_replacement(doc_id, before.arxiv_id,
-                                              before.version)
-
-
-                # Withdrawals also require a new row, and they use the most recent
-                # version number.
-                elif isinstance(event, RequestWithdrawal):
-                    dbs = _create_withdrawal(doc_id, event.reason,
-                                             before.arxiv_id, after.version, after,
-                                             event.created)
-                elif isinstance(event, RequestCrossList):
-                    dbs = _create_crosslist(doc_id, event.categories,
-                                            before.arxiv_id, after.version, after,
-                                            event.created)
-
-                # Adding DOIs and citation information (so-called "journal reference")
-                # also requires a new row. The version number is not incremented.
-                elif before.is_announced and type(event) in JREFEvents:
-                    dbs = _create_jref(doc_id, before.arxiv_id, after.version, after,
-                                       event.created)
-
-                elif isinstance(event, CancelRequest):
-                    dbs = _cancel_request(event, before, after)
-
-                # The submission has been announced.
-                elif isinstance(before, Submission) and before.arxiv_id is not None:
-                    dbs = _load(paper_id=before.arxiv_id, version=before.version)
-                    _preserve_sticky_hold(dbs, before, after, event)
-                    dbs.update_from_submission(after)
-                else:
-                    raise TransactionFailed("Something is fishy")
-
-
-            # The submission has not yet been announced; we're working with a single row.
-            elif isinstance(before, Submission) and before.submission_id:
-                dbs = _load(before.submission_id)
-
-                _preserve_sticky_hold(dbs, before, after, event)
-                dbs.update_from_submission(after)
-            else:
-                raise TransactionFailed("Something is fishy")
-
-        db_event = _new_dbevent(event)
-        session.add(dbs)
-        session.add(db_event)
-
-        # Make sure that we get a submission ID; note that this # does not commit
-        # the transaction, just pushes the # SQL that we have generated so far to
-        # the database # server.
-        session.flush()
-
-        log.handle(event, before, after)  # Create admin log entry.
-        for func in call:
-            logger.debug('call %s with event %s', func, event.event_id)
-            func(event, before, after)
-        if isinstance(event, AddProposal):
-            assert before is not None
-            proposal.add(event, before, after)
-
-        # Attach the database object for the event to the row for the
-        #  submission.
-        if this_is_a_new_submission:  # Update in transaction.
-            db_event.submission = dbs
-        else:  # Just set the ID directly.
-            assert before is not None
-            db_event.submission_id = before.submission_id
-
-        event.committed = True
-
-        # Update the domain event and submission states with the submission ID.
-        # This should carry forward the original submission ID, even if the
-        # classic database has several rows for the submission (with different
-        # IDs).
-        if this_is_a_new_submission:
-            event.submission_id = dbs.submission_id
-            after.submission_id = dbs.submission_id
-        else:
-            assert before is not None
-            event.submission_id = before.submission_id
-            after.submission_id = before.submission_id
-        return event, after
 
     #
     # def start(self, impl_data: Dict, user: api.User, client: api.Client, started: Union[StartedNew, StartedAlterExising]) -> str:

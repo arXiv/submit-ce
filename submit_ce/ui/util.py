@@ -169,4 +169,8 @@ def user_and_client_from_session(session: Session) \
         #endorsements=session.authorizations.endorsements
         endorsements=[]
     )
-    return user, None
+    client = Client("totally_fake_cliet_native_id",
+                    )
+    client.remote_addr = request.remote_addr # not sure why it doesn't set in the constructor
+    client.hostname = ""
+    return user, client

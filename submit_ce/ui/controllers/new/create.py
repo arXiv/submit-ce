@@ -41,7 +41,7 @@ def create(method: str, params: MultiDict, session: Session, *args,
     command = CreateSubmission(creator=submitter, client=client)
     if method == 'POST' and form.validate() and validate_command(form, command):
         try:
-            submission = api.save(command)
+            submission, _ = api.save(command)
         except SaveError as e:
             logger.error('Could not save command: %s', e)
             raise InternalServerError(response_data) from e

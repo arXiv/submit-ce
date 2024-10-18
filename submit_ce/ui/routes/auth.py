@@ -18,4 +18,4 @@ def is_owner(session: Session, submission_id: str, **kw) -> bool:
     logger.debug('Submission owned by %s; request is from %s',
                  str(request.submission.owner.identifier),
                  str(session.user.user_id))
-    return str(request.submission.owner.identifier) == str(session.user.user_id)
+    return str(request.submission.owner.native_id) == str(session.user.user_id)

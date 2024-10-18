@@ -10,7 +10,7 @@ from ...api.domain import Client, User
 
 def flask_get_session() -> SqlalchemySession:
     """Gets a SQLAlchemy session based on `arxiv.db.Session` which supports flask."""
-    return Session
+    return Session()
 
 
 def flask_get_user() -> User:

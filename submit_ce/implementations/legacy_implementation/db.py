@@ -33,6 +33,7 @@ from _operator import attrgetter
 from typing import List, Optional, Tuple, Set, Callable, Any, TypeVar, cast, Iterable, Dict
 
 from arxiv.license import LICENSES
+from pydantic import RootModel
 from retry import retry as _retry
 from datetime import datetime
 from operator import attrgetter
@@ -304,7 +305,7 @@ def get_submission(submission_id: int, for_update: bool = False) \
 
 # @retry(ClassicBaseException, tries=3, delay=1)
 @handle_operational_errors
-def store_event(event: Event, before: Optional[Submission], after: Submission,
+def store_event(session: SQLAlchemySession, event: Event, before: Optional[Submission], after: Submission,
                 *call: Callable) -> Tuple[Event, Submission]:
     """
     Store an event, and update submission state.
@@ -338,7 +339,6 @@ def store_event(event: Event, before: Optional[Submission], after: Submission,
 
     """
     # Let the caller determine the transaction scope.
-    session = current_session()
     if event.committed:
         raise ValueError(f'{event.event_type} {event.event_id} already committed')
     if event.created is None:
@@ -410,27 +410,28 @@ def store_event(event: Event, before: Optional[Submission], after: Submission,
         else:
             raise ValueError(f"Cannot handle submission of type {type(before)} and event {type(event)}")
 
-    db_event = _new_dbevent(event)
     session.add(dbs)
-    session.add(db_event)
+    session.flush()
+
+    # TODO Event storage disabled
+    # Attach the database object for the event to the row for the
+    #  submission.
+    # if this_is_a_new_submission:    # Update in transaction.
+    #     db_event.submission = dbs
+    # else:                           # Just set the ID directly.
+    #     assert before is not None
+    #     db_event.submission_id = before.submission_id
+    #db_event = _new_dbevent(event)
+    #session.add(db_event)
 
     # Make sure that we get a submission ID; note that this # does not commit
     # the transaction, just pushes the # SQL that we have generated so far to
     # the database # server.
-    session.flush()
 
     log.handle(event, before, after)   # Create admin log entry.
     for func in call:
         logger.debug('call %s with event %s', func, event.event_id)
         func(event, before, after)
-
-    # Attach the database object for the event to the row for the
-    #  submission.
-    if this_is_a_new_submission:    # Update in transaction.
-        db_event.submission = dbs
-    else:                           # Just set the ID directly.
-        assert before is not None
-        db_event.submission_id = before.submission_id
 
     event.committed = True
 
@@ -638,10 +639,10 @@ def _new_dbevent(event: Event) -> DBEvent:
     return DBEvent(event_type=event.event_type,
                    event_id=event.event_id,
                    event_version=_get_app_version(),
-                   data=asdict(event),
+                   data=event.model_dump_json().encode('utf-8'),
                    created=event.created,
-                   creator=asdict(event.creator),
-                   proxy=asdict(event.proxy) if event.proxy else None)
+                   creator=RootModel[Agent](event.creator).model_dump_json().encode('utf-8'),
+                   proxy=RootModel[Agent](event.proxy).model_dump_json().encode('utf-8') if event.proxy else None)
 
 
 def _preserve_sticky_hold(dbs: models.Submission, before: Submission,

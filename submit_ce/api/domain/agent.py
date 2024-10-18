@@ -1,11 +1,11 @@
 """Data structures for agents."""
 
 import hashlib
+import ipaddress
 from typing import Any, Optional, List, Union, Type, Dict
 
 from dataclasses import field
 
-from pydantic import BaseModel
 
 __all__ = ('Agent', 'User', 'System', 'Client', 'agent_factory')
 
@@ -86,9 +86,6 @@ class User(Agent):
     identifier: Optional[str] = field(default=None)
     affiliation: str = field(default_factory=str)
 
-    agent_type: str = field(default_factory=str)
-    agent_identifier: str = field(default_factory=str)
-
     def model_post_init(self, *args) -> None:
         """Set derivative fields."""
         self.name = self.get_name()
@@ -102,9 +99,6 @@ class User(Agent):
 class System(Agent):
     """The submission application (this application)."""
 
-    agent_type: str = field(default_factory=str)
-    agent_identifier: str = field(default_factory=str)
-
     def model_post_init(self, *args) -> None:
         """Set derivative fields."""
         self.username = self.native_id
@@ -115,15 +109,13 @@ class System(Agent):
 class Client(Agent):
     """A non-human third party, usually an API client."""
 
+    remote_addr: ipaddress.ip_address
+
     # hostname: Optional[str] = field(default=None)
     # """Hostname or IP address from which client requests are originating."""
 
-    agent_type: str = field(default_factory=str)
-    agent_identifier: str = field(default_factory=str)
-
-    def __post_init__(self) -> None:
+    def model_post_init(self) -> None:
         """Set derivative fields."""
-        self.agent_type = self.get_agent_type()
         self.username = self.native_id
         self.name = self.native_id
 
