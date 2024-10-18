@@ -6,13 +6,14 @@ from unittest import TestCase, mock
 from urllib.parse import urlparse
 
 from submit_ce.ui.factory import create_ui_web_app
+from submit_ce.ui.backend import api
 from arxiv.users.helpers import generate_token
 from submit_ce import classic
 from arxiv.users.auth import scopes
 from arxiv.users.domain import Category
 from http import HTTPStatus as status
-from submit_ce.ui.domain import User
-from submit_ce.ui.domain import Author, SubmissionContent
+from submit_ce.api.domain import User
+from submit_ce.api.domain import Author, SubmissionContent
 from submit_ce import save
 from .csrf_util import parse_csrf_token
 
@@ -409,7 +410,7 @@ class TestJREFWorkflow(TestCase):
             session = classic.current_session()
 
             cc0 = 'http://creativecommons.org/publicdomain/zero/1.0/'
-            self.submission, _ = save(
+            self.submission, _ = api.save(
                 CreateSubmission(creator=self.user),
                 ConfirmContactInformation(creator=self.user),
                 ConfirmAuthorship(creator=self.user, submitter_is_author=True),
@@ -540,7 +541,7 @@ class TestWithdrawalWorkflow(TestCase):
             session = classic.current_session()
 
             cc0 = 'http://creativecommons.org/publicdomain/zero/1.0/'
-            self.submission, _ = save(
+            self.submission, _ = api.save(
                 CreateSubmission(creator=self.user),
                 ConfirmContactInformation(creator=self.user),
                 ConfirmAuthorship(creator=self.user, submitter_is_author=True),
@@ -682,7 +683,7 @@ class TestUnsubmitWorkflow(TestCase):
             session = classic.current_session()
 
             cc0 = 'http://creativecommons.org/publicdomain/zero/1.0/'
-            self.submission, _ = save(
+            self.submission, _ = api.save(
                 CreateSubmission(creator=self.user),
                 ConfirmContactInformation(creator=self.user),
                 ConfirmAuthorship(creator=self.user, submitter_is_author=True),

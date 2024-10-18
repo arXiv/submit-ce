@@ -1,26 +1,16 @@
 """Core persistence methods for submissions and submission events."""
-import contextlib
-from typing import List, Tuple, Optional, Dict, Union
+import logging
+from typing import List, Tuple, Optional
 
-from arxiv.auth.auth.tokens import decode
-from fastapi import UploadFile
+from arxiv.db import Session, session_factory, configure_db
 from flask import request
-from pydantic import SecretStr
 from werkzeug.exceptions import Unauthorized
 
-#from submit_ce.api.api_base import BaseDefaultApi
+from submit_ce.api import SubmitApi
+from submit_ce.api.domain import Submission
 from submit_ce.api.domain import User, Client
-
-from arxiv.db import Session, session_factory, _classic_engine, configure_db
-
-from submit_ce.ui.config import settings
-from submit_ce.ui.domain import Submission
-from submit_ce.ui.domain.event import Event, CreateSubmission
-from submit_ce.ui.exceptions import NoSuchSubmission, NothingToDo
-
-import logging
-
-logger = logging.getLogger(__name__)
+from submit_ce.api.domain.event import Event
+from submit_ce.implementations.legacy_implementation.flask_impl import FlaskSubmitImplementation
 
 def config_backend_api(settings)-> None:
     engine, _ = configure_db(settings)
@@ -32,8 +22,8 @@ def config_backend_api(settings)-> None:
     )
 
 
-#api: BaseDefaultApi = settings.submission_api_implementation.impl
-"""BACKEND WITH LEGACY IMPL ONLY FOR TESTING."""
+api: SubmitApi = FlaskSubmitImplementation()
+"""Backend forced to be legacy implementation just for testing. It should be configurable via Settings."""
 
 
 def get_user() -> User:
@@ -90,151 +80,10 @@ def endorsed_for(session: Session, category: str) -> bool:
     bool
 
     """
-    # TODO implement endorsed_for, maybe move to arixv-base arxiv.auth Session?
+    # TODO implement endorsed_for, maybe add to api? maybe move to arixv-base arxiv.auth Session?
     return True
     # archive = category.split(".", 1)[0] if "." in category else category
     # return category in session.endorsements \
     #     or f"{archive}.*" in session.endorsements \
     #     or "*.*" in session.endorsements
 
-
-
-def impl_data() -> dict:
-    return {"session": Session()}
-
-def load(submission_id: int) -> Tuple[Submission, List[Event]]:
-    """
-    Load a submission and its history.
-
-    This loads all events for the submission, and generates the most
-    up-to-date representation based on those events.
-
-    Parameters
-    ----------
-    submission_id : str
-        Submission identifier.
-
-    Returns
-    -------
-    :class:`.domain.submission.Submission`
-        The current state of the submission.
-    list
-        Items are :class:`.Event` instances, in order of their occurrence.
-
-    Raises
-    ------
-    :class:`arxiv.submission.exceptions.NoSuchSubmission`
-        Raised when a submission with the passed ID cannot be found.
-
-    """
-    #api.get_submission({"session": Session}, get_user(), get_client(), submission_id)
-
-
-def load_submissions_for_user(user_id: int) -> List[Submission]:
-    """
-    Load active :class:`.domain.submission.Submission` for a specific user.
-
-    Parameters
-    ----------
-    user_id : int
-        Unique identifier for the user.
-
-    Returns
-    -------
-    list
-        Items are :class:`.domain.submission.Submission` instances.
-
-    """
-    #return api.user_submissions({"session": Session}, get_user(), get_client())
-
-def save(*events: Event, submission_id: Optional[int] = None) \
-        -> Tuple[Submission, List[Event]]:
-    """
-    Commit a set of new :class:`.Event` instances for a submission.
-
-    This will persist the events to the database, along with the final
-    state of the submission, and generate external notification(s) on the
-    appropriate channels.
-
-    Parameters
-    ----------
-    events : :class:`.Event`
-        Events to apply and persist.
-    submission_id : int
-        The unique ID for the submission, if available. If not provided, it is
-        expected that ``events`` includes a :class:`.CreateSubmission`.
-
-    Returns
-    -------
-    :class:`arxiv.submission.domain.submission.Submission`
-        The state of the submission after all events (including rule-derived
-        events) have been applied. Updated with the submission ID, if a
-        :class:`.CreateSubmission` was included.
-    list
-        A list of :class:`.Event` instances applied to the submission. Note
-        that this list may contain more events than were passed, if event
-        rules were triggered.
-
-    Raises
-    ------
-    :class:`arxiv.submission.exceptions.NoSuchSubmission`
-        Raised if ``submission_id`` is not provided and the first event is not
-        a :class:`.CreateSubmission`, or ``submission_id`` is provided but
-        no such submission exists.
-    :class:`.InvalidEvent`
-        If an invalid event is encountered, the entire operation is aborted
-        and this exception is raised.
-    :class:`.SaveError`
-        There was a problem persisting the events and/or submission state
-        to the database.
-
-    """
-    # if len(events) == 0:
-    #     raise NothingToDo('Must pass at least one event')
-    # events_list = list(events)  # Coerce to list so that we can index.
-    # prior: List[Event] = []
-    # before: Optional[Submission] = None
-
-    # We need ACIDity surrounding the the validation and persistence of new
-    # events.
-    # with classic.transaction():
-    #     # Get the current state of the submission from past events. Normally we
-    #     # would not want to load all past events, but legacy components may be
-    #     # active, and the legacy projected state does not capture all of the
-    #     # detail in the event model.
-    #     if submission_id is not None:
-    #         # This will create a shared lock on the submission rows while we
-    #         # are working with them.
-    #         before, prior = classic.get_submission(submission_id,
-    #                                                for_update=True)
-    #
-    #     # Either we need a submission ID, or the first event must be a
-    #     # creation.
-    #     elif events_list[0].submission_id is None \
-    #             and not isinstance(events_list[0], CreateSubmission):
-    #         raise NoSuchSubmission('Unable to determine submission')
-    #
-    #     committed: List[Event] = []
-    #     for event in events_list:
-    #         # Fill in submission IDs, if they are missing.
-    #         if event.submission_id is None and submission_id is not None:
-    #             event.submission_id = submission_id
-    #
-    #         # The created timestamp should be roughly when the event was
-    #         # committed. Since the event projection may refer to its own ID
-    #         # (which is based) on the creation time, this must be set before
-    #         # the event is applied.
-    #         event.created = datetime.now(UTC)
-    #         # Mutation happens here; raises InvalidEvent.
-    #         logger.debug('Apply event %s: %s', event.event_id, event.NAME)
-    #         after = event.apply(before)
-    #         committed.append(event)
-    #         if not event.committed:
-    #             after, consequent_events = event.commit(_store_event)
-    #             committed += consequent_events
-    #
-    #         before = after      # Prepare for the next event.
-    #
-    #     all_ = sorted(set(prior) | set(committed), key=lambda e: e.created)
-    #     return after, list(all_)
-    raise NotImplementedError()

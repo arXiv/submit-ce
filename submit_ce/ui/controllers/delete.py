@@ -9,8 +9,8 @@ from werkzeug.datastructures import MultiDict
 from werkzeug.exceptions import BadRequest, InternalServerError, NotFound
 
 from arxiv.base import alerts
-from submit_ce.ui.backend import save
-from submit_ce.ui.domain.event import Rollback, CancelRequest
+from submit_ce.ui.backend import api
+from submit_ce.api.domain.event import Rollback, CancelRequest
 from arxiv.forms import csrf
 from submit_ce.ui.controllers.util import Response, validate_command
 from submit_ce.ui.util import load_submission, user_and_client_from_session
@@ -62,7 +62,7 @@ def delete(method: str, params: MultiDict, session: Session,
                 raise BadRequest(response_data)
 
             try:
-                save(command, submission_id=submission_id)
+                api.save(command, submission_id=submission_id)
             except Exception as e:
                 alerts.flash_failure("Whoops!")
                 raise InternalServerError(response_data) from e
@@ -120,7 +120,7 @@ def cancel_request(method: str, params: MultiDict, session: Session,
                 raise BadRequest(response_data)
 
             try:
-                save(command, submission_id=submission_id)
+                api.save(command, submission_id=submission_id)
             except Exception as e:
                 alerts.flash_failure("Whoops!" + str(e))
                 raise InternalServerError(response_data) from e

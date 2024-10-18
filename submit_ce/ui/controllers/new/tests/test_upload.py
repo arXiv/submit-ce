@@ -9,10 +9,12 @@ from werkzeug.datastructures import MultiDict
 from werkzeug.exceptions import BadRequest
 
 from arxiv.users import auth, domain
-from submit_ce.ui.domain import SubmissionContent
-from submit_ce.ui.domain import Upload, FileStatus, UploadLifecycleStates, UploadStatus
+from submit_ce.api.domain import SubmissionContent
+from submit_ce.api.domain import Upload, FileStatus, UploadLifecycleStates, UploadStatus
 
 from submit_ce.controllers.ui.new import upload
+
+import submit_ce.api.domain
 from submit_ce.ui.controllers.new import upload_delete
 
 from submit_ce.ui.routes.flow_control import STAGE_SUCCESS, \
@@ -38,7 +40,7 @@ class TestUpload(TestCase):
                     affiliation='FSU',
                     rank=3,
                     country='de',
-                    default_category=domain.Category('astro-ph.GA'),
+                    default_category=submit_ce.api.domain.Category('astro-ph.GA'),
                     submission_groups=['grp_physics']
                 )
             ),
@@ -46,8 +48,8 @@ class TestUpload(TestCase):
                 scopes=[auth.scopes.CREATE_SUBMISSION,
                         auth.scopes.EDIT_SUBMISSION,
                         auth.scopes.VIEW_SUBMISSION],
-                endorsements=[domain.Category('astro-ph.CO'),
-                              domain.Category('astro-ph.GA')]
+                endorsements=[submit_ce.api.domain.Category('astro-ph.CO'),
+                              submit_ce.api.domain.Category('astro-ph.GA')]
             )
         )
 
@@ -208,7 +210,7 @@ class TestDelete(TestCase):
                     affiliation='FSU',
                     rank=3,
                     country='de',
-                    default_category=domain.Category('astro-ph.GA'),
+                    default_category=submit_ce.api.domain.Category('astro-ph.GA'),
                     submission_groups=['grp_physics']
                 )
             ),
@@ -216,8 +218,8 @@ class TestDelete(TestCase):
                 scopes=[auth.scopes.CREATE_SUBMISSION,
                         auth.scopes.EDIT_SUBMISSION,
                         auth.scopes.VIEW_SUBMISSION],
-                endorsements=[domain.Category('astro-ph.CO'),
-                              domain.Category('astro-ph.GA')]
+                endorsements=[submit_ce.api.domain.Category('astro-ph.CO'),
+                              submit_ce.api.domain.Category('astro-ph.GA')]
             )
         )
 

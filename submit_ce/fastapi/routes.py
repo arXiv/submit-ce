@@ -20,24 +20,13 @@ from fastapi import (  # noqa: F401
     Security,
     status, UploadFile,
 )
-from fastapi.responses import PlainTextResponse
-from pydantic import BaseModel
 
-from submit_ce.api.core import CoreSubmitApi
 from submit_ce.api.domain import Submission, Event
-from submit_ce.api.exceptions import EventType
 from submit_ce.fastapi.auth import get_user, get_client
-from submit_ce.fastapi import ImplementationConfig
-from submit_ce.fastapi.config import config
-from submit_ce.implementations.fake import FakeSubmitApi
 
 # if not isinstance(config.submission_api_implementation, ImplementationConfig):
 #     raise ValueError("submission_api_implementation must be of class ImplementationConfig.")
 
-implementation: CoreSubmitApi = FakeSubmitApi()
-
-# implementation: CoreSubmitApi = config.submission_api_implementation.impl
-"""Implementation to use for the API."""
 
 #impl_depends: Callable = config.submission_api_implementation.depends_fn
 impl_depends: Callable = lambda x: {}

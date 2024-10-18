@@ -120,15 +120,15 @@ class AcceptProposal(Event):
         return submission
 
 
-@AcceptProposal.bind()
-def apply_proposal(event: AcceptProposal, before: Submission,
-                   after: Submission, creator: Agent) -> Iterable[Event]:
-    """Apply an accepted proposal."""
-    assert event.proposal_id is not None
-    proposal = after.proposals[event.proposal_id]
-    proposed_event_data = copy.deepcopy(proposal.proposed_event_data)
-    proposed_event_data.update({'creator': creator})
-
-    assert proposal.proposed_event_type is not None
-    event = proposal.proposed_event_type(**proposed_event_data)
-    yield event
+# @AcceptProposal.bind()
+# def apply_proposal(event: AcceptProposal, before: Submission,
+#                    after: Submission, creator: Agent) -> Iterable[Event]:
+#     """Apply an accepted proposal."""
+#     assert event.proposal_id is not None
+#     proposal = after.proposals[event.proposal_id]
+#     proposed_event_data = copy.deepcopy(proposal.proposed_event_data)
+#     proposed_event_data.update({'creator': creator})
+#
+#     assert proposal.proposed_event_type is not None
+#     event = proposal.proposed_event_type(**proposed_event_data)
+#     yield event

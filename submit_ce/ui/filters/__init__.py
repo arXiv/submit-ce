@@ -1,19 +1,18 @@
 """Custom Jinja2 filters."""
 
-from typing import List, Tuple, Callable
-from datetime import datetime, timedelta
-from pytz import UTC
 from dataclasses import asdict
+from datetime import datetime, timedelta
+from typing import List, Tuple, Callable
 
 from arxiv import taxonomy
-from submit_ce.ui.domain import Compilation
+from pytz import UTC
 
+from submit_ce.api.domain.process import ProcessStatus
+from submit_ce.api.domain.uploads import FileStatus
 from submit_ce.ui.controllers.new.upload import group_files
 from submit_ce.ui.util import tidy_filesize
-
 from .tex_filters import compilation_log_display
-from ..domain.process import ProcessStatus
-from ..domain.uploads import FileStatus
+from ...api.domain.compilation import Compilation
 
 
 # additions for compilation log markup

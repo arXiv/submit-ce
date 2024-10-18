@@ -11,7 +11,8 @@ from arxiv.auth.domain import Session
 from arxiv.base import logging
 from arxiv.forms import csrf
 from arxiv.license import LICENSES
-from submit_ce.ui.backend import save, SaveError
+from submit_ce.ui.backend import api
+from submit_ce.api.exceptions import SaveError
 from werkzeug.datastructures import MultiDict
 from werkzeug.exceptions import InternalServerError
 from wtforms.fields import RadioField
@@ -57,7 +58,7 @@ def license(method: str, params: MultiDict, session: Session,
                                  license_uri=license_uri)
             if validate_command(form, command, submission, 'license'):
                 try:
-                    submission, _ = save(command, submission_id=submission_id)
+                    submission, _ = api.save(command, submission_id=submission_id)
                     return ready_for_next((response_data, status.OK, {}))
                 except SaveError as e:
                     raise InternalServerError(response_data) from e

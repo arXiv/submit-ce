@@ -5,11 +5,13 @@ from typing import Optional, List
 
 from pytz import UTC
 from sqlalchemy import Column, DateTime, Enum, ForeignKey, Text, text, \
-    Integer, SmallInteger, String
+    Integer, SmallInteger, String, LargeBinary
 from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.ext.indexable import index_property
 from sqlalchemy.orm import relationship
 
-from ... import domain
+from submit_ce.api import domain
+from submit_ce.api.domain.proposal import Status as ProposalStatus
 
 Base = declarative_base()
 
@@ -170,6 +172,7 @@ class Submission(Base):    # type: ignore
                               surname=self.submitter.last_name,
                               suffix=self.submitter.suffix_name))
         return domain.User(identifier=str(self.submitter_id),
+                           native_id =str(self.submitter_id),
                            email=self.submitter_email, **extra)
 
 
@@ -401,6 +404,45 @@ class Submission(Base):    # type: ignore
                         is_primary=0
                     )
                 )
+
+    def status_from_classic(self) -> Optional[str]:
+        """Map classic status codes to `submit_ce.api.domain.Submission` status."""
+        match self.status:
+            case self.NOT_SUBMITTED:
+                return 'working'
+            case self.SUBMITTED:
+                return 'submitted'
+            case self.ON_HOLD:
+                return 'submitted'
+            case self.NEXT_PUBLISH_DAY:
+                return 'scheduled'
+            case self.PROCESSING:
+                return 'scheduled'
+            case self.PROCESSING_SUBMISSION:
+                return 'scheduled'
+            case self.NEEDS_EMAIL:
+                return 'scheduled'
+            case self.ANNOUNCED:
+                return 'announced'
+            case self.DELETED_ANNOUNCED:
+                return 'announced'
+            case self.USER_DELETED:
+                return 'deleted'
+            case self.DELETED_EXPIRED:
+                return 'deleted'
+            case self.DELETED_ON_HOLD:
+                return 'deleted'
+            case self.DELETED_PROCESSING:
+                return 'deleted'
+            case self.DELETED_REMOVED:
+                return 'deleted'
+            case self.DELETED_USER_EXPIRED:
+                return 'deleted'
+            case self.ERROR_STATE:
+                return 'error'
+            case _:
+                return None
+
 
 
 class License(Base):    # type: ignore
@@ -848,10 +890,10 @@ class CategoryProposal(Base):   # type: ignore
     ACCEPTED_AS_SECONDARY = 2
     REJECTED = 3
     DOMAIN_STATUS = {
-        UNRESOLVED: domain.proposal.Proposal.ProposalStatus.PENDING,
-        ACCEPTED_AS_PRIMARY: domain.proposal.Proposal.ProposalStatus.ACCEPTED,
-        ACCEPTED_AS_SECONDARY: domain.proposal.Proposal.ProposalStatus.ACCEPTED,
-        REJECTED: domain.proposal.Proposal.ProposalStatus.REJECTED
+        UNRESOLVED: ProposalStatus.PENDING,
+        ACCEPTED_AS_PRIMARY: ProposalStatus.ACCEPTED,
+        ACCEPTED_AS_SECONDARY: ProposalStatus.ACCEPTED,
+        REJECTED: ProposalStatus.REJECTED
     }
 
     proposal_id = Column(Integer, primary_key=True)
@@ -904,3 +946,71 @@ class CategoryProposal(Base):   # type: ignore
 #             .first() \
 #             .user
 #         return u
+
+
+
+class DBEvent(Base):  # type: ignore
+    """Database representation of an :class:`.Event`."""
+
+    __tablename__ = 'event'
+
+    event_id = Column(String(40), primary_key=True)
+    event_type = Column(String(255))
+    event_version = Column(String(20), default='0.0.0')
+    # TODO bdc34 WILL NOT WORK: this is mangled to LargeBinary instead of a special and custom FriendlyJSON,
+    # need to either remove the DBEvent, bring json column from NG submit or make/import new json column
+    #proxy = Column(FriendlyJSON)
+    proxy = Column(LargeBinary)
+    proxy_id = index_property('proxy', 'agent_identifier')
+    #client = Column(FriendlyJSON)
+    client = Column(LargeBinary)
+    client_id = index_property('client', 'agent_identifier')
+
+    #creator = Column(FriendlyJSON)
+    creator = Column(LargeBinary)
+    creator_id = index_property('creator', 'agent_identifier')
+
+    #created = Column(DateTime(fsp=6))
+    created = Column(DateTime())
+
+    #data = Column(FriendlyJSON)
+    data = Column(LargeBinary)
+    submission_id = Column(
+        ForeignKey('arXiv_submissions.submission_id'),
+        index=True
+    )
+
+    submission = relationship("Submission")
+
+    def to_event(self) -> domain.event.Event:
+        """
+        Instantiate an :class:`.Event` using event data from this instance.
+
+        Returns
+        -------
+        :class:`.Event`
+
+        """
+        _skip = ['creator', 'proxy', 'client', 'submission_id', 'created',
+                 'event_type', 'event_version']
+        data = {
+            key: value for key, value in self.data.items()
+            if key not in _skip
+        }
+        data['committed'] = True     # Since we're loading from the DB.
+        raise NotImplementedError()
+        # return event_factory(
+        #     event_type=self.event_type,
+        #     creator=agent_factory(**self.creator),
+        #     event_version=self.event_version,
+        #     proxy=agent_factory(**self.proxy) if self.proxy else None,
+        #     client=agent_factory(**self.client) if self.client else None,
+        #     submission_id=self.submission_id,
+        #     created=self.get_created(),
+        #     **data
+        # )
+
+    def get_created(self) -> datetime:
+        """Get the UTC-localized creation time for this event."""
+        dt: datetime = self.created.replace(tzinfo=UTC)
+        return dt

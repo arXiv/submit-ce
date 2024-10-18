@@ -5,6 +5,8 @@ from werkzeug.datastructures import MultiDict
 from werkzeug.exceptions import BadRequest
 from wtforms import Form
 from http import HTTPStatus as status
+
+import submit_ce.api.domain
 from submit_ce.ui.controllers.new import unsubmit
 
 from pytz import timezone
@@ -32,7 +34,7 @@ class TestUnsubmit(TestCase):
                     affiliation="FSU",
                     rank=3,
                     country="de",
-                    default_category=domain.Category('astro-ph.GA'),
+                    default_category=submit_ce.api.domain.Category('astro-ph.GA'),
                     submission_groups=['grp_physics']
                 )
             ),
@@ -40,8 +42,8 @@ class TestUnsubmit(TestCase):
                 scopes=[auth.scopes.CREATE_SUBMISSION,
                         auth.scopes.EDIT_SUBMISSION,
                         auth.scopes.VIEW_SUBMISSION],
-                endorsements=[domain.Category('astro-ph.CO'),
-                              domain.Category('astro-ph.GA')]
+                endorsements=[submit_ce.api.domain.Category('astro-ph.CO'),
+                              submit_ce.api.domain.Category('astro-ph.GA')]
             )
         )
 

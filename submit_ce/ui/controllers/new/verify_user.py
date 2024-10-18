@@ -15,7 +15,7 @@ from wtforms.validators import InputRequired
 from arxiv.base import logging
 from arxiv.forms import csrf
 from arxiv.auth.domain import Session
-from submit_ce.ui.backend import save
+from submit_ce.ui.backend import api
 from submit_ce.api.domain.event import ConfirmContactInformation
 
 from submit_ce.ui.util import load_submission
@@ -63,7 +63,7 @@ def verify(method: str, params: MultiDict, session: Session,
         else:
             cmd = ConfirmContactInformation(creator=submitter, client=client)
             if validate_command(form, cmd, submission, 'verify_user'):
-                submission, _ = save(cmd, submission_id=submission_id)
+                submission, _ = api.save(cmd, submission_id=submission_id)
                 response_data['ui-app'] = submission
                 return ready_for_next((response_data, status.OK, {}))
 

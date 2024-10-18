@@ -13,7 +13,7 @@ from werkzeug.exceptions import InternalServerError
 from wtforms import BooleanField
 from wtforms.validators import InputRequired
 
-from submit_ce.ui.backend import save
+from submit_ce.ui.backend import api
 from submit_ce.api.domain.event import FinalizeSubmission
 from submit_ce.api.exceptions import SaveError
 from submit_ce.ui.controllers.util import validate_command
@@ -51,7 +51,7 @@ def finalize(method: str, params: MultiDict, session: Session,
        and proofread_confirmed \
        and validate_command(form, command, submission):
         try:
-            submission, stack = save(  # pylint: disable=W0612
+            submission, stack = api.save(  # pylint: disable=W0612
                 command, submission_id=submission_id)
         except SaveError as e:
             logger.error('Could not save primary event')

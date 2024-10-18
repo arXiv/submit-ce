@@ -8,8 +8,8 @@ from wtforms import SelectField, \
     SelectMultipleField, Form
 from wtforms.fields.core import UnboundField
 
-from submit_ce.ui.domain import Event, Submission
-from submit_ce.ui.exceptions import InvalidEvent
+from submit_ce.api.domain import Event, Submission
+from submit_ce.api.exceptions import InvalidEvent
 
 Response = Tuple[Dict[str, Any], int, Dict[str, Any]]   # pylint: disable=C0103
 

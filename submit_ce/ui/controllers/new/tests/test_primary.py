@@ -10,10 +10,12 @@ from werkzeug.exceptions import InternalServerError, NotFound
 from wtforms import Form
 
 import submit_ce as events
-from submit_ce.ui.domain import SetPrimaryClassification
+from submit_ce.api.domain import SetPrimaryClassification
 from submit_ce.controllers.ui.new import classification
 
 from arxiv.users import auth, domain
+
+import submit_ce.api.domain
 from submit_ce.ui.routes.flow_control import get_controllers_desire, STAGE_SUCCESS
 
 class TestSetPrimaryClassification(TestCase):
@@ -36,7 +38,7 @@ class TestSetPrimaryClassification(TestCase):
                     affiliation="FSU",
                     rank=3,
                     country="de",
-                    default_category=domain.Category('astro-ph.GA'),
+                    default_category=submit_ce.api.domain.Category('astro-ph.GA'),
                     submission_groups=['grp_physics']
                 )
             ),
@@ -44,8 +46,8 @@ class TestSetPrimaryClassification(TestCase):
                 scopes=[auth.scopes.CREATE_SUBMISSION,
                         auth.scopes.EDIT_SUBMISSION,
                         auth.scopes.VIEW_SUBMISSION],
-                endorsements=[domain.Category('astro-ph.CO'),
-                              domain.Category('astro-ph.GA')]
+                endorsements=[submit_ce.api.domain.Category('astro-ph.CO'),
+                              submit_ce.api.domain.Category('astro-ph.GA')]
             )
         )
 

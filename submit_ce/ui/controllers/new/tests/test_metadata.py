@@ -10,12 +10,14 @@ from werkzeug.exceptions import InternalServerError
 from wtforms import Form
 
 import submit_ce as events
-from submit_ce.ui.domain import SetTitle, SetAbstract, SetAuthors, \
+from submit_ce.api.domain import SetTitle, SetAbstract, SetAuthors, \
     SetReportNumber, SetMSCClassification, SetACMClassification, SetDOI, \
     SetJournalReference
 from arxiv.users import auth, domain
 
 from submit_ce.controllers.ui.new import metadata
+
+import submit_ce.api.domain
 
 
 class TestOptional(TestCase):
@@ -38,7 +40,7 @@ class TestOptional(TestCase):
                     affiliation="FSU",
                     rank=3,
                     country="de",
-                    default_category=domain.Category('astro-ph.GA'),
+                    default_category=submit_ce.api.domain.Category('astro-ph.GA'),
                     submission_groups=['grp_physics']
                 )
             ),
@@ -46,8 +48,8 @@ class TestOptional(TestCase):
                 scopes=[auth.scopes.CREATE_SUBMISSION,
                         auth.scopes.EDIT_SUBMISSION,
                         auth.scopes.VIEW_SUBMISSION],
-                endorsements=[domain.Category('astro-ph.CO'),
-                              domain.Category('astro-ph.GA')]
+                endorsements=[submit_ce.api.domain.Category('astro-ph.CO'),
+                              submit_ce.api.domain.Category('astro-ph.GA')]
             )
         )
 
@@ -227,7 +229,7 @@ class TestMetadata(TestCase):
                     affiliation="FSU",
                     rank=3,
                     country="de",
-                    default_category=domain.Category('astro-ph.GA'),
+                    default_category=submit_ce.api.domain.Category('astro-ph.GA'),
                     submission_groups=['grp_physics']
                 )
             ),
@@ -235,8 +237,8 @@ class TestMetadata(TestCase):
                 scopes=[auth.scopes.CREATE_SUBMISSION,
                         auth.scopes.EDIT_SUBMISSION,
                         auth.scopes.VIEW_SUBMISSION],
-                endorsements=[domain.Category('astro-ph.CO'),
-                              domain.Category('astro-ph.GA')]
+                endorsements=[submit_ce.api.domain.Category('astro-ph.CO'),
+                              submit_ce.api.domain.Category('astro-ph.GA')]
             )
         )
 

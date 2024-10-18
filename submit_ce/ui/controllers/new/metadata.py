@@ -11,7 +11,7 @@ from http import HTTPStatus as status
 from arxiv.forms import csrf
 from arxiv.base import logging
 from arxiv.auth.domain import Session, User, Client
-from submit_ce.ui.backend import save
+from submit_ce.ui.backend import api
 
 from submit_ce.api.domain import Submission, Event
 from submit_ce.api.domain.event import SetTitle, SetAuthors, SetAbstract, \
@@ -118,7 +118,7 @@ def metadata(method: str, params: MultiDict, session: Session,
         if commands and all(valid):   # Metadata has changed and is valid
             try:
                 # Save the events created during form validation.
-                submission, _ = save(*commands, submission_id=submission_id)
+                submission, _ = api.save(*commands, submission_id=submission_id)
                 response_data['ui-app'] = submission
                 return ready_for_next((response_data, status.OK, {}))
             except SaveError as e:
@@ -162,7 +162,7 @@ def optional(method: str, params: MultiDict, session: Session,
             return ready_for_next((response_data, status.OK, {}))
         if all(valid):  # Metadata has changed and is all valid
             try:
-                submission, _ = save(*commands, submission_id=submission_id)
+                submission, _ = api.save(*commands, submission_id=submission_id)
                 response_data['ui-app'] = submission
                 return ready_for_next((response_data, status.OK, {}))
             except SaveError as e:

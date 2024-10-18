@@ -8,9 +8,7 @@ from typing import Dict, Any, Type
 
 from arxiv.db import models
 
-from ... import domain
-#from ...domain.submission import UserRequest
-
+from submit_ce.api import domain
 
 def patch_hold(submission: domain.Submission,
                row: models.Submission) -> domain.Submission:

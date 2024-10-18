@@ -16,7 +16,7 @@ from wtforms.validators import InputRequired, ValidationError, optional
 from arxiv.base import logging
 from arxiv.forms import csrf
 from arxiv.auth.domain import Session
-from submit_ce.ui.backend import save
+from submit_ce.ui.backend import api
 from submit_ce.api.domain import Submission
 from submit_ce.api.domain.event import ConfirmAuthorship
 from submit_ce.api.exceptions import InvalidEvent, SaveError
@@ -68,7 +68,7 @@ def authorship(method: str, params: MultiDict, session: Session,
                                         submitter_is_author=value)
             if validate_command(form, command, submission, 'authorship'):
                 try:
-                    submission, _ = save(command, submission_id=submission_id)
+                    submission, _ = api.save(command, submission_id=submission_id)
                     response_data['ui-app'] = submission
                     return response_data, status.SEE_OTHER, {}
                 except SaveError as e:

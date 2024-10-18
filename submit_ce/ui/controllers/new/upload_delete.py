@@ -9,7 +9,7 @@ from arxiv.base import logging, alerts
 from arxiv.forms import csrf
 from markupsafe import Markup
 
-from submit_ce.ui.backend import save
+from submit_ce.ui.backend import api
 from submit_ce.api.domain.event import UpdateUploadPackage
 from submit_ce.api.domain.uploads import Upload
 from submit_ce.api.exceptions import SaveError
@@ -123,7 +123,7 @@ def delete_all(method: str, params: MultiDict, session: Session,
             return return_to_parent_stage((rdata, status.OK, {}))
 
         try:
-            submission, _ = save(command, submission_id=submission_id)
+            submission, _ = api.save(command, submission_id=submission_id)
         except SaveError:
             alerts.flash_failure(Markup(
                 'There was a problem carrying out your request. Please try'
@@ -229,7 +229,7 @@ def delete_file(method: str, params: MultiDict, session: Session,
                 logger.debug('Command validation failed')
                 return stay_on_this_stage((rdata, status.OK, {}))
             try:
-                submission, _ = save(command, submission_id=submission_id)
+                submission, _ = api.save(command, submission_id=submission_id)
             except SaveError:
                 alerts.flash_failure(Markup(
                     'There was a problem carrying out your request. Please try'

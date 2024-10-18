@@ -124,11 +124,24 @@ from ..annotation import Feature, ClassifierResults, \
 from ..preview import Preview
 from ..submission import Submission, Author, \
     Classification, License, SubmissionContent
-from ... import ActiveCategory
 from ...exceptions import InvalidEvent
 
 import logging
 logger = logging.getLogger(__name__)
+
+
+
+# BDC: I was thinking of doing a validator on the type but this conflicted with some
+# test code that expected to get an InvalidEvent exception. It seems wrong to set this to raise
+# that since it might be used outside an Event
+#ActiveCategory = Annotated[str, AfterValidator(is_active_category)]
+
+ActiveCategory = str
+"""Type for an active category."""
+
+#Category = Annotated[str, AfterValidator(is_category)]
+Category = str
+"""Type for a category active or inactive."""
 
 
 # Events related to the creation of a new submission.
@@ -1261,30 +1274,30 @@ class AddClassifierResults(Event):
         return submission
 
 
-# # class Reclassify(Event):
-#     """Reclassify a submission."""
-#
-#     NAME = "reclassify submission"
-#     NAMED = "submission reclassified"
-#
-#     #category: Optional[taxonomy.Category] = None
-#     category: Optional[str] = None
-#
-#     def validate(self, submission: Submission) -> None:
-#         """Validate the primary classification category."""
-#         assert isinstance(self.category, str)
-#         validators.must_be_an_active_category(self, self.category, submission)
-#         self._must_be_unannounced(submission)
-#         validators.cannot_be_secondary(self, self.category, submission)
-#
-#     def _must_be_unannounced(self, submission: Submission) -> None:
-#         """Can only be set on the first version before publication."""
-#         if submission.arxiv_id is not None or submission.version > 1:
-#             raise InvalidEvent(self, "Can only be set on the first version,"
-#                                      " before publication.")
-#
-#     def project(self, submission: Submission) -> Submission:
-#         """Set :attr:`.domain.Submission.primary_classification`."""
-#         clsn = Classification(category=self.category)
-#         submission.primary_classification = clsn
-#         return submission
+class Reclassify(Event):
+    """Change the primary classification of a submission."""
+
+    NAME = "reclassify submission"
+    NAMED = "submission reclassified"
+
+    #category: Optional[taxonomy.Category] = None
+    category: Optional[str] = None
+
+    def validate(self, submission: Submission) -> None:
+        """Validate the primary classification category."""
+        assert isinstance(self.category, str)
+        validators.must_be_an_active_category(self, self.category, submission)
+        self._must_be_unannounced(submission)
+        validators.cannot_be_secondary(self, self.category, submission)
+
+    def _must_be_unannounced(self, submission: Submission) -> None:
+        """Can only be set on the first version before publication."""
+        if submission.arxiv_id is not None or submission.version > 1:
+            raise InvalidEvent(self, "Can only be set on the first version,"
+                                     " before publication.")
+
+    def project(self, submission: Submission) -> Submission:
+        """Set :attr:`.domain.Submission.primary_classification`."""
+        clsn = Classification(category=self.category)
+        submission.primary_classification = clsn
+        return submission

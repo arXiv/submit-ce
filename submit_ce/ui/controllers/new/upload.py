@@ -21,7 +21,7 @@ from arxiv.base import logging, alerts
 from arxiv.forms import csrf
 from markupsafe import Markup
 
-from submit_ce.ui.backend import save
+from submit_ce.ui.backend import api
 from werkzeug.datastructures import FileStorage
 from werkzeug.datastructures import MultiDict
 from werkzeug.exceptions import (
@@ -198,7 +198,7 @@ def _update(form: UploadForm, submission: Submission, stat: Upload,
         return None
 
     try:
-        submission, _ = save(command, submission_id=submission.submission_id)
+        submission, _ = api.save(command, submission_id=submission.submission_id)
     except SaveError:
         alerts.flash_failure(Markup(
             'There was a problem carrying out your request. Please try'

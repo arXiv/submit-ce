@@ -5,20 +5,18 @@ from http import HTTPStatus as status
 from arxiv.auth.domain import Session
 from arxiv.base import logging
 from arxiv.forms import csrf
-from submit_ce.ui.backend import save, load_submissions_for_user
 from flask import url_for
-from retry import retry
 from werkzeug.datastructures import MultiDict
 from werkzeug.exceptions import InternalServerError, BadRequest
 
 from submit_ce.api.domain.event import CreateSubmission, \
     CreateSubmissionVersion
 from submit_ce.api.exceptions import SaveError
+from submit_ce.ui.backend import api
 from submit_ce.ui.controllers.util import validate_command
 from submit_ce.ui.routes.flow_control import advance_to_current, Response
 from submit_ce.ui.util import load_submission
 from submit_ce.ui.util import user_and_client_from_session
-from submit_ce.ui.controllers.util import validate_command
 
 logger = logging.getLogger(__name__)    # pylint: disable=C0103
 
@@ -33,8 +31,7 @@ def create(method: str, params: MultiDict, session: Session, *args,
     submitter, client = user_and_client_from_session(session)
     response_data = {}
     if method == 'GET':     # Display a splash page.
-        response_data['user_submissions'] \
-            = load_submissions_for_user(session.user.user_id)
+        response_data['user_submissions'] = api.load_submissions_for_user(session.user.user_id)
         params = MultiDict()
 
     # We're using a form here for CSRF protection.
@@ -44,7 +41,7 @@ def create(method: str, params: MultiDict, session: Session, *args,
     command = CreateSubmission(creator=submitter, client=client)
     if method == 'POST' and form.validate() and validate_command(form, command):
         try:
-            submission, _ = save(command)
+            submission = api.save(command)
         except SaveError as e:
             logger.error('Could not save command: %s', e)
             raise InternalServerError(response_data) from e
@@ -86,7 +83,7 @@ def replace(method: str, params: MultiDict, session: Session,
             raise BadRequest({})
 
         try:
-            submission, _ = save(command, submission_id=submission_id)
+            submission, _ = api.save(command, submission_id=submission_id)
         except SaveError as e:
             logger.error('Could not save command: %s', e)
             raise InternalServerError({}) from e

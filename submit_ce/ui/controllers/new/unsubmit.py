@@ -9,7 +9,7 @@ from werkzeug.exceptions import BadRequest, InternalServerError
 
 from arxiv.base import alerts
 from arxiv.forms import csrf
-from submit_ce.ui.backend import save
+from submit_ce.ui.backend import api
 from submit_ce.api.domain.event import UnFinalizeSubmission
 from arxiv.auth.domain import Session
 
@@ -49,7 +49,7 @@ def unsubmit(method: str, params: MultiDict, session: Session,
                 raise BadRequest(response_data)
 
             try:
-                save(command, submission_id=submission_id)
+                api.save(command, submission_id=submission_id)
             except Exception as e:
                 alerts.flash_failure("Whoops!")
                 raise InternalServerError(response_data) from e

@@ -121,43 +121,43 @@ class Compilation(BaseModel):
         return bool(not self.is_finished)
 
 
-class CompilationProduct(BaseModel):
-    """Content of a compilation product itself."""
+# class CompilationProduct(BaseModel):
+#     """Content of a compilation product itself."""
+#
+#     stream: io.BytesIO
+#     """Readable buffer with the product content."""
+#
+#     content_type: str
+#     """MIME-type of the stream."""
+#
+#     status: Optional[Compilation] = field(default=None)
+#     """Status information about the product."""
+#
+#     checksum: Optional[str] = field(default=None)
+#     """The B64-encoded MD5 hash of the compilation product."""
+#
+#     def __post_init__(self) -> None:
+#         """Check status."""
+#         if self.status and isinstance(self.status, dict):
+#             self.status = Compilation(**self.status)
 
-    stream: io.BytesIO
-    """Readable buffer with the product content."""
 
-    content_type: str
-    """MIME-type of the stream."""
-
-    status: Optional[Compilation] = field(default=None)
-    """Status information about the product."""
-
-    checksum: Optional[str] = field(default=None)
-    """The B64-encoded MD5 hash of the compilation product."""
-
-    def __post_init__(self) -> None:
-        """Check status."""
-        if self.status and isinstance(self.status, dict):
-            self.status = Compilation(**self.status)
-
-
-class CompilationLog(BaseModel):
-    """Content of a compilation log."""
-
-    stream: io.BytesIO
-    """Readable buffer with the product content."""
-
-    status: Optional[Compilation] = field(default=None)
-    """Status information about the log."""
-
-    checksum: Optional[str] = field(default=None)
-    """The B64-encoded MD5 hash of the log."""
-
-    content_type: str = field(default='text/plain')
-    """MIME-type of the stream."""
-
-    def __post_init__(self) -> None:
-        """Check status."""
-        if self.status and isinstance(self.status, dict):
-            self.status = Compilation(**self.status)
+# class CompilationLog(BaseModel):
+#     """Content of a compilation log."""
+#
+#     stream: io.BytesIO
+#     """Readable buffer with the product content."""
+#
+#     status: Optional[Compilation] = field(default=None)
+#     """Status information about the log."""
+#
+#     checksum: Optional[str] = field(default=None)
+#     """The B64-encoded MD5 hash of the log."""
+#
+#     content_type: str = field(default='text/plain')
+#     """MIME-type of the stream."""
+#
+#     def __post_init__(self) -> None:
+#         """Check status."""
+#         if self.status and isinstance(self.status, dict):
+#             self.status = Compilation(**self.status)

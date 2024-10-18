@@ -8,8 +8,9 @@ from flask import request
 from werkzeug.exceptions import NotFound
 
 from arxiv.base import logging
-import submit_ce as events
-from submit_ce.api.domain import User, Client, Submission, Event
+
+from submit_ce.api.domain.event import Event
+from submit_ce.api.domain import User, Client, Submission
 
 logger = logging.getLogger(__name__)
 logger.propagate = False

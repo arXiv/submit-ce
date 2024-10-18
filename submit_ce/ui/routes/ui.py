@@ -4,28 +4,23 @@ from typing import Optional, Callable, Dict, List, Union, Any
 
 from arxiv.auth.auth import scopes
 from arxiv.auth.auth.decorators import scoped
+from arxiv.base import logging, alerts
 from flask import Blueprint, make_response, redirect, request, \
     render_template, url_for, send_file
 from flask import Response as FResponse
 from markupsafe import Markup
-from werkzeug.datastructures import MultiDict
 from werkzeug import Response as WResponse
-from werkzeug.exceptions import ServiceUnavailable
+from werkzeug.datastructures import MultiDict
 
-from arxiv.base import logging, alerts
-
-from submit_ce.ui.routes.auth import is_owner
-from submit_ce.ui import util
 from submit_ce.ui import controllers as cntrls
+from submit_ce.ui import util
 from submit_ce.ui.controllers.new import upload
 from submit_ce.ui.controllers.new import upload_delete
-
-from submit_ce.ui.workflow.stages import FileUpload
-
+from submit_ce.ui.routes.auth import is_owner
 from submit_ce.ui.workflow.processor import WorkflowProcessor
-
+from submit_ce.ui.workflow.stages import FileUpload
 from .flow_control import flow_control, get_workflow, endpoint_name
-from ..backend import get_submission, get_user, get_client, impl_data
+from ..backend import api
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +45,7 @@ def load_submission() -> None:
     if request.view_args is None or 'submission_id' not in request.view_args:
         return
     submission_id = request.view_args['submission_id']
-    request.submission= get_submission(impl_data(), get_user(), get_client(), submission_id)
+    request.submission= api.get_submission(submission_id)
     request.events = [] # TODO what do should we do with events in ce?
     wfp = get_workflow(request.submission)
     request.workflow = wfp

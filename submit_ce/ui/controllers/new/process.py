@@ -15,7 +15,8 @@ from arxiv.base import logging, alerts
 from arxiv.forms import csrf
 from markupsafe import Markup
 
-from submit_ce.ui.backend import save, SaveError
+from submit_ce.api.exceptions import SaveError
+from submit_ce.ui.backend import api
 from submit_ce.api.domain.event import ConfirmSourceProcessed
 from arxiv.auth.domain import Session
 from flask import url_for
@@ -100,7 +101,7 @@ def _check_status(params: MultiDict, session: Session,  submission_id: int,
 
         command = ConfirmSourceProcessed(creator=submitter, client=client)
         try:
-            submission, _ = save(command, submission_id=submission_id)
+            submission, _ = api.save(command, submission_id=submission_id)
             return ready_for_next(({}, status.OK, {}))
         except SaveError as e:
             alerts.flash_failure(Markup(

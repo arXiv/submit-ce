@@ -19,14 +19,16 @@ from .util import get_tzaware_utc_now
 from .agent import Agent, agent_factory
 
 
+class Status(Enum):
+    PENDING = 'pending'
+    REJECTED = 'rejected'
+    ACCEPTED = 'accepted'
+
+
 @dataclass
 class Proposal:
     """Represents a proposal to apply an event to a submission."""
 
-    class Status(Enum):
-        PENDING = 'pending'
-        REJECTED = 'rejected'
-        ACCEPTED = 'accepted'
 
     event_id: str
     creator: Agent
@@ -51,13 +53,13 @@ class Proposal:
             self.creator = agent_factory(**self.creator)
         if self.proxy and isinstance(self.proxy, dict):
             self.proxy = agent_factory(**self.proxy)
-        self.status = self.Status(self.status)
+        self.status = Status(self.status)
 
     def is_rejected(self) -> bool:
-        return self.status == self.Status.REJECTED
+        return self.status == Status.REJECTED
 
     def is_accepted(self) -> bool:
-        return self.status == self.Status.ACCEPTED
+        return self.status == Status.ACCEPTED
 
     def is_pending(self) -> bool:
-        return self.status == self.Status.PENDING
+        return self.status == Status.PENDING

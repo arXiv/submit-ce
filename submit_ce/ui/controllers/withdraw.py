@@ -13,12 +13,12 @@ from wtforms.validators import DataRequired
 
 from arxiv.base import logging, alerts
 from arxiv.forms import csrf
-from submit_ce.ui.domain.event import RequestWithdrawal
+from submit_ce.api.domain.event import RequestWithdrawal
 
 from submit_ce.ui.util import load_submission, user_and_client_from_session
 from .util import FieldMixin, validate_command
-from submit_ce.ui.backend import save
-from submit_ce.ui.exceptions import SaveError
+from submit_ce.ui.backend import api
+from submit_ce.api.exceptions import SaveError
 
 logger = logging.getLogger(__name__)  # pylint: disable=C0103
 
@@ -76,7 +76,7 @@ def request_withdrawal(method: str, params: MultiDict, session: Session,
        and validate_command(form, cmd, submission, 'withdrawal_reason'):
         try:
             # Save the events created during form validation.
-            submission, _ = save(cmd, submission_id=submission_id)
+            submission, _ = api.save(cmd, submission_id=submission_id)
             # Success! Send user back to the submission page.
             alerts.flash_success("Withdrawal request submitted.")
             status_url = url_for('ui.create_submission')

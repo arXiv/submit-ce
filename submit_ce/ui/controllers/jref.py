@@ -14,11 +14,12 @@ from wtforms.validators import optional
 
 from arxiv.base import logging, alerts
 from arxiv.forms import csrf
-from submit_ce.ui.domain import  Event, User, Client, Submission
-from submit_ce.ui.domain.event import SetDOI, SetJournalReference, \
+from submit_ce.api.domain import  Event, User, Client, Submission
+from submit_ce.api.domain.event import SetDOI, SetJournalReference, \
     SetReportNumber
-from submit_ce.ui.exceptions import SaveError
+from submit_ce.api.exceptions import SaveError
 
+from submit_ce.ui.backend import api
 from submit_ce.ui.util import load_submission, user_and_client_from_session
 from .util import FieldMixin, validate_command
 
@@ -111,7 +112,7 @@ def jref(method: str, params: MultiDict, session: Session,
             logger.debug('Form is valid, with data: %s', str(form.data))
             try:
                 # Save the events created during form validation.
-                submission, _ = save(*commands, submission_id=submission_id)
+                submission, _ = api.save(*commands, submission_id=submission_id)
             except SaveError as e:
                 logger.error('Could not save metadata event')
                 raise InternalServerError(response_data) from e

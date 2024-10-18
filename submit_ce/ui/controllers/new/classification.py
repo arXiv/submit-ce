@@ -14,7 +14,7 @@ from arxiv.forms import csrf
 from arxiv.taxonomy.definitions import CATEGORIES_ACTIVE, ARCHIVES_ACTIVE
 from markupsafe import Markup
 
-from submit_ce.ui.backend import save
+from submit_ce.ui.backend import api
 from werkzeug.datastructures import MultiDict
 from werkzeug.exceptions import InternalServerError
 from wtforms import widgets, HiddenField, validators
@@ -133,7 +133,7 @@ def classification(method: str, params: MultiDict, session: Session,
     if method == 'POST' and form.validate()\
        and validate_command(form, command, submission, 'category'):
         try:
-            submission, _ = save(command, submission_id=submission_id)
+            submission, _ = api.save(command, submission_id=submission_id)
             response_data['ui-app'] = submission
         except SaveError as ex:
             raise InternalServerError(response_data) from ex
@@ -188,7 +188,7 @@ def cross_list(method: str, params: MultiDict, session: Session,
     if method == 'POST' and form.validate() \
        and validate_command(form, command, submission, 'category'):
         try:
-            submission, _ = save(command, submission_id=submission_id)
+            submission, _ = api.save(command, submission_id=submission_id)
             response_data['ui-app'] = submission
             
             # Re-build the formset to reflect changes that we just made, and

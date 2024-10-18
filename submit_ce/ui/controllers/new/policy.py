@@ -8,7 +8,8 @@ from typing import Tuple, Dict, Any
 
 from arxiv.auth.domain import Session
 from arxiv.forms import csrf
-from submit_ce.ui.backend import save, SaveError
+from submit_ce.ui.backend import api
+from submit_ce.api.exceptions import SaveError
 from werkzeug.datastructures import MultiDict
 from werkzeug.exceptions import InternalServerError
 from wtforms import BooleanField
@@ -47,7 +48,7 @@ def policy(method: str, params: MultiDict, session: Session,
             command = ConfirmPolicy(creator=submitter, client=client)
             if validate_command(form, command, submission, 'policy'):
                 try:
-                    submission, _ = save(command, submission_id=submission_id)
+                    submission, _ = api.save(command, submission_id=submission_id)
                     response_data['ui-app'] = submission
                     return ready_for_next((response_data, status.OK, {}))
                 except SaveError as e:

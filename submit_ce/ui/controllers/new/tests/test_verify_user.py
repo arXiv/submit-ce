@@ -6,12 +6,14 @@ from werkzeug.exceptions import InternalServerError
 from wtforms import Form
 from http import HTTPStatus as status
 import submit_ce as events
-from submit_ce.ui.domain import ConfirmContactInformation
+from submit_ce.api.domain import ConfirmContactInformation
 from submit_ce.controllers.ui.new import verify_user
 
 from pytz import timezone
 from datetime import timedelta, datetime
 from arxiv.users import auth, domain
+
+import submit_ce.api.domain
 
 
 class TestVerifyUser(TestCase):
@@ -34,7 +36,7 @@ class TestVerifyUser(TestCase):
                     affiliation="FSU",
                     rank=3,
                     country="de",
-                    default_category=domain.Category('astro-ph.GA'),
+                    default_category=submit_ce.api.domain.Category('astro-ph.GA'),
                     submission_groups=['grp_physics']
                 )
             ),
@@ -42,8 +44,8 @@ class TestVerifyUser(TestCase):
                 scopes=[auth.scopes.CREATE_SUBMISSION,
                         auth.scopes.EDIT_SUBMISSION,
                         auth.scopes.VIEW_SUBMISSION],
-                endorsements=[domain.Category('astro-ph.CO'),
-                              domain.Category('astro-ph.GA')]
+                endorsements=[submit_ce.api.domain.Category('astro-ph.CO'),
+                              submit_ce.api.domain.Category('astro-ph.GA')]
             )
         )
 

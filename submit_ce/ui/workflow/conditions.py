@@ -1,4 +1,4 @@
-from submit_ce.ui.domain import Submission, SubmissionContent
+from submit_ce.api.domain import Submission, SubmissionContent
 
 
 def is_contact_verified(submission: Submission) -> bool:

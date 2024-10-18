@@ -10,10 +10,13 @@ from werkzeug.exceptions import InternalServerError, NotFound
 from wtforms import Form
 
 import submit_ce as events
-from submit_ce.ui.domain import ConfirmAuthorship
+from submit_ce.api.domain import ConfirmAuthorship
 from arxiv.users import auth, domain
 
 from submit_ce.controllers.ui.new import authorship
+
+import submit_ce.api.domain
+
 
 class TestVerifyAuthorship(TestCase):
     """Test behavior of :func:`.authorship` controller."""
@@ -35,7 +38,7 @@ class TestVerifyAuthorship(TestCase):
                     affiliation="FSU",
                     rank=3,
                     country="de",
-                    default_category=domain.Category('astro-ph.GA'),
+                    default_category=submit_ce.api.domain.Category('astro-ph.GA'),
                     submission_groups=['grp_physics']
                 )
             ),
@@ -43,8 +46,8 @@ class TestVerifyAuthorship(TestCase):
                 scopes=[auth.scopes.CREATE_SUBMISSION,
                         auth.scopes.EDIT_SUBMISSION,
                         auth.scopes.VIEW_SUBMISSION],
-                endorsements=[domain.Category('astro-ph.CO'),
-                              domain.Category('astro-ph.GA')]
+                endorsements=[submit_ce.api.domain.Category('astro-ph.CO'),
+                              submit_ce.api.domain.Category('astro-ph.GA')]
             )
         )
 

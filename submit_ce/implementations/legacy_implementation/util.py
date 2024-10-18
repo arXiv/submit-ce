@@ -8,7 +8,7 @@ from typing import Generator
 import arxiv.db
 from arxiv.base import logging
 from sqlalchemy.engine import Engine
-from sqlalchemy.orm.session import SqlAlchemySession
+from sqlalchemy.orm.session import Session as SqlAlchemySession
 
 logger = logging.getLogger(__name__)
 #

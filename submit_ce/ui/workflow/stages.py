@@ -2,7 +2,7 @@
 
 from typing import Callable, List
 from . import conditions
-from submit_ce.ui.domain import Submission
+from submit_ce.api.domain import Submission
 
 
 SubmissionCheck = Callable[[Submission], (bool)]

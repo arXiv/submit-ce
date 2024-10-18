@@ -3,7 +3,7 @@
 from typing import Optional, Dict
 
 from arxiv.base import logging
-from submit_ce.ui.domain import Submission
+from submit_ce.api.domain import Submission
 from dataclasses import field, dataclass
 from . import WorkflowDefinition, Stage
 
