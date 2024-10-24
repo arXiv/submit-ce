@@ -8,6 +8,9 @@ from typing import Tuple, Dict, Any
 
 from arxiv.auth.domain import Session
 from arxiv.forms import csrf
+from wtforms.fields.numeric import IntegerField
+from wtforms.fields.simple import HiddenField
+
 from submit_ce.ui.backend import api
 from submit_ce.api.exceptions import SaveError
 from werkzeug.datastructures import MultiDict
@@ -60,6 +63,7 @@ def policy(method: str, params: MultiDict, session: Session,
 class PolicyForm(csrf.CSRFForm):
     """Generate form with checkbox to confirm policy."""
 
+    policy_id = HiddenField('PolicyId', validators=[InputRequired()])
     policy = BooleanField(
         'By checking this box, I agree to the policies listed on this page.',
         [InputRequired('Please check the box to agree to the policies')]

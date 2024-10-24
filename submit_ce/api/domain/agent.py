@@ -108,7 +108,7 @@ class System(Agent):
 
 class Client(Agent):
     """A non-human third party, usually an API client."""
-
+    #TODO setting remote_addr when initing obj does not seem to work
     remote_addr: ipaddress.ip_address
 
     # hostname: Optional[str] = field(default=None)

@@ -29,40 +29,32 @@ is defined in :mod:`.classic.event`.
 See also :ref:`legacy-integration`.
 
 """
+import copy
+import traceback
 from _operator import attrgetter
-from typing import List, Optional, Tuple, Set, Callable, Any, TypeVar, cast, Iterable, Dict
+from datetime import datetime
+from functools import wraps
+from itertools import groupby
+from operator import attrgetter
+from typing import List, Optional, Tuple, Callable, Any, TypeVar, cast, Iterable
+import logging
 
 from arxiv.license import LICENSES
 from pydantic import RootModel
 from retry import retry as _retry
-from datetime import datetime
-from operator import attrgetter
-from pytz import UTC
-from itertools import groupby
-import copy
-import traceback
-from functools import reduce, wraps
-from operator import ior
-from dataclasses import asdict
-
-from flask import Flask
-from sqlalchemy import or_, text
+from sqlalchemy import or_
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session as SQLAlchemySession
 from sqlalchemy.orm.exc import NoResultFound
-from sqlalchemy.exc import DBAPIError, OperationalError
 
-from arxiv.base import logging
-from arxiv.base.globals import get_application_config, get_application_global
-
-from . import models, load, interpolate, log
-from .load import logger
-from .models import Base, DBEvent
+from . import models, interpolate, log
+from .models import DBEvent
 from .patch import patch_hold, patch_withdrawal, patch_cross, patch_jref
 from ...api import domain
-from ...api.domain import Event, Submission, Agent, User, WithdrawalRequest, CrossListClassificationRequest
+from ...api.domain import Event, Submission, Agent, User, WithdrawalRequest, CrossListClassificationRequest, Client
 from ...api.domain import License
 from ...api.domain.event import SetJournalReference, SetDOI, SetReportNumber, CreateSubmission, Rollback, \
-    RequestWithdrawal, RequestCrossList, CancelRequest, AddProposal
+    RequestWithdrawal, RequestCrossList, CancelRequest
 from ...api.exceptions import NoSuchSubmission
 
 logger = logging.getLogger(__name__)
@@ -96,22 +88,19 @@ def handle_operational_errors(func: F) -> F:
     # return inner
     return cast(F, inner)
 
-def current_session() -> SQLAlchemySession:
-    # TODO get from arxv.db.Session? handle session manually?
-    raise NotImplementedError()
 
 @retry(OperationalError, tries=3, delay=1)
 @handle_operational_errors
-def get_licenses() -> List[License]:
+def get_licenses(session: SQLAlchemySession) -> List[License]:
     """Get a list of :class:`.domain.License` instances available."""
-    license_data = current_session().query(models.License) \
+    license_data = session.query(models.License) \
         .filter(models.License.active == '1')
     return [License(uri=row.name, name=row.label) for row in license_data]
 
 
 @retry(OperationalError, tries=3, delay=1)
 @handle_operational_errors
-def get_events(submission_id: int) -> List[Event]:
+def get_events(session: SQLAlchemySession, submission_id: int) -> List[Event]:
     """
     Load events from the classic database.
 
@@ -130,7 +119,6 @@ def get_events(submission_id: int) -> List[Event]:
         Raised when there are no events for the provided submission ID.
 
     """
-    session = current_session()
     event_data = session.query(DBEvent) \
         .filter(DBEvent.submission_id == submission_id) \
         .order_by(DBEvent.created)
@@ -141,81 +129,9 @@ def get_events(submission_id: int) -> List[Event]:
     return events
 
 
-@retry(OperationalError, tries=3, delay=1)
-@handle_operational_errors
-def get_user_submissions_fast(user_id: int) -> List[Submission]:
-    """
-    Get active NG submissions for a user.
-
-    This should not return submissions for which there are no events.
-
-    Uses the same approach as :func:`get_submission_fast`.
-
-    Parameters
-    ----------
-    submission_id : int
-
-    Returns
-    -------
-    list
-        Items are the user's :class:`.domain.submission.Submission` instances.
-
-    """
-    session = current_session()
-    db_submissions = list(
-        session.query(models.Submission)
-        .filter(models.Submission.submitter_id == user_id)
-        .join(DBEvent)  # Only get submissions that are also in the event table
-        .order_by(models.Submission.doc_paper_id.desc())
-    )
-    grouped = groupby(db_submissions, key=attrgetter('doc_paper_id'))
-    submissions: List[Optional[Submission]] = []
-    for arxiv_id, dbss in grouped:
-        logger.debug('Handle group for arXiv ID %s: %s', arxiv_id, dbss)
-        if arxiv_id is None:    # This is an unannounced submission.
-            for dbs in dbss:    # Each row represents a separate e-print.
-                submissions.append(to_submission(dbs))
-        else:
-            submissions.append(
-                load(sorted(dbss, key=lambda dbs: dbs.submission_id))
-            )
-    return [subm for subm in submissions if subm and not subm.is_deleted]
-
-
-@retry(OperationalError, tries=3, delay=1)
-@handle_operational_errors
-def get_submission_fast(submission_id: int) -> Submission:
-    """
-    Get the projection of the submission directly.
-
-    Instead of playing events forward, we grab the most recent snapshot of the
-    submission in the database. Since classic represents the submission using
-    several rows, we have to grab all of them and transform/patch as
-    appropriate.
-
-    Parameters
-    ----------
-    submission_id : int
-
-    Returns
-    -------
-    :class:`.domain.submission.Submission` or ``None``
-
-    Raises
-    ------
-    :class:`.classic.exceptions.NoSuchSubmission`
-        Raised when there are is no submission for the provided submission ID.
-
-    """
-    submission = load(_get_db_submission_rows(submission_id))
-    if submission is None:
-        raise NoSuchSubmission(f'No submission found: {submission_id}')
-    return submission
-
-
 # @retry(ClassicBaseException, tries=3, delay=1)
 @handle_operational_errors
-def get_submission(submission_id: int, for_update: bool = False) \
+def get_submission(session: SQLAlchemySession, submission_id: int, for_update: bool = False) \
         -> Tuple[Submission, List[Event]]:
     """
     Get the current state of a submission from the database.
@@ -244,7 +160,6 @@ def get_submission(submission_id: int, for_update: bool = False) \
 
     """
     # Let the caller determine the transaction scope.
-    session = current_session()
     original_row = session.query(models.Submission) \
         .filter(models.Submission.submission_id == submission_id) \
         .join(DBEvent)
@@ -279,7 +194,7 @@ def get_submission(submission_id: int, for_update: bool = False) \
         logger.debug('Got subsequent_rows: %s', subsequent_rows)
 
     try:
-        _events = get_events(submission_id)
+        _events = get_events(session, submission_id)
     except NoSuchSubmission:
         _events = []
 
@@ -359,7 +274,7 @@ def store_event(session: SQLAlchemySession, event: Event, before: Optional[Submi
         if before.arxiv_id is not None: #:
             # After the original submission is announced, a new Document row is
             # created. This Document is shared by all subsequent Submission rows.
-            doc_id = _load_document_id(before.arxiv_id, before.version)
+            doc_id = _load_document_id(session, before.arxiv_id, before.version)
 
             # From the perspective of the database, a replacement is mainly an
             # incremented version number. This requires a new row in the
@@ -368,7 +283,7 @@ def store_event(session: SQLAlchemySession, event: Event, before: Optional[Submi
                 dbs = _create_replacement(doc_id, before.arxiv_id,
                                         after.version, after, event.created)
             elif isinstance(event, Rollback) and before.version > 1:
-                dbs = _delete_replacement(doc_id, before.arxiv_id,
+                dbs = _delete_replacement(session, doc_id, before.arxiv_id,
                                         before.version)
 
 
@@ -386,16 +301,16 @@ def store_event(session: SQLAlchemySession, event: Event, before: Optional[Submi
             # Adding DOIs and citation information (so-called "journal reference")
             # also requires a new row. The version number is not incremented.
             elif before.is_announced and type(event) in JREFEvents:
-                dbs = _create_jref(doc_id, before.arxiv_id, after.version, after,
+                dbs = _create_jref(session, doc_id, before.arxiv_id, after.version, after,
                                 event.created)
 
             elif isinstance(event, CancelRequest):
-                dbs = _cancel_request(event, before, after)
+                dbs = _cancel_request(session, event, before, after)
 
             # The submission has been announced.
             # TODO Redundant logic in this next clause
             elif isinstance(before, Submission) and before.arxiv_id is not None:
-                dbs = _load(paper_id=before.arxiv_id, version=before.version)
+                dbs = _load(session, paper_id=before.arxiv_id, version=before.version)
                 _preserve_sticky_hold(dbs, before, after, event)
                 dbs.update_from_submission(after)
             else:
@@ -403,7 +318,7 @@ def store_event(session: SQLAlchemySession, event: Event, before: Optional[Submi
 
         # The submission has not yet been announced; we're working with a single row.
         elif isinstance(before, Submission) and before.submission_id:
-            dbs = _load(before.submission_id)
+            dbs = _load(session, before.submission_id)
 
             _preserve_sticky_hold(dbs, before, after, event)
             dbs.update_from_submission(after)
@@ -449,41 +364,8 @@ def store_event(session: SQLAlchemySession, event: Event, before: Optional[Submi
     return event, after
 
 
-@retry(OperationalError, tries=3, delay=1)
-@handle_operational_errors
-def get_titles(since: datetime) -> List[Tuple[int, str, Agent]]:
-    """Get titles from submissions created on or after a particular date."""
-    # TODO: consider making this a param, if we need this function for anything
-    # else.
-    STATUSES_TO_CHECK = [
-        models.Submission.SUBMITTED,
-        models.Submission.ON_HOLD,
-        models.Submission.NEXT_PUBLISH_DAY,
-        models.Submission.REMOVED,
-        models.Submission.USER_DELETED,
-        models.Submission.DELETED_ON_HOLD,
-        models.Submission.DELETED_PROCESSING,
-        models.Submission.DELETED_REMOVED,
-        models.Submission.DELETED_USER_EXPIRED
-    ]
-    session = current_session()
-    q = session.query(
-        models.Submission.submission_id,
-        models.Submission.title,
-        models.Submission.submitter_id,
-        models.Submission.submitter_email
-    )
-    q = q.filter(models.Submission.status.in_(STATUSES_TO_CHECK))
-    q = q.filter(models.Submission.created >= since)
-    return [
-        (submission_id, title, User(native_id=user_id, email=user_email))
-        for submission_id, title, user_id, user_email in q.all()
-    ]
-
-
-# Private functions down here.
-
-def _load(submission_id: Optional[int] = None, paper_id: Optional[str] = None,
+def _load(session: SQLAlchemySession,
+          submission_id: Optional[int] = None, paper_id: Optional[str] = None,
           version: Optional[int] = 1, row_type: Optional[str] = None) \
         -> models.Submission:
     if row_type is not None:
@@ -491,7 +373,6 @@ def _load(submission_id: Optional[int] = None, paper_id: Optional[str] = None,
     else:
         limit_to = [models.Submission.NEW_SUBMISSION,
                     models.Submission.REPLACEMENT]
-    session = current_session()
     if submission_id is not None:
         submission = session.query(models.Submission) \
             .filter(models.Submission.submission_id == submission_id) \
@@ -512,7 +393,7 @@ def _load(submission_id: Optional[int] = None, paper_id: Optional[str] = None,
     return submission
 
 
-def _cancel_request(event: CancelRequest, before: Submission,
+def _cancel_request(session: SQLAlchemySession, event: CancelRequest, before: Submission,
                     after: Submission) -> models.Submission:
     assert event.request_id is not None
     request = before.user_requests[event.request_id]
@@ -520,15 +401,14 @@ def _cancel_request(event: CancelRequest, before: Submission,
         row_type = models.Submission.WITHDRAWAL
     elif isinstance(request, CrossListClassificationRequest):
         row_type = models.Submission.CROSS_LIST
-    dbs = _load(paper_id=before.arxiv_id, version=before.version,
+    dbs = _load(session, paper_id=before.arxiv_id, version=before.version,
                 row_type=row_type)
     dbs.status = models.Submission.USER_DELETED
     return dbs
 
 
-def _load_document_id(paper_id: str, version: int) -> int:
+def _load_document_id(session: SQLAlchemySession, paper_id: str, version: int) -> int:
     logger.debug('get document ID with %s and %s', paper_id, version)
-    session = current_session()
     document_id = session.query(models.Submission.document_id) \
         .filter(models.Submission.doc_paper_id == paper_id) \
         .filter(models.Submission.version == version) \
@@ -557,9 +437,8 @@ def _create_replacement(document_id: int, paper_id: str, version: int,
     return dbs
 
 
-def _delete_replacement(document_id: int, paper_id: str, version: int) \
+def _delete_replacement(session: SQLAlchemySession, document_id: int, paper_id: str, version: int) \
         -> models.Submission:
-    session = current_session()
     dbs = session.query(models.Submission) \
         .filter(models.Submission.doc_paper_id == paper_id) \
         .filter(models.Submission.version == version) \
@@ -603,7 +482,7 @@ def _create_crosslist(document_id: int, categories: List[str], paper_id: str,
     return dbs
 
 
-def _create_jref(document_id: int, paper_id: str, version: int,
+def _create_jref(session: SQLAlchemySession, document_id: int, paper_id: str, version: int,
                  submission: Submission,
                  created: datetime) -> models.Submission:
     """
@@ -615,7 +494,7 @@ def _create_jref(document_id: int, paper_id: str, version: int,
     # Try to piggy-back on an existing JREF row. In the classic system, all
     # three fields can get updated on the same row.
     try:
-        most_recent_sb = _load(paper_id=paper_id, version=version,
+        most_recent_sb = _load(session, paper_id=paper_id, version=version,
                                row_type=models.Submission.JOURNAL_REFERENCE)
         if most_recent_sb and not most_recent_sb.is_announced():
             most_recent_sb.update_from_submission(submission)
@@ -654,11 +533,10 @@ def _preserve_sticky_hold(dbs: models.Submission, before: Submission,
 
 
 def _get_app_version() -> str:
-    return str(get_application_config().get('CORE_VERSION', '0.0.0'))
+    return '0.0.0'
 
 
-def _get_db_submission_rows(submission_id: int) -> List[models.Submission]:
-    session = current_session()
+def _get_db_submission_rows(session: SQLAlchemySession, submission_id: int) -> List[models.Submission]:
     head = session.query(models.Submission.submission_id,
                          models.Submission.doc_paper_id) \
         .filter_by(submission_id=submission_id) \
@@ -703,6 +581,10 @@ def to_submission(row: models.Submission,
     if submission_id is None:
         submission_id = row.submission_id
 
+    client = Client(native_id="bogus_built_from_submission_row",
+                    hostname = row.remote_host)
+    client.remote_addr = row.remote_addr
+
     license: Optional[domain.License] = None
     if row.license:
         label = LICENSES[row.license]['label']
@@ -735,6 +617,7 @@ def to_submission(row: models.Submission,
         submission_id=submission_id,
         creator=submitter,
         owner=submitter,
+        client=client,
         status=status,
         created=row.get_created(),
         updated=row.get_updated(),
@@ -856,4 +739,82 @@ def load(rows: Iterable[models.Submission]) -> Optional[domain.Submission]:
     submission = copy.deepcopy(versions[-1])
     submission.versions = [ver for ver in versions if ver and ver.is_announced]
     return submission
+
+
+def announce_submission(session: SQLAlchemySession, submission_id: int) -> None:
+    dbss = _get_db_submission_rows(session, submission_id)
+    head = sorted([o for o in dbss if o.is_new_version()], key=lambda o: o.submission_id)[-1]
+    if not head.is_announced():
+        head.status = Submission.ANNOUNCED
+    if head.document is None:
+        paper_id = datetime.now().strftime('%s')[-4:] \
+            + "." \
+            + datetime.now().strftime('%s')[-5:]
+        head.document = models.Document(paper_id=paper_id)
+        head.doc_paper_id = paper_id
+    session.add(head)
+    session.commit()
+
+
+def _get_head_idx(session: SQLAlchemySession, rows: List[Submission]) -> int:
+    """bdc34: Not sure what this is"""
+    raise NotImplementedError()
+
+def place_on_hold(session: SQLAlchemySession, submission_id: int) -> None:
+    """WARNING WARNING WARNING this is for testing purposes only."""
+    dbss = _get_db_submission_rows(session, submission_id)
+    i = _get_head_idx(dbss)
+    head = dbss[i]
+    if head.is_announced() or head.is_on_hold():
+        return
+    head.status = Submission.ON_HOLD
+    session.add(head)
+    session.commit()
+
+def apply_cross(session: SQLAlchemySession, submission_id: int) -> None:
+    """WARNING WARNING WARNING this is for testing purposes only."""
+
+    dbss = _get_db_submission_rows(session, submission_id)
+    i = _get_head_idx(dbss)
+    for dbs in dbss[:i]:
+        if dbs.is_crosslist():
+            dbs.status = Submission.ANNOUNCED
+            session.add(dbs)
+            session.commit()
+
+
+def reject_cross(session: SQLAlchemySession, submission_id: int) -> None:
+    """WARNING WARNING WARNING this is for testing purposes only."""
+
+    dbss = _get_db_submission_rows(submission_id)
+    i = _get_head_idx(dbss)
+    for dbs in dbss[:i]:
+        if dbs.is_crosslist():
+            dbs.status = Submission.REMOVED
+            session.add(dbs)
+            session.commit()
+
+
+def apply_withdrawal(session: SQLAlchemySession, submission_id: int) -> None:
+    """WARNING WARNING WARNING this is for testing purposes only."""
+
+    dbss = _get_db_submission_rows(submission_id)
+    i = _get_head_idx(dbss)
+    for dbs in dbss[:i]:
+        if dbs.is_withdrawal():
+            dbs.status = Submission.ANNOUNCED
+            session.add(dbs)
+            session.commit()
+
+
+def reject_withdrawal(session: SQLAlchemySession, submission_id: int) -> None:
+    """WARNING WARNING WARNING this is for testing purposes only."""
+
+    dbss = _get_db_submission_rows(submission_id)
+    i = _get_head_idx(dbss)
+    for dbs in dbss[:i]:
+        if dbs.is_withdrawal():
+            dbs.status = Submission.REMOVED
+            session.add(dbs)
+            session.commit()
 
