@@ -70,6 +70,32 @@ class Agent:
     #
     # def get_agent_identifier(self) -> str:
 
+
+    def endorsed_for(self, category: str) -> bool:
+        """
+        Check whether category is included in this endorsement authorization.
+
+        If a user/client is authorized for all categories in a particular
+        archive, the category names in :attr:`Authorization.endorsements` will
+        be compressed to a wildcard ``archive.*`` representation. If the
+        user/client is authorized for all categories in the system, this will
+        be compressed to "*.*".
+
+        Parameters
+        ----------
+        category : str of a category name
+           Check if it is included in this endorsement authorizations.
+
+        Returns
+        -------
+        bool
+
+        """
+        archive = category.split(".", 1)[0] if "." in category else category
+        return category in self.endorsements \
+            or f"{archive}.*" in self.endorsements \
+            or "*.*" in self.endorsements
+
     def __eq__(self, other: Any) -> bool:
         """Equality comparison for agents based on type and identifier."""
         if not isinstance(other, self.__class__):
