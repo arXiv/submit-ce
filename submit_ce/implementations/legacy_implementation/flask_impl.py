@@ -1,4 +1,5 @@
-from arxiv.auth.domain import Session as AuthSession
+from arxiv.auth.domain import Session as AuthSession, User as AuthUser
+from arxiv.auth.legacy.endorsements import get_endorsements
 from arxiv.db import Session
 from flask import request
 
@@ -22,9 +23,7 @@ def flask_get_user() -> User:
         forename=getattr(session.user.name, 'forename', None),
         surname=getattr(session.user.name, 'surname', None),
         suffix=getattr(session.user.name, 'suffix', None),
-        # todo from the legacy.db and jwt from tests/make_test_db.py I'm not getting endorsements
-        #endorsements=session.authorizations.endorsements
-        endorsements=[]
+        endorsements=get_endorsements(AuthUser(user_id=session.user.user_id))
     )
 
 

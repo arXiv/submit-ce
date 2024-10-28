@@ -14,7 +14,7 @@ from submit_ce.api.domain.event import UnFinalizeSubmission
 from arxiv.auth.domain import Session
 
 from submit_ce.ui.routes.flow_control import Response
-from submit_ce.ui.util import user_and_client_from_session
+from submit_ce.ui.auth import user_and_client_from_session
 from submit_ce.ui.controllers.util import validate_command
 
 from submit_ce.ui.util import load_submission

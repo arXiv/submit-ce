@@ -1,15 +1,26 @@
 import os
+import shutil
 from pathlib import Path
-from typing import IO
+from typing import IO, Optional
 from subprocess import Popen
 from hashlib import md5
 from base64 import urlsafe_b64encode
 
+from submit_ce.api import Upload
 from submit_ce.api.file_store import SubmissionFileStore
 
 
 class SecurityError(RuntimeError):
     """Something suspicious happened."""
+
+class Workspace():
+    """Not yet implemented."""
+    pass
+
+
+class UserFile:
+    pass
+
 
 class LegacyFileStore(SubmissionFileStore):
     """
@@ -63,6 +74,9 @@ class LegacyFileStore(SubmissionFileStore):
         """gid for owner group (must exist)."""
         self.source_prefix = source_prefix
         """Prefix in the {root}/{shard}/{id} directory to store the source."""
+
+    def get_workspace(self, submission_id: str, upload_id: Optional[str] = None) -> Optional[Upload]:
+        raise NotImplementedError()
 
     def get_source_file(self, submission_id: str, path: Path):
         pass
@@ -209,3 +223,74 @@ class LegacyFileStore(SubmissionFileStore):
         source_uid = self.source_uid
         source_gid = self.source_gid
         self._chmod_recurse(path, dir_mode, file_mode, source_uid, source_gid)
+
+
+    def makedirs(self, path: str) -> None:
+        """Make directories recursively for ``path``."""
+        abs_path = self.get_path_bare(path)
+        if not os.path.exists(abs_path):
+            os.makedirs(abs_path)
+
+    def is_safe(self, workspace: Workspace, path: str,
+                is_ancillary: bool = False, is_removed: bool = False,
+                is_persisted: bool = False, is_system: bool = False,
+                strict: bool = True) -> bool:
+        """Determine whether a path is safe to use."""
+        path_in_workspace = workspace.get_path(path, is_ancillary=is_ancillary,
+                                               is_removed=is_removed,
+                                               is_system=is_system)
+        full_path = self.get_path_bare(path_in_workspace,
+                                       is_persisted=is_persisted)
+        try:
+            self._check_safe(workspace, full_path, is_ancillary=is_ancillary,
+                             is_removed=is_removed, is_persisted=is_persisted,
+                             is_system=is_system, strict=strict)
+        except ValueError:
+            return False
+        return True
+
+    def _check_safe(self, workspace: Workspace, full_path: str,
+                    is_ancillary: bool = False, is_removed: bool = False,
+                    is_persisted: bool = False, is_system: bool = False,
+                    strict: bool = True) -> None:
+        if not strict or is_system:
+            wks_full_path = self.get_path_bare(workspace.base_path,
+                                               is_persisted=is_persisted)
+        elif is_ancillary:
+            wks_full_path = self.get_path_bare(workspace.ancillary_path,
+                                               is_persisted=is_persisted)
+        elif is_removed:
+            wks_full_path = self.get_path_bare(workspace.removed_path,
+                                               is_persisted=is_persisted)
+        else:
+            wks_full_path = self.get_path_bare(workspace.source_path,
+                                               is_persisted=is_persisted)
+        if wks_full_path not in full_path:
+            raise ValueError(f'Not a valid path for workspace: {full_path}')
+
+    def set_permissions(self, workspace: Workspace,
+                        file_mode: int = 0o664, dir_mode: int = 0o775) -> None:
+        """
+        Set the file permissions for all uploaded files and directories.
+
+        Applies to files and directories in submitter's upload source
+        directory.
+        """
+        for u_file in workspace.iter_files(allow_directories=True):
+            if u_file.is_directory:
+                os.chmod(self.get_path(workspace, u_file), dir_mode)
+            else:
+                os.chmod(self.get_path(workspace, u_file), file_mode)
+
+    def remove(self, workspace: Workspace, u_file: UserFile) -> None:
+        """Remove a file."""
+        src_path = self.get_path_bare(workspace.get_path(u_file), u_file.is_persisted)
+        dest_path = self.get_path_bare(workspace.get_path(u_file.path, is_removed=True),
+                                       is_persisted=u_file.is_persisted)
+        self._check_safe(workspace, src_path, is_ancillary=u_file.is_ancillary,
+                         is_persisted=u_file.is_persisted)
+        self._check_safe(workspace, dest_path, is_removed=True,
+                         is_persisted=u_file.is_persisted)
+        self._make_way(dest_path)
+        shutil.move(src_path, dest_path)
+

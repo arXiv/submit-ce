@@ -14,6 +14,7 @@ from arxiv.forms import csrf
 from arxiv.taxonomy.definitions import CATEGORIES_ACTIVE, ARCHIVES_ACTIVE
 from markupsafe import Markup
 
+from submit_ce.api import User
 from submit_ce.ui.backend import api
 from werkzeug.datastructures import MultiDict
 from werkzeug.exceptions import InternalServerError
@@ -26,7 +27,7 @@ from submit_ce.api.exceptions import SaveError
 from submit_ce.ui.controllers.util import OptGroupSelectField, validate_command
 from submit_ce.ui.routes.flow_control import ready_for_next, stay_on_this_stage
 from submit_ce.ui.util import load_submission
-from submit_ce.ui.util import user_and_client_from_session
+from submit_ce.ui.auth import user_and_client_from_session
 
 Response = Tuple[Dict[str, Any], int, Dict[str, Any]]  # pylint: disable=C0103
 
@@ -53,15 +54,16 @@ class ClassificationForm(csrf.CSRFForm):
     operation = HiddenField(default=ADD, validators=[validators.optional()])
     category = OptGroupSelectField('Category', choices=CATEGORIES, default='')
 
-    def filter_choices(self, submission: Submission, session: Session) -> None:
+    def filter_choices(self, submission: Submission, user: User) -> None:
         """Remove redundant choices, and limit to endorsed categories."""
+
         selected = self.category.data
         primary = submission.primary_classification
 
         choices = [
             (archive, [
                 (category, display) for category, display in archive_choices
-                if session.authorizations.endorsed_for(category)
+                if user.endorsed_for(category)
                 and (((primary is None or category != primary.category)
                       and category not in submission.secondary_categories)
                      or category == selected)
@@ -118,7 +120,7 @@ def classification(method: str, params: MultiDict, session: Session,
     params['operation'] = PrimaryClassificationForm.ADD
 
     form = PrimaryClassificationForm(params)
-    form.filter_choices(submission, session)
+    form.filter_choices(submission, submitter)
 
     response_data = {
         'submission_id': submission_id,
@@ -144,13 +146,13 @@ def classification(method: str, params: MultiDict, session: Session,
 
 def cross_list(method: str, params: MultiDict, session: Session,
                submission_id: int, **kwargs) -> Response:
-    """Handle secondary classification requests for a new submision."""
+    """Handle secondary classification requests for a new submission."""
     submitter, client = user_and_client_from_session(session)
     submission, submission_events = load_submission(submission_id)
 
     form = ClassificationForm(params)
     form.operation._value = lambda: form.operation.data
-    form.filter_choices(submission, session)
+    form.filter_choices(submission, submitter)
 
     # Create a formset to render removal option.
     #
@@ -158,8 +160,7 @@ def cross_list(method: str, params: MultiDict, session: Session,
     # When the forms in the formset are submitted, they are handled as the
     # primary form in the POST request to this controller.
     formset = ClassificationForm.formset(submission)
-    _primary_category = submission.primary_classification.category
-    _primary = taxonomy.CATEGORIES[_primary_category]
+    _primary = taxonomy.definitions.CATEGORIES[submission.primary_classification.category]
 
     response_data = {
         'submission_id': submission_id,
@@ -170,7 +171,7 @@ def cross_list(method: str, params: MultiDict, session: Session,
         'formset': formset,
         'primary': {
             'id': submission.primary_classification.category,
-            'name': _primary['name']
+            'name': _primary.full_name,
         },
     }
 
@@ -197,7 +198,7 @@ def cross_list(method: str, params: MultiDict, session: Session,
             response_data['formset'] = ClassificationForm.formset(submission)
             form = ClassificationForm()
             form.operation._value = lambda: form.operation.data
-            form.filter_choices(submission, session)
+            form.filter_choices(submission, submitter)
             response_data['form'] = form
 
             # do not go to next yet, re-show cross form

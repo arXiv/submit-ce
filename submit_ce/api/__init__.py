@@ -1,12 +1,25 @@
 """Core persistence methods for submissions and submission events."""
 
 from abc import ABC, abstractmethod
-from typing import Tuple, List, Optional
+from io import BytesIO
+from typing import Tuple, List, Optional, Sequence, Protocol
 
-from submit_ce.api.domain import Submission
+from submit_ce.api.domain import Submission, License, User, Client, Agent
 from submit_ce.api.domain.event import Event
 
 __all__ = ["SubmitApi"]
+
+from submit_ce.api.domain.uploads import Upload
+
+
+class SubmitFile(Protocol):
+    """Represents a file for a submission."""
+    filename: str
+    """Name of the file as provided by the client."""
+    content_type: str
+    """The MIME type of the file as provided by the client."""
+    file: BytesIO
+    """File contents as provided by the client."""
 
 
 class SubmitApi(ABC):
@@ -149,3 +162,33 @@ class SubmitApi(ABC):
             #     all_ = sorted(set(prior) | set(committed), key=lambda e: e.created)
             #     return after, list(all_)
             #
+
+    def upload(self, files: SubmitFile, submission_id: int, user: Agent, client: Client) -> Upload:
+        """Uploads a file to an existing submission.
+
+        Saves the `file` to storage and updates the state of the submission.
+        Parameters
+        ----------
+        files : :class:`.FileUpload`
+            The file to be uploaded.
+        submission_id : int
+            Identifier for the submission.
+        """
+        # TODO Should this just be an Event+save()?
+        ...
+
+    def licenses(self, active_only=True) -> List[License]:
+        """Gets a list of licenses that submitters can be set on the contents of submissions.
+
+        Parameters
+        ----------
+        active_only : bool
+           Whether to return only actively accepted license. If set to false, the list will include old licenses that
+           are not currently accepted.
+        """
+        ...
+
+
+    def categories_for_user(self, user_id: str) -> Optional[str]:
+        """Gets list of categories the user may submit to."""
+        ...

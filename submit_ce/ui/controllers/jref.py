@@ -20,7 +20,8 @@ from submit_ce.api.domain.event import SetDOI, SetJournalReference, \
 from submit_ce.api.exceptions import SaveError
 
 from submit_ce.ui.backend import api
-from submit_ce.ui.util import load_submission, user_and_client_from_session
+from submit_ce.ui.util import load_submission
+from ..auth import user_and_client_from_session
 from .util import FieldMixin, validate_command
 
 logger = logging.getLogger(__name__)  # pylint: disable=C0103

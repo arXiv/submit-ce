@@ -1,16 +1,14 @@
 """Utilities and helpers for the :mod:`submit_ce` application."""
 
 from typing import Optional, Tuple, List
-from datetime import datetime
 
-from arxiv.auth.domain import Session
 from flask import request
 from werkzeug.exceptions import NotFound
 
 from arxiv.base import logging
 
 from submit_ce.api.domain.event import Event
-from submit_ce.api.domain import User, Client, Submission
+from submit_ce.api.domain import Submission
 
 logger = logging.getLogger(__name__)
 logger.propagate = False
@@ -66,31 +64,3 @@ def tidy_filesize(size: int) -> str:
     return '{} {}'.format(size, units[units_index])
 
 
-# TODO: remove me!
-# TODO: currently this does nothing with the client. We will need to add that
-# bit once we have a plan for handling client information in this interface.
-def user_and_client_from_session(session: Session) \
-        -> Tuple[User, Optional[Client]]:
-    """
-    Get submission user/client representations from a :class:`.Session`.
-
-    When we're building submission-related events, we frequently need a
-    submission-friendly representation of the user or client responsible for
-    those events. This function generates those event-domain representations
-    from a :class:`arxiv.users.domain.Submission` object.
-    """
-    user = User(
-        session.user.user_id,
-        email=session.user.email,
-        forename=getattr(session.user.name, 'forename', None),
-        surname=getattr(session.user.name, 'surname', None),
-        suffix=getattr(session.user.name, 'suffix', None),
-        # todo from the legacy.db and jwt from tests/make_test_db.py I'm not getting endorsements
-        #endorsements=session.authorizations.endorsements
-        endorsements=[]
-    )
-    client = Client("totally_fake_cliet_native_id",
-                    )
-    client.remote_addr = request.remote_addr # not sure why it doesn't set in the constructor
-    client.hostname = ""
-    return user, client

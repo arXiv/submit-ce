@@ -36,7 +36,7 @@ if __name__ == '__main__':
 
 from sqlalchemy import create_engine, text
 import fire
-from submit_ce.api.config import DEV_SQLITE_FILE
+from submit_ce.ui.config import DEV_SQLITE_FILE
 
 import time
 import logging

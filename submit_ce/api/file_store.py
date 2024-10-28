@@ -1,24 +1,31 @@
 import os
 from abc import ABCMeta, abstractmethod
+from io import BytesIO
 from pathlib import Path
-from typing import IO
+from tempfile import SpooledTemporaryFile
+from typing import IO, Protocol, Iterator, Optional
+
+from submit_ce.api import SubmitFile, Upload
 
 
 class SubmissionFileStore(metaclass=ABCMeta):
+    @abstractmethod
+    def get_workspace(self, submission_id: str) -> Optional[Upload]:
+        """Returns information about the source package."""
+        pass
 
     @abstractmethod
-    def get_source_file(self, submission_id: str, path: Path) :
+    def get_source_file(self, submission_id: str, path: Path) -> BytesIO:
         """Retrieve a file from the filesystem.
 
         path should be one of:
          - a pathless file: main.tex
          - a file inside src: figures/fig1.jpg
          """
-        ...
-
+        pass
 
     @abstractmethod
-    def store_source_package(self, submission_id: str, content, chunk_size) -> str:
+    def store_source_package(self, submission_id: str, content: SubmitFile, chunk_size) -> str:
         """Store a source package for a submission.
 
         Returns checksum"""
@@ -33,8 +40,6 @@ class SubmissionFileStore(metaclass=ABCMeta):
     def does_source_exist(self, submission_id: str) -> bool:
         """Determine whether source has been deposited for a submission."""
         pass
-
-
 
     @abstractmethod
     def store_preview(self, submission_id: str, content: IO[bytes]) -> str:

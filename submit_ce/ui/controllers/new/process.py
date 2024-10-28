@@ -24,7 +24,7 @@ from werkzeug.datastructures import MultiDict
 from werkzeug.exceptions import InternalServerError, NotFound, MethodNotAllowed
 from wtforms import SelectField
 from .reasons import TEX_PRODUCED_MARKUP, DOCKER_ERROR_MARKUOP, SUCCESS_MARKUP
-from submit_ce.ui.util import user_and_client_from_session
+from ...auth import user_and_client_from_session
 from submit_ce.ui.routes.flow_control import ready_for_next, stay_on_this_stage
 from submit_ce.ui.util import load_submission
 

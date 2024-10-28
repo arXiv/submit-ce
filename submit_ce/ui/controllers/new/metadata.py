@@ -20,7 +20,7 @@ from submit_ce.api.domain.event import SetTitle, SetAuthors, SetAbstract, \
 from submit_ce.api.exceptions import SaveError
 
 from submit_ce.ui.util import load_submission
-from submit_ce.ui.util import user_and_client_from_session
+from submit_ce.ui.auth import user_and_client_from_session
 from submit_ce.ui.controllers.util import validate_command, FieldMixin
 
 from submit_ce.ui.routes.flow_control import ready_for_next, stay_on_this_stage

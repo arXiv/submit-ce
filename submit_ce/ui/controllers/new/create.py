@@ -16,7 +16,7 @@ from submit_ce.ui.backend import api
 from submit_ce.ui.controllers.util import validate_command
 from submit_ce.ui.routes.flow_control import advance_to_current, Response
 from submit_ce.ui.util import load_submission
-from submit_ce.ui.util import user_and_client_from_session
+from submit_ce.ui.auth import user_and_client_from_session
 
 logger = logging.getLogger(__name__)    # pylint: disable=C0103
 

@@ -20,7 +20,7 @@ from werkzeug.exceptions import BadRequest, MethodNotAllowed
 from wtforms import BooleanField, HiddenField
 from wtforms.validators import DataRequired
 
-from submit_ce.ui.util import user_and_client_from_session
+from submit_ce.ui.auth import user_and_client_from_session
 from submit_ce.ui.util import load_submission
 from submit_ce.ui.routes.flow_control import ready_for_next, \
     stay_on_this_stage, return_to_parent_stage

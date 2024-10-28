@@ -2,14 +2,15 @@ import logging
 from datetime import datetime, UTC
 from typing import Optional, List, Tuple, Callable
 
+from arxiv.auth.domain import User as AuthDomainUser
+from arxiv.auth.legacy.endorsements import get_endorsements
 from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session as SqlalchemySession, Session
 
-from submit_ce.api import domain as api, SubmitApi, Event
+from submit_ce.api import domain as api, SubmitApi, Event, License, SubmitFile, Agent, Client, Upload
 from submit_ce.api.file_store import SubmissionFileStore
 from submit_ce.implementations.file_store.legacy_file_store import LegacyFileStore
-from .auth import get_user_impl
 from .db import to_submission
 from .models import Submission, Document, SubmissionCategory
 from ...api.domain.event import CreateSubmission
@@ -328,4 +329,29 @@ class LegacySubmitImplementation(SubmitApi):
 
     def get_service_status(self, impl_data: dict):
         return f"{self.__class__.__name__}  impl_data: {impl_data}"
+
+    def licenses(self, active_only=True) -> List[License]:
+        with self.get_session() as session:
+            return db.get_licenses(session, active_only=active_only)
+
+
+    def categories_for_user(self, user_id: str) -> Optional[str]:
+        return get_endorsements(AuthDomainUser(user_id=user_id) )
+
+    def upload(self, file: SubmitFile, submission_id: int, user: Agent, client: Client) -> Upload:
+        """Saves file to legacy FS and sets the upload package on the submission."""
+        session = self.get_session()
+        check_user_authorized(session, user, client, submission_id)
+        submission, event_list = self._load(session, submission_id, lock_row=self.legacy_serialize_file_operations)
+        acceptable_types = ["application/gzip", "application/tar", "application/tar+gzip"]
+        if file.content_type not in acceptable_types:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                                detail="File content type must be one of {acceptable_types}")
+
+        checksum = self.store.store_source_package(submission.submission_id, file)
+        return self.store.get_source_package_information(submission.submission_id)
+        # TODO db changes for upload: source_format
+        # TODO db changes for upload: source_size
+        # TODO db changes for upload: package?
+
 

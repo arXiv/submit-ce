@@ -39,24 +39,7 @@ class OptGroupSelectField(SelectField):
 
     widget = OptGroupSelectWidget()
 
-    def pre_validate(self, form: Form) -> None:
-        """Don't forget to validate also values from embedded lists."""
-        for group_label, items in self.choices:
-            for value, label in items:
-                if value == self.data:
-                    return
-        raise ValueError(self.gettext('Not a valid choice'))
-
-    def _value(self) -> str:
-        data: str = self.data
-        return data
-
-
-class OptGroupSelectMultipleField(SelectMultipleField):
-    """A multiple select field with optgroups."""
-
-    widget = OptGroupSelectWidget(multiple=True)
-
+    # TODO bdc34 this is failing, it may not be needed since validation happens on the event
     # def pre_validate(self, form: Form) -> None:
     #     """Don't forget to validate also values from embedded lists."""
     #     for group_label, items in self.choices:
@@ -65,9 +48,10 @@ class OptGroupSelectMultipleField(SelectMultipleField):
     #                 return
     #     raise ValueError(self.gettext('Not a valid choice'))
 
-    def _value(self) -> List[str]:
-        data: List[str] = self.data
+    def _value(self) -> str:
+        data: str = self.data
         return data
+
 
 
 def validate_command(form: Form, event: Event,

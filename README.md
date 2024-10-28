@@ -16,10 +16,14 @@ pip install --no-deps -r requirements-dev.txt
 # make sqlite dev db
 python tests/make_test_db.py
 
+# this will give you an Authorization token, save that and use a browser extension
+# like modheader to add Authorization=eyJhb...
+
 python main.py
+
+google-chrome localhost:8080
 ```
 
-and open your browser at `http://localhost:8000/docs/` to see the docs.
 
 ## Build Docker Image
 

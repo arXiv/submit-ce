@@ -491,7 +491,7 @@ def _create_jref(session: SQLAlchemySession, document_id: int, paper_id: str, ve
     Adding DOIs and citation information (so-called "journal reference") also
     requires a new row. The version number is not incremented.
     """
-    # Try to piggy-back on an existing JREF row. In the classic system, all
+    # Try to piggyback on an existing JREF row. In the classic system, all
     # three fields can get updated on the same row.
     try:
         most_recent_sb = _load(session, paper_id=paper_id, version=version,

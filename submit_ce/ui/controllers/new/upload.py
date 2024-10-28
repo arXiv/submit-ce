@@ -9,7 +9,7 @@ Things that still need to be done:
   displaying it as a notification to the user).
 
 """
-
+import logging
 import traceback
 from collections import OrderedDict
 from http import HTTPStatus as status
@@ -17,11 +17,9 @@ from locale import strxfrm
 from typing import Tuple, Dict, Any, Optional, List, Union
 
 from arxiv.auth.domain import Session
-from arxiv.base import logging, alerts
+from arxiv.base import alerts
 from arxiv.forms import csrf
 from markupsafe import Markup
-
-from submit_ce.ui.backend import api
 from werkzeug.datastructures import FileStorage
 from werkzeug.datastructures import MultiDict
 from werkzeug.exceptions import (
@@ -34,12 +32,12 @@ from wtforms import BooleanField, FileField
 from submit_ce.api.domain import Client, User, Event
 from submit_ce.api.domain.event import SetUploadPackage, UpdateUploadPackage
 from submit_ce.api.domain.submission import SubmissionContent, Submission
-# from arxiv.submission.services import Filemanager
 from submit_ce.api.domain.uploads import Upload, FileStatus, UploadStatus
 from submit_ce.api.exceptions import SaveError
-from submit_ce.ui.routes.flow_control import stay_on_this_stage
-from submit_ce.ui.util import user_and_client_from_session
+from submit_ce.ui.auth import user_and_client_from_session
+from submit_ce.ui.backend import api
 from submit_ce.ui.controllers.util import add_immediate_alert, validate_command
+from submit_ce.ui.routes.flow_control import stay_on_this_stage
 from submit_ce.ui.util import load_submission, tidy_filesize
 
 logger = logging.getLogger(__name__)
@@ -52,10 +50,17 @@ PLEASE_CONTACT_SUPPORT = Markup(
 )
 
 
+class UploadForm(csrf.CSRFForm):
+    """Form for uploading files."""
+
+    file = FileField('Choose a file...')
+    ancillary = BooleanField('Ancillary')
+
+
 def upload_files(method: str, params: MultiDict, session: Session,
                  submission_id: int, files: Optional[MultiDict] = None,
                  token: Optional[str] = None, **kwargs) -> Response:
-    """Handle a file upload request.
+    """Controller function to handle a file upload request.
 
     GET requests are treated as a request for information about the current
     state of the ui-app upload.
@@ -78,7 +83,7 @@ def upload_files(method: str, params: MultiDict, session: Session,
         The identifier of the ui-app for which the upload is being made.
     token : str
         The original (encrypted) auth token on the request. Used to perform
-        subrequests to the file management service.
+        sub-requests to the file management service.
 
     Returns
     -------
@@ -95,12 +100,10 @@ def upload_files(method: str, params: MultiDict, session: Session,
     """
     rdata = {}
     if files is None or token is None:
-        add_immediate_alert(rdata, alerts.FAILURE,
-                            'Missing auth files or token')
+        add_immediate_alert(rdata, alerts.FAILURE, 'Missing auth files or token')
         return stay_on_this_stage((rdata, status.OK, {}))
 
     submission, _ = load_submission(submission_id)
-
     rdata.update({'submission_id': submission_id,
                   'ui-app': submission,
                   'form': UploadForm()})
@@ -108,56 +111,34 @@ def upload_files(method: str, params: MultiDict, session: Session,
     if method not in ['GET', 'POST']:
         raise MethodNotAllowed()
     elif method == 'GET':
-        logger.debug('GET; load current upload state')
         return _get_upload(params, session, submission, rdata, token)
     elif method == 'POST':
-        try:    # Make sure that we have a file to work with.
-            pointer = files['file']
-        except KeyError:   # User is going back, saving/exiting, or next step.
-            pointer = None
-
-        if not pointer:
-            # Don't flash a message if the user is just trying to go back to the
-            # previous page.
+        if not files or 'file' not in files or not files['file']:
             logger.debug('No files on request')
-            action = params.get('action', None)
-            if action:
-                logger.debug('User is navigating away from upload UI')
+            if params.get('action', None):  # Don't flash a message if trying to go back to previous page
                 return {}, status.SEE_OTHER, {}
             else:
-                return stay_on_this_stage(_get_upload(params, session,
-                                                      submission, rdata, token))
+                return stay_on_this_stage(_get_upload(params, session, submission, rdata, token))
 
+        pointer = files['file']
         try:
             if submission.source_content is None:
-                logger.debug('New upload package')
                 return _new_upload(params, pointer, session, submission, rdata, token)
             else:
-                logger.debug('Adding additional files')
                 return _new_file(params, pointer, session, submission, rdata, token)
         except RequestEntityTooLarge as ex:
-            logger.debug('Problem POSTing upload: %s', ex)
-            alerts.flash_failure(Markup(
-                'There was a problem uploading your file because it exceeds '
-                f'our maximum size limit. {PLEASE_CONTACT_SUPPORT}'))
-        except Exception as ex:
-            logger.debug('Problem POSTing upload: %s', ex)
-            alerts.flash_failure(Markup(
-                'There was a problem uploading your file. '
-                f'{PLEASE_CONTACT_SUPPORT}'))
+            logger.warning('POSTed upload was too large', ex)
+            alerts.flash_failure(Markup('There was a problem uploading your file because it exceeds '
+                                        'our maximum size limit. ' + PLEASE_CONTACT_SUPPORT))
+        except Exception:
+            logger.exception('Problem POSTing upload')
+            alerts.flash_failure(Markup('There was a problem uploading your file. ' + PLEASE_CONTACT_SUPPORT))
 
         return stay_on_this_stage(_get_upload(params, session, submission, rdata, token))
 
 
-class UploadForm(csrf.CSRFForm):
-    """Form for uploading files."""
-
-    file = FileField('Choose a file...')
-    ancillary = BooleanField('Ancillary')
-
-
-def _update(form: UploadForm, submission: Submission, stat: Upload,
-            submitter: User, client: Optional[Client] = None) \
+def _update_submission(form: UploadForm, submission: Submission, stat: Upload,
+                       submitter: User, client: Optional[Client] = None) \
         -> Optional[Submission]:
     """
     Update the :class:`.Submission` after an upload-related action.
@@ -234,23 +215,14 @@ def _get_upload(params: MultiDict, session: Session, submission: Submission,
     rdata.update({'status': None, 'form': UploadForm()})
 
     if submission.source_content is None:
-        # Nothing to show; should generate a blank-slate upload screen.
-        return rdata, status.OK, {}
-
-    fm = Filemanager.current_session()
+        return rdata, status.OK, {}  # Nothing to show; generate a blank-slate upload page
 
     upload_id = submission.source_content.identifier
     status_data = alerts.get_hidden_alerts('_status')
     if type(status_data) is dict and status_data['identifier'] == upload_id:
         stat = Upload.from_dict(status_data)
     else:
-        try:
-            stat = fm.get_upload_status(upload_id, token)
-        except exceptions.RequestFailed as ex:
-            # TODO: handle specific failure cases.
-            logger.debug('Failed to get upload status: %s', ex)
-            logger.error(traceback.format_exc())
-            raise InternalServerError(rdata) from ex
+        stat = api.get_upload_status(upload_id)
     rdata.update({'status': stat})
     if stat:
         rdata.update({'immediate_notifications': _get_notifications(stat)})
@@ -285,13 +257,12 @@ def _new_upload(params: MultiDict, pointer: FileStorage, session: Session,
     int
         HTTP status code. This should be ``303``, unless something goes wrong.
     dict
-        Extra headers to add/update on the response. This should include
-        the `Location` header for use in the 303 redirect response.
+        Extra headers to add/update on the response. Should include the `Location` header for use in a 303 redirect.
 
     """
-    submitter, client = user_and_client_from_session(session)
-    fm = Filemanager.current_session()
 
+    logger.debug('New upload package')
+    submitter, client = user_and_client_from_session(session)
     params['file'] = pointer
     form = UploadForm(params)
     rdata.update({'form': form})
@@ -300,18 +271,7 @@ def _new_upload(params: MultiDict, pointer: FileStorage, session: Session,
         logger.debug('Invalid form data')
         return stay_on_this_stage((rdata, status.OK, {}))
 
-    try:
-        stat = fm.upload_package(pointer, token)
-    except Exception as ex:
-        alerts.flash_failure(Markup(
-            'There was a problem carrying out your request. Please try'
-            f' again. {PLEASE_CONTACT_SUPPORT}'
-        ))
-        logger.debug('Failed to upload package: %s', ex)
-        logger.error(traceback.format_exc())
-        raise InternalServerError(rdata) from ex
-
-    submission = _update(form, submission, stat, submitter, client)
+    stat = api.upload(form.file, submission.submission_id)
     converted_size = tidy_filesize(stat.size)
     if stat.status is UploadStatus.READY:
         alerts.flash_success(
@@ -335,9 +295,6 @@ def _new_upload(params: MultiDict, pointer: FileStorage, session: Session,
 
     rdata.update({'status': stat})
     return stay_on_this_stage((rdata, status.OK, {}))
-
-#    loc = url_for('ui.file_upload', submission_id=ui-app.submission_id)
-#    return {}, status.SEE_OTHER, {'Location': loc}
 
 
 def _new_file(params: MultiDict, pointer: FileStorage, session: Session,
@@ -372,6 +329,7 @@ def _new_file(params: MultiDict, pointer: FileStorage, session: Session,
         the `Location` header for use in the 303 redirect response.
 
     """
+    logger.debug('Adding additional files')
     submitter, client = user_and_client_from_session(session)
     fm = Filemanager.current_session()
     upload_id = submission.source_content.identifier
@@ -412,7 +370,7 @@ def _new_file(params: MultiDict, pointer: FileStorage, session: Session,
         logger.error(traceback.format_exc())
         raise InternalServerError(rdata) from ex
 
-    submission = _update(form, submission, stat, submitter, client)
+    submission = _update_submission(form, submission, stat, submitter, client)
     converted_size = tidy_filesize(stat.size)
     if stat.status is UploadStatus.READY:
         alerts.flash_success(
@@ -439,7 +397,6 @@ def _new_file(params: MultiDict, pointer: FileStorage, session: Session,
 
 
 def _get_notifications(stat: Upload) -> List[Dict[str, str]]:
-    # TODO: these need wordsmithing.
     notifications = []
     if not stat.files:   # Nothing in the upload workspace.
         return notifications

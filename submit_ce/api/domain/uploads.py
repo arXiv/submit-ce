@@ -90,7 +90,7 @@ class UploadLifecycleStates(Enum):  # type: ignore
     RELEASED = 'RELEASED'
     DELETED = 'DELETED'
 
-
+# TODO Maybe this should not be a NamedTuple?
 class Upload(NamedTuple):
     """Represents the state of an upload workspace."""
 

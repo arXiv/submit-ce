@@ -15,7 +15,8 @@ from arxiv.base import logging, alerts
 from arxiv.forms import csrf
 from submit_ce.api.domain.event import RequestWithdrawal
 
-from submit_ce.ui.util import load_submission, user_and_client_from_session
+from submit_ce.ui.util import load_submission
+from ..auth import user_and_client_from_session
 from .util import FieldMixin, validate_command
 from submit_ce.ui.backend import api
 from submit_ce.api.exceptions import SaveError

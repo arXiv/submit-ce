@@ -101,7 +101,7 @@ def get_category_name(category: str) -> str:
         Raised if the specified category is not found in the active categories.
 
     """
-    return taxonomy.CATEGORIES_ACTIVE[category]['name']
+    return taxonomy.definitions.CATEGORIES_ACTIVE[category].full_name
 
 
 def process_status_display(status: ProcessStatus.Status) -> str:

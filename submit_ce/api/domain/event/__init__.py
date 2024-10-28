@@ -1,9 +1,10 @@
 """
 Data structures for submissions events.
 
-- Events have unique identifiers generated from their data (creation, agent,
-  submission).
-- Events provide methods to update a submission based on the event data.
+TODO update this documentation, it is from NG and is stale
+
+- Events have unique identifiers generated from their data (creation, agent, submission).
+- Events provide methods to update a `Submission` based on the event data.
 - Events provide validation methods for event data.
 
 Writing new events/commands
@@ -19,14 +20,12 @@ It should:
 - Implement a projection method with the signature
   ``project(self, submission: Submission) -> Submission:`` that mutates
   the passed :class:`.domain.submission.Submission` instance.
-  The projection *must not* generate side-effects, because it will be called
-  any time we are generating the state of a submission. If you need to
-  generate a side-effect, see :ref:`callbacks`\.
+  The projection *must not* generate side effects, because it will be called
+  any time we are generating the state of a submission.
 - Be fully documented. Be sure that the class docstring fully describes the
   meaning of the event/command, and that both public and private methods have
   at least a summary docstring.
-- Have a corresponding :class:`unittest.TestCase` in
-  :mod:`arxiv.submission.domain.tests.test_events`.
+- Have a corresponding :class:`unittest.TestCase` in :mod:`arxiv.submission.domain.tests.test_events`.
 
 Adding validation to events
 ===========================
@@ -46,57 +45,6 @@ See :class:`.SetPrimaryClassification` for an example.
 We could consider standalone validation functions for validation checks that
 are performed on several event types (instead of just private instance
 methods).
-
-.. _callbacks:
-
-Registering event callbacks
-===========================
-
-The base :class:`Event` provides support for callbacks that are executed when
-an event instance is committed. To attach a callback to an event type, use the
-:func:`Event.bind` decorator. For example:
-
-.. code-block:: python
-
-   @SetTitle.bind()
-   def do_this_when_a_title_is_set(event, before, after, agent):
-       ...
-       return []
-
-
-Callbacks must have the signature ``(event: Event, before: Submission,
-after: Submission, creator: Agent) -> Iterable[Event]``. ``event`` is the
-event instance being committed that triggered the callback. ``before`` and
-``after`` are the states of the submission before and after the event was
-applied, respectively. ``agent`` is the agent responsible for any subsequent
-events created by the callback, and should be used for that purpose.
-
-The callback should not concern itself with persistence; that is handled by
-:func:`Event.commit`. Any mutations of submission should be made by returning
-the appropriate command/event instances.
-
-The circumstances under which the callback is executed can be controlled by
-passing a condition callable to the decorator. This should have the signature
-``(event: Event, before: Submission, after: Submission, creator: Agent) ->
-bool``; if it returns ``True``, the  callback will be executed. For example:
-
-.. code-block:: python
-
-   @SetTitle.bind(condition=lambda e, b, a, c: e.title == 'foo')
-   def do_this_when_a_title_is_set_to_foo(event, before, after, agent):
-       ...
-       return []
-
-
-When do things actually happen?
--------------------------------
-Callbacks are triggered when the :func:`.commit` method is called,
-usually by :func:`.core.save`. Normally, any event instances returned
-by the callback are applied and committed right away, in order.
-
-Setting :mod:`.config.ENABLE_CALLBACKS=0` will disable callbacks
-entirely.
-
 """
 
 import copy
@@ -106,7 +54,6 @@ from datetime import datetime
 from typing import Optional, List, Union, ClassVar
 
 import bleach
-from arxiv import taxonomy
 from arxiv.taxonomy.definitions import CATEGORIES
 from pytz import UTC
 
@@ -142,11 +89,6 @@ ActiveCategory = str
 #Category = Annotated[str, AfterValidator(is_category)]
 Category = str
 """Type for a category active or inactive."""
-
-
-# Events related to the creation of a new submission.
-#
-# These are largely the domain of the metadata API, and the submission UI.
 
 
 class CreateSubmission(Event):

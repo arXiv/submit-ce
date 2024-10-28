@@ -20,7 +20,7 @@ from submit_ce.api.domain.event import ConfirmContactInformation
 
 from submit_ce.ui.util import load_submission
 from submit_ce.ui.controllers.util import validate_command
-from submit_ce.ui.util import    user_and_client_from_session
+from submit_ce.ui.auth import user_and_client_from_session
 from submit_ce.ui.routes.flow_control import ready_for_next, stay_on_this_stage
     
 logger = logging.getLogger(__name__)    # pylint: disable=C0103
