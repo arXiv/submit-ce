@@ -25,6 +25,7 @@ def check_user_authorized(session: Session, user: api.User, client: api.Client, 
     # TODO implement is_locked on submission
     pass
 
+
 class LegacySubmitImplementation(SubmitApi):
     """
     Implementation of `SubmitApi` that interoperates with legacy submission by writing to SFS and DB.
@@ -48,8 +49,7 @@ class LegacySubmitImplementation(SubmitApi):
         self.serialize_file_operations = serialize_file_operations
 
         if store is None:
-            #self.store = LegacyFileStore(root_dir=legacy_specific_settings.legacy_root_dir)
-            self.store = LegacyFileStore(root_dir="data/new") # for testing only
+            self.store = LegacyFileStore(root_dir="data/new")  # for testing only
         else:
             self.store = store
 
@@ -95,10 +95,9 @@ class LegacySubmitImplementation(SubmitApi):
                 if event.submission_id is None and submission_id is not None:
                     event.submission_id = submission_id
 
-                # The created timestamp should be roughly when the event was
-                # committed. Since the event may refer to its own ID
-                # which in future versions should be based on the creation time, this must be set before
-                # the event is applied.
+                # The created timestamp should be roughly when the event was committed.
+                # Since the event may refer to its own ID which in future versions should be based on the
+                # creation time, this must be set before the event is applied.
                 event.created = datetime.now(UTC)
                 logger.debug('Apply event %s: %s', event.event_id, event.NAME)
                 after = event.apply(before)
@@ -111,221 +110,6 @@ class LegacySubmitImplementation(SubmitApi):
             all_ = sorted(existing_events + committed, key=lambda e: e.created)
             session.commit()
             return after, list(all_)
-
-
-
-    #
-    # def start(self, impl_data: Dict, user: api.User, client: api.Client, started: Union[StartedNew, StartedAlterExising]) -> str:
-    #     session = self.get_session()
-    #     now = datetime.datetime.utcnow()
-    #     submission = Submission(submitter_id=user.identifier,
-    #                             submitter_name=user.get_name(),
-    #                             submitter_email=user.email,
-    #                             userinfo=0,
-    #                             agree_policy=0,
-    #                             viewed=0,
-    #                             stage=0,
-    #                             created=now,
-    #                             updated=now,
-    #                             source_size=0,
-    #                             allow_tex_produced=0,
-    #                             is_oversize=0,
-    #                             auto_hold=0,
-    #                             remote_addr=client.remoteAddress,
-    #                             remote_host=client.remoteHost,
-    #                             type=started.submission_type,
-    #                             package="",
-    #                             must_process=1,
-    #                             )
-    #
-    #     if isinstance(started, StartedAlterExising):
-    #         doc = session.scalars(select(Document).where(Document.paper_id==started.paperid)).first()
-    #         if not doc:
-    #             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail="Existing paper not found.")
-    #         elif doc.submitter_id != user.identifier:
-    #             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,detail="Not submitter of existing paper.")
-    #         else:
-    #             submission.document_id = doc.document_id
-    #             submission.doc_paper_id = doc.paper_id
-    #
-    #     session.add(submission)
-    #     session.commit()
-    #     return str(submission.submission_id)
-    #
-    #
-    # # TODO need to do "userinfo" attestation
-    #
-    # def accept_policy_post(self, impl_data: Dict, user: api.User, client: api.Client,
-    #                              submission_id: str,
-    #                              agreement: AgreedToPolicy) -> object:
-    #     session = impl_data["session"]
-    #     submission = check_submission_exists(session, submission_id)
-    #     if agreement.accepted_policy_id != 3:
-    #         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-    #                             detail=f"policy {agreement.accepted_policy_id} is not the currently accepted policy.")
-    #     if submission.agree_policy == 1:
-    #         return
-    #     submission.agreement_id = agreement.accepted_policy_id
-    #     submission.agree_policy = 1
-    #     session.commit()
-    #
-    # def set_license_post(self, impl_data: dict, user: api.User, client: api.Client,
-    #                            submission_id: str, set_license: SetLicense) -> None:
-    #     session = impl_data["session"]
-    #     check_user_authorized(session, user, client, submission_id)
-    #     submission = check_submission_exists(session, submission_id)
-    #     submission.license = set_license.license_uri
-    #     session.commit()
-    #
-    # def assert_authorship_post(self, impl_data: Dict, user: api.User, client: api.Client,
-    #                                  submission_id: str, authorship: Union[AuthorshipDirect, AuthorshipProxy]) -> str:
-    #     session = impl_data["session"]
-    #     check_user_authorized(session, user, client, submission_id)
-    #     submission = check_submission_exists(session, submission_id)
-    #     if isinstance(authorship, AuthorshipDirect):
-    #         submission.is_author=1
-    #     else:
-    #         submission.is_author=0
-    #         submission.proxy=authorship.proxy
-    #     session.commit()
-    #     return "success"
-    #
-    # def file_post(self, impl_data: Dict, user: api.User, client: api.Client, submission_id: str, uploadFile: UploadFile):
-    #     session: SqlalchemySession = impl_data["session"]
-    #     check_user_authorized(session, user, client, submission_id)
-    #     submission = check_submission_exists(session, submission_id,
-    #                                          lock_row=legacy_specific_settings.legacy_serialize_file_operations)
-    #     acceptable_types = ["application/gzip", "application/tar", "application/tar+gzip"]
-    #     if uploadFile.content_type in acceptable_types:
-    #         checksum = self.store.store_source_package(submission.submission_id, uploadFile)
-    #
-    #     # TODO db changes for upload: source_format
-    #     # TODO db changes for upload: source_size
-    #     # TODO db changes for upload: package?
-    #
-    #     else:
-    #         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-    #                             detail="File content type must be one of {acceptable_types}"\
-    #                             " but it was {uploadFile.content_type}."
-    #                             )
-    #
-    # def set_categories_post(self, impl_data: Dict, user: api.User, client: api.Client, submission_id: str,
-    #                               data: SetCategories):
-    #     session: SqlalchemySession = impl_data["session"]
-    #     check_user_authorized(session, user, client, submission_id)
-    #     submission = check_submission_exists(session, submission_id)
-    #
-    #     # similar to code in modapi routes.py
-    #     stmt = select(SubmissionCategory).where(SubmissionCategory.submission_id == submission.submission_id)
-    #     early_rows = session.scalars(stmt).all()
-    #     early_primary = next((c.category for c in early_rows if c.is_primary), None)
-    #     early_categories = set(c.category for c in early_rows)
-    #
-    #     new_primary = data.primary_category
-    #     new_secondaries = set(data.secondary_categories)
-    #     new_categories = new_secondaries.copy()
-    #     if new_primary:
-    #         new_categories.add(new_primary)
-    #
-    #     add_categories = new_categories - early_categories
-    #     del_categories = early_categories - new_categories
-    #
-    #     updates = set()
-    #     for cat in add_categories:
-    #         if cat == new_primary:
-    #             updates.add("primary")
-    #         else:
-    #             updates.add("secondary")
-    #         session.add(SubmissionCategory(
-    #             submission_id=submission.submission_id,
-    #             category=cat,
-    #             is_primary=cat == new_primary,
-    #             is_published=0,
-    #         ))
-    #
-    #     for cat in del_categories:
-    #         if cat == new_primary:
-    #             updates.add("primary")
-    #         else:
-    #             updates.add("secondary")
-    #         row = [row for row in early_rows if row.category == cat]
-    #         session.delete(row[0])
-    #
-    #     if updates:
-    #         session.commit()
-    #         #self.admin_log(session, user, f"Edited: {','.join(updates)}", command="edit metadata")
-    #
-    #     result = CategoryChange()
-    #     eps = set() if not early_primary else set([early_primary])
-    #     if early_primary != new_primary:
-    #         result.old_primary = early_primary
-    #         result.new_primary = new_primary
-    #     if new_secondaries != early_categories - eps:
-    #         result.old_secondaries = list(early_categories - eps)
-    #         result.new_secondaries = list(new_categories)
-    #     return result
-    #
-    # def set_metadata_post(self, impl_data: Dict, user: api.User, client: api.Client, submission_id: str,
-    #                             metadata: Union[SetMetadata]):
-    #     session: SqlalchemySession = impl_data["session"]
-    #     check_user_authorized(session, user, client, submission_id)
-    #     submission = check_submission_exists(session, submission_id)
-    #     update = []
-    #     # TODO add checks
-    #     if metadata.abstract != submission.abstract:
-    #         submission.abstract = metadata.abstract
-    #         update.append("abstract")
-    #     if metadata.authors != submission.authors:
-    #         submission.authors = metadata.authors
-    #         update.append("authors")
-    #     if metadata.title != submission.title:
-    #         submission.title = metadata.title
-    #         update.append("title")
-    #     if metadata.comments != submission.comments:
-    #         submission.comments = metadata.comments
-    #         update.append("comments")
-    #     if metadata.acm_class != submission.acm_class:
-    #         submission.acm_class = metadata.acm_class
-    #         update.append("acm_class")
-    #     if metadata.msc_class != submission.msc_class:
-    #         submission.msc_class = metadata.msc_class
-    #         update.append("msc_class")
-    #     if metadata.report_num != submission.report_num:
-    #         submission.report_num = metadata.report_num
-    #         update.append("report_num")
-    #     if metadata.journal_ref != submission.journal_ref:
-    #         submission.journal_ref = metadata.journal_ref
-    #         update.append("journal_ref")
-    #     if metadata.doi != submission.doi:
-    #         submission.doi = metadata.doi
-    #         update.append("doi")
-    #
-    #     """Why is does it let blank fields in metadata?
-    #      Because those whill be handled by workflows and conditions.
-    #      (Or folks will tell us "absolutely no partial metadata! and we'll change this)"""
-    #
-    #     if update:
-    #         # TODO Write admin_log
-    #         session.commit()
-    #
-    #     return ",".join(update)
-    #
-    # def verify_user_post(self, impl_data: Dict, user: User, client: Client, submission_id: str, verifyUser: VerifyUser):
-    #     # session: SqlalchemySession = impl_data["session"]
-    #     # check_user_authorized(session, user, client, submission_id)
-    #     # submission = check_submission_exists(session, submission_id)
-    #     # TODO legacy lacks a concept of "users has verified their info"
-    #     pass
-    #
-    # def mark_deposited_post(self, impl_data: Dict, user: api.User, client: api.Client, submission_id: str) -> None:
-    #     pass
-    #
-    # def mark_processing_for_deposit_post(self, impl_data: Dict, user: api.User, client: api.Client, submission_id: str) -> None:
-    #     pass
-    #
-    # def unmark_processing_for_deposit_post(self, impl_data: Dict, user: api.User, client: api.Client, submission_id: str) -> None:
-    #     pass
-
 
     def get_service_status(self, impl_data: dict):
         return f"{self.__class__.__name__}  impl_data: {impl_data}"
@@ -342,14 +126,14 @@ class LegacySubmitImplementation(SubmitApi):
         """Saves file to legacy FS and sets the upload package on the submission."""
         session = self.get_session()
         check_user_authorized(session, user, client, submission_id)
-        submission, event_list = self._load(session, submission_id, lock_row=self.legacy_serialize_file_operations)
+        submission, event_list = self._load(session, submission_id, lock_row=self.serialize_file_operations)
         acceptable_types = ["application/gzip", "application/tar", "application/tar+gzip"]
         if file.content_type not in acceptable_types:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
                                 detail="File content type must be one of {acceptable_types}")
 
-        checksum = self.store.store_source_package(submission.submission_id, file)
-        return self.store.get_source_package_information(submission.submission_id)
+        self.store.store_source_package(submission.submission_id, file)
+        return self.store.get_workspace(submission.submission_id, "fakeuploadid")
         # TODO db changes for upload: source_format
         # TODO db changes for upload: source_size
         # TODO db changes for upload: package?

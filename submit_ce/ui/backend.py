@@ -1,25 +1,17 @@
 """Core persistence methods for submissions and submission events."""
-import logging
-from typing import List, Tuple, Optional
 
 from arxiv.db import Session, session_factory, configure_db
 from flask import request
 from werkzeug.exceptions import Unauthorized
 
 from submit_ce.api import SubmitApi
-from submit_ce.api.domain import Submission
 from submit_ce.api.domain import User, Client
-from submit_ce.api.domain.event import Event
 from submit_ce.implementations.legacy_implementation.flask_impl import FlaskSubmitImplementation
+
 
 def config_backend_api(settings)-> None:
     engine, _ = configure_db(settings)
-    session_factory.configure(
-        bind=engine,
-    #     binds={
-    #     models.Base: engine,
-    # },
-    )
+    session_factory.configure(bind=engine)
 
 
 api: SubmitApi = FlaskSubmitImplementation()
@@ -52,7 +44,7 @@ def get_client() -> Client:
     else:
         agent_type = ua[:20]
 
-    # todo hostname
+    # TODO hostname
     return Client(
         remoteAddress=request.remote_addr,
         remoteHost="",

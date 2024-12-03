@@ -91,6 +91,7 @@ class UploadLifecycleStates(Enum):  # type: ignore
     DELETED = 'DELETED'
 
 # TODO Maybe this should not be a NamedTuple?
+# TODO `Upload` is a bad name, maybe Worksapce?
 class Upload(NamedTuple):
     """Represents the state of an upload workspace."""
 

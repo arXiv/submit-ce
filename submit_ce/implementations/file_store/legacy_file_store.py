@@ -1,12 +1,14 @@
 import os
 import shutil
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import IO, Optional
+from typing import IO, Optional, List
 from subprocess import Popen
 from hashlib import md5
 from base64 import urlsafe_b64encode
 
 from submit_ce.api import Upload
+from submit_ce.api.domain.uploads import UploadLifecycleStates, UploadStatus, FileStatus
 from submit_ce.api.file_store import SubmissionFileStore
 
 
@@ -75,9 +77,6 @@ class LegacyFileStore(SubmissionFileStore):
         self.source_prefix = source_prefix
         """Prefix in the {root}/{shard}/{id} directory to store the source."""
 
-    def get_workspace(self, submission_id: str, upload_id: Optional[str] = None) -> Optional[Upload]:
-        raise NotImplementedError()
-
     def get_source_file(self, submission_id: str, path: Path):
         pass
 
@@ -91,7 +90,37 @@ class LegacyFileStore(SubmissionFileStore):
         """Determine whether the filesystem is available."""
         return os.path.exists(self.root_dir)
 
-    async def store_source_package(self,
+    def get_workspace(self, submission_id: str, upload_id: str) -> Upload:
+        src_dir = self._source_path(submission_id)
+        anc_dir = (src_dir / "anc")
+        files: List[FileStatus] = []
+        for path in Path(self._source_path(submission_id)).rglob("*"):
+            stat = path.stat()
+            files.append(FileStatus(str(path.relative_to(src_dir)),
+                                    path.name,
+                                    "unknown",
+                                    stat.st_size,
+                                    datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc),
+                                    anc_dir in path.parent.parents,
+                                    []))
+
+        return Upload(
+            identifier=submission_id,
+            checksum='fake-checksum-asdf1234',
+            size=sum([file.size for file in files]),
+            started=datetime.now(),
+            completed=datetime.now(),
+            created=datetime.now(),
+            modified=datetime.now(),
+            status=UploadStatus.READY,
+            lifecycle=UploadLifecycleStates.ACTIVE,
+            locked=False,
+            files=files,
+            errors=[]
+        )
+
+
+    def store_source_package(self,
                      submission_id: int,
                      content: IO[bytes],
                      chunk_size: int = 4096) -> str:

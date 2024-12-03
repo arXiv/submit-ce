@@ -18,7 +18,7 @@ class SubmitFile(Protocol):
     """Name of the file as provided by the client."""
     content_type: str
     """The MIME type of the file as provided by the client."""
-    file: BytesIO
+    stream: BytesIO
     """File contents as provided by the client."""
 
 

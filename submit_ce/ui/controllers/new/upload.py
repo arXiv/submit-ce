@@ -271,7 +271,7 @@ def _new_upload(params: MultiDict, pointer: FileStorage, session: Session,
         logger.debug('Invalid form data')
         return stay_on_this_stage((rdata, status.OK, {}))
 
-    stat = api.upload(form.file, submission.submission_id)
+    stat = api.upload(form.data['file'], submission.submission_id, submitter, client)
     converted_size = tidy_filesize(stat.size)
     if stat.status is UploadStatus.READY:
         alerts.flash_success(

@@ -14,7 +14,7 @@ from wtforms.validators import ValidationError, optional
 
 from arxiv.base import logging, alerts
 from arxiv.forms import csrf
-from submit_ce.ui.backend import Submission, api
+from submit_ce.ui.backend import api
 from submit_ce.api.domain.event import RequestCrossList
 from submit_ce.api.exceptions import SaveError
 from arxiv.taxonomy.definitions import CATEGORIES_ACTIVE as CATEGORIES
@@ -24,6 +24,7 @@ from submit_ce.ui.util import load_submission
 from ..auth import user_and_client_from_session
 from .util import OptGroupSelectField, \
     validate_command
+from ...api import Submission
 
 logger = logging.getLogger(__name__)  # pylint: disable=C0103
 
