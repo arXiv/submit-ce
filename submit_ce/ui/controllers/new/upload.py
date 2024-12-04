@@ -14,6 +14,7 @@ import traceback
 from collections import OrderedDict
 from http import HTTPStatus as status
 from locale import strxfrm
+from pathlib import Path
 from typing import Tuple, Dict, Any, Optional, List, Union
 
 from arxiv.auth.domain import Session
@@ -458,17 +459,20 @@ def group_files(files: List[FileStatus]) -> OrderedDict:
     """
     # First step is to organize by file tree.
     tree = {}
-    for f in files:
-        parts = f.path.split('/')
-        if len(parts) == 1:
-            tree[f.name] = f
-        else:
-            subtree = tree
-            for part in parts[:-1]:
-                if part not in subtree:
-                    subtree[part] = {}
-                subtree = subtree[part]
-            subtree[parts[-1]] = f
+    for file in files:
+        path = Path(file.path)
+        level = tree
+        for p in reversed(path.parents):
+            if str(p) == '.':
+                continue
+            if p.name in level and isinstance(level[p.name], dict):
+                level = level[p.name]
+            else:
+                new_level = {}
+                level[p.name] = new_level
+                level = new_level
+        level[path.name] = file
+
 
     # Reorder subtrees for nice display.
     def _order(node: Union[dict, FileStatus]) -> OrderedDict:
