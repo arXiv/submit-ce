@@ -173,6 +173,10 @@ class SubmitApi(ABC):
             The file to be uploaded.
         submission_id : int
             Identifier for the submission.
+        user : :class:`.User`
+            User making the upload
+        client : :class:`.Client`
+            Client tool making the upload.
         """
         # TODO Should this just be an Event+save()?
         ...

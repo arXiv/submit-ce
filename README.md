@@ -14,7 +14,7 @@ pip install --no-deps -r requirements.txt
 pip install --no-deps -r requirements-dev.txt
 
 # make sqlite dev db
-python tests/make_test_db.py
+python tests/make_test_db.py bootstrap_db
 
 # this will give you an Authorization token, save that and use a browser extension
 # like modheader to add Authorization=eyJhb...

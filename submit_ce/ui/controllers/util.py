@@ -3,6 +3,7 @@
 from typing import Any, Dict, Tuple, Optional, List, Union
 
 from markupsafe import Markup
+from wtforms.validators import StopValidation
 from wtforms.widgets import Select, html_params
 from wtforms import SelectField, \
     SelectMultipleField, Form
@@ -39,14 +40,13 @@ class OptGroupSelectField(SelectField):
 
     widget = OptGroupSelectWidget()
 
-    # TODO bdc34 this is failing, it may not be needed since validation happens on the event
-    # def pre_validate(self, form: Form) -> None:
-    #     """Don't forget to validate also values from embedded lists."""
-    #     for group_label, items in self.choices:
-    #         for value, label in items:
-    #             if value == self.data:
-    #                 return
-    #     raise ValueError(self.gettext('Not a valid choice'))
+    def pre_validate(self, form: Form) -> None:
+        """Don't forget to validate also values from embedded lists."""
+        for group_label, items in self.choices:
+            for value, label in items:
+                if value == self.data:
+                    return
+        raise StopValidation(self.gettext('Not a valid choice'))
 
     def _value(self) -> str:
         data: str = self.data

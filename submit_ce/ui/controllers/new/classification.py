@@ -37,7 +37,7 @@ class ClassificationForm(csrf.CSRFForm):
 
     CATEGORIES = [
         (archive.id, [
-            (category_id, f"{category.id} ({category_id})")
+            (category_id, f"{category_id}  {category.full_name}")
             for category_id, category in CATEGORIES_ACTIVE.items()
             if category.in_archive == archive_id
         ])
