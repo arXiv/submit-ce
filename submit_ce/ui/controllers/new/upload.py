@@ -182,10 +182,8 @@ def _update_submission(form: UploadForm, submission: Submission, stat: Upload,
     try:
         submission, _ = api.save(command, submission_id=submission.submission_id)
     except SaveError:
-        alerts.flash_failure(Markup(
-            'There was a problem carrying out your request. Please try'
-            f' again. {PLEASE_CONTACT_SUPPORT}'
-        ))
+        alerts.flash_failure(Markup('There was a problem carrying out your request. Please try'
+                    f' again. {PLEASE_CONTACT_SUPPORT}'))
     return submission
 
 
@@ -221,12 +219,13 @@ def _get_upload(params: MultiDict, session: Session, submission: Submission,
     upload_id = submission.source_content.identifier
     status_data = alerts.get_hidden_alerts('_status')
     if type(status_data) is dict and status_data['identifier'] == upload_id:
-        stat = Upload.from_dict(status_data)
+        workspace = Upload.from_dict(status_data)
     else:
-        stat = api.get_upload_status(upload_id)
-    rdata.update({'status': stat})
-    if stat:
-        rdata.update({'immediate_notifications': _get_notifications(stat)})
+        workspace = api.get_file_store(upload_id).get_workspace(submission_id=submission.submission_id,
+                                                                upload_id=submission.source_content.identifier)
+    rdata.update({'status': workspace})
+    if workspace:
+        rdata.update({'immediate_notifications': _get_notifications(workspace)})
     return rdata, status.OK, {}
 
 
@@ -332,44 +331,39 @@ def _new_file(params: MultiDict, pointer: FileStorage, session: Session,
     """
     logger.debug('Adding additional files')
     submitter, client = user_and_client_from_session(session)
-    fm = Filemanager.current_session()
     upload_id = submission.source_content.identifier
 
-    # Using a form object provides some extra assurance that this is a legit
-    # request; provides CSRF goodies.
+    # Using a form object provides some extra assurance that this is a legit request; provides CSRF protection.
     params['file'] = pointer
     form = UploadForm(params)
     rdata.update({'form': form, 'ui-app': submission})
 
     if not form.validate():
         logger.error('Invalid upload form: %s', form.errors)
-        alerts.flash_failure(
-            "No file was uploaded; please try again.",
+        alerts.flash_failure("No file was uploaded; please try again.",
             title="Something went wrong")
         return stay_on_this_stage((rdata, status.OK, {}))
-
-    ancillary: bool = form.ancillary.data
-
-    try:
-        stat = fm.add_file(upload_id, pointer, token, ancillary=ancillary)
-    except exceptions.RequestFailed as ex:
-        try:
-            ex_data = ex.response.json()
-        except Exception:
-            ex_data = None
-        if ex_data is not None and 'reason' in ex_data:
-            alerts.flash_failure(Markup(
-                'There was a problem carrying out your request:'
-                f' {ex_data["reason"]}. {PLEASE_CONTACT_SUPPORT}'
-            ))
-            return stay_on_this_stage((rdata, status.OK, {}))
-        alerts.flash_failure(Markup(
-            'There was a problem carrying out your request. Please try'
-            f' again. {PLEASE_CONTACT_SUPPORT}'
-        ))
-        logger.debug('Failed to add file: %s', )
-        logger.error(traceback.format_exc())
-        raise InternalServerError(rdata) from ex
+    #try:
+    stat = api.get_file_store(submission.source_content.identifier).add_file(upload_id, pointer, token,
+                                                                             ancillary=form.ancillary.data)
+    # except  as ex:
+    #     try:
+    #         ex_data = ex.response.json()
+    #     except Exception:
+    #         ex_data = None
+    #     if ex_data is not None and 'reason' in ex_data:
+    #         alerts.flash_failure(Markup(
+    #             'There was a problem carrying out your request:'
+    #             f' {ex_data["reason"]}. {PLEASE_CONTACT_SUPPORT}'
+    #         ))
+    #         return stay_on_this_stage((rdata, status.OK, {}))
+    #     alerts.flash_failure(Markup(
+    #         'There was a problem carrying out your request. Please try'
+    #         f' again. {PLEASE_CONTACT_SUPPORT}'
+    #     ))
+    #     logger.debug('Failed to add file: %s', )
+    #     logger.error(traceback.format_exc())
+    #     raise InternalServerError(rdata) from ex
 
     submission = _update_submission(form, submission, stat, submitter, client)
     converted_size = tidy_filesize(stat.size)
@@ -448,17 +442,16 @@ def group_files(files: List[FileStatus]) -> OrderedDict:
 
     Parameters
     ----------
-    list
+    files
         Elements are :class:`FileStatus` objects.
 
-    Returns ------- :class:`OrderedDict` Keys are strings of either
-    file or directory names.  Values are either :class:`FileStatus`
-    instances (leaves) or :class:`OrderedDict` (containing more
-    :class:`FileStatus` and/or :class:`OrderedDict`, etc).
-
+    Returns
+    -------
+    :class:`OrderedDict` Keys are strings of either file or directory names.  Values are either :class:`FileStatus`
+    instances (leaves) or :class:`OrderedDict` (containing more :class:`FileStatus` and/or :class:`OrderedDict`).
     """
-    # First step is to organize by file tree.
     tree = {}
+    # First step is to organize the list into a directory tree.
     for file in files:
         path = Path(file.path)
         level = tree
@@ -473,32 +466,21 @@ def group_files(files: List[FileStatus]) -> OrderedDict:
                 level = new_level
         level[path.name] = file
 
-
-    # Reorder subtrees for nice display.
+    # Reorder for nice display, sorted files first, then sorted directories. Recursive.
     def _order(node: Union[dict, FileStatus]) -> OrderedDict:
-        if type(node) is FileStatus:
-            return node
-
-        in_subtree: dict = node
-
         # split subtree into FileStatus and other
-        filestats = [fs for key, fs in in_subtree.items()
+        filestats = [fs for key, fs in node.items()
                      if type(fs) is FileStatus]
-        deeper_subtrees = [(key, st) for key, st in in_subtree.items()
+        deeper_subtrees = [(key, st) for key, st in node.items()
                            if type(st) is not FileStatus]
 
-        # add the files at this level before any subtrees
+        # add the sorted files at this level before any subtrees
         ordered_subtree = OrderedDict()
-        if filestats and filestats is not None:
-            for fs in sorted(filestats,
-                             key=lambda fs: strxfrm(fs.path.casefold())):
-                ordered_subtree[fs.path] = fs
-
-        if deeper_subtrees:
-            for key, deeper in sorted(deeper_subtrees,
-                                      key=lambda tup: strxfrm(
-                                          tup[0].casefold())):
-                ordered_subtree[key] = _order(deeper)
+        for fs in sorted(filestats, key=lambda fs: strxfrm(fs.path.casefold())):
+            ordered_subtree[fs.path] = fs
+        # subtrees go after the files
+        for key, deeper in sorted(deeper_subtrees, key=lambda tup: strxfrm(tup[0].casefold())):
+            ordered_subtree[key] = _order(deeper)
 
         return ordered_subtree
 

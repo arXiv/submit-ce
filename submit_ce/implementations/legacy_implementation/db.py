@@ -326,7 +326,7 @@ def store_event(session: SQLAlchemySession, event: Event, before: Optional[Submi
             raise ValueError(f"Cannot handle submission of type {type(before)} and event {type(event)}")
 
     session.add(dbs)
-    session.flush()
+    session.flush([dbs])
 
     # TODO Event storage disabled
     # Attach the database object for the event to the row for the

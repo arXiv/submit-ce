@@ -9,3 +9,4 @@ from .proposal import Proposal
 from .submission import Submission, SubmissionMetadata, Author, Hold, \
     WithdrawalRequest, UserRequest, CrossListClassificationRequest, \
     SubmissionContent
+from .uploads import Upload

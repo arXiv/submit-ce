@@ -7,9 +7,8 @@ from subprocess import Popen
 from hashlib import md5
 from base64 import urlsafe_b64encode
 
-from submit_ce.api import Upload
+from submit_ce.api import Upload, SubmissionFileStore
 from submit_ce.api.domain.uploads import UploadLifecycleStates, UploadStatus, FileStatus
-from submit_ce.api.file_store import SubmissionFileStore
 
 
 class SecurityError(RuntimeError):

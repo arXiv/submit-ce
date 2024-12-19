@@ -329,7 +329,6 @@ class Submission(Base):    # type: ignore
             self.created = submission.created
             self.remote_addr = str(submission.client.remote_addr)
             self.remote_host = submission.client.hostname or ""
-            self.package = ""
 
     @property
     def primary_classification(self) -> Optional['Category']:

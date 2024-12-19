@@ -74,7 +74,6 @@ def delete_all(method: str, params: MultiDict, session: Session,
         add_immediate_alert(rdata, alerts.FAILURE, 'Missing auth token')
         return stay_on_this_stage((rdata, status.OK, {}))
 
-    fm = Filemanager.current_session()
     submission, submission_events = load_submission(submission_id)
     upload_id = submission.source_content.identifier
     submitter, client = user_and_client_from_session(session)
@@ -93,6 +92,7 @@ def delete_all(method: str, params: MultiDict, session: Session,
             return stay_on_this_stage((rdata, status.OK, {}))
 
         raise NotImplementedError()
+        # fm = Filemanager.current_session()
         # try:
         #     stat = fm.delete_all(upload_id, token)
         # except exceptions.RequestForbidden as e:
@@ -182,7 +182,6 @@ def delete_file(method: str, params: MultiDict, session: Session,
         add_immediate_alert(rdata, alerts.FAILURE, 'Missing auth token')
         return stay_on_this_stage((rdata, status.OK, {}))
 
-    fm = Filemanager.current_session()
     submission, submission_events = load_submission(submission_id)
     upload_id = submission.source_content.identifier
     submitter, client = user_and_client_from_session(session)
@@ -207,6 +206,7 @@ def delete_file(method: str, params: MultiDict, session: Session,
         stat: Optional[Upload] = None
         raise NotImplementedError()
         # try:
+        #     fm = Filemanager.current_session()
         #     file_path = form.file_path.data
         #     stat = fm.delete_file(upload_id, file_path, token)
         #     alerts.flash_success(

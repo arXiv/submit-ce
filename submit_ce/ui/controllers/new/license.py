@@ -54,8 +54,7 @@ def license(method: str, params: MultiDict, session: Session,
             return ready_for_next((response_data, status.OK, {}))
         if not submission.license \
            or submission.license.uri != license_uri:
-            command = SetLicense(creator=submitter, client=client,
-                                 license_uri=license_uri)
+            command = SetLicense(creator=submitter, client=client, license_uri=license_uri)
             if validate_command(form, command, submission, 'license'):
                 try:
                     submission, _ = api.save(command, submission_id=submission_id)

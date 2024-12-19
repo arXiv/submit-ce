@@ -102,7 +102,7 @@ class Upload(NamedTuple):
     status: UploadStatus
     lifecycle: UploadLifecycleStates
     locked: bool
-    identifier: int
+    identifier: str
     source_format: SubmissionContent.Format = SubmissionContent.Format.UNKNOWN
     checksum: Optional[str] = None
     size: Optional[int] = None

@@ -1,8 +1,9 @@
 """Core persistence methods for submissions and submission events."""
 
-from abc import ABC, abstractmethod
+from abc import ABC, abstractmethod, ABCMeta
 from io import BytesIO
-from typing import Tuple, List, Optional, Sequence, Protocol
+from pathlib import Path
+from typing import Tuple, List, Optional, Sequence, Protocol, IO
 
 from submit_ce.api.domain import Submission, License, User, Client, Agent
 from submit_ce.api.domain.event import Event
@@ -20,6 +21,132 @@ class SubmitFile(Protocol):
     """The MIME type of the file as provided by the client."""
     stream: BytesIO
     """File contents as provided by the client."""
+
+
+
+class SubmissionFileStore(metaclass=ABCMeta):
+    @abstractmethod
+    def get_workspace(self, submission_id: str) -> Optional[Upload]:
+        """Returns information about the source package."""
+        pass
+
+    @abstractmethod
+    def get_source_file(self, submission_id: str, path: Path) -> BytesIO:
+        """Retrieve a file from the filesystem.
+
+        path should be one of:
+         - a pathless file: main.tex
+         - a file inside src: figures/fig1.jpg
+         """
+        pass
+
+    @abstractmethod
+    def store_source_package(self, submission_id: str, content: SubmitFile, chunk_size) -> str:
+        """Store a source package for a submission.
+
+        Returns checksum"""
+        pass
+
+    @abstractmethod
+    def get_source_pacakge_checksum(self, submission_id: str) -> str:
+        """Get the checksum of the source package for a submission."""
+        pass
+
+    @abstractmethod
+    def does_source_exist(self, submission_id: str) -> bool:
+        """Determine whether source has been deposited for a submission."""
+        pass
+
+    @abstractmethod
+    def store_preview(self, submission_id: str, content: IO[bytes]) -> str:
+        """Store a preview PDF for a submission.
+
+        Returns checksum"""
+        pass
+
+    @abstractmethod
+    def get_preview(self, submission_id: str, path: Path):
+        """Retrieve a file from the filesystem.
+
+        path should be one of:
+         - a pathless file: main.tex
+         - a file inside src: figures/fig1.jpg
+         """
+        ...
+
+    @abstractmethod
+    def get_preview_checksum(self, submission_id: str) -> str:
+        """Get the checksum of the preview PDF for a submission."""
+        pass
+
+    @abstractmethod
+    def does_preview_exist(self, submission_id: str) -> bool:
+        """Determine whether a preview has been deposited for a submission."""
+        pass
+
+    # @abstractmethod
+    # def _validate_submission_id(self, submission_id: str) -> bool:
+    #     """Just because we have a type check here does not mean that it is impossible
+    #     for `submission_id` to be something other than an `int`. Since I'm
+    #     paranoid, we'll do a final check here to eliminate the possibility that a
+    #     (potentially dangerous) ``str``-like value sneaks by."""
+    #     pass
+    #
+    # @abstractmethod
+    # def _submission_path(self, submission_id: str) -> Path:
+    #     """Gets classic filesystem structure is such as /{rootdir}/{first 4 digits of submission id}/{submission id}"""
+    #     pass
+    #
+    # @abstractmethod
+    # def _source_path(self, submission_id: str) -> Path:
+    #     """Get the source path for the submission_id"""
+    #     pass
+    #
+    # @abstractmethod
+    # def _source_package_path(self, submission_id: str) -> Path:
+    #     pass
+    #
+    # @abstractmethod
+    # def _preview_path(self, submission_id: str) -> Path:
+    #     pass
+    #
+    # @abstractmethod
+    # def _get_checksum(self, path) -> str:
+    #     pass
+    #
+    # @abstractmethod
+    # def _unpack_tarfile(self, tar_path, unpack_to) -> None:
+    #     pass
+    #
+    # @abstractmethod
+    # def _chmod_recurse(self, parent, dir_mode, file_mode, uid, gid) -> None:
+    #     """
+    #     Recursively chmod and chown all directories and files.
+    #
+    #     Parameters
+    #     ----------
+    #     parent : str
+    #         Root directory for the operation (included).
+    #     dir_mode : int
+    #         Mode to set directories.
+    #     file_mode : int
+    #         Mode to set files.
+    #     uid : int
+    #         UID for chown.
+    #     gid : int
+    #         GID for chown.
+    #
+    #     """
+    #     pass
+    #
+    # @abstractmethod
+    # def _set_modes(self, path) -> None:
+    #     pass
+
+    @abstractmethod
+    def is_available(self) -> bool:
+        """Determine whether the filesystem is available."""
+        pass
 
 
 class SubmitApi(ABC):
@@ -70,6 +197,21 @@ class SubmitApi(ABC):
             ...
 
     @abstractmethod
+    def get_file_store(self, workspace_id) -> SubmissionFileStore:
+        """
+        Get a submission file store for a workspace.
+
+        Parameters
+        ----------
+        workspace_id :
+
+        Returns
+        -------
+            `SubmissionFileStore`
+        """
+        ...
+
+    @abstractmethod
     def save(self, *events: Event, submission_id: Optional[int] = None) \
             -> Tuple[Submission, List[Event]]:
             """
@@ -113,55 +255,6 @@ class SubmitApi(ABC):
 
             """
             ...
-            # if len(events) == 0:
-            #     raise NothingToDo('Must pass at least one event')
-            # events_list = list(events)   # Coerce to list so that we can index.
-            # prior: List[Event] = []
-            # before: Optional[Submission] = None
-            #
-            # # We need ACIDity surrounding the the validation and persistence of new
-            # # events.
-            # with classic.transaction():
-            #     # Get the current state of the submission from past events. Normally we
-            #     # would not want to load all past events, but legacy components may be
-            #     # active, and the legacy projected state does not capture all of the
-            #     # detail in the event model.
-            #     if submission_id is not None:
-            #         # This will create a shared lock on the submission rows while we
-            #         # are working with them.
-            #         before, prior = classic.get_submission(submission_id,
-            #                                                for_update=True)
-            #
-            #     # Either we need a submission ID, or the first event must be a
-            #     # creation.
-            #     elif events_list[0].submission_id is None \
-            #             and not isinstance(events_list[0], CreateSubmission):
-            #         raise NoSuchSubmission('Unable to determine submission')
-            #
-            #     committed: List[Event] = []
-            #     for event in events_list:
-            #         # Fill in submission IDs, if they are missing.
-            #         if event.submission_id is None and submission_id is not None:
-            #             event.submission_id = submission_id
-            #
-            #         # The created timestamp should be roughly when the event was
-            #         # committed. Since the event projection may refer to its own ID
-            #         # (which is based) on the creation time, this must be set before
-            #         # the event is applied.
-            #         event.created = datetime.now(UTC)
-            #         # Mutation happens here; raises InvalidEvent.
-            #         logger.debug('Apply event %s: %s', event.event_id, event.NAME)
-            #         after = event.apply(before)
-            #         committed.append(event)
-            #         if not event.committed:
-            #             after, consequent_events = event.commit(_store_event)
-            #             committed += consequent_events
-            #
-            #         before = after      # Prepare for the next event.
-            #
-            #     all_ = sorted(set(prior) | set(committed), key=lambda e: e.created)
-            #     return after, list(all_)
-            #
 
     def upload(self, files: SubmitFile, submission_id: int, user: Agent, client: Client) -> Upload:
         """Uploads a file to an existing submission.
