@@ -45,7 +45,7 @@ def load_submission() -> None:
     if request.view_args is None or 'submission_id' not in request.view_args:
         return
     submission_id = request.view_args['submission_id']
-    request.submission, _ = api.load(submission_id)
+    request.submission = api.get(submission_id)
     request.events = [] # TODO what do should we do with events in ce?
     wfp = get_workflow(request.submission)
     request.workflow = wfp

@@ -13,10 +13,9 @@ from datetime import datetime
 from dataclasses import dataclass, field
 from enum import Enum
 
-
 from .annotation import Comment
-from .util import get_tzaware_utc_now
 from .agent import Agent, agent_factory
+from .util import get_tzaware_utc_now
 
 
 class Status(Enum):

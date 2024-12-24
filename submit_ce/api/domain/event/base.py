@@ -2,25 +2,14 @@
 
 import copy
 import hashlib
-from collections import defaultdict
 from datetime import datetime
-from functools import wraps
 from typing import Optional, Callable, Tuple, Iterable, List, ClassVar, \
-    Mapping, Type, Any
+    Type, Any
 
 from pydantic import BaseModel
-from pytz import UTC
 
-from arxiv.base import logging
-from arxiv.base.globals import get_application_config
-
-from ..agent import Agent, System, agent_factory
+from ..agent import Agent
 from ..submission import Submission
-from .util import dataclass
-from .versioning import EventData, map_to_current_version
-
-logger = logging.getLogger(__name__)
-logger.propagate = False
 
 Events = Iterable['Event']
 Condition = Callable[['Event', Optional[Submission], Submission], bool]
@@ -169,6 +158,8 @@ def event_factory(event_type: str, created: datetime, **data: Any) -> Event:
 
     Parameters
     ----------
+    created: datetime,
+        Time event was created. Should have TZ.
     event_type : str
         Should be the name of a :class:`.Event` subclass.
     data : kwargs
@@ -181,13 +172,6 @@ def event_factory(event_type: str, created: datetime, **data: Any) -> Event:
 
     """
     etypes = {klas.get_event_type(): klas for klas in _get_subclasses(Event)}
-    # TODO: typing on version_data is not very good right now. This is not an
-    # error, but we have two competing ways of using the data that gets passed
-    # in that need to be reconciled.
-    version_data: EventData = data   # type: ignore
-    version_data.update({'event_type': event_type})
-    data = map_to_current_version(version_data)    # type: ignore
-    event_version = data.pop("event_version", None)
     data['created'] = created
     if event_type in etypes:
         # Mypy gives a spurious 'Too many arguments for "Event"'.

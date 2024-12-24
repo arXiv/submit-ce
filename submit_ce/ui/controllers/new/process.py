@@ -88,8 +88,7 @@ def _check_status(params: MultiDict, session: Session,  submission_id: int,
     """
     Check for cases in which the preview already exists.
 
-    This will catch cases in which the ui-app is PDF-only, or otherwise
-    requires no further compilation.
+    This will catch cases like PDF-only and others that require no further compilation.
     """
     submitter, client = user_and_client_from_session(session)
     submission, _ = load_submission(submission_id)

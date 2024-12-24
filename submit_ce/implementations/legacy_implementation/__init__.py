@@ -8,8 +8,9 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session as SqlalchemySession, Session
 
-from submit_ce.api import domain as api, SubmitApi, Event, License, SubmitFile, Agent, Client, Upload, \
+from submit_ce.api import domain as api, Event, License, SubmitFile, Agent, Client, Upload, \
     SubmissionFileStore
+from ...api.submit import SubmitApi
 from .db import to_submission
 from .models import Submission, Document, SubmissionCategory
 from ..file_store.legacy_file_store import LegacyFileStore
@@ -53,10 +54,15 @@ class LegacySubmitImplementation(SubmitApi):
         else:
             self.store = store
 
-    def load(self, submission_id: str) -> Tuple[Submission, List[Event]]:
+
+    def get(self, submission_id: str) -> Submission:
+        return self._load(self.get_session(), submission_id)[0]
+
+    def get_with_history(self, submission_id: str) -> Tuple[Submission, List[Event]]:
         return self._load(self.get_session(), submission_id)
 
-    def _load(self, session: SqlalchemySession, submission_id: str, lock_row: bool = False) -> Tuple[Submission, List[Event]]:
+    def _load(self, session: SqlalchemySession, submission_id: str, lock_row: bool = False) \
+            -> Tuple[Submission, List[Event]]:
         if not submission_id:
             raise NoSuchSubmission()
         if isinstance(submission_id, str) and not submission_id.isdigit():

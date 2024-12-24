@@ -6,9 +6,8 @@ from typing import Optional, List
 from pytz import UTC
 from sqlalchemy import Column, DateTime, Enum, ForeignKey, Text, text, \
     Integer, SmallInteger, String, LargeBinary
-from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.ext.indexable import index_property
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, declarative_base
 
 from submit_ce.api import domain
 from submit_ce.api.domain.proposal import Status as ProposalStatus
@@ -1037,17 +1036,16 @@ class DBEvent(Base):  # type: ignore
             if key not in _skip
         }
         data['committed'] = True     # Since we're loading from the DB.
-        raise NotImplementedError()
-        # return event_factory(
-        #     event_type=self.event_type,
-        #     creator=agent_factory(**self.creator),
-        #     event_version=self.event_version,
-        #     proxy=agent_factory(**self.proxy) if self.proxy else None,
-        #     client=agent_factory(**self.client) if self.client else None,
-        #     submission_id=self.submission_id,
-        #     created=self.get_created(),
-        #     **data
-        # )
+        return event_factory(
+            event_type=self.event_type,
+            creator=agent_factory(**self.creator),
+            event_version=self.event_version,
+            proxy=agent_factory(**self.proxy) if self.proxy else None,
+            client=agent_factory(**self.client) if self.client else None,
+            submission_id=self.submission_id,
+            created=self.get_created(),
+            **data
+        )
 
     def get_created(self) -> datetime:
         """Get the UTC-localized creation time for this event."""

@@ -58,7 +58,7 @@ from arxiv.taxonomy.definitions import CATEGORIES
 from pytz import UTC
 
 from . import validators
-from .base import Event, event_factory
+from .base import Event
 from .flag import AddMetadataFlag, AddUserFlag, AddContentFlag, RemoveFlag, \
     AddHold, RemoveHold
 from .process import AddProcessStatus
@@ -461,12 +461,12 @@ class SetAbstract(Event):
         value = re.sub(r"\n\s+", "\n  ", value)
         # Newline with no following space is removed, so treated as just a
         # space in paragraph.
-        value = re.sub(r"(\S)\n(\S)", "\g<1> \g<2>", value)
+        value = re.sub(r"(\S)\n(\S)", "\\g<1> \\g<2>", value)
         # Tab->space, multiple spaces->space.
         value = re.sub(r"\t", " ", value)
         value = re.sub(r"(?<!\n)[ ]{2,}", " ", value)
         # Remove tex return (\\) at end of line or end of abstract.
-        value = re.sub(r"\s*\\\\(\n|$)", "\g<1>", value)
+        value = re.sub(r"\s*\\\\(\n|$)", "\\g<1>", value)
         # Remove lone period.
         value = re.sub(r"\n\.\n", "\n", value)
         value = re.sub(r"\n\.$", "", value)
@@ -595,7 +595,7 @@ class SetACMClassification(Event):
         _value = []
         for v in value.split(';'):
             v = v.strip().upper().rstrip('.')
-            v = re.sub(r"^([A-K])(\d)", "\g<1>.\g<2>", v)
+            v = re.sub(r"^([A-K])(\d)", "\\g<1>.\\g<2>", v)
             v = re.sub(r"M$", "m", v)
             _value.append(v)
         value = "; ".join(_value)

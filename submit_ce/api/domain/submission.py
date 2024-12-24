@@ -15,7 +15,7 @@ from .meta import License, Classification
 from .preview import Preview
 from .process import ProcessStatus
 from .proposal import Proposal
-from .util import get_tzaware_utc_now, dict_coerce, list_coerce
+from .util import get_tzaware_utc_now
 
 
 @dataclass
