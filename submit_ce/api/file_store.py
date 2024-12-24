@@ -57,7 +57,7 @@ class SubmissionFileStore(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def get_preview(self, submission_id: str, path: Path):
+    def get_preview(self, submission_id: str, path: Path) -> BytesIO:
         """Retrieve a file from the filesystem.
 
         path should be one of:

@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session as SqlalchemySession, Session
 
 from submit_ce.api import domain as api, Event, License, SubmitFile, Agent, Client, Upload, \
     SubmissionFileStore
+from ..schedule import next_announcement_time, next_freeze_time
 from ...api.submit import SubmitApi
 from .db import to_submission
 from .models import Submission, Document, SubmissionCategory
@@ -144,7 +145,7 @@ class LegacySubmitImplementation(SubmitApi):
         acceptable_types = ["application/gzip", "application/tar", "application/tar+gzip"]
         if file.content_type not in acceptable_types:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-                                detail="File content type must be one of {acceptable_types}")
+                                detail=f"File content type must be one of {acceptable_types}")
 
         session = self.get_session()
         check_user_authorized(session, user, client, submission_id)
@@ -198,5 +199,10 @@ class LegacySubmitImplementation(SubmitApi):
     def get_file_store(self, workspace_id) -> SubmissionFileStore:
         return self.store
 
+    def next_announcement_time(self, reference: Optional[datetime] = None) -> datetime:
+        return next_announcement_time(reference)
+
+    def next_freeze_time(self, reference: Optional[datetime] = None) -> datetime:
+        return next_freeze_time(reference)
 
 

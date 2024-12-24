@@ -7,9 +7,8 @@ from arxiv.taxonomy.definitions import CATEGORIES, CATEGORIES_ACTIVE
 from pytz import UTC
 from mimesis import Text
 
-from arxiv import taxonomy
-from .. import event, agent, submission, meta
-from ...exceptions import InvalidEvent
+from submit_ce.api.domain import event, agent, submission, meta
+from submit_ce.api.exceptions import InvalidEvent
 
 user = agent.User(
             native_id = "12345",

@@ -1,8 +1,8 @@
 import json
 
-from hypothesis import given, strategies, settings
+from hypothesis import given, settings
 from hypothesis_jsonschema import from_schema
-from pydantic import TypeAdapter, RootModel
+from pydantic import TypeAdapter
 
 from submit_ce.api.domain import Submission
 

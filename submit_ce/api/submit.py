@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from datetime import datetime
 from typing import Tuple, List, Optional
 
 from submit_ce.api.domain import Submission, Event, Agent, Client, Upload, License
@@ -225,3 +226,29 @@ class SubmitApi(ABC):
     def categories_for_user(self, user_id: str) -> Optional[str]:
         """Gets list of categories the user may submit to."""
         ...
+
+    def next_announcement_time(self, reference: Optional[datetime] = None) -> datetime:
+        """Gets the next announce time. If `reference` is not passed, it does
+        the next announce time from now.
+
+        Parameters
+        ----------
+        reference : Optional[datetime]
+           Time to calculate next announce for. If not set, use `now`
+
+        Returns
+        --------
+        Time of next announce always TZ aware"""
+
+    def next_freeze_time(self, reference: Optional[datetime] = None) -> datetime:
+        """Gets the next freeze time. If `reference` is not passed, it does
+        the next freeze time from now.
+
+        Parameters
+        ----------
+        reference : Optional[datetime]
+           Time to calculate next freeze for. If not set, use `now`
+
+        Returns
+        --------
+        Time of next freeze always TZ aware"""
