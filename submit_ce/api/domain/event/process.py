@@ -55,20 +55,21 @@ class StartCompileSource(EventWithSideEffect):
 
     def execute(self, api: 'SubmitApi', submission: Submission) -> None:
         """Do the actual compile."""
-        process, result = api.get_compiler().start_compile(submission,
+        result = api.get_compiler().start_compile(submission,
                                                            self.creator,
                                                            self.client,
                                                            api,
                                                            submission.source_content.identifier)
         self.source_content_id = submission.source_content.identifier
-        self.process = process
+        # TODO add process info to Event?
+        #self.process = process
         self.result = result
 
     def project(self, submission: Submission) -> Submission:
         """Add the process status to the submission."""
         assert self.created is not None
-        assert self.process is not None
-        assert self.status is not None and self.status in ProcessStatus.Status
+        #assert self.process is not None
+        #assert self.status is not None and self.status in ProcessStatus.Status
         submission.processes.append(StartCompileSource(
             creator=self.creator,
             created=self.created,

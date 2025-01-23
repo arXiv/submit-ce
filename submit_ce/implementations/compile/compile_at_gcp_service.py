@@ -45,6 +45,7 @@ class GcpCompileAtLegacy(CompileService):
 
         watermark += f" {submission.submitted or datetime.now(ZoneInfo(self.timezone))}"
 
+        utc_start_time = datetime.now(tz=timezone.utc)
         status, json_data = compile_submission(
             submission.submission_id,
             output_file="gcp_compile_output.tar.gz",
@@ -53,6 +54,30 @@ class GcpCompileAtLegacy(CompileService):
             watermark_text=watermark,
             base_submissions_dir=self.base_submissions_dir,
             )
+
+        status = ProcessStatus.Status.PENDING
+        match json_data["status"].lower():
+            case "success":
+                status = ProcessStatus.Status.SUCCEEDED
+            case "failure"|"failed"|"fail":
+                status = ProcessStatus.Status.FAILED
+
+        pstatus = ProcessStatus(
+            status=status,
+            creator=user,
+            created=datetime.now(timezone.utc),
+            details=json_data
+        )
+
+        return Result(
+            status=pstatus,
+            duration_sec = json_data["total_time"],
+            utc_start_time=utc_start_time,
+            url=f"FAKE_URL_{__file__}"
+
+        )
+
+
 
     def check(self, process_id: str, user: User, client: Client) -> ProcessStatus:
         pass

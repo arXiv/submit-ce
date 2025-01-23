@@ -14,7 +14,7 @@ class ProcessStatus:
     """Represents the status of a long-running remote process."""
 
     class Status(Enum):
-        """Supported statuses."""
+        """Process statuses."""
 
         PENDING = 'pending'
         """The process is waiting to start."""
@@ -34,11 +34,15 @@ class ProcessStatus:
     creator: Agent
     created: datetime
     """Time when the process status was created (not the process itself)."""
-    process: str
-    step: Optional[str] = field(default=None)
+    details: Optional[dict]=field(default=None)
+    """Details of the execution of the process."""
     status: Status = field(default=Status.PENDING)
-    reason: Optional[str] = field(default=None)
-    """Optional context or explanatory details related to the status."""
+    """Status of the process."""
+
+    #process: str
+    #step: Optional[str] = field(default=None)
+    #reason: Optional[str] = field(default=None)
+    #"""Optional context or explanatory details related to the status."""
 
     def __post_init__(self) -> None:
         """Check our enums and agents."""
