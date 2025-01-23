@@ -4,6 +4,8 @@ from io import BytesIO
 from pathlib import Path
 from typing import Optional, Tuple, List, IO
 
+from arxiv.files import FileObj
+
 from submit_ce.api import SubmitApi, Event, Submission, License, SubmitFile, Agent, Client, Upload, SubmissionFileStore
 from submit_ce.implementations.schedule import next_announcement_time, next_freeze_time
 
@@ -12,7 +14,7 @@ class NullFileStore(SubmissionFileStore):
     def get_workspace(self, submission_id: str) -> Optional[Upload]:
         return None
 
-    def get_source_file(self, submission_id: str, path: Path) -> BytesIO:
+    def get_source_file(self, submission_id: str) -> BytesIO:
         raise RuntimeError("No source file")
 
     def store_source_package(self, submission_id: str, content: SubmitFile, chunk_size) -> str:
@@ -27,7 +29,7 @@ class NullFileStore(SubmissionFileStore):
     def store_preview(self, submission_id: str, content: IO[bytes]) -> str:
         return "not really stored, NullFileStore"
 
-    def get_preview(self, submission_id: str, path: Path) -> BytesIO:
+    def get_preview(self, submission_id: str) -> FileObj:
         raise RuntimeError("No preview")
 
     def get_preview_checksum(self, submission_id: str) -> str:
@@ -46,7 +48,7 @@ class NullImplementation(SubmitApi):
     def get(self, submission_id: str) -> Submission:
         Submission(submission_id)
 
-    def get_file_store(self, workspace_id) -> SubmissionFileStore:
+    def get_file_store(self) -> SubmissionFileStore:
         return NullFileStore()
 
     def upload(self, files: SubmitFile, submission_id: int, user: Agent, client: Client) -> Upload:

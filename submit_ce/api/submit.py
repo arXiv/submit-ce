@@ -78,13 +78,9 @@ class SubmitApi(ABC):
             ...
 
     @abstractmethod
-    def get_file_store(self, workspace_id) -> SubmissionFileStore:
+    def get_file_store(self) -> SubmissionFileStore:
         """
-        Get a submission file store for a workspace.
-
-        Parameters
-        ----------
-        workspace_id :
+        Get a submission file store.
 
         Returns
         -------

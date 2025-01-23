@@ -1,11 +1,14 @@
 import os
 import shutil
 from datetime import datetime, timezone
+from io import BytesIO
 from pathlib import Path
 from typing import IO, Optional, List
 from subprocess import Popen
 from hashlib import md5
 from base64 import urlsafe_b64encode
+
+from arxiv.files import FileObj, LocalFileObj, FileDoesNotExist
 
 from submit_ce.api import Upload, SubmissionFileStore
 from submit_ce.api.domain.uploads import UploadLifecycleStates, UploadStatus, FileStatus
@@ -76,14 +79,19 @@ class LegacyFileStore(SubmissionFileStore):
         self.source_prefix = source_prefix
         """Prefix in the {root}/{shard}/{id} directory to store the source."""
 
-    def get_source_file(self, submission_id: str, path: Path):
+    def get_source_file(self, submission_id: str):
         pass
 
     def get_source_pacakge_checksum(self, submission_id: str) -> str:
         pass
 
-    def get_preview(self, submission_id: str, path: Path):
-        pass
+    def get_preview(self, submission_id: str) -> FileObj:
+        path = self._preview_path(submission_id)
+        if path.exists():
+            return LocalFileObj(path)
+        else:
+            return FileDoesNotExist(path.name)
+
 
     def is_available(self) -> bool:
         """Determine whether the filesystem is available."""
@@ -173,7 +181,7 @@ class LegacyFileStore(SubmissionFileStore):
 
     def does_preview_exist(self, submission_id: int) -> bool:
         """Determine whether a preview has been deposited for a submission."""
-        return os.path.exists(self._preview_path(submission_id))
+        return self._preview_path(submission_id).exists()
 
     def _validate_submission_id(self, submission_id: int) -> None:
         """Just because we have a type check here does not mean that it is impossible

@@ -3,6 +3,8 @@ from io import BytesIO
 from pathlib import Path
 from typing import Protocol, Optional, IO
 
+from arxiv.files import FileObj
+
 from submit_ce.api.domain import Upload
 
 
@@ -23,7 +25,7 @@ class SubmissionFileStore(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def get_source_file(self, submission_id: str, path: Path) -> BytesIO:
+    def get_source_file(self, submission_id: str) -> BytesIO:
         """Retrieve a file from the filesystem.
 
         path should be one of:
@@ -57,13 +59,8 @@ class SubmissionFileStore(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def get_preview(self, submission_id: str, path: Path) -> BytesIO:
-        """Retrieve a file from the filesystem.
-
-        path should be one of:
-         - a pathless file: main.tex
-         - a file inside src: figures/fig1.jpg
-         """
+    def get_preview(self, submission_id: str) -> FileObj:
+        """Retrieve a PDF preview from the filesystem."""
         ...
 
     @abstractmethod

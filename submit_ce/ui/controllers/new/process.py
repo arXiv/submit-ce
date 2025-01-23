@@ -220,14 +220,12 @@ def file_preview(params, session: Session, submission_id: int, token: str,
                  **kwargs: Any) -> Tuple[io.BytesIO, int, Dict[str, str]]:
     """Serve the PDF preview for a ui-app."""
     submitter, client = user_and_client_from_session(session)
-    raise NotImplementedError()
-    # submission, submission_events = load_submission(submission_id)
-    # p = PreviewService.current_session()
-    # stream, pdf_checksum = p.get(submission.source_content.identifier,
-    #                              submission.source_content.checksum,
-    #                              token)
-    # headers = {'Content-Type': 'application/pdf', 'ETag': pdf_checksum}
-    # return stream, status.OK, headers
+    submission, submission_events = load_submission(submission_id)
+    fstore = api.get_file_store()
+    stream = fstore.get_preview(submission.submission_id)
+    pdf_checksum = fstore.get_preview_checksum(submission.submission_id)
+    headers = {'Content-Type': 'application/pdf', 'ETag': pdf_checksum}
+    return stream, status.OK, headers
 
 
 def compilation_log(params, session: Session, submission_id: int, token: str,

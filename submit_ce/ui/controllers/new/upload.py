@@ -221,8 +221,8 @@ def _get_upload(params: MultiDict, session: Session, submission: Submission,
     if type(status_data) is dict and status_data['identifier'] == upload_id:
         workspace = Upload.from_dict(status_data)
     else:
-        workspace = api.get_file_store(upload_id).get_workspace(submission_id=submission.submission_id,
-                                                                upload_id=submission.source_content.identifier)
+        workspace = api.get_file_store().get_workspace(submission_id=submission.submission_id,
+                                                       upload_id=submission.source_content.identifier)
     rdata.update({'status': workspace})
     if workspace:
         rdata.update({'immediate_notifications': _get_notifications(workspace)})
@@ -344,8 +344,8 @@ def _new_file(params: MultiDict, pointer: FileStorage, session: Session,
             title="Something went wrong")
         return stay_on_this_stage((rdata, status.OK, {}))
     #try:
-    stat = api.get_file_store(submission.source_content.identifier).add_file(upload_id, pointer, token,
-                                                                             ancillary=form.ancillary.data)
+    stat = api.get_file_store().add_file(upload_id, pointer, token,
+                                         ancillary=form.ancillary.data)
     # except  as ex:
     #     try:
     #         ex_data = ex.response.json()

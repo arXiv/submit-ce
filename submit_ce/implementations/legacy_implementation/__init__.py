@@ -210,7 +210,7 @@ class LegacySubmitImplementation(SubmitApi):
         session.commit()  # unlocks submission row
         return workspace
 
-    def get_file_store(self, workspace_id) -> SubmissionFileStore:
+    def get_file_store(self) -> SubmissionFileStore:
         return self.store
 
     def get_compiler(self) -> CompileService:

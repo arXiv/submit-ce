@@ -36,13 +36,16 @@ def finalize(method: str, params: MultiDict, session: Session,
     form = FinalizationForm(params)
 
     # The abs preview macro expects a specific struct for ui-app history.
-    submission_history = [{'submitted_date': s.created, 'version': s.version}
-                          for s in submission.versions]
+    # TODO submission.versions removed, what do do in final?
+    #submission_history = [{'submitted_date': s.created, 'version': s.version}
+    #                      for s in submission.versions]
+    submission_history = []
     response_data = {
         'submission_id': submission_id,
         'form': form,
         'ui-app': submission,
-        'submission_history': submission_history
+        'submission_history': submission_history,
+        'submission': submission,
     }
 
     command = FinalizeSubmission(creator=submitter)

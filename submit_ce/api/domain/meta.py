@@ -10,10 +10,15 @@ class Classification:
 
     category: str
 
+    def display(self):
+        """Returns a `str` to use to display the category."""
+        #TODO Should Classification.dislpay get the full name of the category?
+        return self.category
+
 
 @dataclass
 class License:
-    """An license for distribution of the submission."""
+    """A license for distribution of the submission."""
 
     uri: str
     name: Optional[str] = None

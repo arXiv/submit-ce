@@ -27,7 +27,7 @@
 
 <div class="content-container">
 {{ macros.abs(
-  arxiv_id,
+  arxiv_id or "0000.00000",
   submission.metadata.title,
   submission.metadata.authors_display|tex2utf,
   submission.metadata.abstract,

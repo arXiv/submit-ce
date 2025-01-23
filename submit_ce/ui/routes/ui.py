@@ -406,9 +406,10 @@ def file_preview(submission_id: int) -> Response:
         submission_id,
         request.environ['token']
     )
-    rv = send_file(data, mimetype=headers['Content-Type'], cache_timeout=0)
+    # TODO This needs to have range request handling like arxiv-browse
+    rv = send_file(data.open('rb'), mimetype=headers['Content-Type'])
     rv.set_etag(headers['ETag'])
-    rv.headers['Content-Length'] = len(data)  # type: ignore
+    rv.headers['Content-Length'] = str(data.size)
     rv.headers['Cache-Control'] = 'no-store'
     return rv
 
