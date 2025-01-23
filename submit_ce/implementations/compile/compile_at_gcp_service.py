@@ -50,7 +50,7 @@ class GcpCompileAtLegacy(CompileService):
             submission.submission_id,
             output_file="gcp_compile_output.tar.gz",
             source_file="",  # falsy causes src dir to be used
-            preflight="0",
+            preflight=False,
             watermark_text=watermark,
             base_submissions_dir=self.base_submissions_dir,
             )
