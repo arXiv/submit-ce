@@ -115,7 +115,7 @@ class Event(BaseModel):
                                 creator.agent_identifier.encode('utf-8')))
         return h.hexdigest()
 
-    def apply(self, submission: Optional[Submission] = None) -> Submission:
+    def apply(self, submission: Optional[Submission] = None, ) -> Submission:
         """Apply the projection for this :class:`.Event` instance."""
         self.before = copy.deepcopy(submission)
         # See comment on CreateSubmission, below.
@@ -125,6 +125,7 @@ class Event(BaseModel):
         else:   # See comment on CreateSubmission, below.
             self.after = self.project(None)    # type: ignore
         assert self.after is not None
+
         self.after.updated = self.created
 
         # Make sure that the submission has its own ID, if we know what it is.
@@ -140,7 +141,9 @@ class Event(BaseModel):
         raise NotImplementedError('Must be implemented by subclass')
 
     def project(self, submission: Submission) -> Submission:
-        """Apply this event and its data to a submission."""
+        """Apply this event and its data to a submission.
+
+        This is how the `Event` changes the `submission`."""
         raise NotImplementedError('Must be implemented by subclass')
 
 
@@ -177,3 +180,39 @@ def event_factory(event_type: str, created: datetime, **data: Any) -> Event:
         # Mypy gives a spurious 'Too many arguments for "Event"'.
         return etypes[event_type](**data)    # type: ignore
     raise RuntimeError('Unknown event type: %s' % event_type)
+
+
+class EventWithSideEffect(Event):
+
+    executed: Optional[datetime] = None  # timezone aware utc
+    """Should only be set when `execute` is called."""
+
+    def pre_execute_validation(self, api: 'SubmitApi', submission: Submission) -> None:
+        """Check if is acceptable for `execute` to be called."""
+
+    def execute(self, api: 'SubmitApi', submission: Submission) -> None:
+        """
+        An :class:`.Event` that has side effects executed through use of the :class:`submit_ce.api.submit.SubmitApi`.
+
+        This should execute without raising an exception. Any problems should be recorded by altering `self`.
+
+        Data about the execution may be recorded by alternating `self.
+
+        This MUST not alter the `submission` since that won't be recorded anywhere. To alter the
+        `submission`, do the execute, alter `self` then during `project()` use the data on `self`
+        to set the data on the returned `submission`.
+
+        Parameters
+        ----------
+        api: SubmitApi
+            API for use to perform the operation.
+        submission: Submission
+            The submission related to this :class:`.Event`.
+
+        Returns
+        -------
+        `None`
+            Returns nothing since it operates by side effect. It may alter the :class:`.EventWithSideEffect` to
+            record details of the side effect.
+        """
+        raise NotImplementedError('Must be implemented by subclass')

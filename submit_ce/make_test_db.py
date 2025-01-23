@@ -23,10 +23,12 @@ Testing and debugging this script outside of docker can be done like:
 Then you can run it again, and it will find the existing db.
 """
 import os
+import uuid
 
 from arxiv.base import Base
 from arxiv.taxonomy.definitions import CATEGORIES
 from flask import Flask
+from pytz import timezone
 from sqlalchemy.orm import Session
 
 if __name__ == '__main__':
@@ -41,18 +43,18 @@ from submit_ce.ui.config import DEV_SQLITE_FILE
 import time
 import logging
 
-from arxiv.auth.auth import scopes
+from arxiv.auth.auth import scopes, Auth, tokens
 from arxiv.auth.helpers import generate_token
 from arxiv.db import models
 
 import random
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Dict, Any, Optional
 
 from mimesis import Person, Internet, Datetime
 from mimesis.locales import Locale
 
-from arxiv.auth import auth
+from arxiv.auth import  domain
 
 # The logging in NG is a bit much, tone it down
 logging.basicConfig()
@@ -250,7 +252,7 @@ def bootstrap_db(output_jwt: bool=False, db_uri = f"sqlite:///{DEV_SQLITE_FILE}"
     app.config["JWT_SECRET"] = jwt_secret or os.getenv("JWT_SECRET", "FOOBAR")
     app.config.from_object(settings)
     Base(app)
-    auth.Auth(app)
+    Auth(app)
     from arxiv.db import init as db_init
     # bdc34: I'm having a lot of problems getting the db to work
     db_init(settings)  # only setups connection
@@ -281,16 +283,42 @@ def bootstrap_db(output_jwt: bool=False, db_uri = f"sqlite:///{DEV_SQLITE_FILE}"
             raise ValueError('Must set JWT_SECRET')
 
         def user_to_jwt(user):
-            return generate_token(
-                str(user.user_id),
-                user.email,
-                user.email,
-                scope=scope,
-                first_name=user.first_name,
-                last_name=user.last_name,
-                suffix_name=user.suffix_name,
-                #endorsements=["*.*"],
+            start = datetime.now(tz=timezone('US/Eastern'))
+            end = start + timedelta(seconds=36000)  # Make this as long as you want.
+
+            session = domain.Session(
+                session_id=str(uuid.uuid4()),
+
+                start_time=start, end_time=end,
+                user=domain.User(
+                    user_id=str(user.user_id),
+                    email=user.email,
+                    username=user.email,
+                    name=domain.UserFullName(forename=user.first_name, surname=user.last_name, suffix=user.suffix_name),
+                    profile=domain.UserProfile(
+                        affiliation="Cornell University",
+                        rank=int(3),
+                        country="us",
+                        default_category=CATEGORIES['astro-ph.GA'],
+                        submission_groups=[]
+                    ),
+                    verified=True,
+                ),
+                authorizations=domain.Authorizations(scopes=scope)
             )
+            token = tokens.encode(session, app.config["JWT_SECRET"])
+            return token
+            #
+            # return generate_token(
+            #     str(user.user_id),
+            #     user.email,
+            #     user.email,
+            #     scope=scope,
+            #     first_name=user.first_name,
+            #     last_name=user.last_name,
+            #     suffix_name=user.suffix_name,
+            #     #endorsements=["*.*"],
+            # )
 
         with Session(engine) as session:
             logger.info("Waiting for database server to be available")

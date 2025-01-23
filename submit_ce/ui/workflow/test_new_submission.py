@@ -3,7 +3,7 @@
 from unittest import TestCase
 from submit_ce.ui import workflow
 from submit_ce.ui.workflow import processor
-from submit_ce.api.domain import CreateSubmission
+from submit_ce.api.domain.event import CreateSubmission
 from submit_ce.api.domain import User
 from submit_ce.ui.workflow.stages import *
 from submit_ce.api.domain import SubmissionContent, SubmissionMetadata

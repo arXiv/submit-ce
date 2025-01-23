@@ -9,21 +9,22 @@ types.
 
 import io
 from http import HTTPStatus as status
-from typing import Tuple, Dict, Any, Optional
+from typing import Tuple, Dict, Any
 
 from arxiv.base import logging, alerts
 from arxiv.forms import csrf
 from markupsafe import Markup
 
+from submit_ce.api.domain.event.process import StartCompileSource
 from submit_ce.api.exceptions import SaveError
 from submit_ce.ui.backend import api
 from submit_ce.api.domain.event import ConfirmSourceProcessed
 from arxiv.auth.domain import Session
-from flask import url_for
 from werkzeug.datastructures import MultiDict
-from werkzeug.exceptions import InternalServerError, NotFound, MethodNotAllowed
+from werkzeug.exceptions import InternalServerError, MethodNotAllowed
 from wtforms import SelectField
-from .reasons import TEX_PRODUCED_MARKUP, DOCKER_ERROR_MARKUOP, SUCCESS_MARKUP
+
+from ..util import validate_command
 from ...auth import user_and_client_from_session
 from submit_ce.ui.routes.flow_control import ready_for_next, stay_on_this_stage
 from submit_ce.ui.util import load_submission
@@ -74,10 +75,6 @@ def file_process(method: str, params: MultiDict, session: Session,
     elif method == "POST":
         if params.get('action') in ['previous', 'next', 'save_exit']:
             return _check_status(params, session, submission_id, token)
-            # User is not actually trying to process anything; let flow control
-            # in the routes handle the response.
-            # TODO there is a chance this will allow the user to go to next stage without processing
-            # return ready_for_next({}, status.SEE_OTHER, {})
         else:
             return start_compilation(params, session, submission_id, token)
     raise MethodNotAllowed('Unsupported request')
@@ -98,6 +95,7 @@ def _check_status(params: MultiDict, session: Session,  submission_id: int,
         if not form.validate():
             return stay_on_this_stage(({'form': form}, status.OK, {}))
 
+        # TODO rename this SourceProcessedCompleted() Confirm is ambiguous with the user confirming
         command = ConfirmSourceProcessed(creator=submitter, client=client)
         try:
             submission, _ = api.save(command, submission_id=submission_id)
@@ -151,10 +149,8 @@ def compile_status(params: MultiDict, session: Session, submission_id: int,
         'form': form,
         'status': None,
     }
-    # Determine whether the current state of the uploaded source content has
-    # been compiled.
-
-    raise NotImplementedError()
+    # Determine whether the current state of the uploaded source content has been compiled.
+    #
     # result: Optional[process_source.CheckResult] = None
     # try:
     #     result = process_source.check(submission, submitter, client, token)
@@ -169,7 +165,7 @@ def compile_status(params: MultiDict, session: Session, submission_id: int,
     # if result is not None:
     #     response_data['status'] = result.status
     #     response_data.update(**result.extra)
-    # return stay_on_this_stage((response_data, status.OK, {}))
+    return stay_on_this_stage((response_data, status.OK, {}))
 
 
 def start_compilation(params: MultiDict, session: Session, submission_id: int,
@@ -185,16 +181,22 @@ def start_compilation(params: MultiDict, session: Session, submission_id: int,
     }
 
     if not form.validate():
-        return stay_on_this_stage((response_data,status.OK,{}))
+        return stay_on_this_stage((response_data, status.OK, {}))
 
-    raise NotImplementedError()
+    command = StartCompileSource(creator=submitter, client=client, source_id=submission.source_content.identifier)
+    if validate_command(form, command, submission):
+        try:
+            api.save(command, submission_id=submission.submission_id)  # The api implementation will call CompileSource.execute()
+            return stay_on_this_stage((response_data, status.OK, {}))
+        except SaveError as e:
+            alerts.flash_failure(f"We couldn't process your ui-app. {SUPPORT}", title="Processing failed")
+            raise InternalServerError(response_data) from e
+
     # try:
     #     result = process_source.start(submission, submitter, client, token)
     # except process_source.FailedToStart as e:
-    #     alerts.flash_failure(f"We couldn't process your ui-app. {SUPPORT}",
-    #                          title="Processing failed")
-    #     logger.error('Error while requesting compilation for %s: %s',
-    #                  submission_id, e)
+    #     alerts.flash_failure(f"We couldn't process your ui-app. {SUPPORT}", title="Processing failed")
+    #     logger.error('Error while requesting compilation for %s: %s', submission_id, e)
     #     raise InternalServerError(response_data) from e
     #
     # response_data['status'] = result.status
@@ -211,9 +213,9 @@ def start_compilation(params: MultiDict, session: Session, submission_id: int,
     #     alerts.flash_success(SUCCESS_MARKUP, title="Processing started"
     #     )
     #
-    # return stay_on_this_stage((response_data, status.OK, {}))
+    #
 
-
+# TODO move file_preview to its own controller
 def file_preview(params, session: Session, submission_id: int, token: str,
                  **kwargs: Any) -> Tuple[io.BytesIO, int, Dict[str, str]]:
     """Serve the PDF preview for a ui-app."""
@@ -243,12 +245,6 @@ def compilation_log(params, session: Session, submission_id: int, token: str,
     #     raise NotFound("No log output produced")
 
 
-def compile(params: MultiDict, session: Session, submission_id: int,
-            token: str, **kwargs) -> Response:
-    redirect = url_for('ui.file_process', submission_id=submission_id)
-    return {}, status.SEE_OTHER, {'Location': redirect}
-
-
 class CompilationForm(csrf.CSRFForm):
     """Generate form to process compilation."""
 
@@ -257,5 +253,27 @@ class CompilationForm(csrf.CSRFForm):
         (PDFLATEX, 'PDFLaTeX')
     ]
 
-    compiler = SelectField('Compiler', choices=COMPILERS,
-                           default=PDFLATEX)
+    compiler = SelectField('Compiler', choices=COMPILERS, default=PDFLATEX)
+
+
+SUCCESS_MARKUP = \
+    Markup("We are processing your ui-app. This may take a minute or two." \
+            " This page will refresh automatically every 5 seconds. You can " \
+            " also refresh this page manually to check the current status. ")
+TEX_PRODUCED_MARKUP = \
+    Markup("The ui-app PDF file appears to have been produced by TeX. " \
+           "<p>This file has been rejected as part your ui-app because " \
+           "it appears to be pdf generated from TeX/LaTeX source. " \
+           "For the reasons outlined at in the Why TeX FAQ we insist on " \
+           "ui-app of the TeX source rather than the processed " \
+           "version.</p><p>Our software includes an automatic TeX " \
+           "processing script that will produce PDF, PostScript and " \
+           "dvi from your TeX source. If our determination that your " \
+           "ui-app is TeX produced is incorrect, you should send " \
+           "e-mail with your ui-app ID to " \
+           '<a href="mailto:help@arxiv.org">arXiv administrators.</a></p>')
+DOCKER_ERROR_MARKUOP = \
+    Markup("Our automatic TeX processing system has failed to launch. " \
+           "There is a good chance we are aware of the issue, but if the " \
+           "problem persists you should send e-mail with your ui-app " \
+           'number to <a href="mailto:help@arxiv.org">arXiv administrators.</a></p>')

@@ -6,6 +6,8 @@ from flask import request
 from . import LegacySubmitImplementation
 from sqlalchemy.orm import Session as SqlalchemySession
 
+from ..compile.compile_at_gcp_service import GcpCompileAtLegacy
+from ..file_store.legacy_file_store import LegacyFileStore
 from ...api.domain import Client, User
 
 
@@ -38,8 +40,12 @@ def flask_get_client() -> Client:
 
 class FlaskSubmitImplementation(LegacySubmitImplementation):
     """Implementation of the `SubmitApi` usable with flask."""
+
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+        root_dir = "data/new"
+        store = LegacyFileStore(root_dir=root_dir)
+        compiler = GcpCompileAtLegacy(root_dir)
+        super().__init__(store=store, compiler=compiler, **kwargs)
         self.get_session = flask_get_session
         self.get_user = flask_get_user
         self.get_client = flask_get_client

@@ -4,18 +4,17 @@ from datetime import timedelta, datetime
 from http import HTTPStatus as status
 from unittest import TestCase, mock
 
+from arxiv import auth
+from arxiv.auth import domain
 from pytz import timezone
 from werkzeug.datastructures import MultiDict
 from werkzeug.exceptions import InternalServerError, NotFound
 from wtforms import Form
 
 import submit_ce as events
-from submit_ce.api.domain import SetLicense
-from arxiv.users import auth, domain
-
-from submit_ce.controllers.ui.new import license
 
 import submit_ce.api.domain
+from submit_ce.api.domain.event import SetLicense
 from submit_ce.ui.routes.flow_control import get_controllers_desire, STAGE_SUCCESS
 
 class TestSetLicense(TestCase):
@@ -51,7 +50,7 @@ class TestSetLicense(TestCase):
             )
         )
 
-    @mock.patch(f'{license.__name__}.LicenseForm.Meta.csrf', False)
+    @mock.patch('submit_ce.ui.controllers.new.license.LicenseForm.Meta.csrf', False)
     @mock.patch('arxiv.submission.load')
     def test_get_request_with_submission(self, mock_load):
         """GET request with a submission ID."""
@@ -64,7 +63,7 @@ class TestSetLicense(TestCase):
         self.assertEqual(code, status.OK, "Returns 200 OK")
         self.assertIsInstance(rdata['form'], Form, "Data includes a form")
 
-    @mock.patch(f'{license.__name__}.LicenseForm.Meta.csrf', False)
+    @mock.patch('submit_ce.ui.controllers.new.license.LicenseForm.Meta.csrf', False)
     @mock.patch('arxiv.submission.load')
     def test_get_request_with_nonexistant_submission(self, mock_load):
         """GET request with a submission ID."""
@@ -77,7 +76,7 @@ class TestSetLicense(TestCase):
         with self.assertRaises(NotFound):
             license.license('GET', MultiDict(), self.session, submission_id)
 
-    @mock.patch(f'{license.__name__}.LicenseForm.Meta.csrf', False)
+    @mock.patch('submit_ce.ui.controllers.new.license.LicenseForm.Meta.csrf', False)
     @mock.patch('arxiv.submission.load')
     def test_post_request(self, mock_load):
         """POST request with no data."""
@@ -88,9 +87,9 @@ class TestSetLicense(TestCase):
         data, _, _ = license.license('POST', MultiDict(), self.session, submission_id)
         self.assertIsInstance(data['form'], Form, "Data includes a form")
 
-    @mock.patch(f'{license.__name__}.LicenseForm.Meta.csrf', False)
+    @mock.patch('submit_ce.ui.controllers.new.license.LicenseForm.Meta.csrf', False)
     @mock.patch('submit.controllers.ui.util.url_for')
-    @mock.patch(f'{license.__name__}.save')
+    @mock.patch(f'submit_ce.ui.controllers.new.license.save')
     @mock.patch('arxiv.submission.load')
     def test_post_request_with_data(self, mock_load, mock_save, mock_url_for):
         """POST request with `license` set."""
@@ -112,9 +111,9 @@ class TestSetLicense(TestCase):
         self.assertEqual(get_controllers_desire(data), STAGE_SUCCESS)
 
 
-    @mock.patch(f'{license.__name__}.LicenseForm.Meta.csrf', False)
+    @mock.patch(f'submit_ce.ui.controllers.new.license.LicenseForm.Meta.csrf', False)
     @mock.patch('submit.controllers.ui.util.url_for')
-    @mock.patch(f'{license.__name__}.save')
+    @mock.patch('submit_ce.ui.controllers.new.license.save')
     @mock.patch('arxiv.submission.load')
     def test_post_request_with_data(self, mock_load, mock_save, mock_url_for):
         """POST request with `license` set and same license already on submission."""
@@ -136,9 +135,9 @@ class TestSetLicense(TestCase):
                                               submission_id)
         self.assertEqual(get_controllers_desire(data), STAGE_SUCCESS)
 
-    @mock.patch(f'{license.__name__}.LicenseForm.Meta.csrf', False)
+    @mock.patch(f'submit_ce.ui.controllers.new.license.LicenseForm.Meta.csrf', False)
     @mock.patch('submit.controllers.ui.util.url_for')
-    @mock.patch(f'{license.__name__}.save')
+    @mock.patch('submit_ce.ui.controllers.new.license.save')
     @mock.patch('arxiv.submission.load')
     def test_save_fails(self, mock_load, mock_save, mock_url_for):
         """Event store flakes out on saving license selection."""

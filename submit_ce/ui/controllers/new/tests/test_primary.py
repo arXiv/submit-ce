@@ -10,10 +10,10 @@ from werkzeug.exceptions import InternalServerError, NotFound
 from wtforms import Form
 
 import submit_ce as events
-from submit_ce.api.domain import SetPrimaryClassification
-from submit_ce.controllers.ui.new import classification
+from submit_ce.api.domain.event import SetPrimaryClassification
+from submit_ce.ui.controllers.new import classification
 
-from arxiv.users import auth, domain
+from arxiv.auth import auth, domain
 
 import submit_ce.api.domain
 from submit_ce.ui.routes.flow_control import get_controllers_desire, STAGE_SUCCESS

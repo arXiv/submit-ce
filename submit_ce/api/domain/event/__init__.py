@@ -61,7 +61,6 @@ from . import validators
 from .base import Event
 from .flag import AddMetadataFlag, AddUserFlag, AddContentFlag, RemoveFlag, \
     AddHold, RemoveHold
-from .process import AddProcessStatus
 from .proposal import AddProposal, RejectProposal, AcceptProposal
 from .request import RequestCrossList, RequestWithdrawal, ApplyRequest, \
     RejectRequest, ApproveRequest, CancelRequest

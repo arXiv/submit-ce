@@ -5,17 +5,15 @@ import tempfile
 from unittest import TestCase, mock
 from urllib.parse import urlparse
 
-from submit_ce.ui.factory import create_ui_web_app
+from arxiv.auth.auth import scopes
+
 from submit_ce.ui.backend import api
-from arxiv.users.helpers import generate_token
-from submit_ce import classic
-from arxiv.users.auth import scopes
-from arxiv.users.domain import Category
+from arxiv.auth.helpers import generate_token
 from http import HTTPStatus as status
 from submit_ce.api.domain import User
 from submit_ce.api.domain import Author, SubmissionContent
-from submit_ce import save
 from .csrf_util import parse_csrf_token
+from ..factory import create_web_app
 
 
 # TODO: finish building out this test suite. The current tests run up to
@@ -29,7 +27,7 @@ class TestSubmissionWorkflow(TestCase):
     @mock.patch('arxiv.submission.StreamPublisher', mock.MagicMock())
     def setUp(self):
         """Create an application instance."""
-        self.app = create_ui_web_app()
+        self.app = create_web_app()
         os.environ['JWT_SECRET'] = str(self.app.config.get('JWT_SECRET'))
         _, self.db = tempfile.mkstemp(suffix='.db')
         self.app.config['CLASSIC_DATABASE_URI'] = f'sqlite:///{self.db}'

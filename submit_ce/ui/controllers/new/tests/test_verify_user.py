@@ -6,12 +6,12 @@ from werkzeug.exceptions import InternalServerError
 from wtforms import Form
 from http import HTTPStatus as status
 import submit_ce as events
-from submit_ce.api.domain import ConfirmContactInformation
-from submit_ce.controllers.ui.new import verify_user
+from submit_ce.api.domain.event import ConfirmContactInformation
+from submit_ce.ui.controllers.new import verify_user
 
 from pytz import timezone
 from datetime import timedelta, datetime
-from arxiv.users import auth, domain
+from arxiv.auth import auth, domain
 
 import submit_ce.api.domain
 

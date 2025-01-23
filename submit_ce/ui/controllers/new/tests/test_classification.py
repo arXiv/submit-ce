@@ -1,18 +1,19 @@
 """Tests for :mod:`submit_ce.controllers.classification`."""
 
 from unittest import TestCase, mock
+
+from arxiv.auth import auth, domain
 from werkzeug.datastructures import MultiDict
 from werkzeug.exceptions import NotFound
 from wtforms import Form
 from http import HTTPStatus as status
 import submit_ce as events
-from submit_ce.controllers.ui.new import classification
 
 from pytz import timezone
 from datetime import timedelta, datetime
-from arxiv.users import auth, domain
 
 import submit_ce.api.domain
+from submit_ce.ui.controllers.new import classification
 
 
 class TestClassification(TestCase):

@@ -5,27 +5,26 @@ Creates an event of type `core.events.event.ConfirmAuthorship`
 """
 
 from http import HTTPStatus as status
-from typing import Tuple, Dict, Any, Optional
+from typing import Tuple, Dict, Any
 
-from flask import url_for
-from werkzeug.datastructures import MultiDict
-from werkzeug.exceptions import InternalServerError, NotFound, BadRequest
-from wtforms import BooleanField, RadioField
-from wtforms.validators import InputRequired, ValidationError, optional
+from arxiv.auth.domain import Session
 
 from arxiv.base import logging
 from arxiv.forms import csrf
-from arxiv.auth.domain import Session
-from submit_ce.ui.backend import api
-from submit_ce.api.domain import Submission
+
+from werkzeug.datastructures import MultiDict
+from werkzeug.exceptions import InternalServerError
+from wtforms import BooleanField, RadioField
+from wtforms.validators import InputRequired, ValidationError, optional
+
 from submit_ce.api.domain.event import ConfirmAuthorship
-from submit_ce.api.exceptions import InvalidEvent, SaveError
+from submit_ce.api.exceptions import SaveError
 
-from submit_ce.ui.util import load_submission
 from submit_ce.ui.auth import user_and_client_from_session
+from submit_ce.ui.backend import api
 from submit_ce.ui.controllers.util import validate_command
-
 from submit_ce.ui.routes.flow_control import ready_for_next
+from submit_ce.ui.util import load_submission
 
 # from arxiv-ui-app-core.events.event import ConfirmContactInformation
 

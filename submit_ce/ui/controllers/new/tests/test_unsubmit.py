@@ -11,7 +11,7 @@ from submit_ce.ui.controllers.new import unsubmit
 
 from pytz import timezone
 from datetime import timedelta, datetime
-from arxiv.users import auth, domain
+from arxiv.auth import auth, domain
 
 
 class TestUnsubmit(TestCase):

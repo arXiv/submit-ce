@@ -3,13 +3,13 @@
 from unittest import TestCase, mock
 from werkzeug.datastructures import MultiDict
 from http import HTTPStatus as status
-from submit_ce.controllers.ui import jref
 
 from pytz import timezone
 from datetime import timedelta, datetime
-from arxiv.users import auth, domain
+from arxiv.auth import auth, domain
 
 import submit_ce.api.domain
+from submit_ce.ui.controllers import jref
 
 
 def mock_save(*events, submission_id=None):

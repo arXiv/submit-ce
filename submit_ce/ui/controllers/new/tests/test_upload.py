@@ -8,11 +8,10 @@ from unittest import TestCase, mock
 from werkzeug.datastructures import MultiDict
 from werkzeug.exceptions import BadRequest
 
-from arxiv.users import auth, domain
+from arxiv.auth import auth, domain
 from submit_ce.api.domain import SubmissionContent
-from submit_ce.api.domain import Upload, FileStatus, UploadLifecycleStates, UploadStatus
 
-from submit_ce.controllers.ui.new import upload
+from submit_ce.ui.controllers.new import upload
 
 import submit_ce.api.domain
 from submit_ce.ui.controllers.new import upload_delete

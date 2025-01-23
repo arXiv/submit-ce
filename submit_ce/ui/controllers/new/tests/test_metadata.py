@@ -4,18 +4,18 @@ from datetime import timedelta, datetime
 from http import HTTPStatus as status
 from unittest import TestCase, mock
 
+from arxiv import auth
+from arxiv.auth import domain
 from pytz import timezone
 from werkzeug.datastructures import MultiDict
 from werkzeug.exceptions import InternalServerError
 from wtforms import Form
 
 import submit_ce as events
-from submit_ce.api.domain import SetTitle, SetAbstract, SetAuthors, \
-    SetReportNumber, SetMSCClassification, SetACMClassification, SetDOI, \
-    SetJournalReference
-from arxiv.users import auth, domain
+from submit_ce.api.domain.event import SetACMClassification, SetReportNumber, SetJournalReference, SetDOI, \
+    SetMSCClassification, SetTitle, SetAbstract, SetAuthors
 
-from submit_ce.controllers.ui.new import metadata
+from submit_ce.ui.controllers.new import metadata
 
 import submit_ce.api.domain
 

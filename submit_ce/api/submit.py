@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 from typing import Tuple, List, Optional
 
+from submit_ce.api.CompileService import CompileService
 from submit_ce.api.domain import Submission, Event, Agent, Client, Upload, License
 from submit_ce.api.file_store import SubmissionFileStore, SubmitFile
 
@@ -91,13 +92,22 @@ class SubmitApi(ABC):
         """
         ...
 
-    #SubmissionHistory = List[Events]
+    @abstractmethod
+    def get_compiler(self) -> CompileService:
+        """
+        Gets a `CompileService` implementation object.
+
+        Returns
+        -------
+            `CompileService`
+        """
+        ...
 
     """Suggestions from Jonathan:
     
-    1. Allow load of submission without history, he is concerned the history may grow to be very large
-    2. Event maybe should be renamed? Command? Change? Maybe the History should be made of different types
-       than the Command/Change?
+    1. DONE Allow load of submission without history, he is concerned the history may grow to be very large
+    2. Event type maybe should be renamed. Command? Change?
+    2.5 Maybe the History should be made of different types than the Command/Change?
     3. If save() has submission_id as optional just to support start_submission maybe split that out to 
        different function?
     4. JY was expecting Submission to be an active object like SqlAlchemy but this much more

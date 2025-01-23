@@ -10,9 +10,10 @@ from werkzeug.exceptions import InternalServerError, NotFound
 from wtforms import Form
 
 import submit_ce as events
-from submit_ce.api.domain import ConfirmPolicy
-from arxiv.users import auth, domain
-from submit_ce.controllers.ui.new import policy
+from arxiv.auth import auth, domain
+
+from submit_ce.api.domain.event import ConfirmPolicy
+from submit_ce.ui.controllers.new import policy
 
 import submit_ce.api.domain
 from submit_ce.ui.routes.flow_control import get_controllers_desire, STAGE_SUCCESS

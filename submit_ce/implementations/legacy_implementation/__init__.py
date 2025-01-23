@@ -11,6 +11,9 @@ from sqlalchemy.orm import Session as SqlalchemySession, Session
 from submit_ce.api import domain as api, Event, License, SubmitFile, Agent, Client, Upload, \
     SubmissionFileStore
 from ..schedule import next_announcement_time, next_freeze_time
+from ...api.CompileService import CompileService
+from ...api.domain.event.base import EventWithSideEffect
+from ...api.domain.util import get_tzaware_utc_now
 from ...api.submit import SubmitApi
 from .db import to_submission
 from .models import Submission, Document, SubmissionCategory
@@ -40,7 +43,8 @@ class LegacySubmitImplementation(SubmitApi):
     """
 
     def __init__(self,
-                 store: Optional[SubmissionFileStore] = None,
+                 store: SubmissionFileStore,
+                 compiler: CompileService,
                  get_session:Callable[[],SqlalchemySession] = None,
                  get_user: Callable[[],api.User] = None,
                  get_client: Callable[[], api.Client] = None,
@@ -49,6 +53,7 @@ class LegacySubmitImplementation(SubmitApi):
         self.get_client = get_client
         self.get_session = get_session
         self.serialize_file_operations = serialize_file_operations
+        self.compiler = compiler
 
         if store is None:
             self.store = LegacyFileStore(root_dir="data/new")  # for testing only
@@ -110,6 +115,15 @@ class LegacySubmitImplementation(SubmitApi):
             # Since the event may refer to its own ID which in future versions should be based on the
             # creation time, this must be set before the event is applied.
             event.created = datetime.now(UTC)
+            if isinstance(event, EventWithSideEffect):
+                if event.executed:
+                    raise RuntimeError(f"Must not save and execute an already executed event. "
+                                       "{event.event_id} {event.NAME} executed {event.executed}")
+                logger.debug('Execute event %s: %s', event.event_id, event.NAME)
+                event.execute(self, submission)
+                if not event.executed:
+                    event.executed = get_tzaware_utc_now()
+
             logger.debug('Apply event %s: %s', event.event_id, event.NAME)
             after = event.apply(before)
             if not event.committed:
@@ -198,6 +212,9 @@ class LegacySubmitImplementation(SubmitApi):
 
     def get_file_store(self, workspace_id) -> SubmissionFileStore:
         return self.store
+
+    def get_compiler(self) -> CompileService:
+        return self.compiler
 
     def next_announcement_time(self, reference: Optional[datetime] = None) -> datetime:
         return next_announcement_time(reference)
