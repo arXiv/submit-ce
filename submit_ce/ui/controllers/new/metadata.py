@@ -93,14 +93,10 @@ def _data_from_submission(params: MultiDict, submission: Submission,
 
 def metadata(method: str, params: MultiDict, session: Session,
              submission_id: int, **kwargs) -> Response:
-    """Update metadata on the ui-app."""
+    """Update submission metadata on the ui-app."""
     submitter, client = user_and_client_from_session(session)
     logger.debug(f'method: {method}, ui-app: {submission_id}. {params}')
-
-    # Will raise NotFound if there is no such ui-app.
     submission, submission_events = load_submission(submission_id)
-    # The form should be prepopulated based on the current state of the
-    # ui-app.
     if method == 'GET':
         params = _data_from_submission(params, submission, CoreMetadataForm)
 
