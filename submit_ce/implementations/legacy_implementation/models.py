@@ -298,6 +298,9 @@ class Submission(Base):    # type: ignore
             self.package = (f'fm://{submission.source_content.identifier}'
                             f'@{submission.source_content.checksum}')
 
+        if self.package is None:
+            self.package = ""
+
         if submission.is_source_processed:
             self.must_process = 0
         else:

@@ -108,7 +108,7 @@ class LegacySubmitImplementation(SubmitApi):
         before = submission
         committed: List[Event] = []
         for event in events:
-            if event.submission_id is None and submission.submission_id is not None:
+            if event.submission_id is None and submission and submission.submission_id is not None:
                 event.submission_id = submission.submission_id
 
             # The created timestamp should be roughly when the event was committed.
