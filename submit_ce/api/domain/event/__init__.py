@@ -980,7 +980,8 @@ class FinalizeSubmission(Event):
     NAMED = "submission finalized"
 
     REQUIRED: ClassVar[str] = [
-        'creator', 'primary_classification', 'submitter_contact_verified',
+        'creator', 'primary_classification',
+        # TODO this is broken: 'submitter_contact_verified',
         'submitter_accepts_policy', 'license', 'source_content', 'metadata',
     ]
     REQUIRED_METADATA: ClassVar[str] = ['title', 'abstract', 'authors_display']

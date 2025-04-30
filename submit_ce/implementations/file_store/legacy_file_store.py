@@ -126,6 +126,9 @@ class LegacyFileStore(SubmissionFileStore):
             errors=[]
         )
 
+    def delete_workspace(self, submission_id: str):
+        src_dir = self._source_path(submission_id)
+        shutil.rmtree(src_dir.absolute())
 
     def store_source_package(self,
                      submission_id: int,

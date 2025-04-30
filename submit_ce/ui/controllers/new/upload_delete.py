@@ -91,7 +91,9 @@ def delete_all(method: str, params: MultiDict, session: Session,
         if not (form.validate() and form.confirmed.data):
             return stay_on_this_stage((rdata, status.OK, {}))
 
-        raise NotImplementedError()
+        api.get_file_store().delete_workspace(submission.submission_id)
+        # TODO Record that the files were deleted
+
         # fm = Filemanager.current_session()
         # try:
         #     stat = fm.delete_all(upload_id, token)
@@ -113,22 +115,22 @@ def delete_all(method: str, params: MultiDict, session: Session,
         #         f' again. {PLEASE_CONTACT_SUPPORT}'
         #     ))
         #     logger.error('Encountered RequestFailed: %s', e)
-
-        command = UpdateUploadPackage(creator=submitter, client=client,
-                                      checksum=stat.checksum,
-                                      uncompressed_size=stat.size,
-                                      source_format=stat.source_format)
-        if not validate_command(form, command, submission):
-            logger.debug('Command validation failed')
-            return return_to_parent_stage((rdata, status.OK, {}))
-
-        try:
-            submission, _ = api.save(command, submission_id=submission_id)
-        except SaveError:
-            alerts.flash_failure(Markup(
-                'There was a problem carrying out your request. Please try'
-                f' again. {PLEASE_CONTACT_SUPPORT}'
-            ))
+        #
+        # command = UpdateUploadPackage(creator=submitter, client=client,
+        #                               checksum=stat.checksum,
+        #                               uncompressed_size=stat.size,
+        #                               source_format=stat.source_format)
+        # if not validate_command(form, command, submission):
+        #     logger.debug('Command validation failed')
+        #     return return_to_parent_stage((rdata, status.OK, {}))
+        #
+        # try:
+        #     submission, _ = api.save(command, submission_id=submission_id)
+        # except SaveError:
+        #     alerts.flash_failure(Markup(
+        #         'There was a problem carrying out your request. Please try'
+        #         f' again. {PLEASE_CONTACT_SUPPORT}'
+        #     ))
 
         return return_to_parent_stage((rdata, status.OK, {}))
 

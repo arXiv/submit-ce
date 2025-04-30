@@ -468,7 +468,7 @@ def final_preview(submission_id: int) -> Response:
 @flow_control()
 def confirmation(submission_id: int) -> Response:
     """Render the final confirmation page."""
-    return handle(cntrls.new.final.confirm, "submit_ce/confirm_submit.html",
+    return handle(cntrls.new.final.confirm, "submit/confirm_submit.html",
                   'Submission Confirmed',
                   submission_id, flow_controlled=True)
 

@@ -25,6 +25,11 @@ class SubmissionFileStore(metaclass=ABCMeta):
         pass
 
     @abstractmethod
+    def delete_workspace(self, submission_id: str):
+        """Deletes the source package."""
+        pass
+
+    @abstractmethod
     def get_source_file(self, submission_id: str) -> BytesIO:
         """Retrieve a file from the filesystem.
 

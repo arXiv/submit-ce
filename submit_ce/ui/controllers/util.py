@@ -85,14 +85,13 @@ def validate_command(form: Form, event: Event,
     try:
         event.validate(submission)
     except InvalidEvent as e:
-        form.errors
         # This use of _errors causes a problem in WTForms 2.3.3
         # This fix might be of interest: https://github.com/wtforms/wtforms/pull/584
-        if field not in form._errors:
-            form._errors[field] = []
-        if message is None:
-            message = e.message
-        form._errors[field].append(message)
+        # if field not in form._errors:
+        #     form._errors[field] = []
+        # if message is None:
+        #     message = e.message
+        # form._errors[field].append(message)
 
         if hasattr(form, field):
             field_obj = getattr(form, field)

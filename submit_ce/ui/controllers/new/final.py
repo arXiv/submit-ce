@@ -81,6 +81,7 @@ def confirm(method: str, params: MultiDict, session: Session,
     submission, submission_events = load_submission(submission_id)
     response_data = {
         'submission_id': submission_id,
-        'ui-app': submission
+        'ui-app': submission,
+        'submission': submission,
     }
     return response_data, status.OK, {}
