@@ -1,11 +1,13 @@
 """Core persistence methods for submissions and submission events."""
+from typing import Tuple, List, cast
 
 from arxiv.db import Session, session_factory, configure_db
-from flask import request
-from werkzeug.exceptions import Unauthorized
+from flask import request, g, has_app_context
+from werkzeug.exceptions import Unauthorized, BadRequest, NotFound
 
-from submit_ce.api import SubmitApi
+from submit_ce.api import SubmitApi, Submission, Event
 from submit_ce.api.domain import User, Client
+from submit_ce.api.exceptions import NoSuchSubmission
 from submit_ce.implementations.legacy_implementation.flask_impl import FlaskSubmitImplementation
 
 
@@ -16,6 +18,45 @@ def config_backend_api(settings)-> None:
 
 api: SubmitApi = FlaskSubmitImplementation()
 """Backend forced to be legacy implementation just for testing. It should be configurable via Settings."""
+
+
+def get_submission(submission_id: int) -> Tuple[Submission, List[Event]]:
+    """
+    Load a submission by ID.
+
+    Parameters
+    ----------
+    submission_id : int
+
+    Returns
+    -------
+    :class:`events.domain.Submission`
+
+    Raises
+    ------
+    :class:`werkzeug.exceptions.NotFound`
+        Raised when there is no submission with the specified ID.
+
+    """
+    if submission_id is None:
+        raise BadRequest('No submission id')
+
+    if not has_app_context():  # for testing to avoid problems with flask app context
+        return api.get_with_history(submission_id)
+
+    if "submission" in g and "events" in g:
+        if isinstance(g.submission, Submission) and isinstance(g.event, List):
+            return g.submission, cast(List[Event], g.events)
+    try:
+        submission, history = api.get_with_history(submission_id)
+        g.submission = submission
+        g.events = history
+        if isinstance(g.submission, Submission) and isinstance(g.events, List):
+            return g.submission, cast(List[Event], g.events)
+    except NoSuchSubmission as nss:
+        raise NotFound()
+
+
 
 
 def get_user() -> User:

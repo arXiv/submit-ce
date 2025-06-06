@@ -21,7 +21,7 @@ from wtforms.validators import InputRequired
 from submit_ce.api.domain.event import SetLicense
 from submit_ce.ui.controllers.util import validate_command
 from submit_ce.ui.routes.flow_control import ready_for_next, stay_on_this_stage
-from submit_ce.ui.util import load_submission
+from submit_ce.ui.backend import get_submission
 from submit_ce.ui.auth import user_and_client_from_session
 
 logger = logging.getLogger(__name__)  # pylint: disable=C0103
@@ -34,7 +34,7 @@ def license(method: str, params: MultiDict, session: Session,
     """Convert license form data into a `SetLicense` event."""
     submitter, client = user_and_client_from_session(session)
 
-    submission, submission_events = load_submission(submission_id)
+    submission, submission_events = get_submission(submission_id)
 
     if method == 'GET' and submission.license:
         # The form should be prepopulated based on the current state of the

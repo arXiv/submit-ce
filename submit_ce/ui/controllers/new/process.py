@@ -27,7 +27,7 @@ from wtforms import SelectField
 from ..util import validate_command
 from ...auth import user_and_client_from_session
 from submit_ce.ui.routes.flow_control import ready_for_next, stay_on_this_stage
-from submit_ce.ui.util import load_submission
+from submit_ce.ui.backend import get_submission
 
 logger = logging.getLogger(__name__)
 
@@ -88,7 +88,7 @@ def _check_status(params: MultiDict, session: Session,  submission_id: int,
     This will catch cases like PDF-only and others that require no further compilation.
     """
     submitter, client = user_and_client_from_session(session)
-    submission, _ = load_submission(submission_id)
+    submission, _ = get_submission(submission_id)
 
     if not submission.is_source_processed:
         form = CompilationForm(params)  # Providing CSRF protection.
@@ -141,7 +141,7 @@ def compile_status(params: MultiDict, session: Session, submission_id: int,
 
     """
     submitter, client = user_and_client_from_session(session)
-    submission, _ = load_submission(submission_id)
+    submission, _ = get_submission(submission_id)
     form = CompilationForm()
     response_data = {
         'submission_id': submission_id,
@@ -171,7 +171,7 @@ def compile_status(params: MultiDict, session: Session, submission_id: int,
 def start_compilation(params: MultiDict, session: Session, submission_id: int,
                       token: str, **kwargs: Any) -> Response:
     submitter, client = user_and_client_from_session(session)
-    submission, submission_events = load_submission(submission_id)
+    submission, submission_events = get_submission(submission_id)
     form = CompilationForm(params)
     response_data = {
         'submission_id': submission_id,
@@ -220,7 +220,7 @@ def file_preview(params, session: Session, submission_id: int, token: str,
                  **kwargs: Any) -> Tuple[io.BytesIO, int, Dict[str, str]]:
     """Serve the PDF preview for a ui-app."""
     submitter, client = user_and_client_from_session(session)
-    submission, submission_events = load_submission(submission_id)
+    submission, submission_events = get_submission(submission_id)
     fstore = api.get_file_store()
     stream = fstore.get_preview(submission.submission_id)
     pdf_checksum = fstore.get_preview_checksum(submission.submission_id)
@@ -231,7 +231,7 @@ def file_preview(params, session: Session, submission_id: int, token: str,
 def compilation_log(params, session: Session, submission_id: int, token: str,
                     **kwargs: Any) -> Response:
     submitter, client = user_and_client_from_session(session)
-    submission, submission_events = load_submission(submission_id)
+    submission, submission_events = get_submission(submission_id)
     checksum = params.get('checksum', submission.source_content.checksum)
     NotImplementedError()
     # try:

@@ -10,8 +10,10 @@ To run the server, please execute the following from the root directory:
 python --version
 # 3.11
 
-pip install --no-deps -r requirements.txt
-pip install --no-deps -r requirements-dev.txt
+# this uses uv instead of pipenv or poetry
+# see https://docs.astral.sh/uv/
+uv venv
+uv sync
 
 # make sqlite dev db
 python tests/make_test_db.py bootstrap_db

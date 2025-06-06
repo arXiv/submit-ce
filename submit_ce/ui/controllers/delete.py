@@ -9,11 +9,10 @@ from werkzeug.datastructures import MultiDict
 from werkzeug.exceptions import BadRequest, InternalServerError, NotFound
 
 from arxiv.base import alerts
-from submit_ce.ui.backend import api
+from submit_ce.ui.backend import api, get_submission
 from submit_ce.api.domain.event import Rollback, CancelRequest
 from arxiv.forms import csrf
 from submit_ce.ui.controllers.util import Response, validate_command
-from submit_ce.ui.util import load_submission
 from submit_ce.ui.auth import user_and_client_from_session
 
 
@@ -43,7 +42,7 @@ def delete(method: str, params: MultiDict, session: Session,
     is simply reverted back to the state of the last announcement.
 
     """
-    submission, submission_events = load_submission(submission_id)
+    submission, submission_events = get_submission(submission_id)
     response_data = {
         'submission': submission,
         'submission_id': submission.submission_id,
@@ -76,7 +75,7 @@ def delete(method: str, params: MultiDict, session: Session,
 def cancel_request(method: str, params: MultiDict, session: Session,
                    submission_id: int, request_id: str,
                    **kwargs) -> Response:
-    submission, submission_events = load_submission(submission_id)
+    submission, submission_events = get_submission(submission_id)
 
     # if request_type == WithdrawalRequest.NAME.lower():
     #     request_klass = WithdrawalRequest

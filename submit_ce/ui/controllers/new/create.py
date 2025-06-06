@@ -15,7 +15,7 @@ from submit_ce.api.exceptions import SaveError
 from submit_ce.ui.backend import api
 from submit_ce.ui.controllers.util import validate_command
 from submit_ce.ui.routes.flow_control import advance_to_current, Response
-from submit_ce.ui.util import load_submission
+from submit_ce.ui.backend import get_submission
 from submit_ce.ui.auth import user_and_client_from_session
 
 logger = logging.getLogger(__name__)    # pylint: disable=C0103
@@ -58,7 +58,7 @@ def replace(method: str, params: MultiDict, session: Session,
             submission_id: int, **kwargs) -> Response:
     """Create a new version, and redirect to workflow."""
     submitter, client = user_and_client_from_session(session)
-    submission, submission_events = load_submission(submission_id)
+    submission, submission_events = get_submission(submission_id)
     response_data = {
         'submission_id': submission_id,
         'ui-app': submission,
@@ -77,7 +77,7 @@ def replace(method: str, params: MultiDict, session: Session,
             raise BadRequest('Invalid request')
 
         submitter, client = user_and_client_from_session(session)
-        submission, _ = load_submission(submission_id)
+        submission, _ = get_submission(submission_id)
         command = CreateSubmissionVersion(creator=submitter, client=client)
         if not validate_command(form, command, submission):
             raise BadRequest({})

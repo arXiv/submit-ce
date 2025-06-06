@@ -35,7 +35,9 @@ def user_and_client_from_session(session: Session) \
     client = Client(
         "totally_fake_cliet_native_id",
     )
-    client.remote_addr = request.remote_addr # not sure why it doesn't set in the constructor
+    # TODO getting the remote_adder from flask in tests is broken
+    # client.remote_addr = request.remote_addr  # not sure why it doesn't set in the constructor
+    client.remote_addr = "127.0.0.1"
     client.hostname = ""
     return user, client
 

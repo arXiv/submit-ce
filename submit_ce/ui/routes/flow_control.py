@@ -18,7 +18,7 @@ from submit_ce.ui.workflow.stages import Stage
 from submit_ce.ui.workflow.processor import WorkflowProcessor
 
 from submit_ce.ui.controllers.util import Response as CResponse
-from submit_ce.ui.util import load_submission
+from submit_ce.ui.backend import get_submission
 
 
 logger = logging.getLogger(__name__)
@@ -89,21 +89,27 @@ def endpoint_name() -> Optional[str]:
 
 def get_seen() -> Dict[str, bool]:
     """Get seen steps from user session."""
-    # TODO Fix seen to handle mutlipe submissions at the same time
+    # TODO Fix seen to handle multiple submissions at the same time
     return session.get('steps_seen', {})  # type: ignore
 
 
 def put_seen(seen: Dict[str, bool]) -> None:
     """Put the seen steps into the users session."""
-    # TODO Fix seen to handle mutlipe submissions at the same time
+    # TODO Fix seen to handle multiple submissions at the same time
     session['steps_seen'] = seen
 
 
 def get_workflow(submission: Optional[Submission]) -> WorkflowProcessor:
     """Guesses the workflow based on the submission and its version."""
-    if submission is not None and submission.version > 1:
+    if submission is None:
+        raise RuntimeError("Cannot figure out workflow without a submission")
+    if submission.version > 1:
         return WorkflowProcessor(ReplacementWorkflow, submission, get_seen())
-    return WorkflowProcessor(NewSubmissionWorkflow, submission, get_seen())
+    else:
+        return WorkflowProcessor(NewSubmissionWorkflow, submission, get_seen())
+    # todo need cross workflow
+    # todo need jref workflow
+    # todo need doi workflow
 
 
 def to_stage(stage: Optional[Stage], ident: str) -> Response:
@@ -174,7 +180,7 @@ def flow_control(blueprint_this_stage: Optional[Stage] = None,
             """Update the redirect to the next, previous, or exit page."""
             
             action = request.form.get('action', None)
-            submission, _ = load_submission(submission_id)
+            submission, _ = get_submission(submission_id)
             workflow = request.workflow
             this_stage = blueprint_this_stage or \
                 workflow.workflow[endpoint_name()]

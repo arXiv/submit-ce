@@ -951,6 +951,32 @@ wheels = [
 ]
 
 [[package]]
+name = "hypothesis"
+version = "6.131.21"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "attrs" },
+    { name = "sortedcontainers" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/d8/bc/566ade5e601247e0bc0a0554f76c4bb060fd971ca5faecc599a8fa88ce32/hypothesis-6.131.21.tar.gz", hash = "sha256:93738e2a53ffb8e865e8d11ba7b7ed7f6e3cc59d341fb40bb06b10c5317411b7", size = 437956, upload-time = "2025-05-21T07:11:30.56Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/80/cc/4aa36794b01f6ac808f4e5af231b263c1fe3de4cde89240420db00c29440/hypothesis-6.131.21-py3-none-any.whl", hash = "sha256:db2c94cf2537e684b35480d8ed5ba253da2c4f9d19fbc3483cfdd4c51c17f29d", size = 502536, upload-time = "2025-05-21T07:11:26.688Z" },
+]
+
+[[package]]
+name = "hypothesis-jsonschema"
+version = "0.23.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "hypothesis" },
+    { name = "jsonschema" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/4f/ad/2073dd29d8463a92c243d0c298370e50e0d4082bc67f156dc613634d0ec4/hypothesis-jsonschema-0.23.1.tar.gz", hash = "sha256:f4ac032024342a4149a10253984f5a5736b82b3fe2afb0888f3834a31153f215", size = 42896, upload-time = "2024-02-28T20:33:50.209Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/17/44/635a8d2add845c9a2d99a93a379df77f7e70829f0a1d7d5a6998b61f9d01/hypothesis_jsonschema-0.23.1-py3-none-any.whl", hash = "sha256:a4d74d9516dd2784fbbae82e009f62486c9104ac6f4e3397091d98a1d5ee94a2", size = 29200, upload-time = "2024-02-28T20:33:48.744Z" },
+]
+
+[[package]]
 name = "idna"
 version = "3.10"
 source = { registry = "https://pypi.org/simple" }
@@ -1617,6 +1643,18 @@ wheels = [
 ]
 
 [[package]]
+name = "pytest-mock"
+version = "3.14.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pytest" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/c6/90/a955c3ab35ccd41ad4de556596fa86685bf4fc5ffcc62d22d856cfd4e29a/pytest-mock-3.14.0.tar.gz", hash = "sha256:2719255a1efeceadbc056d6bf3df3d1c5015530fb40cf347c0f9afac88410bd0", size = 32814, upload-time = "2024-03-21T22:14:04.964Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f2/3b/b26f90f74e2986a82df6e7ac7e319b8ea7ccece1caec9f8ab6104dc70603/pytest_mock-3.14.0-py3-none-any.whl", hash = "sha256:0b72c38033392a5f4621342fe11e9219ac11ec9d375f8e2a0c164539e0d70f6f", size = 9863, upload-time = "2024-03-21T22:14:02.694Z" },
+]
+
+[[package]]
 name = "python-dateutil"
 version = "2.9.0.post0"
 source = { registry = "https://pypi.org/simple" }
@@ -2043,6 +2081,15 @@ wheels = [
 ]
 
 [[package]]
+name = "sortedcontainers"
+version = "2.4.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/e8/c4/ba2f8066cceb6f23394729afe52f3bf7adec04bf9ed2c820b39e19299111/sortedcontainers-2.4.0.tar.gz", hash = "sha256:25caa5a06cc30b6b83d11423433f65d1f9d76c4c6a0c90e3379eaa43b9bfdb88", size = 30594, upload-time = "2021-05-16T22:03:42.897Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/32/46/9cb0e58b2deb7f82b84065f37f3bffeb12413f947f9388e4cac22c4621ce/sortedcontainers-2.4.0-py2.py3-none-any.whl", hash = "sha256:a163dcaede0f1c021485e957a39245190e74249897e2ae4b2aa38595db237ee0", size = 29575, upload-time = "2021-05-16T22:03:41.177Z" },
+]
+
+[[package]]
 name = "sqlalchemy"
 version = "2.0.35"
 source = { registry = "https://pypi.org/simple" }
@@ -2195,6 +2242,8 @@ dev = [
     { name = "docker" },
     { name = "docopt" },
     { name = "epc" },
+    { name = "hypothesis" },
+    { name = "hypothesis-jsonschema" },
     { name = "idna" },
     { name = "iniconfig" },
     { name = "isort" },
@@ -2215,6 +2264,7 @@ dev = [
     { name = "pylint" },
     { name = "pytest" },
     { name = "pytest-cov" },
+    { name = "pytest-mock" },
     { name = "pyyaml" },
     { name = "rapidfuzz" },
     { name = "referencing" },
@@ -2339,6 +2389,8 @@ dev = [
     { name = "docker", specifier = "==7.1.0" },
     { name = "docopt", specifier = "==0.6.2" },
     { name = "epc", specifier = ">=0.0.5" },
+    { name = "hypothesis", specifier = ">=6.131.21" },
+    { name = "hypothesis-jsonschema", specifier = ">=0.23.1" },
     { name = "idna", specifier = "==3.10" },
     { name = "iniconfig", specifier = "==2.0.0" },
     { name = "isort", specifier = "==5.13.2" },
@@ -2359,6 +2411,7 @@ dev = [
     { name = "pylint", specifier = "==1.9.4" },
     { name = "pytest", specifier = "==8.3.3" },
     { name = "pytest-cov", specifier = "==5.0.0" },
+    { name = "pytest-mock", specifier = ">=3.14.0" },
     { name = "pyyaml", specifier = "==6.0.2" },
     { name = "rapidfuzz", specifier = ">=3.13.0" },
     { name = "referencing", specifier = "==0.35.1" },

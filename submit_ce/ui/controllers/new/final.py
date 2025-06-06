@@ -18,7 +18,7 @@ from submit_ce.api.domain.event import FinalizeSubmission
 from submit_ce.api.exceptions import SaveError
 from submit_ce.ui.controllers.util import validate_command
 from submit_ce.ui.routes.flow_control import ready_for_next, stay_on_this_stage
-from submit_ce.ui.util import load_submission
+from submit_ce.ui.backend import get_submission
 from submit_ce.ui.auth import user_and_client_from_session
 
 logger = logging.getLogger(__name__)  # pylint: disable=C0103
@@ -31,7 +31,7 @@ def finalize(method: str, params: MultiDict, session: Session,
     submitter, client = user_and_client_from_session(session)
 
     logger.debug(f'method: {method}, ui-app: {submission_id}. {params}')
-    submission, submission_events = load_submission(submission_id)
+    submission, submission_events = get_submission(submission_id)
 
     form = FinalizationForm(params)
 
@@ -78,7 +78,7 @@ class FinalizationForm(csrf.CSRFForm):
 
 def confirm(method: str, params: MultiDict, session: Session,
             submission_id: int, **kwargs) -> Response:
-    submission, submission_events = load_submission(submission_id)
+    submission, submission_events = get_submission(submission_id)
     response_data = {
         'submission_id': submission_id,
         'ui-app': submission,

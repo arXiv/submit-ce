@@ -1,12 +1,15 @@
 import shutil
 import tempfile
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 
 import pytest
+from zoneinfo import ZoneInfo
 from arxiv.auth import domain, auth
 from flask import testing, Flask
 from werkzeug.datastructures import Headers
+
+from arxiv.taxonomy.definitions import CATEGORIES
 
 import submit_ce
 # to ensure we can import this due to confusing errors if it is missing.
@@ -64,7 +67,9 @@ def app(legacy_db, jwt_secret) -> Flask:
 @pytest.fixture
 def authorized_user_session(app, jwt_secret):
     with app.app_context():
-        start = datetime.now(tz=timezone('US/Eastern'))
+
+        start = datetime.now(ZoneInfo("US/Eastern"))
+
         end = start + timedelta(seconds=36000)
         session = domain.Session(
             session_id='123-session-abc',
@@ -73,12 +78,12 @@ def authorized_user_session(app, jwt_secret):
                 user_id='235678',
                 email='foo@foo.com',
                 username='foouser',
-                name=domain.UserFullName("Jane", "Bloggs", "III"),
+                name=domain.UserFullName(forename="Jane", surname="Bloggs", suffix="III"),
                 profile=domain.UserProfile(
                     affiliation="FSU",
                     rank=3,
                     country="de",
-                    default_category=submit_ce.api.domain.Category('astro-ph.GA'),
+                    default_category=CATEGORIES['astro-ph.GA'],
                     submission_groups=['grp_physics']
                 )
             ),
@@ -86,8 +91,8 @@ def authorized_user_session(app, jwt_secret):
                 scopes=[auth.scopes.CREATE_SUBMISSION,
                         auth.scopes.EDIT_SUBMISSION,
                         auth.scopes.VIEW_SUBMISSION],
-                endorsements=[submit_ce.api.domain.Category('astro-ph.CO'),
-                              submit_ce.api.domain.Category('astro-ph.GA')]
+                endorsements=[CATEGORIES['astro-ph.CO'],
+                              CATEGORIES['astro-ph.GA']]
             )
         )
         ng_jwt = auth.tokens.encode(session, jwt_secret)

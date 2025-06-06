@@ -6,7 +6,7 @@ from arxiv.auth.auth import scopes
 from arxiv.auth.auth.decorators import scoped
 from arxiv.base import logging, alerts
 from flask import Blueprint, make_response, redirect, request, \
-    render_template, url_for, send_file
+    render_template, url_for, send_file, g
 from flask import Response as FResponse
 from markupsafe import Markup
 from werkzeug import Response as WResponse
@@ -20,7 +20,7 @@ from submit_ce.ui.routes.auth import is_owner
 from submit_ce.ui.workflow.processor import WorkflowProcessor
 from submit_ce.ui.workflow.stages import FileUpload
 from .flow_control import flow_control, get_workflow, endpoint_name
-from ..backend import api
+from ..backend import api, get_submission
 
 logger = logging.getLogger(__name__)
 
@@ -34,8 +34,8 @@ SUPPORT = Markup(
 Response = Union[FResponse, WResponse]
 
 
-def redirect_to_login(*args, **kwargs) -> str:
-    """Send the unauthorized user to the log in page."""
+def redirect_to_login(*args, **kwargs) -> Response:
+    """Send the unauthorized user to the login page."""
     return redirect(url_for('login'))
 
 
@@ -45,9 +45,10 @@ def load_submission() -> None:
     if request.view_args is None or 'submission_id' not in request.view_args:
         return
     submission_id = request.view_args['submission_id']
-    request.submission = api.get(submission_id)
-    request.events = [] # TODO what do should we do with events in ce?
-    wfp = get_workflow(request.submission)
+    submission, events = get_submission(submission_id)  # this may throw NotFound
+    wfp = get_workflow(submission)
+
+    # These should probably be moved to flask.g since reqeust doesn't always work well
     request.workflow = wfp
     request.current_stage = wfp.current_stage()
     request.this_stage = wfp.workflow[endpoint_name()]
@@ -65,7 +66,6 @@ def inject_workflow() -> Dict[str, Optional[WorkflowProcessor]]:
             rd['this_stage'] = request.this_stage
         return rd
 
-    # TODO below is unexpected: why are we setting this to a function?
     return {'workflow': None, 'get_workflow': get_workflow}
 
 
@@ -509,7 +509,7 @@ def request_cross(submission_id: Optional[int] = None) -> Response:
 @UI.route('/testalerts')
 def testalerts() -> Response:
     tc = {}
-    request.submission, request.events = util.load_submission(1)
+    request.submission, request.events = get_submission(1)
     wfp = get_workflow(request.submission)
     request.workflow = wfp
     request.current_stage = wfp.current_stage()

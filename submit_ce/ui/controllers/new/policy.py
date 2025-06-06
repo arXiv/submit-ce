@@ -21,7 +21,7 @@ from wtforms.validators import InputRequired
 from submit_ce.api.domain.event import ConfirmPolicy
 from submit_ce.ui.controllers.util import validate_command
 from submit_ce.ui.routes.flow_control import ready_for_next, stay_on_this_stage
-from submit_ce.ui.util import load_submission
+from submit_ce.ui.backend import get_submission
 from submit_ce.ui.auth import user_and_client_from_session
 
 Response = Tuple[Dict[str, Any], int, Dict[str, Any]]  # pylint: disable=C0103
@@ -31,7 +31,7 @@ def policy(method: str, params: MultiDict, session: Session,
            submission_id: int, **kwargs) -> Response:
     """Convert policy form data into an `ConfirmPolicy` event."""
     submitter, client = user_and_client_from_session(session)
-    submission, submission_events = load_submission(submission_id)
+    submission, submission_events = get_submission(submission_id)
 
     if method == 'GET' and submission.submitter_accepts_policy:
         params['policy'] = 'true'

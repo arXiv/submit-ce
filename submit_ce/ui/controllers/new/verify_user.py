@@ -18,7 +18,7 @@ from arxiv.auth.domain import Session
 from submit_ce.ui.backend import api
 from submit_ce.api.domain.event import ConfirmContactInformation
 
-from submit_ce.ui.util import load_submission
+from submit_ce.ui.backend import get_submission
 from submit_ce.ui.controllers.util import validate_command
 from submit_ce.ui.auth import user_and_client_from_session
 from submit_ce.ui.routes.flow_control import ready_for_next, stay_on_this_stage
@@ -39,7 +39,7 @@ def verify(method: str, params: MultiDict, session: Session,
     submitter, client = user_and_client_from_session(session)
 
     # Will raise NotFound if there is no such ui-app.
-    submission, _ = load_submission(submission_id)
+    submission, _ = get_submission(submission_id)
 
     # Initialize the form with the current state of the ui-app.
     if method == 'GET':

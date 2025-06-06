@@ -15,10 +15,9 @@ from arxiv.base import logging, alerts
 from arxiv.forms import csrf
 from submit_ce.api.domain.event import RequestWithdrawal
 
-from submit_ce.ui.util import load_submission
 from ..auth import user_and_client_from_session
 from .util import FieldMixin, validate_command
-from submit_ce.ui.backend import api
+from submit_ce.ui.backend import api, get_submission
 from submit_ce.api.exceptions import SaveError
 
 logger = logging.getLogger(__name__)  # pylint: disable=C0103
@@ -45,7 +44,7 @@ def request_withdrawal(method: str, params: MultiDict, session: Session,
     logger.debug(f'method: {method}, submission: {submission_id}. {params}')
 
     # Will raise NotFound if there is no such submission.
-    submission, _ = load_submission(submission_id)
+    submission, _ = get_submission(submission_id)
 
     # The submission must be announced for this to be a withdrawal request.
     if not submission.is_announced:

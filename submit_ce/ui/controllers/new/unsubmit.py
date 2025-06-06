@@ -17,7 +17,7 @@ from submit_ce.ui.routes.flow_control import Response
 from submit_ce.ui.auth import user_and_client_from_session
 from submit_ce.ui.controllers.util import validate_command
 
-from submit_ce.ui.util import load_submission
+from submit_ce.ui.backend import get_submission
 
 class UnsubmitForm(csrf.CSRFForm):
     """Form for unsubmitting a ui-app."""
@@ -29,7 +29,7 @@ class UnsubmitForm(csrf.CSRFForm):
 def unsubmit(method: str, params: MultiDict, session: Session,
              submission_id: int, **kwargs) -> Response:
     """Unsubmit a ui-app."""
-    submission, submission_events = load_submission(submission_id)
+    submission, submission_events = get_submission(submission_id)
     response_data = {
         'ui-app': submission,
         'submission_id': submission.submission_id,

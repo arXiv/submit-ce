@@ -1,83 +1,53 @@
 """Tests for :mod:`submit_ce.controllers.license`."""
 
-from datetime import timedelta, datetime
 from http import HTTPStatus as status
-from unittest import TestCase, mock
+from unittest import mock
 
-from arxiv import auth
-from arxiv.auth import domain
-from pytz import timezone
 from werkzeug.datastructures import MultiDict
 from werkzeug.exceptions import InternalServerError, NotFound
 from wtforms import Form
 
 import submit_ce as events
 
-import submit_ce.api.domain
 from submit_ce.api.domain.event import SetLicense
+from submit_ce.api.exceptions import SaveError
+from submit_ce.ui.controllers.new import license
+
+from submit_ce.ui.tests import CtrlBase
 from submit_ce.ui.routes.flow_control import get_controllers_desire, STAGE_SUCCESS
 
-class TestSetLicense(TestCase):
+class TestSetLicense(CtrlBase):
     """Test behavior of :func:`.license` controller."""
 
-    def setUp(self):
-        """Create an authenticated session."""
-        # Specify the validity period for the session.
-        start = datetime.now(tz=timezone('US/Eastern'))
-        end = start + timedelta(seconds=36000)
-        self.session = domain.Session(
-            session_id='123-session-abc',
-            start_time=start, end_time=end,
-            user=domain.User(
-                user_id='235678',
-                email='foo@foo.com',
-                username='foouser',
-                name=domain.UserFullName("Jane", "Bloggs", "III"),
-                profile=domain.UserProfile(
-                    affiliation="FSU",
-                    rank=3,
-                    country="de",
-                    default_category=submit_ce.api.domain.Category('astro-ph.GA'),
-                    submission_groups=['grp_physics']
-                )
-            ),
-            authorizations=domain.Authorizations(
-                scopes=[auth.scopes.CREATE_SUBMISSION,
-                        auth.scopes.EDIT_SUBMISSION,
-                        auth.scopes.VIEW_SUBMISSION],
-                endorsements=[submit_ce.api.domain.Category('astro-ph.CO'),
-                              submit_ce.api.domain.Category('astro-ph.GA')]
-            )
-        )
 
     @mock.patch('submit_ce.ui.controllers.new.license.LicenseForm.Meta.csrf', False)
-    @mock.patch('arxiv.submission.load')
+    @mock.patch('submit_ce.ui.backend.api.get_with_history')
     def test_get_request_with_submission(self, mock_load):
         """GET request with a submission ID."""
         submission_id = 2
-        mock_load.return_value = (
-            mock.MagicMock(submission_id=submission_id), []
-        )
+        mock_load.return_value = ( mock.MagicMock(submission_id=submission_id), [])
+
         rdata, code, _ = license.license('GET', MultiDict(), self.session,
                                          submission_id)
         self.assertEqual(code, status.OK, "Returns 200 OK")
         self.assertIsInstance(rdata['form'], Form, "Data includes a form")
 
     @mock.patch('submit_ce.ui.controllers.new.license.LicenseForm.Meta.csrf', False)
-    @mock.patch('arxiv.submission.load')
+    @mock.patch('submit_ce.ui.backend.api.get_with_history')
+
     def test_get_request_with_nonexistant_submission(self, mock_load):
         """GET request with a submission ID."""
         submission_id = 2
 
         def raise_no_such_submission(*args, **kwargs):
-            raise events.exceptions.NoSuchSubmission('Nada')
+            raise NotFound()
 
         mock_load.side_effect = raise_no_such_submission
         with self.assertRaises(NotFound):
             license.license('GET', MultiDict(), self.session, submission_id)
 
     @mock.patch('submit_ce.ui.controllers.new.license.LicenseForm.Meta.csrf', False)
-    @mock.patch('arxiv.submission.load')
+    @mock.patch('submit_ce.ui.backend.api.get_with_history')
     def test_post_request(self, mock_load):
         """POST request with no data."""
         submission_id = 2
@@ -90,7 +60,7 @@ class TestSetLicense(TestCase):
     @mock.patch('submit_ce.ui.controllers.new.license.LicenseForm.Meta.csrf', False)
     @mock.patch('submit.controllers.ui.util.url_for')
     @mock.patch(f'submit_ce.ui.controllers.new.license.save')
-    @mock.patch('arxiv.submission.load')
+    @mock.patch('submit_ce.ui.backend.api.get_with_history')
     def test_post_request_with_data(self, mock_load, mock_save, mock_url_for):
         """POST request with `license` set."""
         # Event store does not complain; returns object with `submission_id`.
@@ -112,10 +82,10 @@ class TestSetLicense(TestCase):
 
 
     @mock.patch(f'submit_ce.ui.controllers.new.license.LicenseForm.Meta.csrf', False)
-    @mock.patch('submit.controllers.ui.util.url_for')
-    @mock.patch('submit_ce.ui.controllers.new.license.save')
-    @mock.patch('arxiv.submission.load')
-    def test_post_request_with_data(self, mock_load, mock_save, mock_url_for):
+    @mock.patch('submit_ce.ui.controllers.new.license.api.save')
+    @mock.patch('submit_ce.ui.backend.api.get_with_history')
+
+    def test_post_request_with_data(self, mock_load, mock_save):
         """POST request with `license` set and same license already on submission."""
         submission_id = 2
         arxiv_lic = 'http://arxiv.org/licenses/nonexclusive-distrib/1.0/'
@@ -125,7 +95,6 @@ class TestSetLicense(TestCase):
                              is_finalized=False)
         mock_load.return_value = (sub, [])
         mock_save.return_value = (sub, [])
-        mock_url_for.return_value = 'https://example.com/'
 
         form_data = MultiDict({
             'license': arxiv_lic,
@@ -136,10 +105,10 @@ class TestSetLicense(TestCase):
         self.assertEqual(get_controllers_desire(data), STAGE_SUCCESS)
 
     @mock.patch(f'submit_ce.ui.controllers.new.license.LicenseForm.Meta.csrf', False)
-    @mock.patch('submit.controllers.ui.util.url_for')
-    @mock.patch('submit_ce.ui.controllers.new.license.save')
-    @mock.patch('arxiv.submission.load')
-    def test_save_fails(self, mock_load, mock_save, mock_url_for):
+    @mock.patch('submit_ce.ui.controllers.new.license.api.save')
+    @mock.patch('submit_ce.ui.backend.api.get_with_history')
+
+    def test_save_fails(self, mock_load, mock_save):
         """Event store flakes out on saving license selection."""
         submission_id = 2
         sub = mock.MagicMock(submission_id=submission_id, is_finalized=False)
@@ -148,7 +117,7 @@ class TestSetLicense(TestCase):
         # Event store does not complain; returns object with `submission_id`
         def raise_on_verify(*ev, **kwargs):
             if type(ev[0]) is SetLicense:
-                raise events.SaveError('the sky is falling')
+                raise SaveError("mocked error")
             ident = kwargs.get('submission_id', 2)
             return (mock.MagicMock(submission_id=ident), [])
 

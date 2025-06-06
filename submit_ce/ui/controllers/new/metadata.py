@@ -19,7 +19,7 @@ from submit_ce.api.domain.event import SetTitle, SetAuthors, SetAbstract, \
     SetJournalReference, SetDOI
 from submit_ce.api.exceptions import SaveError
 
-from submit_ce.ui.util import load_submission
+from submit_ce.ui.backend import get_submission
 from submit_ce.ui.auth import user_and_client_from_session
 from submit_ce.ui.controllers.util import validate_command, FieldMixin
 
@@ -96,7 +96,7 @@ def metadata(method: str, params: MultiDict, session: Session,
     """Update submission metadata on the ui-app."""
     submitter, client = user_and_client_from_session(session)
     logger.debug(f'method: {method}, ui-app: {submission_id}. {params}')
-    submission, submission_events = load_submission(submission_id)
+    submission, submission_events = get_submission(submission_id)
     if method == 'GET':
         params = _data_from_submission(params, submission, CoreMetadataForm)
 
@@ -135,7 +135,7 @@ def optional(method: str, params: MultiDict, session: Session,
     logger.debug(f'method: {method}, ui-app: {submission_id}. {params}')
 
     # Will raise NotFound if there is no such ui-app.
-    submission, submission_events = load_submission(submission_id)
+    submission, submission_events = get_submission(submission_id)
     # The form should be prepopulated based on the current state of the
     # ui-app.
     if method == 'GET':

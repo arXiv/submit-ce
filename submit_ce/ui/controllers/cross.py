@@ -14,13 +14,11 @@ from wtforms.validators import ValidationError, optional
 
 from arxiv.base import logging, alerts
 from arxiv.forms import csrf
-from submit_ce.ui.backend import api
+from submit_ce.ui.backend import api, get_submission
 from submit_ce.api.domain.event import RequestCrossList
 from submit_ce.api.exceptions import SaveError
 from arxiv.taxonomy.definitions import CATEGORIES_ACTIVE as CATEGORIES
 from arxiv.taxonomy.definitions import ARCHIVES_ACTIVE as ARCHIVES
-
-from submit_ce.ui.util import load_submission
 from ..auth import user_and_client_from_session
 from .util import OptGroupSelectField, \
     validate_command
@@ -129,7 +127,7 @@ def request_cross(method: str, params: MultiDict, session: Session,
     logger.debug(f'method: {method}, submission: {submission_id}. {params}')
 
     # Will raise NotFound if there is no such submission.
-    submission, submission_events = load_submission(submission_id)
+    submission, submission_events = get_submission(submission_id)
 
     # The submission must be announced for this to be a cross-list request.
     if not submission.is_announced:

@@ -21,7 +21,7 @@ from wtforms import BooleanField, HiddenField
 from wtforms.validators import DataRequired
 
 from submit_ce.ui.auth import user_and_client_from_session
-from submit_ce.ui.util import load_submission
+from submit_ce.ui.backend import get_submission
 from submit_ce.ui.routes.flow_control import ready_for_next, \
     stay_on_this_stage, return_to_parent_stage
 from submit_ce.ui.controllers.util import add_immediate_alert, validate_command
@@ -74,7 +74,7 @@ def delete_all(method: str, params: MultiDict, session: Session,
         add_immediate_alert(rdata, alerts.FAILURE, 'Missing auth token')
         return stay_on_this_stage((rdata, status.OK, {}))
 
-    submission, submission_events = load_submission(submission_id)
+    submission, submission_events = get_submission(submission_id)
     upload_id = submission.source_content.identifier
     submitter, client = user_and_client_from_session(session)
     rdata.update({'ui-app': submission, 'submission_id': submission_id})
@@ -184,7 +184,7 @@ def delete_file(method: str, params: MultiDict, session: Session,
         add_immediate_alert(rdata, alerts.FAILURE, 'Missing auth token')
         return stay_on_this_stage((rdata, status.OK, {}))
 
-    submission, submission_events = load_submission(submission_id)
+    submission, submission_events = get_submission(submission_id)
     upload_id = submission.source_content.identifier
     submitter, client = user_and_client_from_session(session)
 

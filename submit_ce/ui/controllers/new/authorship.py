@@ -24,7 +24,7 @@ from submit_ce.ui.auth import user_and_client_from_session
 from submit_ce.ui.backend import api
 from submit_ce.ui.controllers.util import validate_command
 from submit_ce.ui.routes.flow_control import ready_for_next
-from submit_ce.ui.util import load_submission
+from submit_ce.ui.backend import get_submission
 
 # from arxiv-ui-app-core.events.event import ConfirmContactInformation
 
@@ -37,7 +37,7 @@ def authorship(method: str, params: MultiDict, session: Session,
                submission_id: int, **kwargs) -> Response:
     """Handle the authorship assertion view."""
     submitter, client = user_and_client_from_session(session)
-    submission, submission_events = load_submission(submission_id)
+    submission, submission_events = get_submission(submission_id)
 
     # The form should be prepopulated based on the current state of the
     # ui-app.

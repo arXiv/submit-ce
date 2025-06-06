@@ -19,8 +19,7 @@ from submit_ce.api.domain.event import SetDOI, SetJournalReference, \
     SetReportNumber
 from submit_ce.api.exceptions import SaveError
 
-from submit_ce.ui.backend import api
-from submit_ce.ui.util import load_submission
+from submit_ce.ui.backend import api, get_submission
 from ..auth import user_and_client_from_session
 from .util import FieldMixin, validate_command
 
@@ -62,7 +61,7 @@ def jref(method: str, params: MultiDict, session: Session,
     logger.debug(f'method: {method}, submission: {submission_id}. {params}')
 
     # Will raise NotFound if there is no such submission.
-    submission, submission_events = load_submission(submission_id)
+    submission, submission_events = get_submission(submission_id)
 
     # The submission must be announced for this to be a real JREF submission.
     if not submission.is_announced:

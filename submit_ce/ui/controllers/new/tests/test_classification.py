@@ -13,45 +13,18 @@ from pytz import timezone
 from datetime import timedelta, datetime
 
 import submit_ce.api.domain
+from submit_ce.api.exceptions import NoSuchSubmission
 from submit_ce.ui.controllers.new import classification
+from submit_ce.ui.tests import CtrlBase
 
 
-class TestClassification(TestCase):
+class TestClassification(CtrlBase):
     """Test behavior of :func:`.classification` controller."""
 
-    def setUp(self):
-        """Create an authenticated session."""
-        # Specify the validity period for the session.
-        start = datetime.now(tz=timezone('US/Eastern'))
-        end = start + timedelta(seconds=36000)
-        self.session = domain.Session(
-            session_id='123-session-abc',
-            start_time=start, end_time=end,
-            user=domain.User(
-                user_id='235678',
-                email='foo@foo.com',
-                username='foouser',
-                name=domain.UserFullName("Jane", "Bloggs", "III"),
-                profile=domain.UserProfile(
-                    affiliation="FSU",
-                    rank=3,
-                    country="de",
-                    default_category=submit_ce.api.domain.Category('astro-ph.GA'),
-                    submission_groups=['grp_physics']
-                )
-            ),
-            authorizations=domain.Authorizations(
-                scopes=[auth.scopes.CREATE_SUBMISSION,
-                        auth.scopes.EDIT_SUBMISSION,
-                        auth.scopes.VIEW_SUBMISSION],
-                endorsements=[submit_ce.api.domain.Category('astro-ph.CO'),
-                              submit_ce.api.domain.Category('astro-ph.GA')]
-            )
-        )
 
     @mock.patch(f'{classification.__name__}.ClassificationForm.Meta.csrf',
                 False)
-    @mock.patch('arxiv.submission.load')
+    @mock.patch('submit_ce.ui.controllers.new.classification.get_submission')
     def test_get_request_with_submission(self, mock_load):
         """GET request with a submission ID."""
         submission_id = 2
@@ -67,13 +40,13 @@ class TestClassification(TestCase):
 
     @mock.patch(f'{classification.__name__}.ClassificationForm.Meta.csrf',
                 False)
-    @mock.patch('arxiv.submission.load')
+    @mock.patch('submit_ce.ui.controllers.new.classification.get_submission')
     def test_get_request_with_nonexistant_submission(self, mock_load):
         """GET request with a submission ID."""
         submission_id = 2
 
         def raise_no_such_submission(*args, **kwargs):
-            raise events.exceptions.NoSuchSubmission('Nada')
+            raise NotFound('Nada')
 
         mock_load.side_effect = raise_no_such_submission
         with self.assertRaises(NotFound):
@@ -82,7 +55,7 @@ class TestClassification(TestCase):
 
     @mock.patch(f'{classification.__name__}.ClassificationForm.Meta.csrf',
                 False)
-    @mock.patch('arxiv.submission.load')
+    @mock.patch('submit_ce.ui.controllers.new.classification.get_submission')
     def test_post_request(self, mock_load):
         """POST request with no data."""
         submission_id = 2
@@ -97,8 +70,8 @@ class TestClassification(TestCase):
 
     @mock.patch(f'{classification.__name__}.ClassificationForm.Meta.csrf',
                 False)
-    @mock.patch(f'{classification.__name__}.save')
-    @mock.patch('arxiv.submission.load')
+    @mock.patch(f'{classification.__name__}.api.save')
+    @mock.patch('submit_ce.ui.controllers.new.classification.get_submission')
     def test_post_with_invalid_category(self, mock_load, mock_save):
         """POST request with invalid category."""
         submission_id = 2
@@ -116,8 +89,8 @@ class TestClassification(TestCase):
 
     @mock.patch(f'{classification.__name__}.ClassificationForm.Meta.csrf',
                 False)
-    @mock.patch(f'{classification.__name__}.save')
-    @mock.patch('arxiv.submission.load')
+    @mock.patch(f'{classification.__name__}.api.save')
+    @mock.patch('submit_ce.ui.controllers.new.classification.get_submission')
     def test_post_with_category(self, mock_load, mock_save):
         """POST request with valid category."""
         submission_id = 2
@@ -140,42 +113,12 @@ class TestClassification(TestCase):
         self.assertIsInstance(data['form'], Form, "Data includes a form")
 
 
-class TestCrossList(TestCase):
+class TestCrossList(CtrlBase):
     """Test behavior of :func:`.cross_list` controller."""
-
-    def setUp(self):
-        """Create an authenticated session."""
-        # Specify the validity period for the session.
-        start = datetime.now(tz=timezone('US/Eastern'))
-        end = start + timedelta(seconds=36000)
-        self.session = domain.Session(
-            session_id='123-session-abc',
-            start_time=start, end_time=end,
-            user=domain.User(
-                user_id='235678',
-                email='foo@foo.com',
-                username='foouser',
-                name=domain.UserFullName("Jane", "Bloggs", "III"),
-                profile=domain.UserProfile(
-                    affiliation="FSU",
-                    rank=3,
-                    country="de",
-                    default_category=submit_ce.api.domain.Category('astro-ph.GA'),
-                    submission_groups=['grp_physics']
-                )
-            ),
-            authorizations=domain.Authorizations(
-                scopes=[auth.scopes.CREATE_SUBMISSION,
-                        auth.scopes.EDIT_SUBMISSION,
-                        auth.scopes.VIEW_SUBMISSION],
-                endorsements=[submit_ce.api.domain.Category('astro-ph.CO'),
-                              submit_ce.api.domain.Category('astro-ph.GA')]
-            )
-        )
 
     @mock.patch(f'{classification.__name__}.ClassificationForm.Meta.csrf',
                 False)
-    @mock.patch('arxiv.submission.load')
+    @mock.patch('submit_ce.ui.backend.api.get_with_history')
     def test_get_request_with_submission(self, mock_load):
         """GET request with a submission ID."""
         submission_id = 2
@@ -193,22 +136,22 @@ class TestCrossList(TestCase):
 
     @mock.patch(f'{classification.__name__}.ClassificationForm.Meta.csrf',
                 False)
-    @mock.patch('arxiv.submission.load')
+    @mock.patch('submit_ce.ui.backend.api.get_with_history')
     def test_get_request_with_nonexistant_submission(self, mock_load):
         """GET request with a submission ID."""
         submission_id = 2
 
         def raise_no_such_submission(*args, **kwargs):
-            raise events.exceptions.NoSuchSubmission('Nada')
+            raise NoSuchSubmission('Nada')
+
 
         mock_load.side_effect = raise_no_such_submission
-        with self.assertRaises(NotFound):
-            classification.cross_list('GET', MultiDict(), self.session,
-                                      submission_id)
+        with self.assertRaises(NoSuchSubmission):
+            classification.cross_list('GET', MultiDict(), self.session, submission_id)
 
     @mock.patch(f'{classification.__name__}.ClassificationForm.Meta.csrf',
                 False)
-    @mock.patch('arxiv.submission.load')
+    @mock.patch('submit_ce.ui.backend.api.get_with_history')
     def test_post_request(self, mock_load):
         """POST request with no data."""
         submission_id = 2
@@ -223,10 +166,9 @@ class TestCrossList(TestCase):
                                                submission_id)
         self.assertIsInstance(data['form'], Form, "Data includes a form")
 
-    @mock.patch(f'{classification.__name__}.ClassificationForm.Meta.csrf',
-                False)
-    @mock.patch(f'{classification.__name__}.save')
-    @mock.patch('arxiv.submission.load')
+    @mock.patch(f'{classification.__name__}.ClassificationForm.Meta.csrf', False)
+    @mock.patch(f'submit_ce.ui.backend.api.save')
+    @mock.patch('submit_ce.ui.backend.api.get_with_history')
     def test_post_with_invalid_category(self, mock_load, mock_save):
         """POST request with invalid category."""
         submission_id = 2
@@ -242,10 +184,9 @@ class TestCrossList(TestCase):
                                                    submission_id)        
         self.assertIsInstance(data['form'], Form, "Data includes a form")
 
-    @mock.patch(f'{classification.__name__}.ClassificationForm.Meta.csrf',
-                False)
-    @mock.patch(f'{classification.__name__}.save')
-    @mock.patch('arxiv.submission.load')
+    @mock.patch(f'{classification.__name__}.ClassificationForm.Meta.csrf', False)
+    @mock.patch(f'submit_ce.ui.backend.api.save')
+    @mock.patch('submit_ce.ui.backend.api.get_with_history')
     def test_post_with_category(self, mock_load, mock_save):
         """POST request with valid category."""
         submission_id = 2
