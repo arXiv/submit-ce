@@ -117,7 +117,7 @@ class WorkflowDefinition:
 NewSubmissionWorkflow = WorkflowDefinition(
     'NewSubmissionWorkflow',
     [
-     #stages.VerifyUser(),  # skippng for now due to legacy has no place for this data
+     stages.VerifyUser(),
      stages.Authorship(),
      stages.License(),
      stages.Policy(),

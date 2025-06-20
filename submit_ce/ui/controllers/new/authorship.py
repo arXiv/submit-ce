@@ -55,7 +55,7 @@ def authorship(method: str, params: MultiDict, session: Session,
     response_data = {
         'submission_id': submission_id,
         'form': form,
-        'ui-app': submission,
+        'submission': submission,
         'submitter': submitter,
         'client': client,
     }
@@ -69,7 +69,7 @@ def authorship(method: str, params: MultiDict, session: Session,
             if validate_command(form, command, submission, 'authorship'):
                 try:
                     submission, _ = api.save(command, submission_id=submission_id)
-                    response_data['ui-app'] = submission
+                    response_data['submission'] = submission
                     return response_data, status.SEE_OTHER, {}
                 except SaveError as e:
                     raise InternalServerError(response_data) from e

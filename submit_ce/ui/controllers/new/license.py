@@ -45,7 +45,7 @@ def license(method: str, params: MultiDict, session: Session,
     response_data = {
         'submission_id': submission_id,
         'form': form,
-        'ui-app': submission
+        'submission': submission
     }
 
     if method == 'POST' and form.validate():

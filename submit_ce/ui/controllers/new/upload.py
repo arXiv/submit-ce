@@ -130,7 +130,7 @@ def upload_files(method: str, params: MultiDict, session: Session,
 
     submission, _ = get_submission(submission_id)
     rdata.update({'submission_id': submission_id,
-                  'ui-app': submission,
+                  'submission': submission,
                   'form': UploadForm()})
 
     if method not in ['GET', 'POST']:
@@ -248,6 +248,7 @@ def _get_upload(params: MultiDict, session: Session, submission: Submission,
         workspace = api.get_file_store().get_workspace(submission_id=submission.submission_id,
                                                        upload_id=submission.source_content.identifier)
     rdata.update({'status': workspace})
+
     if workspace:
         rdata.update({'immediate_notifications': _get_notifications(workspace)})
     return rdata, status.OK, {}

@@ -49,6 +49,7 @@ def load_submission() -> None:
     wfp = get_workflow(submission)
 
     # These should probably be moved to flask.g since reqeust doesn't always work well
+    request.submission = submission
     request.workflow = wfp
     request.current_stage = wfp.current_stage()
     request.this_stage = wfp.workflow[endpoint_name()]

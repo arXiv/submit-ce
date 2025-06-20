@@ -3,12 +3,12 @@ from pathlib import Path
 from typing import Optional
 
 from arxiv.auth import auth
-from arxiv.auth.auth.middleware import AuthMiddleware
 from arxiv.base import Base
 from arxiv.base.middleware import wrap
 from arxiv.db import Session
 from flask import Flask
 
+from .auth import SubmitAuthMiddleware
 from .config import settings
 from arxiv.config import settings as base_settings
 base_settings.CLASSIC_DB_URI = settings.CLASSIC_DB_URI
@@ -34,8 +34,9 @@ def create_web_app(config: Optional[dict]=None) -> Flask:
     Base(app)
     auth.Auth(app)
     app.register_blueprint(UI)
-    middleware = [AuthMiddleware]
-    wrap(app, middleware)
+    wrap(app, [
+        SubmitAuthMiddleware
+    ])
 
     for filter_name, filter_func in filters.get_filters():
         app.jinja_env.filters[filter_name] = filter_func

@@ -61,7 +61,7 @@ def replace(method: str, params: MultiDict, session: Session,
     submission, submission_events = get_submission(submission_id)
     response_data = {
         'submission_id': submission_id,
-        'ui-app': submission,
+        'submission': submission,
         'submitter': submitter,
         'client': client,
     }

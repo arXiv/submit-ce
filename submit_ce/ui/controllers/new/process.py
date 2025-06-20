@@ -145,7 +145,7 @@ def compile_status(params: MultiDict, session: Session, submission_id: int,
     form = CompilationForm()
     response_data = {
         'submission_id': submission_id,
-        'ui-app': submission,
+        'submission': submission,
         'form': form,
         'status': None,
     }
@@ -175,7 +175,7 @@ def start_compilation(params: MultiDict, session: Session, submission_id: int,
     form = CompilationForm(params)
     response_data = {
         'submission_id': submission_id,
-        'ui-app': submission,
+        'submission': submission,
         'form': form,
         'status': None,
     }

@@ -108,7 +108,8 @@ def authorized_client(app, authorized_user_session):
     class TestClientArxivAuth(testing.FlaskClient):
         def open(self, *args, **kwargs):
             api_key_headers = Headers({
-                'Authorized': ng_jwt
+                #'Authorized': ng_jwt,
+                'Authorization': f'Bearer {ng_jwt}'
             })
             headers = kwargs.pop('headers', Headers())
             headers.extend(api_key_headers)

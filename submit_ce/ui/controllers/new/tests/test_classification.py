@@ -116,8 +116,7 @@ class TestClassification(CtrlBase):
 class TestCrossList(CtrlBase):
     """Test behavior of :func:`.cross_list` controller."""
 
-    @mock.patch(f'{classification.__name__}.ClassificationForm.Meta.csrf',
-                False)
+    @mock.patch(f'{classification.__name__}.ClassificationForm.Meta.csrf', False)
     @mock.patch('submit_ce.ui.backend.api.get_with_history')
     def test_get_request_with_submission(self, mock_load):
         """GET request with a submission ID."""
@@ -129,8 +128,7 @@ class TestCrossList(CtrlBase):
                                 is_announced=False, version=1, arxiv_id=None)
         mock_load.return_value = (before, [])
         params = MultiDict()
-        data, code, _ = classification.cross_list('GET', params, self.session,
-                                                  submission_id)
+        data, code, _ = classification.cross_list('GET', params, self.session, submission_id)
         self.assertEqual(code, status.OK, "Returns 200 OK")
         self.assertIsInstance(data['form'], Form, "Data includes a form")
 
@@ -146,7 +144,7 @@ class TestCrossList(CtrlBase):
 
 
         mock_load.side_effect = raise_no_such_submission
-        with self.assertRaises(NoSuchSubmission):
+        with self.assertRaises(NotFound):
             classification.cross_list('GET', MultiDict(), self.session, submission_id)
 
     @mock.patch(f'{classification.__name__}.ClassificationForm.Meta.csrf',

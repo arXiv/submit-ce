@@ -35,8 +35,13 @@ class WorkflowProcessor:
         if stage is None:
             return True
 
-        must_be_done = self.workflow.order if stage == self.workflow.confirmation \
-            else self.workflow.iter_prior(stage)
+        use_confirmation = stage == self.workflow.confirmation
+        if use_confirmation:
+            must_be_done = self.workflow.order
+        else:
+            must_be_done = self.workflow.iter_prior(stage)
+        must_be_done = list(must_be_done)
+        logger.debug(f'in can_proceed_to() must_be_done list is {must_be_done}')
         done = list([(stage, self.is_done(stage)) for stage in must_be_done])
         logger.debug(f'in can_proceed_to() done list is {done}')
         return all(map(lambda x: x[1], done))

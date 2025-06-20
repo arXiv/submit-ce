@@ -17,10 +17,10 @@ def test_get_request_with_submission(app, mocker, authorized_user_session):
     mock_get = mocker.patch('submit_ce.ui.routes.ui.api.get')
     submission_id = 2
     before = mocker.MagicMock(submission_id=submission_id,
-                            submitter_is_author=False)
+                              submitter_is_author=False)
     mock_get.return_value = (before, [])
     session, _ = authorized_user_session
-    with app.app_context():
+    with app.test_request_context():
         data, code, _ = authorship.authorship('GET', MultiDict(), session, submission_id)
         assert code == status.OK, "Returns 200 OK"
         assert isinstance(data['form'], Form),  "Data includes a form"

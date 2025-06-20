@@ -15,6 +15,7 @@ from wtforms.validators import InputRequired
 from arxiv.base import logging
 from arxiv.forms import csrf
 from arxiv.auth.domain import Session
+from submit_ce.api.exceptions import SaveError
 from submit_ce.ui.backend import api
 from submit_ce.api.domain.event import ConfirmContactInformation
 
@@ -50,7 +51,7 @@ def verify(method: str, params: MultiDict, session: Session,
     response_data = {
         'submission_id': submission_id,
         'form': form,
-        'ui-app': submission,
+        'submission': submission,
         'submitter': submitter,
         'user': session.user,   # We want the most up-to-date representation.
     }
@@ -63,9 +64,13 @@ def verify(method: str, params: MultiDict, session: Session,
         else:
             cmd = ConfirmContactInformation(creator=submitter, client=client)
             if validate_command(form, cmd, submission, 'verify_user'):
-                submission, _ = api.save(cmd, submission_id=submission_id)
-                response_data['ui-app'] = submission
-                return ready_for_next((response_data, status.OK, {}))
+                try:
+                    submission, _ = api.save(cmd, submission_id=submission_id)
+                    response_data['submission'] = submission
+                    return ready_for_next((response_data, status.OK, {}))
+                except SaveError as ex:
+                    raise InternalServerError(response_data) from ex
+
 
     return stay_on_this_stage((response_data, status.OK, {}))
 

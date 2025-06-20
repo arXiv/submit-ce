@@ -1,54 +1,21 @@
 """Tests for :mod:`submit_ce.controllers.unsubmit`."""
 
-from unittest import TestCase, mock
+from unittest import mock
 from werkzeug.datastructures import MultiDict
 from werkzeug.exceptions import BadRequest
 from wtforms import Form
 from http import HTTPStatus as status
 
-import submit_ce.api.domain
 from submit_ce.ui.controllers.new import unsubmit
 
-from pytz import timezone
-from datetime import timedelta, datetime
-from arxiv.auth import auth, domain
+from submit_ce.ui.tests import CtrlBase
 
 
-class TestUnsubmit(TestCase):
+class TestUnsubmit(CtrlBase):
     """Test behavior of :func:`.unsubmit` controller."""
 
-    def setUp(self):
-        """Create an authenticated session."""
-        # Specify the validity period for the session.
-        start = datetime.now(tz=timezone('US/Eastern'))
-        end = start + timedelta(seconds=36000)
-        self.session = domain.Session(
-            session_id='123-session-abc',
-            start_time=start, end_time=end,
-            user=domain.User(
-                user_id='235678',
-                email='foo@foo.com',
-                username='foouser',
-                name=domain.UserFullName("Jane", "Bloggs", "III"),
-                profile=domain.UserProfile(
-                    affiliation="FSU",
-                    rank=3,
-                    country="de",
-                    default_category=submit_ce.api.domain.Category('astro-ph.GA'),
-                    submission_groups=['grp_physics']
-                )
-            ),
-            authorizations=domain.Authorizations(
-                scopes=[auth.scopes.CREATE_SUBMISSION,
-                        auth.scopes.EDIT_SUBMISSION,
-                        auth.scopes.VIEW_SUBMISSION],
-                endorsements=[submit_ce.api.domain.Category('astro-ph.CO'),
-                              submit_ce.api.domain.Category('astro-ph.GA')]
-            )
-        )
-
     @mock.patch(f'{unsubmit.__name__}.UnsubmitForm.Meta.csrf', False)
-    @mock.patch('arxiv.submission.load')
+    @mock.patch('submit_ce.ui.backend.api.get_with_history')
     def test_get_request_with_submission(self, mock_load):
         """GET request with a submission ID."""
         submission_id = 2
@@ -62,7 +29,7 @@ class TestUnsubmit(TestCase):
         self.assertIsInstance(data['form'], Form, "Data includes a form")
 
     @mock.patch(f'{unsubmit.__name__}.UnsubmitForm.Meta.csrf', False)
-    @mock.patch('arxiv.submission.load')
+    @mock.patch('submit_ce.ui.backend.api.get_with_history')
     def test_post_request(self, mock_load):
         """POST request with no data."""
         submission_id = 2
@@ -81,8 +48,8 @@ class TestUnsubmit(TestCase):
     @mock.patch(f'{unsubmit.__name__}.UnsubmitForm.Meta.csrf', False)
     @mock.patch(f'{unsubmit.__name__}.url_for')
     @mock.patch('arxiv.base.alerts.flash_success')
-    @mock.patch(f'{unsubmit.__name__}.save')
-    @mock.patch('arxiv.submission.load')
+    @mock.patch('submit_ce.ui.backend.api.save')
+    @mock.patch('submit_ce.ui.backend.api.get_with_history')
     def test_post_request_with_data(self, mock_load, mock_save,
                                     mock_flash_success, mock_url_for):
         """POST request with `confirmed` set."""

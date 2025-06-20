@@ -77,7 +77,7 @@ def delete_all(method: str, params: MultiDict, session: Session,
     submission, submission_events = get_submission(submission_id)
     upload_id = submission.source_content.identifier
     submitter, client = user_and_client_from_session(session)
-    rdata.update({'ui-app': submission, 'submission_id': submission_id})
+    rdata.update({'submission': submission, 'submission_id': submission_id})
 
     if method == 'GET':
         form = DeleteAllFilesForm()
@@ -188,7 +188,7 @@ def delete_file(method: str, params: MultiDict, session: Session,
     upload_id = submission.source_content.identifier
     submitter, client = user_and_client_from_session(session)
 
-    rdata = {'ui-app': submission, 'submission_id': submission_id}
+    rdata = {'submission': submission, 'submission_id': submission_id}
 
     if method == 'GET':
         # The only thing that we want to get from the request params on a GET

@@ -7,6 +7,7 @@ from wtforms import Form
 from http import HTTPStatus as status
 import submit_ce as events
 from submit_ce.api.domain.event import ConfirmContactInformation
+from submit_ce.api.exceptions import SaveError
 from submit_ce.ui.controllers.new import verify_user
 
 from pytz import timezone
@@ -14,43 +15,14 @@ from datetime import timedelta, datetime
 from arxiv.auth import auth, domain
 
 import submit_ce.api.domain
+from submit_ce.ui.tests import CtrlBase
 
 
-class TestVerifyUser(TestCase):
+class TestVerifyUser(CtrlBase):
     """Test behavior of :func:`.verify_user` controller."""
 
-    def setUp(self):
-        """Create an authenticated session."""
-        # Specify the validity period for the session.
-        start = datetime.now(tz=timezone('US/Eastern'))
-        end = start + timedelta(seconds=36000)
-        self.session = domain.Session(
-            session_id='123-session-abc',
-            start_time=start, end_time=end,
-            user=domain.User(
-                user_id='235678',
-                email='foo@foo.com',
-                username='foouser',
-                name=domain.UserFullName("Jane", "Bloggs", "III"),
-                profile=domain.UserProfile(
-                    affiliation="FSU",
-                    rank=3,
-                    country="de",
-                    default_category=submit_ce.api.domain.Category('astro-ph.GA'),
-                    submission_groups=['grp_physics']
-                )
-            ),
-            authorizations=domain.Authorizations(
-                scopes=[auth.scopes.CREATE_SUBMISSION,
-                        auth.scopes.EDIT_SUBMISSION,
-                        auth.scopes.VIEW_SUBMISSION],
-                endorsements=[submit_ce.api.domain.Category('astro-ph.CO'),
-                              submit_ce.api.domain.Category('astro-ph.GA')]
-            )
-        )
-
     @mock.patch(f'{verify_user.__name__}.VerifyUserForm.Meta.csrf', False)
-    @mock.patch('arxiv.submission.load')
+    @mock.patch('submit_ce.ui.backend.api.get_with_history')
     def test_get_request_with_submission(self, mock_load):
         """GET request with a submission ID."""
         submission_id = 2
@@ -64,7 +36,7 @@ class TestVerifyUser(TestCase):
         self.assertIsInstance(data['form'], Form, "Data includes a form")
 
     @mock.patch(f'{verify_user.__name__}.VerifyUserForm.Meta.csrf', False)
-    @mock.patch('arxiv.submission.load')
+    @mock.patch('submit_ce.ui.backend.api.get_with_history')
     def test_post_request(self, mock_load):
         """POST request with no data."""
         submission_id = 2
@@ -79,10 +51,9 @@ class TestVerifyUser(TestCase):
         self.assertIsInstance(data['form'], Form, "Data includes a form")
 
     @mock.patch(f'{verify_user.__name__}.VerifyUserForm.Meta.csrf', False)
-    @mock.patch('submit.controllers.ui.util.url_for')
-    @mock.patch(f'{verify_user.__name__}.save')
-    @mock.patch('arxiv.submission.load')
-    def test_post_request_with_data(self, mock_load, mock_save, mock_url_for):
+    @mock.patch('submit_ce.ui.backend.api.save')
+    @mock.patch('submit_ce.ui.backend.api.get_with_history')
+    def test_post_request_with_data(self, mock_load, mock_save):
         """POST request with `verify_user` set."""
         # Event store does not complain; returns object with `submission_id`.
         submission_id = 2
@@ -93,7 +64,6 @@ class TestVerifyUser(TestCase):
                                submitter_contact_verified=True)
         mock_load.return_value = (before, [])
         mock_save.return_value = (after, [])
-        mock_url_for.return_value = 'https://foo.bar.com/yes'
 
         form_data = MultiDict({'verify_user': 'y', 'action': 'next'})
         _, code, _ = verify_user.verify('POST', form_data, self.session,
@@ -101,10 +71,9 @@ class TestVerifyUser(TestCase):
         self.assertEqual(code, status.OK,)
 
     @mock.patch(f'{verify_user.__name__}.VerifyUserForm.Meta.csrf', False)
-    @mock.patch('submit.controllers.ui.util.url_for')
-    @mock.patch(f'{verify_user.__name__}.save')
-    @mock.patch('arxiv.submission.load')
-    def test_save_fails(self, mock_load, mock_save, mock_url_for):
+    @mock.patch('submit_ce.ui.backend.api.save')
+    @mock.patch('submit_ce.ui.backend.api.get_with_history')
+    def test_save_fails(self, mock_load, mock_save):
         """Event store flakes out saving authorship verification."""
         submission_id = 2
         before = mock.MagicMock(submission_id=submission_id,
@@ -114,11 +83,10 @@ class TestVerifyUser(TestCase):
 
         # Event store does not complain; returns object with `submission_id`
         def raise_on_verify(*ev, **kwargs):
-            if type(ev[0]) is ConfirmContactInformation:
-                raise events.SaveError('not today')
-            ident = kwargs.get('submission_id', 2)
-            return (mock.MagicMock(submission_id=ident,
-                                   submitter_contact_verified=False), [])
+            raise SaveError('not today')
+            # ident = kwargs.get('submission_id', 2)
+            # return (mock.MagicMock(submission_id=ident,
+            #                        submitter_contact_verified=False), [])
 
         mock_save.side_effect = raise_on_verify
         params = MultiDict({'verify_user': 'y', 'action': 'next'})

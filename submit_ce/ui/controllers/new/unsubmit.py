@@ -31,7 +31,7 @@ def unsubmit(method: str, params: MultiDict, session: Session,
     """Unsubmit a ui-app."""
     submission, submission_events = get_submission(submission_id)
     response_data = {
-        'ui-app': submission,
+        'submission': submission,
         'submission_id': submission.submission_id,
     }
 

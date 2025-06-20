@@ -44,15 +44,14 @@ def get_submission(submission_id: int) -> Tuple[Submission, List[Event]]:
     if not has_app_context():  # for testing to avoid problems with flask app context
         return api.get_with_history(submission_id)
 
-    if "submission" in g and "events" in g:
-        if isinstance(g.submission, Submission) and isinstance(g.event, List):
-            return g.submission, cast(List[Event], g.events)
+    if "submission" in g and "events" in g and g.submission is not None and g.events is not None:        
+        return (cast(Submission, g.submission), cast(List[Event], g.events))
     try:
         submission, history = api.get_with_history(submission_id)
         g.submission = submission
-        g.events = history
-        if isinstance(g.submission, Submission) and isinstance(g.events, List):
-            return g.submission, cast(List[Event], g.events)
+        g.events = history        
+        return submission, history
+
     except NoSuchSubmission as nss:
         raise NotFound()
 

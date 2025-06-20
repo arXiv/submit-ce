@@ -43,7 +43,7 @@ def finalize(method: str, params: MultiDict, session: Session,
     response_data = {
         'submission_id': submission_id,
         'form': form,
-        'ui-app': submission,
+        'submission': submission,
         'submission_history': submission_history,
         'submission': submission,
     }
@@ -81,7 +81,7 @@ def confirm(method: str, params: MultiDict, session: Session,
     submission, submission_events = get_submission(submission_id)
     response_data = {
         'submission_id': submission_id,
-        'ui-app': submission,
+        'submission': submission,
         'submission': submission,
     }
     return response_data, status.OK, {}

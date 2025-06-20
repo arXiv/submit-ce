@@ -14,3 +14,7 @@ class CtrlBase(TestCase):
     def add_auth_user(self, authorized_user_session):
         session, jwt = authorized_user_session
         self.session = session
+
+    @pytest.fixture(autouse=True)
+    def add_auth_client(self, authorized_client):
+        self.client = authorized_client

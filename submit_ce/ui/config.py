@@ -89,6 +89,12 @@ class Settings(ArxivBaseSettings):
     For details, see :mod:`arxiv.base.urls`.
     """
 
+    JWT_SECRET: str = "foobar"
+    """
+    Used to encoded and decode JWTs for auth.
+    """
+
+
 settings = Settings()
 arxivbase_settings.CLASSIC_DB_URI = settings.CLASSIC_DB_URI
 

@@ -104,7 +104,7 @@ def metadata(method: str, params: MultiDict, session: Session,
     response_data = {
         'submission_id': submission_id,
         'form': form,
-        'ui-app': submission
+        'submission': submission
     }
 
     if method == 'POST' and form.validate():
@@ -115,7 +115,7 @@ def metadata(method: str, params: MultiDict, session: Session,
             try:
                 # Save the events created during form validation.
                 submission, _ = api.save(*commands, submission_id=submission_id)
-                response_data['ui-app'] = submission
+                response_data['submission'] = submission
                 return ready_for_next((response_data, status.OK, {}))
             except SaveError as e:
                 raise InternalServerError(response_data) from e
@@ -146,7 +146,7 @@ def optional(method: str, params: MultiDict, session: Session,
     response_data = {
         'submission_id': submission_id,
         'form': form,
-        'ui-app': submission
+        'submission': submission
     }
 
     if method == 'POST' and form.validate():
@@ -159,7 +159,7 @@ def optional(method: str, params: MultiDict, session: Session,
         if all(valid):  # Metadata has changed and is all valid
             try:
                 submission, _ = api.save(*commands, submission_id=submission_id)
-                response_data['ui-app'] = submission
+                response_data['submission'] = submission
                 return ready_for_next((response_data, status.OK, {}))
             except SaveError as e:
                 raise InternalServerError(response_data) from e

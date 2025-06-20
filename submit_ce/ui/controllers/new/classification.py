@@ -110,8 +110,7 @@ def classification(method: str, params: MultiDict, session: Session,
 
     if method == 'GET':
         # Prepopulate the form based on the state of the ui-app.
-        if submission.primary_classification \
-                and submission.primary_classification.category:
+        if submission.primary_classification and submission.primary_classification.category:
             params['category'] = submission.primary_classification.category
 
         # Use the user's default category as the default for the form.
@@ -124,22 +123,22 @@ def classification(method: str, params: MultiDict, session: Session,
 
     response_data = {
         'submission_id': submission_id,
-        'ui-app': submission,
+        'submission': submission,
         'submitter': submitter,
         'client': client,
         'form': form
     }
 
-    command = SetPrimaryClassification(category=form.category.data,
-                                       creator=submitter, client=client)
-    if method == 'POST' and form.validate()\
-       and validate_command(form, command, submission, 'category'):
-        try:
-            submission, _ = api.save(command, submission_id=submission_id)
-            response_data['ui-app'] = submission
-        except SaveError as ex:
-            raise InternalServerError(response_data) from ex
-        return ready_for_next((response_data, status.OK, {}))
+    if method == 'POST':
+        if form.validate():
+            command = SetPrimaryClassification(category=form.category.data, creator=submitter, client=client)
+            if validate_command(form, command, submission, 'category'):
+                try:
+                    submission, _ = api.save(command, submission_id=submission_id)
+                    response_data['submission'] = submission
+                    return ready_for_next((response_data, status.OK, {}))
+                except SaveError as ex:
+                    raise InternalServerError(response_data) from ex
 
     return response_data, status.OK, {}
 
@@ -148,7 +147,10 @@ def cross_list(method: str, params: MultiDict, session: Session,
                submission_id: int, **kwargs) -> Response:
     """Handle secondary classification requests for a new submission."""
     submitter, client = user_and_client_from_session(session)
-    submission, submission_events = get_submission(submission_id)
+    #submission, submission_events = get_submission(submission_id)
+    xxx = get_submission(submission_id)
+    print(f"type of xxx is {type(xxx)}")
+    submission, submission_events = xxx
 
     form = ClassificationForm(params)
     form.operation._value = lambda: form.operation.data
@@ -164,7 +166,7 @@ def cross_list(method: str, params: MultiDict, session: Session,
 
     response_data = {
         'submission_id': submission_id,
-        'ui-app': submission,
+        'submission': submission,
         'submitter': submitter,
         'client': client,
         'form': form,
@@ -190,7 +192,7 @@ def cross_list(method: str, params: MultiDict, session: Session,
        and validate_command(form, command, submission, 'category'):
         try:
             submission, _ = api.save(command, submission_id=submission_id)
-            response_data['ui-app'] = submission
+            response_data['submission'] = submission
             
             # Re-build the formset to reflect changes that we just made, and
             # generate a fresh form for adding another secondary. The POSTed

@@ -7,7 +7,7 @@ from http import HTTPStatus as status
 from pytz import timezone
 from datetime import timedelta, datetime
 from arxiv.auth import auth, domain
-
+from submit_ce.ui.tests import CtrlBase
 import submit_ce.api.domain
 from submit_ce.ui.controllers import jref
 
@@ -18,43 +18,20 @@ def mock_save(*events, submission_id=None):
     return mock.MagicMock(submission_id=submission_id), events
 
 
-class TestJREFSubmission(TestCase):
+class TestJREFSubmission(CtrlBase):
     """Test behavior of :func:`.jref` controller."""
 
     def setUp(self):
         """Create an authenticated session."""
+
         # Specify the validity period for the session.
         start = datetime.now(tz=timezone('US/Eastern'))
         end = start + timedelta(seconds=36000)
-        self.session = domain.Session(
-            session_id='123-session-abc',
-            start_time=start, end_time=end,
-            user=domain.User(
-                user_id='235678',
-                email='foo@foo.com',
-                username='foouser',
-                name=domain.UserFullName("Jane", "Bloggs", "III"),
-                profile=domain.UserProfile(
-                    affiliation="FSU",
-                    rank=3,
-                    country="de",
-                    default_category=submit_ce.api.domain.Category('astro-ph.GA'),
-                    submission_groups=['grp_physics']
-                )
-            ),
-            authorizations=domain.Authorizations(
-                scopes=[auth.scopes.CREATE_SUBMISSION,
-                        auth.scopes.EDIT_SUBMISSION,
-                        auth.scopes.VIEW_SUBMISSION],
-                endorsements=[submit_ce.api.domain.Category('astro-ph.CO'),
-                              submit_ce.api.domain.Category('astro-ph.GA')]
-            )
-        )
 
+    @mock.patch(f'{jref.__name__}.JREFForm.Meta.csrf', False)
     @mock.patch(f'{jref.__name__}.alerts')
     @mock.patch(f'{jref.__name__}.url_for')
-    @mock.patch(f'{jref.__name__}.JREFForm.Meta.csrf', False)
-    @mock.patch('arxiv.submission.load')
+    @mock.patch('submit_ce.ui.backend.api.get_with_history')
     def test_GET_with_unannounced(self, mock_load, mock_url_for, mock_alerts):
         """GET request for an unannounced submission."""
         submission_id = 2
@@ -76,10 +53,10 @@ class TestJREFSubmission(TestCase):
         self.assertEqual(mock_alerts.flash_failure.call_count, 1,
                          "An informative message is shown to the user")
 
+    @mock.patch(f'{jref.__name__}.JREFForm.Meta.csrf', False)
     @mock.patch(f'{jref.__name__}.alerts')
     @mock.patch(f'{jref.__name__}.url_for')
-    @mock.patch(f'{jref.__name__}.JREFForm.Meta.csrf', False)
-    @mock.patch('arxiv.submission.load')
+    @mock.patch('submit_ce.ui.backend.api.get_with_history')
     def test_POST_with_unannounced(self, mock_load, mock_url_for, mock_alerts):
         """POST request for an unannounced submission."""
         submission_id = 2
@@ -103,7 +80,7 @@ class TestJREFSubmission(TestCase):
                          "An informative message is shown to the user")
 
     @mock.patch(f'{jref.__name__}.JREFForm.Meta.csrf', False)
-    @mock.patch('arxiv.submission.load')
+    @mock.patch('submit_ce.ui.backend.api.get_with_history')
     def test_GET_with_announced(self, mock_load):
         """GET request for a announced submission."""
         submission_id = 2
@@ -118,8 +95,7 @@ class TestJREFSubmission(TestCase):
     @mock.patch(f'{jref.__name__}.alerts')
     @mock.patch(f'{jref.__name__}.url_for')
     @mock.patch(f'{jref.__name__}.JREFForm.Meta.csrf', False)
-    @mock.patch('arxiv.submission.load')
-    @mock.patch(f'{jref.__name__}.save', mock_save)
+    @mock.patch('submit_ce.ui.backend.api.get_with_history')
     def test_POST_with_announced(self, mock_load, mock_url_for, mock_alerts):
         """POST request for a announced submission."""
         submission_id = 2
