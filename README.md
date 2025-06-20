@@ -16,14 +16,14 @@ uv venv
 uv sync
 
 # make sqlite dev db
-python tests/make_test_db.py bootstrap_db
+python submit_ce/make_test_db.py bootstrap_db
 
 # this will give you an Authorization token, save that and use a browser extension
 # like modheader to add Authorization=eyJhb...
 
-python main.py
+flask --app submit_ce.ui.factory:create_web_app run
 
-google-chrome localhost:8080
+google-chrome localhost:5000
 ```
 
 
@@ -38,5 +38,5 @@ docker build . -t arxiv/submit_ce
 To run the tests:
 
 ```bash
-pytest tests
+pytest submit_ce
 ```

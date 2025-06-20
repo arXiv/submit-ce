@@ -6,7 +6,6 @@ from submit_ce.api.CompileService import CompileService
 from submit_ce.api.domain import Submission, Event, Agent, Client, Upload, License
 from submit_ce.api.file_store import SubmissionFileStore, SubmitFile
 
-
 class SubmitApi(ABC):
 
     @abstractmethod
