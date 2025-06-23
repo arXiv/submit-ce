@@ -88,7 +88,7 @@ def upload_files(method: str, params: MultiDict, session: Session,
     """Controller function to handle a file upload request.
 
     GET requests are treated as a request for information about the current
-    state of the ui-app upload.
+    state of the submission upload.
 
     POST requests are treated either as package upload if the upload
     workspace does not already exist or a request to replace a file.
@@ -105,7 +105,7 @@ def upload_files(method: str, params: MultiDict, session: Session,
     session : :class:`Session`
         The authenticated session for the request.
     submission_id : int
-        The identifier of the ui-app for which the upload is being made.
+        The identifier of the submission for which the upload is being made.
     token : str
         The original (encrypted) auth token on the request. Used to perform
         sub-requests to the file management service.
@@ -168,7 +168,7 @@ def _update_submission(form: UploadForm, submission: Submission, stat: Upload,
     """
     Update the :class:`.Submission` after an upload-related action.
 
-    The ui-app is linked to the upload workspace via the
+    The submission is linked to the upload workspace via the
     :attr:`Submission.source_content` attribute. This is set using a
     :class:`SetUploadPackage` command. If the workspace identifier changes
     (e.g. on first upload), we want to execute :class:`SetUploadPackage` to
@@ -223,7 +223,7 @@ def _get_upload(params: MultiDict, session: Session, submission: Submission,
     session : :class:`Session`
         The authenticated session for the request.
     submission : :class:`Submission`
-        The ui-app for which to retrieve upload workspace information.
+        The submission for which to retrieve upload workspace information.
 
     Returns
     -------
@@ -261,7 +261,7 @@ def _new_upload(params: MultiDict, pointer: FileStorage, session: Session,
     Handle a POST request with a new upload package.
 
     This occurs in the case that there is not already an upload workspace
-    associated with the ui-app. See the :attr:`Submission.source_content`
+    associated with the submission. See the :attr:`Submission.source_content`
     attribute, which is set using :class:`SetUploadPackage`.
 
     Parameters
@@ -273,7 +273,7 @@ def _new_upload(params: MultiDict, pointer: FileStorage, session: Session,
     session : :class:`Session`
         The authenticated session for the request.
     submission : :class:`Submission`
-        The ui-app for which the upload is being made.
+        The submission for which the upload is being made.
 
     Returns
     -------
@@ -300,19 +300,19 @@ def _new_upload(params: MultiDict, pointer: FileStorage, session: Session,
     converted_size = tidy_filesize(stat.size)
     if stat.status is UploadStatus.READY:
         alerts.flash_success(
-            f'Unpacked {stat.file_count} files. Total ui-app'
+            f'Unpacked {stat.file_count} files. Total submission'
             f' package size is {converted_size}',
             title='Upload successful'
         )
     elif stat.status is UploadStatus.READY_WITH_WARNINGS:
         alerts.flash_warning(
-            f'Unpacked {stat.file_count} files. Total ui-app'
+            f'Unpacked {stat.file_count} files. Total submission'
             f' package size is {converted_size}. See below for warnings.',
             title='Upload complete, with warnings'
         )
     elif stat.status is UploadStatus.ERRORS:
         alerts.flash_warning(
-            f'Unpacked {stat.file_count} files. Total ui-app'
+            f'Unpacked {stat.file_count} files. Total submission'
             f' package size is {converted_size}. See below for errors.',
             title='Upload complete, with errors'
         )
@@ -329,7 +329,7 @@ def _new_file(params: MultiDict, pointer: FileStorage, session: Session,
     Handle a POST request with a new file to add to an existing upload package.
 
     This occurs in the case that there is already an upload workspace
-    associated with the ui-app. See the :attr:`Submission.source_content`
+    associated with the submission. See the :attr:`Submission.source_content`
     attribute, which is set using :class:`SetUploadPackage`.
 
     Parameters
@@ -341,7 +341,7 @@ def _new_file(params: MultiDict, pointer: FileStorage, session: Session,
     session : :class:`Session`
         The authenticated session for the request.
     submission : :class:`Submission`
-        The ui-app for which the upload is being made.
+        The submission for which the upload is being made.
 
     Returns
     -------
@@ -361,7 +361,7 @@ def _new_file(params: MultiDict, pointer: FileStorage, session: Session,
     # Using a form object provides some extra assurance that this is a legit request; provides CSRF protection.
     params['file'] = pointer
     form = UploadForm(params)
-    rdata.update({'form': form, 'ui-app': submission})
+    rdata.update({'form': form, 'submission': submission})
 
     if not form.validate():
         logger.error('Invalid upload form: %s', form.errors)
@@ -394,19 +394,19 @@ def _new_file(params: MultiDict, pointer: FileStorage, session: Session,
     converted_size = tidy_filesize(stat.size)
     if stat.status is UploadStatus.READY:
         alerts.flash_success(
-            f'Uploaded {pointer.filename} successfully. Total ui-app'
+            f'Uploaded {pointer.filename} successfully. Total submission'
             f' package size is {converted_size}',
             title='Upload successful'
         )
     elif stat.status is UploadStatus.READY_WITH_WARNINGS:
         alerts.flash_warning(
-            f'Uploaded {pointer.filename} successfully. Total ui-app'
+            f'Uploaded {pointer.filename} successfully. Total submission'
             f' package size is {converted_size}. See below for warnings.',
             title='Upload complete, with warnings'
         )
     elif stat.status is UploadStatus.ERRORS:
         alerts.flash_warning(
-            f'Uploaded {pointer.filename} successfully. Total ui-app'
+            f'Uploaded {pointer.filename} successfully. Total submission'
             f' package size is {converted_size}. See below for errors.',
             title='Upload complete, with errors'
         )
@@ -424,7 +424,7 @@ def _get_notifications(stat: Upload) -> List[Dict[str, str]]:
         notifications.append({
             'title': 'Unresolved errors',
             'severity': 'danger',
-            'body': 'There are unresolved problems with your ui-app'
+            'body': 'There are unresolved problems with your submission'
                     ' files. Please correct the errors below before'
                     ' proceeding.'
         })
@@ -433,23 +433,23 @@ def _get_notifications(stat: Upload) -> List[Dict[str, str]]:
             'title': 'Warnings',
             'severity': 'warning',
             'body': 'There is one or more unresolved warning in the file list.'
-                    ' You may proceed with your ui-app, but please note'
+                    ' You may proceed with your submission, but please note'
                     ' that these issues may cause delays in processing'
                     ' and/or announcement.'
         })
     if stat.source_format is SubmissionContent.Format.UNKNOWN:
         notifications.append({
-            'title': 'Unknown ui-app type',
+            'title': 'Unknown submission type',
             'severity': 'warning',
             'body': 'We could not determine the source type of your'
-                    ' ui-app. Please check your files carefully. We may'
+                    ' submission. Please check your files carefully. We may'
                     ' not be able to process your files.'
         })
     elif stat.source_format is SubmissionContent.Format.INVALID:
         notifications.append({
-            'title': 'Unsupported ui-app type',
+            'title': 'Unsupported submission type',
             'severity': 'danger',
-            'body': 'It is likely that your ui-app content is not'
+            'body': 'It is likely that your submission content is not'
                     ' supported. Please check your files carefully. We may not'
                     ' be able to process your files.'
         })
@@ -457,7 +457,7 @@ def _get_notifications(stat: Upload) -> List[Dict[str, str]]:
         notifications.append({
             'title': f'Detected {stat.source_format.value.upper()}',
             'severity': 'success',
-            'body': 'Your ui-app content is supported.'
+            'body': 'Your submission content is supported.'
         })
     return notifications
 

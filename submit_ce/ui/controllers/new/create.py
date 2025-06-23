@@ -1,4 +1,4 @@
-"""Controller for creating a new ui-app."""
+"""Controller for creating a new submission."""
 
 from http import HTTPStatus as status
 
@@ -27,7 +27,7 @@ class CreateSubmissionForm(csrf.CSRFForm):
 
 def create(method: str, params: MultiDict, session: Session, *args,
            **kwargs) -> Response:
-    """Create a new ui-app, and redirect to workflow."""
+    """Create a new submission, and redirect to workflow."""
     submitter, client = user_and_client_from_session(session)
     response_data = {}
     if method == 'GET':     # Display a splash page.

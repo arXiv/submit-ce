@@ -26,7 +26,7 @@ from submit_ce.ui.controllers.util import validate_command
 from submit_ce.ui.routes.flow_control import ready_for_next
 from submit_ce.ui.backend import get_submission
 
-# from arxiv-ui-app-core.events.event import ConfirmContactInformation
+# from arxiv-submission-core.events.event import ConfirmContactInformation
 
 logger = logging.getLogger(__name__)  # pylint: disable=C0103
 
@@ -40,9 +40,9 @@ def authorship(method: str, params: MultiDict, session: Session,
     submission, submission_events = get_submission(submission_id)
 
     # The form should be prepopulated based on the current state of the
-    # ui-app.
+    # submission.
     if method == 'GET':
-        # Update form data based on the current state of the ui-app.
+        # Update form data based on the current state of the submission.
         if submission.submitter_is_author is not None:
             if submission.submitter_is_author:
                 params['authorship'] = AuthorshipForm.YES

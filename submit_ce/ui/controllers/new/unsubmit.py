@@ -1,4 +1,4 @@
-"""Provide the controller used to unsubmit/unfinalize a ui-app."""
+"""Provide the controller used to unsubmit/unfinalize a submission."""
 
 from http import HTTPStatus as status
 
@@ -20,7 +20,7 @@ from submit_ce.ui.controllers.util import validate_command
 from submit_ce.ui.backend import get_submission
 
 class UnsubmitForm(csrf.CSRFForm):
-    """Form for unsubmitting a ui-app."""
+    """Form for unsubmitting a submission."""
 
     confirmed = BooleanField('Confirmed',
                              validators=[validators.DataRequired()])
@@ -28,7 +28,7 @@ class UnsubmitForm(csrf.CSRFForm):
 
 def unsubmit(method: str, params: MultiDict, session: Session,
              submission_id: int, **kwargs) -> Response:
-    """Unsubmit a ui-app."""
+    """Unsubmit a submission."""
     submission, submission_events = get_submission(submission_id)
     response_data = {
         'submission': submission,

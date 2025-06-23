@@ -104,12 +104,12 @@ class PrimaryClassificationForm(ClassificationForm):
 
 def classification(method: str, params: MultiDict, session: Session,
                    submission_id: int, **kwargs) -> Response:
-    """Handle primary classification requests for a new ui-app."""
+    """Handle primary classification requests for a new submission."""
     submitter, client = user_and_client_from_session(session)
     submission, submission_events = get_submission(submission_id)
 
     if method == 'GET':
-        # Prepopulate the form based on the state of the ui-app.
+        # Prepopulate the form based on the state of the submission.
         if submission.primary_classification and submission.primary_classification.category:
             params['category'] = submission.primary_classification.category
 
@@ -212,6 +212,6 @@ def cross_list(method: str, params: MultiDict, session: Session,
     if len(submission.secondary_categories) > 3:
         alerts.flash_warning(Markup(
             'Adding more than three cross-list classifications will'
-            ' result in a delay in the acceptance of your ui-app.'
+            ' result in a delay in the acceptance of your submission.'
         ))
     return response_data, status.OK, {}

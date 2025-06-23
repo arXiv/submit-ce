@@ -35,9 +35,9 @@ def finalize(method: str, params: MultiDict, session: Session,
 
     form = FinalizationForm(params)
 
-    # The abs preview macro expects a specific struct for ui-app history.
+    # The abs preview macro expects a specific struct for submission history.
     # TODO submission.versions removed, what do do in final?
-    #submission_history = [{'submitted_date': s.created, 'version': s.version}
+    # submission_history = [{'submitted_date': s.created, 'version': s.version}
     #                      for s in submission.versions]
     submission_history = []
     response_data = {
@@ -45,7 +45,6 @@ def finalize(method: str, params: MultiDict, session: Session,
         'form': form,
         'submission': submission,
         'submission_history': submission_history,
-        'submission': submission,
     }
 
     command = FinalizeSubmission(creator=submitter)
@@ -70,9 +69,9 @@ class FinalizationForm(csrf.CSRFForm):
     """Make sure the user is really really really ready to submit."""
 
     proceed = BooleanField(
-        'By checking this box, I confirm that I have reviewed my ui-app as'
+        'By checking this box, I confirm that I have reviewed my submission as'
         ' it will appear on arXiv.',
-        [InputRequired('Please confirm that the ui-app is ready')]
+        [InputRequired('Please confirm that the submission is ready')]
     )
 
 

@@ -33,8 +33,10 @@ class SubmitAuthMiddleware(BaseMiddleware):
 
         environ['auth'] = None      # Create the session key, at a minimum.
         environ['token'] = None
-        token = environ.get('HTTP_AUTHORIZATION', None)    # HTTP_AUTHORIZATION is the HTTP header Authorization
-        if token is None or not token:
+        token = environ.get('HTTP_AUTHORIZATION', None)    # HTTP_AUTHORIZATION is the HTTP header Authorization        
+        if not token:
+            token = environ.get('ARXIVNG_SESSION_ID', None)
+        if not token:
             logger.debug('No auth token')
             return environ, start_response
 
@@ -44,9 +46,11 @@ class SubmitAuthMiddleware(BaseMiddleware):
         except InvalidToken:   # Let the application decide what to do.
             logger.debug('Auth token not valid: %s', token)
             environ['auth'] = Unauthorized('Invalid auth token')
+            environ['tokne'] = None
         except Exception as e:
             logger.error(f'Unhandled exception: {e}')
             environ['auth'] = InternalServerError(f'Unhandled: {e}')  # type: ignore
+            environ['tokne'] = None
         return environ, start_response
 
 

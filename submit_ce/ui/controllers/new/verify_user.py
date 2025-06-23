@@ -36,13 +36,13 @@ def verify(method: str, params: MultiDict, session: Session,
 
     Generates a `ConfirmContactInformation` event when valid data are POSTed.
     """
-    logger.debug(f'method: {method}, ui-app: {submission_id}. {params}')
+    logger.debug(f'method: {method}, submission: {submission_id}. {params}')
     submitter, client = user_and_client_from_session(session)
 
-    # Will raise NotFound if there is no such ui-app.
+    # Will raise NotFound if there is no such submission.
     submission, _ = get_submission(submission_id)
 
-    # Initialize the form with the current state of the ui-app.
+    # Initialize the form with the current state of the submission.
     if method == 'GET':
         if submission.submitter_contact_verified:
             params['verify_user'] = 'true'
@@ -57,7 +57,7 @@ def verify(method: str, params: MultiDict, session: Session,
     }
 
     if method == 'POST' and form.validate() and form.verify_user.data:
-        # Now that we have a ui-app, we can verify the user's contact
+        # Now that we have a submission, we can verify the user's contact
         # information. There is no need to do this more than once.
         if submission.submitter_contact_verified:
             return ready_for_next((response_data, status.OK,{}))

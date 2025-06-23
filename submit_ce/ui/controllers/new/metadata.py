@@ -1,4 +1,4 @@
-"""Provides a controller for updating metadata on a ui-app."""
+"""Provides a controller for updating metadata on a submission."""
 
 from typing import Tuple, Dict, Any, List
 
@@ -30,7 +30,7 @@ Response = Tuple[Dict[str, Any], int, Dict[str, Any]]  # pylint: disable=C0103
 
 
 class CoreMetadataForm(csrf.CSRFForm, FieldMixin):
-    """Handles core metadata fields on a ui-app."""
+    """Handles core metadata fields on a submission."""
 
     title = StringField('*Title', validators=[validators.DataRequired()])
     authors_display = TextAreaField(
@@ -55,7 +55,7 @@ class CoreMetadataForm(csrf.CSRFForm, FieldMixin):
 
 
 class OptionalMetadataForm(csrf.CSRFForm, FieldMixin):
-    """Handles optional metadata fields on a ui-app."""
+    """Handles optional metadata fields on a submission."""
 
     doi = StringField('DOI',
                     validators=[validators.optional()],
@@ -93,9 +93,9 @@ def _data_from_submission(params: MultiDict, submission: Submission,
 
 def metadata(method: str, params: MultiDict, session: Session,
              submission_id: int, **kwargs) -> Response:
-    """Update submission metadata on the ui-app."""
+    """Update submission metadata on the submission."""
     submitter, client = user_and_client_from_session(session)
-    logger.debug(f'method: {method}, ui-app: {submission_id}. {params}')
+    logger.debug(f'method: {method}, submission: {submission_id}. {params}')
     submission, submission_events = get_submission(submission_id)
     if method == 'GET':
         params = _data_from_submission(params, submission, CoreMetadataForm)
@@ -129,15 +129,15 @@ def metadata(method: str, params: MultiDict, session: Session,
 
 def optional(method: str, params: MultiDict, session: Session,
              submission_id: int, **kwargs) -> Response:
-    """Update optional metadata on the ui-app."""
+    """Update optional metadata on the submission."""
     submitter, client = user_and_client_from_session(session)
 
-    logger.debug(f'method: {method}, ui-app: {submission_id}. {params}')
+    logger.debug(f'method: {method}, submission: {submission_id}. {params}')
 
-    # Will raise NotFound if there is no such ui-app.
+    # Will raise NotFound if there is no such submission.
     submission, submission_events = get_submission(submission_id)
     # The form should be prepopulated based on the current state of the
-    # ui-app.
+    # submission.
     if method == 'GET':
         params = _data_from_submission(params, submission,
                                        OptionalMetadataForm)

@@ -51,7 +51,7 @@ def delete_all(method: str, params: MultiDict, session: Session,
     session : :class:`Session`
         The authenticated session for the request.
     submission_id : int
-        The identifier of the ui-app for which the deletion is being made.
+        The identifier of the submission for which the deletion is being made.
     token : str
         The original (encrypted) auth token on the request. Used to perform
         subrequests to the file management service.
@@ -161,7 +161,7 @@ def delete_file(method: str, params: MultiDict, session: Session,
     session : :class:`Session`
         The authenticated session for the request.
     submission_id : int
-        The identifier of the ui-app for which the deletion is being made.
+        The identifier of the submission for which the deletion is being made.
     token : str
         The original (encrypted) auth token on the request. Used to perform
         subrequests to the file management service.

@@ -2,7 +2,7 @@
 Controllers for process-related requests.
 
 The controllers in this module leverage
-:mod:`arxiv.ui-app.core.process.process_source`, which provides an
+:mod:`arxiv.submission.core.process.process_source`, which provides an
 high-level API for orchestrating source processing for all supported source
 types.
 """
@@ -52,7 +52,7 @@ def file_process(method: str, params: MultiDict, session: Session,
     session : :class:`Session`
         The authenticated session for the request.
     submission_id : int
-        The identifier of the ui-app for which the upload is being made.
+        The identifier of the submission for which the upload is being made.
     token : str
         The original (encrypted) auth token on the request. Used to perform
         subrequests to the file management service.
@@ -122,7 +122,7 @@ def compile_status(params: MultiDict, session: Session, submission_id: int,
     session : :class:`Session`
         The authenticated session for the request.
     submission_id : int
-        The identifier of the ui-app for which the upload is being made.
+        The identifier of the submission for which the upload is being made.
     token : str
         The original (encrypted) auth token on the request. Used to perform
         subrequests to the file management service.
@@ -189,13 +189,13 @@ def start_compilation(params: MultiDict, session: Session, submission_id: int,
             api.save(command, submission_id=submission.submission_id)  # The api implementation will call CompileSource.execute()
             return stay_on_this_stage((response_data, status.OK, {}))
         except SaveError as e:
-            alerts.flash_failure(f"We couldn't process your ui-app. {SUPPORT}", title="Processing failed")
+            alerts.flash_failure(f"We couldn't process your submission. {SUPPORT}", title="Processing failed")
             raise InternalServerError(response_data) from e
 
     # try:
     #     result = process_source.start(submission, submitter, client, token)
     # except process_source.FailedToStart as e:
-    #     alerts.flash_failure(f"We couldn't process your ui-app. {SUPPORT}", title="Processing failed")
+    #     alerts.flash_failure(f"We couldn't process your submission. {SUPPORT}", title="Processing failed")
     #     logger.error('Error while requesting compilation for %s: %s', submission_id, e)
     #     raise InternalServerError(response_data) from e
     #
@@ -218,7 +218,7 @@ def start_compilation(params: MultiDict, session: Session, submission_id: int,
 # TODO move file_preview to its own controller
 def file_preview(params, session: Session, submission_id: int, token: str,
                  **kwargs: Any) -> Tuple[io.BytesIO, int, Dict[str, str]]:
-    """Serve the PDF preview for a ui-app."""
+    """Serve the PDF preview for a submission."""
     submitter, client = user_and_client_from_session(session)
     submission, submission_events = get_submission(submission_id)
     fstore = api.get_file_store()
@@ -255,23 +255,23 @@ class CompilationForm(csrf.CSRFForm):
 
 
 SUCCESS_MARKUP = \
-    Markup("We are processing your ui-app. This may take a minute or two." \
+    Markup("We are processing your submission. This may take a minute or two." \
             " This page will refresh automatically every 5 seconds. You can " \
             " also refresh this page manually to check the current status. ")
 TEX_PRODUCED_MARKUP = \
-    Markup("The ui-app PDF file appears to have been produced by TeX. " \
-           "<p>This file has been rejected as part your ui-app because " \
+    Markup("The submission PDF file appears to have been produced by TeX. " \
+           "<p>This file has been rejected as part your submission because " \
            "it appears to be pdf generated from TeX/LaTeX source. " \
            "For the reasons outlined at in the Why TeX FAQ we insist on " \
-           "ui-app of the TeX source rather than the processed " \
+           "submission of the TeX source rather than the processed " \
            "version.</p><p>Our software includes an automatic TeX " \
            "processing script that will produce PDF, PostScript and " \
            "dvi from your TeX source. If our determination that your " \
-           "ui-app is TeX produced is incorrect, you should send " \
-           "e-mail with your ui-app ID to " \
+           "submission is TeX produced is incorrect, you should send " \
+           "e-mail with your submission ID to " \
            '<a href="mailto:help@arxiv.org">arXiv administrators.</a></p>')
 DOCKER_ERROR_MARKUOP = \
     Markup("Our automatic TeX processing system has failed to launch. " \
            "There is a good chance we are aware of the issue, but if the " \
-           "problem persists you should send e-mail with your ui-app " \
+           "problem persists you should send e-mail with your submission " \
            'number to <a href="mailto:help@arxiv.org">arXiv administrators.</a></p>')

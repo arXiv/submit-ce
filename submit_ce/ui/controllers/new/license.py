@@ -38,7 +38,7 @@ def license(method: str, params: MultiDict, session: Session,
 
     if method == 'GET' and submission.license:
         # The form should be prepopulated based on the current state of the
-        # ui-app.
+        # submission.
         params['license'] = submission.license.uri
 
     form = LicenseForm(params)

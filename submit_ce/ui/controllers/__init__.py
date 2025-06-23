@@ -22,18 +22,18 @@ from .util import Response
 from ..backend import get_submission
 
 
-# def submission_status(method: str, params: MultiDict, session: Session,
-#                       submission_id: int) -> Response:
-#     user, client = util.user_and_client_from_session(session)
+def submission_status(method: str, params: MultiDict, session: Session,
+                      submission_id: int) -> Response:
+    #user, client = util.user_and_client_from_session(session)
 
-#     # Will raise NotFound if there is no such submission.
-#     submission, submission_events = get_submission(submission_id)
-#     response_data = {
-#         'submission': submission,
-#         'submission_id': submission_id,
-#         'events': submission_events
-#     }
-#     return response_data, status.OK, {}
+    # Will raise NotFound if there is no such submission.
+    submission, submission_events = get_submission(submission_id)
+    response_data = {
+        'submission': submission,
+        'submission_id': submission_id,
+        'events': submission_events
+    }
+    return response_data, status.OK, {}
 
 
 def submission_edit(method: str, params: MultiDict, session: Session,
