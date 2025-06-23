@@ -12,6 +12,8 @@ from werkzeug.datastructures import Headers
 from arxiv.taxonomy.definitions import CATEGORIES
 
 import submit_ce
+
+from submit_ce.ui.tests import TestClientArxivAuth
 # to ensure we can import this due to confusing errors if it is missing.
 
 # to ensure we can import this due to confusing errors if deps are missing.
@@ -99,23 +101,10 @@ def authorized_user_session(app, jwt_secret):
         return session, ng_jwt
 
 
-
 @pytest.fixture
 def authorized_client(app, authorized_user_session):
     """Authorized client with db and jwt setup. """
-
-    session, ng_jwt = authorized_user_session
-    class TestClientArxivAuth(testing.FlaskClient):
-        def open(self, *args, **kwargs):
-            api_key_headers = Headers({
-                #'Authorized': ng_jwt,
-                'Authorization': f'Bearer {ng_jwt}'
-            })
-            headers = kwargs.pop('headers', Headers())
-            headers.extend(api_key_headers)
-            kwargs['headers'] = headers
-            return super().open(*args, **kwargs)
-
+    session, jwt = authorized_user_session
     with app.app_context():
         app.test_client_class = TestClientArxivAuth
-        yield app.test_client()
+        yield app.test_client(jwt=jwt)
