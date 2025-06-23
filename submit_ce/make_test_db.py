@@ -56,6 +56,8 @@ from mimesis.locales import Locale
 
 from arxiv.auth import  domain
 
+from submit_ce.ui.config import settings
+
 # The logging in NG is a bit much, tone it down
 logging.basicConfig()
 logging.getLogger("arxiv.submission.services.classic.interpolate").setLevel(logging.ERROR)
@@ -231,7 +233,7 @@ def create_all_legacy_db(test_db_file: str=DEV_SQLITE_FILE, echo: bool=False, ur
 
 
 
-def bootstrap_db(output_jwt: bool=False, db_uri = f"sqlite:///{DEV_SQLITE_FILE}", jwt_secret: str = ""):
+def bootstrap_db(output_jwt: bool=False, db_uri = f"sqlite:///{DEV_SQLITE_FILE}", jwt_secret: str = settings.JWT_SECRET):
     """
     Creates db if it does not exist and loads some tables.
 
@@ -249,7 +251,7 @@ def bootstrap_db(output_jwt: bool=False, db_uri = f"sqlite:///{DEV_SQLITE_FILE}"
 
     app = Flask("bootstrap")
     app.url_map.strict_slashes = False
-    app.config["JWT_SECRET"] = jwt_secret or os.getenv("JWT_SECRET", "FOOBAR")
+    app.config["JWT_SECRET"] = jwt_secret
     app.config.from_object(settings)
     Base(app)
     Auth(app)
@@ -306,6 +308,7 @@ def bootstrap_db(output_jwt: bool=False, db_uri = f"sqlite:///{DEV_SQLITE_FILE}"
                 ),
                 authorizations=domain.Authorizations(scopes=scope)
             )
+            print(f"about to encode with JWT_SECRET {app.config['JWT_SECRET']}")
             token = tokens.encode(session, app.config["JWT_SECRET"])
             return token
             #
@@ -337,6 +340,7 @@ def bootstrap_db(output_jwt: bool=False, db_uri = f"sqlite:///{DEV_SQLITE_FILE}"
 
             logger.info("Checking for database")
 
+
             if not engine.dialect.has_table(engine.connect(), "arXiv_submissions"):
                 created_users = []
                 logger.info("Database for classic not yet initialized; creating all tables")
@@ -366,13 +370,13 @@ def bootstrap_db(output_jwt: bool=False, db_uri = f"sqlite:///{DEV_SQLITE_FILE}"
                     print(user_to_jwt(created_users[0]))
                 else:
                     pass
+                print("\n")
                 return user_to_jwt(created_users[0])
 
             else:
                 logger.info("arXiv_submissions table already exists, DB bootstraped. No new users created.")
                 jwt = user_to_jwt(session.query(models.TapirUser).first())
-                if output_jwt:
-                    print(jwt)
+                print("\n")
                 return jwt
 
 
