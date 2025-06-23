@@ -14,7 +14,7 @@ from submit_ce.ui.controllers.new import authorship
 def test_get_request_with_submission(app, mocker, authorized_user_session):
     """GET request with a submission ID."""
     mocker.patch(f'{authorship.__name__}.AuthorshipForm.Meta.csrf', False)
-    mock_get = mocker.patch('submit_ce.ui.routes.ui.api.get')
+    mock_get = mocker.patch(f'submit_ce.ui.backend.api.get_with_history')
     submission_id = 2
     before = mocker.MagicMock(submission_id=submission_id,
                               submitter_is_author=False)

@@ -3,7 +3,9 @@ import pytest
 from fastapi.testclient import TestClient
 
 from submit_ce.api.domain import Submission
+from submit_ce.fastapi.app import app
 
+client = TestClient(app)
 
 def test_get_service_status(client: TestClient):
     """Test case for get_service_status"""
