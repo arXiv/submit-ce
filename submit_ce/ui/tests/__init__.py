@@ -28,7 +28,7 @@ class TestClientArxivAuth(testing.FlaskClient):
 
     def open(self, *args, **kwargs):
         api_key_headers = Headers({
-            'Authorization': f'Bearer {self._jwt}'
+            'Authorization': self._jwt
         })
         headers = kwargs.pop('headers', Headers())
         headers.extend(api_key_headers)

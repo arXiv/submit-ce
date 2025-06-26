@@ -577,7 +577,8 @@ def to_submission(row: models.Submission,
     primary = row.primary_classification
     if row.submitter is None:
         submitter = domain.User(identifier=row.submitter_id,
-                                email=row.submitter_email)
+                                     email=row.submitter_email,
+                                     native_id=str(row.submitter_id))
     else:
         submitter = row.get_submitter()
     if submission_id is None:

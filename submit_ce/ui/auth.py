@@ -28,6 +28,7 @@ WSGIRequest = Tuple[dict, Callable]
 class SubmitAuthMiddleware(BaseMiddleware):
     def before(self, environ: dict, start_response: Callable) -> WSGIRequest:
         """Decode and unpack the auth token on the request."""
+
         if not settings.JWT_SECRET:
             raise InternalServerError("SECRET_KEY not set")
 
@@ -39,7 +40,8 @@ class SubmitAuthMiddleware(BaseMiddleware):
         if not token:
             logger.debug('No auth token')
             return environ, start_response
-
+        token = token.removeprefix("Bearer ")
+        
         try:
             environ['auth'] = tokens.decode(token, settings.JWT_SECRET)
             environ['token'] = token  # Attach the encrypted token so that we can use it in sub requests.

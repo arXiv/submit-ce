@@ -76,7 +76,6 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-
 # BDC: I was thinking of doing a validator on the type but this conflicted with some
 # test code that expected to get an InvalidEvent exception. It seems wrong to set this to raise
 # that since it might be used outside an Event
@@ -115,11 +114,11 @@ class CreateSubmission(Event):
 
 
 class CreateSubmissionVersion(Event):
-    """
-    Creates a new version of a submission.
+    """Creates a new version of a submission.
 
-    Takes the submission back to "working" state; the user or client may make
-    additional changes before finalizing the submission.
+    The user or client may make additional changes before finalizing the
+    submission.
+
     """
 
     NAME = "create a new version"

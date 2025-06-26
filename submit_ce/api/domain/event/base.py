@@ -84,11 +84,11 @@ class Event(BaseModel):
     This should generally not be set from outside this package.
     """
 
-    before: Optional[Submission] = None
-    """The state of the submission prior to the event."""
+    _before: Optional[Submission] = None
+    """The state of the submission prior to the event. For debugging only."""
 
-    after: Optional[Submission] = None
-    """The state of the submission after the event."""
+    _after: Optional[Submission] = None
+    """The state of the submission after the event. For debugging only."""
 
 
     @property
@@ -117,23 +117,23 @@ class Event(BaseModel):
 
     def apply(self, submission: Optional[Submission] = None, ) -> Submission:
         """Apply the projection for this :class:`.Event` instance."""
-        self.before = copy.deepcopy(submission)
+        self._before = copy.deepcopy(submission)
         # See comment on CreateSubmission, below.
         self.validate(submission)    # type: ignore
         if submission is not None:
-            self.after = self.project(copy.deepcopy(submission))
+            self._after = self.project(copy.deepcopy(submission))
         else:   # See comment on CreateSubmission, below.
-            self.after = self.project(None)    # type: ignore
-        assert self.after is not None
+            self._after = self.project(None)    # type: ignore
+        assert self._after is not None
 
-        self.after.updated = self.created
+        self._after.updated = self.created
 
         # Make sure that the submission has its own ID, if we know what it is.
-        if self.after.submission_id is None and self.submission_id is not None:
-            self.after.submission_id = self.submission_id
-        if self.submission_id is None and self.after.submission_id is not None:
-            self.submission_id = self.after.submission_id
-        return self.after
+        if self._after.submission_id is None and self.submission_id is not None:
+            self._after.submission_id = self.submission_id
+        if self.submission_id is None and self._after.submission_id is not None:
+            self.submission_id = self._after.submission_id
+        return self._after
 
 
     def validate(self, submission: Submission) -> None:

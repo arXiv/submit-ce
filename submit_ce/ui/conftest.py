@@ -1,3 +1,4 @@
+import os
 import shutil
 import tempfile
 import uuid
@@ -22,9 +23,11 @@ from submit_ce.ui.tests import TestClientArxivAuth
 from submit_ce.make_test_db import create_all_legacy_db, bootstrap_db
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope='session')
 def jwt_secret():
-    return str(uuid.uuid4())
+    secret = str(uuid.uuid4())
+    os.environ['JWT_SECRET'] = secret
+    return secret
 
 @pytest.fixture(scope='session')
 def test_db_file():
@@ -32,38 +35,42 @@ def test_db_file():
     yield db_path + "/legacy.db"
     shutil.rmtree(db_path)
 
+@pytest.fixture(scope='session')
+def classic_db_uri_envvar(test_db_file):
+    classic_db_uri = f"sqlite:///{test_db_file}"
+    os.environ['CLASSIC_DB_URI'] = classic_db_uri
+    return classic_db_uri
 
 @pytest.fixture(scope='session')
-def legacy_db_no_bootstrap(test_db_file):
+def legacy_db_no_bootstrap(test_db_file, classic_db_uri_envvar):
     engine, url, test_db_file = create_all_legacy_db(test_db_file)
     return engine, url, test_db_file
 
 @pytest.fixture(scope='session')
-def legacy_db_w_bootstrap(test_db_file, jwt_secret):
+def legacy_db_w_bootstrap(test_db_file, jwt_secret, classic_db_uri_envvar):
     jwt = bootstrap_db(db_uri=f"sqlite:///{test_db_file}", jwt_secret=jwt_secret)
     engine, url, test_db_file = create_all_legacy_db(test_db_file)
     return engine, url, test_db_file, jwt
 
 @pytest.fixture(scope='session')
-def legacy_db(
-        legacy_db_w_bootstrap
-    #legacy_db_no_bootstrap
-):
-    #engine, url, test_db_file, None = legacy_db_no_bootstrap
+def legacy_db(legacy_db_w_bootstrap):
     engine, url, test_db_file, jwt = legacy_db_w_bootstrap
     return engine, url, test_db_file, jwt
 
 
 @pytest.fixture
 def app(legacy_db, jwt_secret) -> Flask:
-    engine, url, _, user_jwt = legacy_db
-    from arxiv.config import settings
-    settings.CLASSIC_DB_URI = url
-    #settings.JWT_SECRET = jwt_secret
+    engine, uri, _, user_jwt = legacy_db
 
-    # Don't import until now so settings can be altered
+    from submit_ce.ui.config import settings as sce_settings
+    sce_settings.JWT_SECRET = jwt_secret
+    sce_settings.CLASSIC_DB_URI = uri
+
     from submit_ce.ui.factory import create_web_app
-    return create_web_app()
+    app = create_web_app()
+    app.config["CLASSIC_DB_URI"] = uri
+    app.config["JWT_SECRET"] = jwt_secret
+    return app
 
 
 @pytest.fixture
@@ -93,8 +100,7 @@ def authorized_user_session(app, jwt_secret):
                 scopes=[auth.scopes.CREATE_SUBMISSION,
                         auth.scopes.EDIT_SUBMISSION,
                         auth.scopes.VIEW_SUBMISSION],
-                endorsements=[CATEGORIES['astro-ph.CO'],
-                              CATEGORIES['astro-ph.GA']]
+                endorsements=[] # setting endorsements here doesn't work, they don't get added to the jwt
             )
         )
         ng_jwt = auth.tokens.encode(session, jwt_secret)
@@ -105,6 +111,5 @@ def authorized_user_session(app, jwt_secret):
 def authorized_client(app, authorized_user_session):
     """Authorized client with db and jwt setup. """
     session, jwt = authorized_user_session
-    with app.app_context():
-        app.test_client_class = TestClientArxivAuth
-        yield app.test_client(jwt=jwt)
+    app.test_client_class = TestClientArxivAuth
+    yield app.test_client(jwt=jwt)
