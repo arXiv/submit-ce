@@ -48,14 +48,12 @@ def unsubmit(method: str, params: MultiDict, session: Session,
             if not validate_command(form, command, submission, 'confirmed'):
                 raise BadRequest(response_data)
 
-            try:
-                api.save(command, submission_id=submission_id)
-            except Exception as e:
-                alerts.flash_failure("Whoops!")
-                raise InternalServerError(response_data) from e
+
+            api.save(command, submission_id=submission_id)
             alerts.flash_success("Unsubmitted.")
             redirect = url_for('ui.create_submission')
             return {}, status.SEE_OTHER, {'Location': redirect}
-        response_data.update({'form': form})
-        # TODO not updated to non-BadRequest convention
-        raise BadRequest(response_data)
+        else:
+            response_data.update({'form': form})
+            # TODO not updated to non-BadRequest convention
+            raise BadRequest(response_data)

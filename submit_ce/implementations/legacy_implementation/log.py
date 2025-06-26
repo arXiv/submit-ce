@@ -2,6 +2,8 @@
 
 from typing import Optional, Dict, Callable, List
 
+from sqlalchemy.orm import Session as SQLAlchemySession
+
 from submit_ce.api.domain.agent import System
 from submit_ce.api.domain.event import Event, UnFinalizeSubmission, AcceptProposal, \
     AddSecondaryClassification, AddContentFlag, \
@@ -11,11 +13,12 @@ from submit_ce.api.domain.submission import Submission
 from . import models, util
 
 
-def log_unfinalize(event: Event, before: Optional[Submission],
+def log_unfinalize(session: SQLAlchemySession, event: Event, before: Optional[Submission],
                    after: Submission) -> None:
     """Create a log entry when a user pulls their submission for changes."""
     assert isinstance(event, UnFinalizeSubmission)
-    admin_log(event.creator.username, "unfinalize",
+    admin_log(session,
+              event.creator.username, "unfinalize",
               "user has pulled submission for editing",
               username=event.creator.username,
               hostname=event.creator.hostname,
@@ -23,7 +26,7 @@ def log_unfinalize(event: Event, before: Optional[Submission],
               paper_id=after.arxiv_id)
 
 
-def log_accept_system_cross(event: Event, before: Optional[Submission],
+def log_accept_system_cross(session: SQLAlchemySession, event: Event, before: Optional[Submission],
                             after: Submission) -> None:
     """Create a log entry when a system cross is accepted."""
     assert isinstance(event, AcceptProposal) and event.proposal_id is not None
@@ -31,19 +34,21 @@ def log_accept_system_cross(event: Event, before: Optional[Submission],
     if type(event.creator) is System:
         if proposal.proposed_event_type is AddSecondaryClassification:
             category = proposal.proposed_event_data["category"]
-            admin_log(event.creator.username, "admin comment",
+            admin_log(session,
+                      event.creator.username, "admin comment",
                       f"Added {category} as secondary: {event.comment}",
                       username="system",
                       submission_id=after.submission_id,
                       paper_id=after.arxiv_id)
 
 
-def log_stopwords(event: Event, before: Optional[Submission],
+def log_stopwords(session: SQLAlchemySession, event: Event, before: Optional[Submission],
                   after: Submission) -> None:
     """Create a log entry when there is a problem with stopword content."""
     assert isinstance(event, AddContentFlag)
     if event.flag_type is ContentFlag.FlagType.LOW_STOP:
-        admin_log(event.creator.username,
+        admin_log(session,
+            event.creator.username,
                   "admin comment",
                   event.comment if event.comment is not None else "",
                   username="system",
@@ -51,21 +56,22 @@ def log_stopwords(event: Event, before: Optional[Submission],
                   paper_id=after.arxiv_id)
 
 
-def log_classifier_failed(event: Event, before: Optional[Submission],
+def log_classifier_failed(session: SQLAlchemySession, event: Event, before: Optional[Submission],
                           after: Submission) -> None:
     """Create a log entry when the classifier returns no suggestions."""
     assert isinstance(event, AddClassifierResults)
     if not event.results:
-        admin_log(event.creator.username, "admin comment",
+        admin_log(session,
+                  event.creator.username, "admin comment",
                   "Classifier failed to return results for submission",
                   username="system",
                   submission_id=after.submission_id,
                   paper_id=after.arxiv_id)
 
 
-Callback = Callable[[Event, Optional[Submission], Submission], None]
+Callback = Callable[[SQLAlchemySession, Event, Optional[Submission], Submission], None]
 
-ON_EVENT: Dict[type, List[Callback]] = {
+ON_EVENT: dict[type, list[Callback]] = {
     UnFinalizeSubmission: [log_unfinalize],
     AcceptProposal: [log_accept_system_cross],
     AddContentFlag: [log_stopwords]
@@ -73,7 +79,9 @@ ON_EVENT: Dict[type, List[Callback]] = {
 """Logging functions to call when an event is comitted."""
 
 
-def handle(event: Event, before: Optional[Submission],
+def handle(session: SQLAlchemySession,
+           event: Event,
+           before: Optional[Submission],
            after: Submission) -> None:
     """
     Generate an admin log entry for an event that is being committed.
@@ -93,10 +101,11 @@ def handle(event: Event, before: Optional[Submission],
     """
     if type(event) in ON_EVENT:
         for callback in ON_EVENT[type(event)]:
-            callback(event, before, after)
+            callback(session, event, before, after)
 
 
-def admin_log(program: str, command: str, text: str, notify: bool = False,
+def admin_log(session: SQLAlchemySession,
+              program: str, command: str, text: str, notify: bool = False,
               username: Optional[str] = None,
               hostname: Optional[str] = None,
               submission_id: Optional[int] = None,
@@ -124,7 +133,6 @@ def admin_log(program: str, command: str, text: str, notify: bool = False,
     """
     if paper_id is None and submission_id is not None:
         paper_id = f'submit/{submission_id}'
-    with util.transaction() as session:
         entry = models.AdminLogEntry(
             paper_id=paper_id,
             username=username,

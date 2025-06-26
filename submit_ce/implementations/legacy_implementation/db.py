@@ -242,6 +242,9 @@ def store_event(session: SQLAlchemySession, event: Event, before: Optional[Submi
 
     Parameters
     ----------
+    session: :class:`SQLAlchemySession`
+        DB session to use when storing. `commit()` should not be called inside `store_event` so that code
+        using `store_event` can manage the transaction.
     event : :class:`Event`
     before : :class:`Submission`
         The state of the submission before the event occurred.
@@ -249,8 +252,7 @@ def store_event(session: SQLAlchemySession, event: Event, before: Optional[Submi
         The state of the submission after the event occurred.
     call : list
         Items are callables that accept args ``Event, Submission, Submission``.
-        These are called within the transaction context; if an exception is
-        raised, the transaction is rolled back.
+        `store_event` makes not attempt to handle exceptions during these.
 
     """
     # Let the caller determine the transaction scope.
@@ -343,7 +345,7 @@ def store_event(session: SQLAlchemySession, event: Event, before: Optional[Submi
     # the transaction, just pushes the # SQL that we have generated so far to
     # the database # server.
 
-    log.handle(event, before, after)   # Create admin log entry.
+    log.handle(session, event, before, after)   # Create admin log entry.
     for func in call:
         logger.debug('call %s with event %s', func, event.event_id)
         func(event, before, after)
