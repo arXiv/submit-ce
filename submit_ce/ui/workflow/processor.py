@@ -9,7 +9,6 @@ from . import WorkflowDefinition, Stage
 
 
 logger = logging.getLogger(__file__)
-logger.setLevel(logging.DEBUG)
 
 @dataclass
 class WorkflowProcessor:

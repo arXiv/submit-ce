@@ -4,9 +4,9 @@
 
 from contextlib import contextmanager
 from typing import Generator
+import logging
 
 import arxiv.db
-from arxiv.base import logging
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm.session import Session as SqlAlchemySession
 

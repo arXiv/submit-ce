@@ -4,13 +4,14 @@ from http import HTTPStatus as status
 from functools import wraps
 from typing import Optional, Callable, Union, Dict, Tuple
 from typing_extensions import Literal
+import logging
 
 from flask import request, redirect, url_for, session
 from flask import Response as FResponse
 from werkzeug import Response as WResponse
 from werkzeug.exceptions import BadRequest
 
-from arxiv.base import alerts, logging
+from arxiv.base import alerts
 from submit_ce.api.domain import Submission
 
 from submit_ce.ui.workflow import NewSubmissionWorkflow, ReplacementWorkflow
@@ -22,7 +23,7 @@ from submit_ce.ui.backend import get_submission
 
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
+
 EXIT = 'ui.create_submission'
 
 PREVIOUS = 'previous'

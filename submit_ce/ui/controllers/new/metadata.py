@@ -6,10 +6,10 @@ from werkzeug.datastructures import MultiDict
 from werkzeug.exceptions import InternalServerError, BadRequest
 from wtforms.fields import StringField, TextAreaField, Field
 from wtforms import validators
+import logging
 
 from http import HTTPStatus as status
 from arxiv.forms import csrf
-from arxiv.base import logging
 from arxiv.auth.domain import Session, User, Client
 from submit_ce.ui.backend import api
 

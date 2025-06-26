@@ -1,9 +1,9 @@
 """Controller for creating a new submission."""
 
 from http import HTTPStatus as status
+import logging
 
 from arxiv.auth.domain import Session
-from arxiv.base import logging
 from arxiv.forms import csrf
 from flask import url_for
 from werkzeug.datastructures import MultiDict

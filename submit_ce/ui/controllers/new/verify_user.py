@@ -11,8 +11,8 @@ from werkzeug.datastructures import MultiDict
 from werkzeug.exceptions import InternalServerError, NotFound, BadRequest
 from wtforms import BooleanField
 from wtforms.validators import InputRequired
+import logging
 
-from arxiv.base import logging
 from arxiv.forms import csrf
 from arxiv.auth.domain import Session
 from submit_ce.api.exceptions import SaveError

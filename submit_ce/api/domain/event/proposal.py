@@ -4,8 +4,7 @@ import copy
 from typing import Optional, Iterable
 from dataclasses import field
 from .util import dataclass
-
-from arxiv.base import logging
+import logging
 
 from ..agent import Agent
 from ..submission import Submission

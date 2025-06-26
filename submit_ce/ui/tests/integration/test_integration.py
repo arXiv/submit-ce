@@ -9,7 +9,6 @@ WARNING: This test is written in a very stateful manner. So the tests must be ru
 in order.
 """
 
-import logging
 import os
 import unittest
 from pathlib import Path
@@ -21,10 +20,6 @@ from requests_toolbelt.multipart.encoder import MultipartEncoder
 from http import HTTPStatus as status
 from submit_ce.ui.tests.csrf_util import parse_csrf_token
 
-
-logging.basicConfig()
-log = logging.getLogger(__name__)
-log.setLevel(logging.DEBUG)
 
 @unittest.skipUnless(os.environ.get('INTEGRATION_TEST', False),
                      'Only running during integration test')

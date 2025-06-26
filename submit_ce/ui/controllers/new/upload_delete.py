@@ -4,8 +4,9 @@ Controllers for file-delete-related requests.
 
 from http import HTTPStatus as status
 from typing import Tuple, Dict, Any, Optional
+import logging
 
-from arxiv.base import logging, alerts
+from arxiv.base import alerts
 from arxiv.forms import csrf
 from markupsafe import Markup
 

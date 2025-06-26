@@ -65,7 +65,6 @@ logging.getLogger("arxiv.base.alerts").setLevel(logging.ERROR)
 logging.getLogger("arxiv.vault.middleware").setLevel(logging.CRITICAL)
 
 logger = logging.getLogger(__file__)
-logger.setLevel(logging.DEBUG)
 
 
 LOCALES = list(Locale)
@@ -222,6 +221,8 @@ def create_all_legacy_db(test_db_file: str=DEV_SQLITE_FILE, echo: bool=False, ur
     """Legacy sqlite testing db with all tables created but no data."""
     url =  f"sqlite:///{test_db_file}" if uri is None else uri
     engine = _engine(url, echo)
+    logger.setLevel(logging.DEBUG)
+
     if engine.dialect.has_table(engine.connect(), "arXiv_submissions"):
         logger.info("Not making tables since arXiv_submissions already exists.")
     else:
@@ -246,6 +247,8 @@ def bootstrap_db(output_jwt: bool=False, db_uri = f"sqlite:///{DEV_SQLITE_FILE}"
     ARGS:
         output_jwt: bool Write to stdout a jwt of a user on completion of script
     """
+    logger.setLevel(logging.DEBUG)
+
     from arxiv.config import settings
     settings.CLASSIC_DB_URI = db_uri
 
