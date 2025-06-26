@@ -10,6 +10,10 @@ class Classification:
 
     category: str
 
+    @property
+    def id(self):
+        return self.category
+
     def display(self):
         """Returns a `str` to use to display the category."""
         #TODO Should Classification.dislpay get the full name of the category?

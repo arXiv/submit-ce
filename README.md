@@ -30,7 +30,9 @@ google-chrome localhost:5000
 ## Build Docker Image
 
 ```bash
-docker build . -t arxiv/submit_ce
+gcloud auth configure-docker gcr.io # only needed once
+docker build . -t gcr.io/arxiv-development/submit-ce/submit-ce-ui
+docker push gcr.io/arxiv-development/submit-ce/submit-ce-ui
 ```
 
 ## Tests
