@@ -3,10 +3,11 @@
 import copy
 import hashlib
 from datetime import datetime
+from logging import root
 from typing import Optional, Callable, Tuple, Iterable, List, ClassVar, \
     Type, Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, RootModel
 
 from ..agent import Agent
 from ..submission import Submission
@@ -216,3 +217,14 @@ class EventWithSideEffect(Event):
             record details of the side effect.
         """
         raise NotImplementedError('Must be implemented by subclass')
+
+
+class EventList(RootModel):
+    """Class for a list of Events."""
+    root: list[Event]
+
+    def __iter__(self):
+        return iter(self.root)
+
+    def __getitem__(self, item):
+        return self.root[item]

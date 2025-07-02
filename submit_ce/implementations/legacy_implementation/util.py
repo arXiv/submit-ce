@@ -1,9 +1,7 @@
-"""Utility classes and functions for :mod:`.services.classic`."""
+"""Utility classes and functions for :mod:`.services.classic`.
 
-"""Copied from NG, was called util"""
+Copied from NG, was called util."""
 
-from contextlib import contextmanager
-from typing import Generator
 import logging
 
 import arxiv.db
@@ -72,6 +70,7 @@ logger = logging.getLogger(__name__)
 # FriendlyJSON = types.JSON().with_variant(SQLiteJSON, 'sqlite')
 #
 
+
 def current_engine() -> Engine:
     """Get/create :class:`.Engine` for this context."""
     return arxiv.db._classic_engine
@@ -79,5 +78,4 @@ def current_engine() -> Engine:
 
 def current_session() -> SqlAlchemySession:
     """Get/create :class:`.Session` for this context."""
-    #return db.session()
     return arxiv.db.Session()

@@ -46,16 +46,18 @@ def legacy_db_no_bootstrap(test_db_file, classic_db_uri_envvar):
     engine, url, test_db_file = create_all_legacy_db(test_db_file)
     return engine, url, test_db_file
 
+
 @pytest.fixture(scope='session')
 def legacy_db_w_bootstrap(test_db_file, jwt_secret, classic_db_uri_envvar):
     jwt = bootstrap_db(db_uri=f"sqlite:///{test_db_file}", jwt_secret=jwt_secret)
     engine, url, test_db_file = create_all_legacy_db(test_db_file)
     return engine, url, test_db_file, jwt
 
+
 @pytest.fixture(scope='session')
 def legacy_db(legacy_db_w_bootstrap):
-    engine, url, test_db_file, jwt = legacy_db_w_bootstrap
-    return engine, url, test_db_file, jwt
+    engine, url, t_db_file, jwt = legacy_db_w_bootstrap
+    return engine, url, t_db_file, jwt
 
 
 @pytest.fixture

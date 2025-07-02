@@ -1,6 +1,6 @@
 """Exceptions raised during event handling."""
 
-from typing import TypeVar, List
+from typing import TypeVar
 
 EventType = TypeVar('EventType')
 

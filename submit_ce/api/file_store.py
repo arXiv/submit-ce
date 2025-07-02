@@ -1,6 +1,5 @@
 from abc import ABCMeta, abstractmethod
 from io import BytesIO
-from pathlib import Path
 from typing import Protocol, Optional, IO
 
 from arxiv.files import FileObj

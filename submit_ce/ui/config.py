@@ -2,7 +2,6 @@ import os
 from typing import Tuple, List
 
 from arxiv.config import settings as arxivbase_settings, Settings as ArxivBaseSettings
-from pydantic import ImportString
 
 DEV_SQLITE_FILE="legacy.db"
 

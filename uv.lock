@@ -505,6 +505,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/55/ae/f7b329fa2bc9932a416e8846e78e06ce3e13a20e5c3f2cf80a18f489dec1/epc-0.0.5.tar.gz", hash = "sha256:a14d2ea74817955a20eb00812e3a4630a132897eb4d976420240f1152c0d7d25", size = 17968, upload-time = "2013-06-22T19:14:18.999Z" }
 
 [[package]]
+name = "faker"
+version = "37.4.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "tzdata" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/65/f9/66af4019ee952fc84b8fe5b523fceb7f9e631ed8484417b6f1e3092f8290/faker-37.4.0.tar.gz", hash = "sha256:7f69d579588c23d5ce671f3fa872654ede0e67047820255f43a4aa1925b89780", size = 1901976, upload-time = "2025-06-11T17:59:30.818Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/78/5e/c8c3c5ea0896ab747db2e2889bf5a6f618ed291606de6513df56ad8670a8/faker-37.4.0-py3-none-any.whl", hash = "sha256:cb81c09ebe06c32a10971d1bbdb264bb0e22b59af59548f011ac4809556ce533", size = 1942992, upload-time = "2025-06-11T17:59:28.698Z" },
+]
+
+[[package]]
 name = "fastapi"
 version = "0.114.2"
 source = { registry = "https://pypi.org/simple" }
@@ -1409,6 +1421,19 @@ wheels = [
 ]
 
 [[package]]
+name = "polyfactory"
+version = "2.22.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "faker" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/d1/c7/cc5a646fe3c87f84b5ea68aa8b5d51c7f5f7c9f7c88445fd0c1f3e8ac584/polyfactory-2.22.0.tar.gz", hash = "sha256:02f78f5ff34669e795984604ffc16d31ccd752512c7314fcf8608a5d4393f36f", size = 252368, upload-time = "2025-07-01T18:42:06.451Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/47/86/6fc6e5a3da4e11819eaa5ce335e64fc42f8c3ebad1e7d260caf36dd1c398/polyfactory-2.22.0-py3-none-any.whl", hash = "sha256:d278e705d8551e84a79f5628f848faa8661d7389981ca74a0f7e5f087060f953", size = 63348, upload-time = "2025-07-01T18:42:05.199Z" },
+]
+
+[[package]]
 name = "proto-plus"
 version = "1.26.1"
 source = { registry = "https://pypi.org/simple" }
@@ -1432,6 +1457,21 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/a2/b5/bade14ae31ba871a139aa45e7a8183d869efe87c34a4850c87b936963261/protobuf-5.29.4-cp38-abi3-manylinux2014_aarch64.whl", hash = "sha256:aec4962f9ea93c431d5714ed1be1c93f13e1a8618e70035ba2b0564d9e633f2e", size = 319574, upload-time = "2025-03-19T21:23:14.531Z" },
     { url = "https://files.pythonhosted.org/packages/46/88/b01ed2291aae68b708f7d334288ad5fb3e7aa769a9c309c91a0d55cb91b0/protobuf-5.29.4-cp38-abi3-manylinux2014_x86_64.whl", hash = "sha256:d7d3f7d1d5a66ed4942d4fefb12ac4b14a29028b209d4bfb25c68ae172059922", size = 319672, upload-time = "2025-03-19T21:23:15.839Z" },
     { url = "https://files.pythonhosted.org/packages/12/fb/a586e0c973c95502e054ac5f81f88394f24ccc7982dac19c515acd9e2c93/protobuf-5.29.4-py3-none-any.whl", hash = "sha256:3fde11b505e1597f71b875ef2fc52062b6a9740e5f7c8997ce878b6009145862", size = 172551, upload-time = "2025-03-19T21:23:22.682Z" },
+]
+
+[[package]]
+name = "psutil"
+version = "7.0.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/2a/80/336820c1ad9286a4ded7e845b2eccfcb27851ab8ac6abece774a6ff4d3de/psutil-7.0.0.tar.gz", hash = "sha256:7be9c3eba38beccb6495ea33afd982a44074b78f28c434a1f51cc07fd315c456", size = 497003, upload-time = "2025-02-13T21:54:07.946Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ed/e6/2d26234410f8b8abdbf891c9da62bee396583f713fb9f3325a4760875d22/psutil-7.0.0-cp36-abi3-macosx_10_9_x86_64.whl", hash = "sha256:101d71dc322e3cffd7cea0650b09b3d08b8e7c4109dd6809fe452dfd00e58b25", size = 238051, upload-time = "2025-02-13T21:54:12.36Z" },
+    { url = "https://files.pythonhosted.org/packages/04/8b/30f930733afe425e3cbfc0e1468a30a18942350c1a8816acfade80c005c4/psutil-7.0.0-cp36-abi3-macosx_11_0_arm64.whl", hash = "sha256:39db632f6bb862eeccf56660871433e111b6ea58f2caea825571951d4b6aa3da", size = 239535, upload-time = "2025-02-13T21:54:16.07Z" },
+    { url = "https://files.pythonhosted.org/packages/2a/ed/d362e84620dd22876b55389248e522338ed1bf134a5edd3b8231d7207f6d/psutil-7.0.0-cp36-abi3-manylinux_2_12_i686.manylinux2010_i686.manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:1fcee592b4c6f146991ca55919ea3d1f8926497a713ed7faaf8225e174581e91", size = 275004, upload-time = "2025-02-13T21:54:18.662Z" },
+    { url = "https://files.pythonhosted.org/packages/bf/b9/b0eb3f3cbcb734d930fdf839431606844a825b23eaf9a6ab371edac8162c/psutil-7.0.0-cp36-abi3-manylinux_2_12_x86_64.manylinux2010_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:4b1388a4f6875d7e2aff5c4ca1cc16c545ed41dd8bb596cefea80111db353a34", size = 277986, upload-time = "2025-02-13T21:54:21.811Z" },
+    { url = "https://files.pythonhosted.org/packages/eb/a2/709e0fe2f093556c17fbafda93ac032257242cabcc7ff3369e2cb76a97aa/psutil-7.0.0-cp36-abi3-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:a5f098451abc2828f7dc6b58d44b532b22f2088f4999a937557b603ce72b1993", size = 279544, upload-time = "2025-02-13T21:54:24.68Z" },
+    { url = "https://files.pythonhosted.org/packages/50/e6/eecf58810b9d12e6427369784efe814a1eec0f492084ce8eb8f4d89d6d61/psutil-7.0.0-cp37-abi3-win32.whl", hash = "sha256:ba3fcef7523064a6c9da440fc4d6bd07da93ac726b5733c29027d7dc95b39d99", size = 241053, upload-time = "2025-02-13T21:54:34.31Z" },
+    { url = "https://files.pythonhosted.org/packages/50/1b/6921afe68c74868b4c9fa424dad3be35b095e16687989ebbb50ce4fceb7c/psutil-7.0.0-cp37-abi3-win_amd64.whl", hash = "sha256:4cf3d4eb1aa9b348dec30105c55cd9b7d4629285735a102beb4441e38db90553", size = 244885, upload-time = "2025-02-13T21:54:37.486Z" },
 ]
 
 [[package]]
@@ -1664,6 +1704,19 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/c6/90/a955c3ab35ccd41ad4de556596fa86685bf4fc5ffcc62d22d856cfd4e29a/pytest-mock-3.14.0.tar.gz", hash = "sha256:2719255a1efeceadbc056d6bf3df3d1c5015530fb40cf347c0f9afac88410bd0", size = 32814, upload-time = "2024-03-21T22:14:04.964Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/f2/3b/b26f90f74e2986a82df6e7ac7e319b8ea7ccece1caec9f8ab6104dc70603/pytest_mock-3.14.0-py3-none-any.whl", hash = "sha256:0b72c38033392a5f4621342fe11e9219ac11ec9d375f8e2a0c164539e0d70f6f", size = 9863, upload-time = "2024-03-21T22:14:02.694Z" },
+]
+
+[[package]]
+name = "pytest-xprocess"
+version = "1.0.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "psutil" },
+    { name = "pytest" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/27/6f/e53d349445b4280f6b47bbed87127e994f331c335377d5e72407b376ad46/pytest-xprocess-1.0.2.tar.gz", hash = "sha256:15e270637586eabc56755ee5fcc81c48bdb46ba7ef7c0d5b1b64302d080cc60f", size = 13232, upload-time = "2024-05-19T16:12:21.819Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/63/cf/91b94238c843bfbae0a6674df45015aa3908b91454c496b2eb29e7991255/pytest_xprocess-1.0.2-py3-none-any.whl", hash = "sha256:0b0444d1f789fd9b4ba8b6b38b1d0139f226ab14091db2698a0521c1770523dd", size = 9628, upload-time = "2024-05-19T16:12:19.773Z" },
 ]
 
 [[package]]
@@ -2171,6 +2224,7 @@ dependencies = [
     { name = "fastapi-cli" },
     { name = "fire" },
     { name = "flask" },
+    { name = "google-cloud-pubsub" },
     { name = "greenlet" },
     { name = "gunicorn" },
     { name = "h11" },
@@ -2255,6 +2309,7 @@ dev = [
     { name = "docker" },
     { name = "docopt" },
     { name = "epc" },
+    { name = "google-cloud-pubsub" },
     { name = "hypothesis" },
     { name = "hypothesis-jsonschema" },
     { name = "idna" },
@@ -2273,11 +2328,13 @@ dev = [
     { name = "paramiko" },
     { name = "pathable" },
     { name = "pluggy" },
+    { name = "polyfactory" },
     { name = "pydocstyle" },
     { name = "pylint" },
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "pytest-mock" },
+    { name = "pytest-xprocess" },
     { name = "pyyaml" },
     { name = "rapidfuzz" },
     { name = "referencing" },
@@ -2319,6 +2376,7 @@ requires-dist = [
     { name = "fastapi-cli", specifier = "==0.0.5" },
     { name = "fire", specifier = "==0.5.0" },
     { name = "flask", specifier = "==3.0.3" },
+    { name = "google-cloud-pubsub", specifier = ">=2.29.0" },
     { name = "greenlet", specifier = "==3.1.0" },
     { name = "gunicorn", specifier = ">=23.0.0" },
     { name = "h11", specifier = "==0.14.0" },
@@ -2403,6 +2461,7 @@ dev = [
     { name = "docker", specifier = "==7.1.0" },
     { name = "docopt", specifier = "==0.6.2" },
     { name = "epc", specifier = ">=0.0.5" },
+    { name = "google-cloud-pubsub", specifier = ">=2.29.0" },
     { name = "hypothesis", specifier = ">=6.131.21" },
     { name = "hypothesis-jsonschema", specifier = ">=0.23.1" },
     { name = "idna", specifier = "==3.10" },
@@ -2421,11 +2480,13 @@ dev = [
     { name = "paramiko", specifier = ">=3.5.1" },
     { name = "pathable", specifier = "==0.4.3" },
     { name = "pluggy", specifier = "==1.5.0" },
+    { name = "polyfactory", specifier = ">=2.22.0" },
     { name = "pydocstyle", specifier = "==3.0.0" },
     { name = "pylint", specifier = "==1.9.4" },
     { name = "pytest", specifier = "==8.3.3" },
     { name = "pytest-cov", specifier = "==5.0.0" },
     { name = "pytest-mock", specifier = ">=3.14.0" },
+    { name = "pytest-xprocess", specifier = ">=1.0.2" },
     { name = "pyyaml", specifier = "==6.0.2" },
     { name = "rapidfuzz", specifier = ">=3.13.0" },
     { name = "referencing", specifier = "==0.35.1" },
@@ -2511,6 +2572,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/df/db/f35a00659bc03fec321ba8bce9420de607a1d37f8342eee1863174c69557/typing_extensions-4.12.2.tar.gz", hash = "sha256:1a7ead55c7e559dd4dee8856e3a88b41225abfe1ce8df57b7c13915fe121ffb8", size = 85321, upload-time = "2024-06-07T18:52:15.995Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/26/9f/ad63fc0248c5379346306f8668cda6e2e2e9c95e01216d2b8ffd9ff037d0/typing_extensions-4.12.2-py3-none-any.whl", hash = "sha256:04e5ca0351e0f3f85c6853954072df659d0d13fac324d0072316b67d7794700d", size = 37438, upload-time = "2024-06-07T18:52:13.582Z" },
+]
+
+[[package]]
+name = "tzdata"
+version = "2025.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/95/32/1a225d6164441be760d75c2c42e2780dc0873fe382da3e98a2e1e48361e5/tzdata-2025.2.tar.gz", hash = "sha256:b60a638fcc0daffadf82fe0f57e53d06bdec2f36c4df66280ae79bce6bd6f2b9", size = 196380, upload-time = "2025-03-23T13:54:43.652Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/5c/23/c7abc0ca0a1526a0774eca151daeb8de62ec457e77262b66b359c3c7679e/tzdata-2025.2-py2.py3-none-any.whl", hash = "sha256:1a403fada01ff9221ca8044d701868fa132215d84beb92242d9acd2147f667a8", size = 347839, upload-time = "2025-03-23T13:54:41.845Z" },
 ]
 
 [[package]]
