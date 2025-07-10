@@ -10,7 +10,7 @@ from arxiv.base import alerts
 from arxiv.forms import csrf
 from markupsafe import Markup
 
-from submit_ce.ui.backend import api
+from submit_ce.ui.backend import api, user_and_client_from_session
 from submit_ce.api.domain.event import UpdateUploadPackage
 from submit_ce.api.domain.uploads import Upload
 from submit_ce.api.exceptions import SaveError
@@ -21,7 +21,6 @@ from werkzeug.exceptions import BadRequest, MethodNotAllowed
 from wtforms import BooleanField, HiddenField
 from wtforms.validators import DataRequired
 
-from submit_ce.ui.auth import user_and_client_from_session
 from submit_ce.ui.backend import get_submission
 from submit_ce.ui.routes.flow_control import ready_for_next, \
     stay_on_this_stage, return_to_parent_stage

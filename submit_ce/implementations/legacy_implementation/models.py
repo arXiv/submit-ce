@@ -30,7 +30,7 @@ class Submission(Base):    # type: ignore
 
     # Submission status; this describes where the submission is in the
     # publication workflow.
-    NOT_SUBMITTED = 0   # Working.
+    WORKING = 0   # not yet submitted or submitted then later unsubmitted.
     SUBMITTED = 1       # Enqueued for moderation, to be scheduled.
     ON_HOLD = 2
     UNUSED = 3
@@ -252,7 +252,7 @@ class Submission(Base):    # type: ignore
         if self.is_announced():     # Avoid doing anything. to be safe.
             return
 
-        self.submitter_id = submission.creator.native_id
+        self.submitter_id = submission.creator.user_id
         self.submitter_name = submission.creator.name
         self.submitter_email = submission.creator.email
         self.is_author = 1 if submission.submitter_is_author else 0
@@ -308,7 +308,7 @@ class Submission(Base):    # type: ignore
 
         # Not submitted -> Submitted.
         if submission.is_finalized \
-                and self.status in [Submission.NOT_SUBMITTED, None]:
+                and self.status in [Submission.WORKING, None]:
             self.status = Submission.SUBMITTED
             self.submit_time = submission.updated
         # Delete.
@@ -319,7 +319,7 @@ class Submission(Base):    # type: ignore
         # Unsubmit.
         elif self.status is None or self.status <= Submission.ON_HOLD:
             if not submission.is_finalized:
-                self.status = Submission.NOT_SUBMITTED
+                self.status = Submission.WORKING
 
         if submission.primary_classification:
             self._update_primary(submission)
@@ -330,7 +330,7 @@ class Submission(Base):    # type: ignore
         if self.version == 1 and self.type == Submission.NEW_SUBMISSION:
             self.created = submission.created
             self.remote_addr = str(submission.client.remote_addr)
-            self.remote_host = submission.client.hostname or ""
+            self.remote_host = submission.client.remote_host or ""
 
     @property
     def primary_classification(self) -> Optional['Category']:
@@ -362,7 +362,7 @@ class Submission(Base):    # type: ignore
         return dt
 
     def is_working(self) -> bool:
-        return bool(self.status == self.NOT_SUBMITTED)
+        return bool(self.status == self.WORKING)
 
     def is_announced(self) -> bool:
         return bool(self.status in [self.ANNOUNCED, self.DELETED_ANNOUNCED])
@@ -402,7 +402,7 @@ class Submission(Base):    # type: ignore
 
     def _update_submitter(self, submission: domain.Submission) -> None:
         """Update submitter information on this row."""
-        self.submitter_id = submission.creator.native_id
+        self.submitter_id = submission.creator.identifier
         self.submitter_email = submission.creator.email
 
     def _update_primary(self, submission: domain.Submission) -> None:
@@ -449,7 +449,7 @@ class Submission(Base):    # type: ignore
     def status_from_classic(self) -> Optional[str]:
         """Map classic status codes to `submit_ce.api.domain.Submission` status."""
         match self.status:
-            case self.NOT_SUBMITTED:
+            case self.WORKING:
                 return 'working'
             case self.SUBMITTED:
                 return 'submitted'
@@ -662,16 +662,6 @@ class User(Base):    # type: ignore
                                      server_default=text("'0'"))
 
     tapir_policy_class = relationship('PolicyClass')
-
-    def to_user(self) -> domain.agent.User:
-        return domain.agent.User(
-            self.user_id,
-            self.email,
-            username=self.username,
-            forename=self.first_name,
-            surname=self.last_name,
-            suffix=self.suffix_name
-        )
 
 
 class Username(Base):  # type: ignore
@@ -956,11 +946,11 @@ class CategoryProposal(Base):   # type: ignore
                                     foreign_keys=[response_comment_id])
 
     def status_from_domain(self, proposal: domain.proposal.Proposal) -> int:
-        if proposal.status == domain.proposal.Proposal.ProposalStatus.PENDING:
+        if proposal.status == domain.proposal.Status.PENDING:
             return self.UNRESOLVED
-        elif proposal.status == domain.proposal.Proposal.ProposalStatus.REJECTED:
+        elif proposal.status == domain.proposal.Status.REJECTED:
             return self.REJECTED
-        elif proposal.status == domain.proposal.Proposal.ProposalStatus.ACCEPTED:
+        elif proposal.status == domain.proposal.Status.ACCEPTED:
             if proposal.proposed_event_type \
                     is domain.event.SetPrimaryClassification:
                 return self.ACCEPTED_AS_PRIMARY

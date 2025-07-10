@@ -45,7 +45,7 @@ class TestConfirmPolicy(CtrlBase):
             raise NoSuchSubmission('Nada')
 
         mock_load.side_effect = raise_no_such_submission
-        with self.assertRaises(NotFound):
+        with self.assertRaises(NoSuchSubmission):
             policy.policy('GET', MultiDict(), self.session,  submission_id)
 
     @mock.patch(f'{policy.__name__}.PolicyForm.Meta.csrf', False)

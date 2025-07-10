@@ -8,7 +8,7 @@ from typing import Optional, Dict, List, Iterable, Set, Any
 
 from dataclasses import dataclass, field
 
-from .agent import Agent, agent_factory
+from .agent import Client, User, agent_factory
 from .annotation import Comment, Feature, Annotation, annotation_factory
 from .flag import Flag, flag_factory
 from .meta import License, Classification
@@ -114,27 +114,6 @@ class SubmissionMetadata:
     comments: str = field(default_factory=str)
 
 
-@dataclass
-class Delegation:
-    """Delegation of editing privileges to a non-owning :class:`.Agent`."""
-
-    delegate: Agent
-    creator: Agent
-    created: datetime = field(default_factory=get_tzaware_utc_now)
-    delegation_id: str = field(default_factory=str)
-
-    def __post_init__(self) -> None:
-        """Set derivative fields."""
-        self.delegation_id = self.get_delegation_id()
-
-    def get_delegation_id(self) -> str:
-        """Generate unique identifier for the delegation instance."""
-        h = hashlib.new('sha1')
-        h.update(b'%s:%s:%s' % (self.delegate.agent_identifier,
-                                self.creator.agent_identifier,
-                                self.created.isoformat()))
-        return h.hexdigest()
-
 
 @dataclass
 class Hold:
@@ -155,7 +134,7 @@ class Hold:
     event_id: str
     """The event that created the hold."""
 
-    creator: Agent
+    creator: User
     created: datetime = field(default_factory=get_tzaware_utc_now)
     hold_type: Type = field(default=Type.PATCH)
     hold_reason: Optional[str] = field(default_factory=str)
@@ -178,7 +157,7 @@ class Waiver:
     waiver_type: Hold.Type
     waiver_reason: str
     created: datetime
-    creator: Agent
+    creator: User
 
     def __post_init__(self) -> None:
         """Check enums and agents."""
@@ -213,7 +192,7 @@ class UserRequest:
     CANCELLED = 'cancelled'
 
     request_id: str
-    creator: Agent
+    creator: User
     created: datetime = field(default_factory=get_tzaware_utc_now)
     updated: datetime = field(default_factory=get_tzaware_utc_now)
     status: str = field(default=PENDING)
@@ -331,10 +310,10 @@ class Submission:
     DELETED = 'deleted'
     WITHDRAWN = 'withdrawn'
 
-    creator: Agent
-    owner: Agent
-    proxy: Optional[Agent] = field(default=None)
-    client: Optional[Agent] = field(default=None)
+    creator: User
+    owner: User
+    proxy: Optional[User] = field(default=None)
+    client: Optional[Client] = field(default=None)
     created: Optional[datetime] = field(default=None)
     updated: Optional[datetime] = field(default=None)
     submitted: Optional[datetime] = field(default=None)

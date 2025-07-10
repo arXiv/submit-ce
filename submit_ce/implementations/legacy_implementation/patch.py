@@ -4,7 +4,7 @@ This code is from NG and uses the NG models of the "submission" as a single
 object with changes to it. Legacy changes to the paper are represented as events
 and this patches the event history with legacy changes to the paper."""
 
-from typing import Dict, Any, Type
+from typing import Any
 
 from arxiv.db import models
 
@@ -18,7 +18,7 @@ def patch_hold(submission: domain.Submission,
 
     if row.status == row.ON_HOLD:
         created = row.get_updated()
-        creator = domain.agent.System(__name__)
+        creator = domain.agent.System(name=__name__)
         event_id = domain.Event.get_id(created, 'AddHold', creator)
         hold = domain.Hold(event_id=event_id, creator=creator,
                            created=created,

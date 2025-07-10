@@ -18,10 +18,10 @@ def log_unfinalize(session: SQLAlchemySession, event: Event, before: Optional[Su
     """Create a log entry when a user pulls their submission for changes."""
     assert isinstance(event, UnFinalizeSubmission)
     admin_log(session,
-              event.creator.username, "unfinalize",
+              event.creator.name, "unfinalize",
               "user has pulled submission for editing",
-              username=event.creator.username,
-              hostname=event.creator.hostname,
+              username=event.creator.name,
+              hostname=event.client.remote_host,
               submission_id=after.submission_id,
               paper_id=after.arxiv_id)
 
@@ -35,7 +35,7 @@ def log_accept_system_cross(session: SQLAlchemySession, event: Event, before: Op
         if proposal.proposed_event_type is AddSecondaryClassification:
             category = proposal.proposed_event_data["category"]
             admin_log(session,
-                      event.creator.username, "admin comment",
+                      event.creator.name, "admin comment",
                       f"Added {category} as secondary: {event.comment}",
                       username="system",
                       submission_id=after.submission_id,
@@ -48,7 +48,7 @@ def log_stopwords(session: SQLAlchemySession, event: Event, before: Optional[Sub
     assert isinstance(event, AddContentFlag)
     if event.flag_type is ContentFlag.FlagType.LOW_STOP:
         admin_log(session,
-            event.creator.username,
+            event.creator.name,
                   "admin comment",
                   event.comment if event.comment is not None else "",
                   username="system",
@@ -62,7 +62,7 @@ def log_classifier_failed(session: SQLAlchemySession, event: Event, before: Opti
     assert isinstance(event, AddClassifierResults)
     if not event.results:
         admin_log(session,
-                  event.creator.username, "admin comment",
+                  event.creator.name, "admin comment",
                   "Classifier failed to return results for submission",
                   username="system",
                   submission_id=after.submission_id,

@@ -6,7 +6,7 @@ from datetime import datetime
 
 from dataclasses import dataclass, field
 
-from .agent import Agent, agent_factory
+from .agent import User, agent_factory
 
 
 @dataclass
@@ -31,7 +31,7 @@ class ProcessStatus:
         TERMINATED = 'terminated'
         """The process was terminated, e.g. cancelled by operator."""
 
-    creator: Agent
+    creator: User
     created: datetime
     """Time when the process status was created (not the process itself)."""
     details: Optional[dict]=field(default=None)

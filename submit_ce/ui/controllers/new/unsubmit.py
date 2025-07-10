@@ -9,12 +9,11 @@ from werkzeug.exceptions import BadRequest, InternalServerError
 
 from arxiv.base import alerts
 from arxiv.forms import csrf
-from submit_ce.ui.backend import api
+from submit_ce.ui.backend import api, user_and_client_from_session
 from submit_ce.api.domain.event import UnFinalizeSubmission
 from arxiv.auth.domain import Session
 
 from submit_ce.ui.routes.flow_control import Response
-from submit_ce.ui.auth import user_and_client_from_session
 from submit_ce.ui.controllers.util import validate_command
 
 from submit_ce.ui.backend import get_submission

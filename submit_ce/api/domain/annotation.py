@@ -9,7 +9,7 @@ from typing import Optional, Union, List, Dict, Type, Any
 from dataclasses import field
 from mypy_extensions import TypedDict
 
-from .agent import Agent, agent_factory
+from .agent import User, agent_factory
 
 from pydantic import BaseModel
 
@@ -17,9 +17,9 @@ class Comment(BaseModel):
     """A freeform textual annotation."""
 
     event_id: str
-    creator: Agent
+    creator: User
     created: datetime
-    proxy: Optional[Agent] = field(default=None)
+    proxy: Optional[User] = field(default=None)
     body: str = field(default_factory=str)
 
     def __post_init__(self) -> None:
@@ -38,7 +38,7 @@ class ClassifierResult(BaseModel):
 
 class Annotation(BaseModel):
     event_id: str
-    creator: Agent
+    creator: User
     created: datetime
 
     def __post_init__(self) -> None:
@@ -58,7 +58,7 @@ class ClassifierResults(Annotation):
     # event_id: str
     # creator: Agent
     # created: datetime
-    proxy: Optional[Agent] = field(default=None)
+    proxy: Optional[User] = field(default=None)
     classifier: Classifiers = field(default=Classifiers.CLASSIC)
     results: List[ClassifierResult] = field(default_factory=list)
     annotation_type: str = field(default='ClassifierResults')
@@ -87,7 +87,7 @@ class Feature(Annotation):
     # created: datetime
     # creator: Agent
     feature_type: Type
-    proxy: Optional[Agent] = field(default=None)
+    proxy: Optional[User] = field(default=None)
     feature_value: Union[int, float] = field(default=0)
     annotation_type: str = field(default='Feature')
 

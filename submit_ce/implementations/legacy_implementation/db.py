@@ -47,11 +47,13 @@ from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session as SQLAlchemySession
 from sqlalchemy.orm.exc import NoResultFound
 
+from submit_ce.api.domain.agent import HttpClient
+
 from . import models, interpolate, log
 from .models import DBEvent
 from .patch import patch_hold, patch_withdrawal, patch_cross, patch_jref
 from ...api import domain
-from ...api.domain import Event, Submission, Agent, User, WithdrawalRequest, CrossListClassificationRequest, Client
+from ...api.domain import Event, Submission, User, User, WithdrawalRequest, CrossListClassificationRequest, Client
 from ...api.domain import License
 from ...api.domain.event import SetJournalReference, SetDOI, SetReportNumber, CreateSubmission, Rollback, \
     RequestWithdrawal, RequestCrossList, CancelRequest
@@ -263,7 +265,6 @@ def store_event(session: SQLAlchemySession, event: Event, before: Optional[Submi
     logger.debug('store event %s', event.event_type)
 
     doc_id: Optional[int] = None
-
     # This is the case that we have a new submission.
     if before is None:    # and isinstance(after, Submission):
         dbs = models.Submission(type=models.Submission.NEW_SUBMISSION)
@@ -435,7 +436,7 @@ def _create_replacement(document_id: int, paper_id: str, version: int,
     dbs.created = created
     dbs.updated = created
     dbs.doc_paper_id = paper_id
-    dbs.status = models.Submission.NOT_SUBMITTED
+    dbs.status = models.Submission.WORKING
     return dbs
 
 
@@ -463,7 +464,10 @@ def _create_withdrawal(document_id: int, reason: str, paper_id: str,
     """
     dbs = models.Submission(type=models.Submission.WITHDRAWAL,
                             document_id=document_id,
-                            version=version)
+                            version=version,
+                            remote_addr=submission.client.remote_addr,
+                            remote_host=submission.client.remote_host,                            
+                            )
     dbs.update_withdrawal(submission, reason, paper_id, version, created)
     return dbs
 
@@ -522,8 +526,8 @@ def _new_dbevent(event: Event) -> DBEvent:
                    event_version=_get_app_version(),
                    data=event.model_dump_json().encode('utf-8'),
                    created=event.created,
-                   creator=RootModel[Agent](event.creator).model_dump_json().encode('utf-8'),
-                   proxy=RootModel[Agent](event.proxy).model_dump_json().encode('utf-8') if event.proxy else None)
+                   creator=RootModel[User](event.creator).model_dump_json().encode('utf-8'),
+                   proxy=RootModel[User](event.proxy).model_dump_json().encode('utf-8') if event.proxy else None)
 
 
 def _preserve_sticky_hold(dbs: models.Submission, before: Submission,
@@ -576,17 +580,16 @@ def to_submission(row: models.Submission,
     status = row.status_from_classic()
     primary = row.primary_classification
     if row.submitter is None:
-        submitter = domain.User(identifier=row.submitter_id,
+        submitter = domain.PublicUser(user_id=str(row.submitter_id),
                                      email=row.submitter_email,
-                                     native_id=str(row.submitter_id))
+                                     name=row.submitter_name)
     else:
         submitter = row.get_submitter()
     if submission_id is None:
         submission_id = row.submission_id
 
-    client = Client(native_id="bogus_built_from_submission_row",
-                    hostname = row.remote_host)
-    client.remote_addr = row.remote_addr
+    client = HttpClient(remote_addr = row.remote_addr,
+                        remote_host = row.remote_host)
 
     license: Optional[domain.License] = None
     if row.license:

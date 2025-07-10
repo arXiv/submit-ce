@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Tuple, List, Optional
 
 from submit_ce.api.CompileService import CompileService
-from submit_ce.api.domain import Submission, Event, Agent, Client, Upload, License
+from submit_ce.api.domain import Submission, Event, User, Client, Upload, License
 from submit_ce.api.file_store import SubmissionFileStore, SubmitFile
 
 class SubmitApi(ABC):
@@ -198,7 +198,7 @@ class SubmitApi(ABC):
             """
             ...
 
-    def upload(self, files: SubmitFile, submission_id: int, user: Agent, client: Client) -> Upload:
+    def upload(self, files: SubmitFile, submission_id: int, user: User, client: Client) -> Upload:
         """Uploads a file to an existing submission.
 
         Saves the `file` to storage and updates the state of the submission.
@@ -227,9 +227,14 @@ class SubmitApi(ABC):
         """
         ...
 
+    def categories_for_user(self, user_id: str) -> list[str]:
+        """Gets list of categories the user may submit to.
 
-    def categories_for_user(self, user_id: str) -> Optional[str]:
-        """Gets list of categories the user may submit to."""
+        If a user is authorized for all categories in a particular
+        archive, the category names will be compressed to a wildcard
+        ``archive.*`` representation. If the user is authorized for all
+        categories in the system, this will be compressed to "*.*".
+        """
         ...
 
     def next_announcement_time(self, reference: Optional[datetime] = None) -> datetime:

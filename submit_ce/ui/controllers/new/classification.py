@@ -15,7 +15,7 @@ from arxiv.taxonomy.definitions import CATEGORIES_ACTIVE, ARCHIVES_ACTIVE
 from markupsafe import Markup
 
 from submit_ce.api import User
-from submit_ce.ui.backend import api
+from submit_ce.ui.backend import api, endorsed_for, user_and_client_from_session
 from werkzeug.datastructures import MultiDict
 from werkzeug.exceptions import InternalServerError
 from wtforms import widgets, HiddenField, validators
@@ -26,8 +26,7 @@ from submit_ce.api.domain.event import RemoveSecondaryClassification, \
 from submit_ce.api.exceptions import SaveError
 from submit_ce.ui.controllers.util import OptGroupSelectField, validate_command
 from submit_ce.ui.routes.flow_control import ready_for_next, stay_on_this_stage
-from submit_ce.ui.backend import get_submission
-from submit_ce.ui.auth import user_and_client_from_session
+from submit_ce.ui.backend import get_submission, api
 
 Response = Tuple[Dict[str, Any], int, Dict[str, Any]]  # pylint: disable=C0103
 
@@ -63,10 +62,10 @@ class ClassificationForm(csrf.CSRFForm):
         choices = [
             (archive, [
                 (category, display) for category, display in archive_choices
-                if user.endorsed_for(category)
-                and (((primary is None or category != primary.category)
-                      and category not in submission.secondary_categories)
-                     or category == selected)
+                if endorsed_for(user, category) and \
+                  (((primary is None or category != primary.category)
+                    and category not in submission.secondary_categories)
+                   or category == selected)
             ])
             for archive, archive_choices in self.category.choices
         ]

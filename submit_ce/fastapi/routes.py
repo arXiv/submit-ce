@@ -23,7 +23,7 @@ from fastapi import (  # noqa: F401
 from submit_ce.fastapi.auth import get_user, get_client
 
 from submit_ce.api import SubmitApi
-from submit_ce.api.domain import Submission, Event, User, Event, License, Agent, Client, Upload
+from submit_ce.api.domain import Submission, Event, User, Event, License, User, Client, Upload
 from submit_ce.api.domain.process import ProcessStatus
 
 # if not isinstance(config.submission_api_implementation, ImplementationConfig):

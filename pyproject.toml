@@ -102,11 +102,6 @@ dependencies = [
     "wrapt==1.16.0",
     "wtforms==3.1.2",
 ]
-# dynamic = ["dependencies", "optional-dependencies"]
-
-# [tool.setuptools.dynamic]
-# dependencies = {file = ["requirements.txt"]}
-# optional-dependencies = {dev = { file = ["requirements-dev.txt"] }}
 
 [tool.black]
 line-length = 88
@@ -189,3 +184,15 @@ dev = [
     "watchdog>=6.0.0",
     "wrapt==1.16.0",
 ]
+
+[tool.coverage.run]
+branch = true
+source = ["submit_ce"]
+omit = [ "*/tests/*" ]
+
+[tool.coverage.report]
+# Regexes for lines to exclude from consideration
+exclude_also = [
+    # Don't complain about abstract methods, they aren't run:
+    "@(abc\\.)?abstractmethod",
+    ]

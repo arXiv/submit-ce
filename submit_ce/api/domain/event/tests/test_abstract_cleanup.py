@@ -3,15 +3,14 @@
 from .. import SetAbstract
 from arxiv.base.filters import abstract_lf_to_br
 
-from ... import Agent
+from ... import PublicUser
 
 
 def test_paragraph_cleanup():
-    agent = Agent(native_id="fakeid",
-                  name="bob",
-                  username="bob",
-                  email="<EMAIL>",
-                  )
+    agent = PublicUser(user_id="fakeid",
+                       name="Fake user",
+                       email="<EMAIL>",
+                 )
     awlb = "Paragraph 1.\n  \nThis should be paragraph 2"
     assert '<br' in abstract_lf_to_br(awlb) # sanity check: abstract filter does put <br> in
 

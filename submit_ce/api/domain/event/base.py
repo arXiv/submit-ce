@@ -9,7 +9,7 @@ from typing import Optional, Callable, Tuple, Iterable, List, ClassVar, \
 
 from pydantic import BaseModel, RootModel
 
-from ..agent import Agent
+from ..agent import User, Client
 from ..submission import Submission
 
 Events = Iterable['Event']
@@ -44,7 +44,7 @@ class Event(BaseModel):
     NAME: ClassVar[str] = 'base event'
     NAMED: ClassVar[str] = 'base event'
 
-    creator: Agent
+    creator: User
     """
     The agent responsible for the operation represented by this event.
 
@@ -54,7 +54,7 @@ class Event(BaseModel):
     created: Optional[datetime] = None   # get_tzaware_utc_now
     """The timestamp when the event was originally committed."""
 
-    proxy: Optional[Agent] = None
+    proxy: Optional[User] = None
     """
     The agent who facilitated the operation on behalf of the :attr:`.creator`.
 
@@ -62,7 +62,7 @@ class Event(BaseModel):
     proxy. Note that proxy implies that the creator was not directly involved.
     """
 
-    client: Optional[Agent] = None
+    client: Optional[Client] = None
     """
     The client through which the :attr:`.creator` performed the operation.
 
@@ -109,11 +109,11 @@ class Event(BaseModel):
         return self.get_id(self.created, self.event_type, self.creator)
 
     @staticmethod
-    def get_id(created: datetime, event_type: str, creator: Agent) -> str:
+    def get_id(created: datetime, event_type: str, creator: User) -> str:
         h = hashlib.new('sha1')
         h.update(b'%s:%s:%s' % (created.isoformat().encode('utf-8'),
                                 event_type.encode('utf-8'),
-                                creator.agent_identifier.encode('utf-8')))
+                                creator.identifier.encode('utf-8')))
         return h.hexdigest()
 
     def apply(self, submission: Optional[Submission] = None, ) -> Submission:

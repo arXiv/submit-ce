@@ -6,7 +6,7 @@ from dataclasses import field
 from .util import dataclass
 import logging
 
-from ..agent import Agent
+from ..agent import User
 from ..submission import Submission
 from ..proposal import Proposal
 from ..annotation import Comment

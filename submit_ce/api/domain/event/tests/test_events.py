@@ -10,11 +10,12 @@ from mimesis import Text
 from submit_ce.api.domain import event, agent, submission, meta
 from submit_ce.api.exceptions import InvalidEvent
 
-user = agent.User(
-            native_id = "12345",
-            email='uuser@cornell.edu',
-            endorsements=['astro-ph.GA', 'astro-ph.CO']
-        )
+user = agent.PublicUser(
+    name="Bob Somebody",
+    user_id = "12345",
+    email='uuser@cornell.edu',            
+    endorsements=['astro-ph.GA', 'astro-ph.CO']
+)
 
 class TestWithdrawalSubmission(TestCase):
     """Test :class:`event.RequestWithdrawal`."""

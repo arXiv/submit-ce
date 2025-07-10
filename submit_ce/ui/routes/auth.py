@@ -19,6 +19,6 @@ def is_owner(session: Session, submission_id: str, **kw) -> bool:
         logger.debug('No submission on request')
         raise NotFound('No such submission')
     logger.debug('Submission owned by %s; request is from %s',
-                 submission.owner.native_id,
+                 submission.owner.identifier,
                  session.user.user_id)
-    return str(submission.owner.native_id) == str(session.user.user_id)
+    return str(submission.owner.user_id) == str(session.user.user_id)

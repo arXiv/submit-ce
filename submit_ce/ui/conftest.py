@@ -15,6 +15,8 @@ from arxiv.taxonomy.definitions import CATEGORIES
 import submit_ce
 
 from submit_ce.ui.tests import TestClientArxivAuth
+from submit_ce.ui import backend
+
 # to ensure we can import this due to confusing errors if it is missing.
 
 # to ensure we can import this due to confusing errors if deps are missing.
@@ -102,7 +104,8 @@ def authorized_user_session(app, jwt_secret):
                 scopes=[auth.scopes.CREATE_SUBMISSION,
                         auth.scopes.EDIT_SUBMISSION,
                         auth.scopes.VIEW_SUBMISSION],
-                endorsements=[] # setting endorsements here doesn't work, they don't get added to the jwt
+                endorsements=['astro-ph.GA',
+                              'astro-ph.CO',] # endorsements don't work here, arxiv-base doesn't add them
             )
         )
         ng_jwt = auth.tokens.encode(session, jwt_secret)
@@ -110,8 +113,16 @@ def authorized_user_session(app, jwt_secret):
 
 
 @pytest.fixture
+def authorized_user(authorized_user_session):
+    session, _ = authorized_user_session
+    user = backend._get_user(session)
+    user.endorsements = ['astro-ph.GA', 'astro-ph.CO']
+    return user
+
+
+@pytest.fixture
 def authorized_client(app, authorized_user_session):
     """Authorized client with db and jwt setup. """
-    session, jwt = authorized_user_session
+    _, jwt = authorized_user_session
     app.test_client_class = TestClientArxivAuth
     yield app.test_client(jwt=jwt)

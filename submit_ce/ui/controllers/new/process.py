@@ -18,7 +18,7 @@ from markupsafe import Markup
 
 from submit_ce.api.domain.event.process import StartCompileSource
 from submit_ce.api.exceptions import SaveError
-from submit_ce.ui.backend import api
+from submit_ce.ui.backend import api, user_and_client_from_session
 from submit_ce.api.domain.event import ConfirmSourceProcessed
 from arxiv.auth.domain import Session
 from werkzeug.datastructures import MultiDict
@@ -26,7 +26,6 @@ from werkzeug.exceptions import InternalServerError, MethodNotAllowed
 from wtforms import SelectField
 
 from ..util import validate_command
-from ...auth import user_and_client_from_session
 from submit_ce.ui.routes.flow_control import ready_for_next, stay_on_this_stage
 from submit_ce.ui.backend import get_submission
 

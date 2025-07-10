@@ -26,14 +26,14 @@ from submit_ce.ui.tests.csrf_util import parse_csrf_token
 class TestSubmissionIntegration(unittest.TestCase):
     """Tests submission system."""
     @classmethod
-    def setUp(self):
-        self.token = os.environ.get('INTEGRATION_JWT')
-        self.url = os.environ.get('INTEGRATION_URL', 'http://localhost:5000')
+    def setUp(cls):
+        cls.token = os.environ.get('INTEGRATION_JWT')
+        cls.url = os.environ.get('INTEGRATION_URL', 'http://localhost:5000')
         
-        self.session = requests.Session()
-        self.session.headers.update({'Authorization': self.token})
+        cls.session = requests.Session()
+        cls.session.headers.update({'Authorization': cls.token})
         
-        self.page_test_names = [
+        cls.page_test_names = [
             "unloggedin_page",
             "home_page",
             "create_submission",
@@ -51,8 +51,8 @@ class TestSubmissionIntegration(unittest.TestCase):
             "confirmation"
         ]
 
-        self.next_page = None
-        self.process_page_timeout = 120 # sec
+        cls.next_page = None
+        cls.process_page_timeout = 120 # sec
 
 
     def check_response(self, res):

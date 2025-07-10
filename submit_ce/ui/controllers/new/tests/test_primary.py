@@ -45,7 +45,7 @@ class TestSetPrimaryClassification(CtrlBase):
             raise NoSuchSubmission('Nada')
 
         mock_load.side_effect = raise_no_such_submission
-        with self.assertRaises(NotFound):
+        with self.assertRaises(NoSuchSubmission):
             classification.classification('GET', MultiDict(), self.session,
                                           submission_id)
 

@@ -27,11 +27,11 @@ from submit_ce.api.domain.event import Event, SetDOI, SetJournalReference, \
     SetTitle, SetAbstract, SetComments, SetMSCClassification, \
     SetACMClassification, SetAuthors, ConfirmSourceProcessed, Reclassify
 
-from submit_ce.api.domain.agent import System
+from submit_ce.api.domain.agent import System, User
 
 logger = logging.getLogger(__name__)
 logger.propagate = False
-SYSTEM = System(__name__)
+SYSTEM = System(name=__name__)
 
 
 class ClassicEventInterpolator:

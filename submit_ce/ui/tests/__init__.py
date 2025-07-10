@@ -10,6 +10,8 @@ from werkzeug.datastructures import Headers
 
 from arxiv.taxonomy.definitions import CATEGORIES
 
+from submit_ce.ui import backend
+
 
 
 class TestClientArxivAuth(testing.FlaskClient):
@@ -31,7 +33,11 @@ class TestClientArxivAuth(testing.FlaskClient):
             'Authorization': self._jwt
         })
         headers = kwargs.pop('headers', Headers())
-        headers.extend(api_key_headers)
+        if isinstance(headers, dict):
+            for key,val in api_key_headers.items():
+                headers[key]=val
+        else:
+            headers.extend(api_key_headers)
         kwargs['headers'] = headers
         return super().open(*args, **kwargs)
 
@@ -42,9 +48,11 @@ class CtrlBase(TestCase):
         self.app = app
 
     @pytest.fixture(autouse=True)
-    def add_auth_user(self, authorized_user_session):
+    def add_auth_user(self, authorized_user_session, authorized_user):
         session, jwt = authorized_user_session
         self.session = session
+        self.user = authorized_user
+
 
     @pytest.fixture(autouse=True)
     def add_auth_client(self, authorized_client):

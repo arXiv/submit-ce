@@ -5,9 +5,11 @@ from http import HTTPStatus as status
 
 from arxiv.auth.auth import scopes
 from arxiv.auth.helpers import generate_token
+from arxiv.db import models as classic
 
 from submit_ce.api.domain import Author, SubmissionContent
 from submit_ce.api.domain import User, Client
+from submit_ce.api.domain.agent import PublicUser
 from submit_ce.api.domain.event import SetPrimaryClassification, CreateSubmission, ConfirmContactInformation, \
     ConfirmAuthorship, SetLicense, ConfirmPolicy, SetUploadPackage, SetTitle, SetAbstract, SetComments, SetReportNumber, \
     SetAuthors, FinalizeSubmission
@@ -18,10 +20,11 @@ from submit_ce.ui.tests.csrf_util import parse_csrf_token
 from arxiv.db import Session
 from arxiv.db import models
 
+
 @pytest.fixture
 def jref_user_and_token(app):
     with app.app_context():
-        user = User('1234', 'foo@bar.com', endorsements=['astro-ph.GA'])
+        user = PublicUser('1234', 'foo@bar.com', endorsements=['astro-ph.GA'])
         token = generate_token('1234', 'foo@bar.com', 'foouser',
                                 scope=[scopes.CREATE_SUBMISSION,
                                        scopes.EDIT_SUBMISSION,
@@ -31,6 +34,7 @@ def jref_user_and_token(app):
                                        scopes.DELETE_UPLOAD_FILE],
                                 endorsements=['astro-ph.GA','astro-ph.CO'])
         return user, token
+
 
 @pytest.fixture
 def jref_auth_client(app, jref_user_and_token):
@@ -51,14 +55,13 @@ class TestJREFWorkflow(CtrlBase):
         self.api_client = Client(native_id=f"totally_fake_cliet_native_id_{__file__}",
                                  remote_addr="127.0.0.1")
 
-
     def setUp(self):
         """Create an application instance."""
 
         # os.environ['JWT_SECRET'] = str(self.app.config.get('JWT_SECRET', 'fo'))
         # _, self.db = tempfile.mkstemp(suffix='.db')
         # self.app.config['CLASSIC_DATABASE_URI'] = f'sqlite:///{self.db}'
-        # self.user = User('1234', 'foo@bar.com', endorsements=['astro-ph.GA'])
+        # self.user = PublicUser('1234', 'foo@bar.com', endorsements=['astro-ph.GA'])
         # self.token = generate_token('1234', 'foo@bar.com', 'foouser',
         #                             scope=[scopes.CREATE_SUBMISSION,
         #                                    scopes.EDIT_SUBMISSION,
@@ -72,7 +75,6 @@ class TestJREFWorkflow(CtrlBase):
 
         # Create and announce a submission.
         with self.app.app_context():
-
             cc0 = 'http://creativecommons.org/publicdomain/zero/1.0/'
             self.submission, _ = api.save(
                 CreateSubmission(creator=self.user, client=self.api_client),
@@ -111,7 +113,7 @@ class TestJREFWorkflow(CtrlBase):
                 FinalizeSubmission(creator=self.user)
             )
 
-            # announced the submission so we can add a jref to it
+            # announced the submission, so we can add a jref to it
             with Session() as session:
                 db_submission = session.query(models.Submission).get(self.submission.submission_id)
                 db_submission.status = models.Submission.ANNOUNCED
@@ -162,6 +164,6 @@ class TestJREFWorkflow(CtrlBase):
         with self.app.app_context():
             with Session() as session:
                 # What happened.
-                db_submission = session.query(classic.models.Submission) \
-                    .filter(classic.models.Submission.doc_paper_id == '1234.5678')
+                db_submission = session.query(classic.Submission) \
+                    .filter(classic.Submission.doc_paper_id == '1234.5678')
                 self.assertEqual(db_submission.count(), 2, "Creates a second row for the JREF")

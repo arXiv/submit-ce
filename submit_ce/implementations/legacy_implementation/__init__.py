@@ -8,7 +8,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session as SqlalchemySession, Session
 
-from submit_ce.api import domain as api, Event, License, SubmitFile, Agent, Client, Upload, \
+from submit_ce.api import domain as api, Event, License, SubmitFile, User, Client, Upload, \
     SubmissionFileStore
 from ..schedule import next_announcement_time, next_freeze_time
 from ...api.CompileService import CompileService
@@ -35,7 +35,6 @@ class LegacySubmitImplementation(SubmitApi):
     """
     Implementation of `SubmitApi` that interoperates with legacy submission by writing to SFS and DB.
 
-    TODO write admin log on all changes
     TODO success response objects (similar to modapi? {msg: success, updated_fields:[]})
     TODO failure to validate response objects (which field caused the problem?)
     TODO Failure response object (general failure message)
@@ -148,9 +147,13 @@ class LegacySubmitImplementation(SubmitApi):
 
 
     def categories_for_user(self, user_id: str) -> Optional[str]:
-        return get_endorsements(AuthDomainUser(user_id=user_id) )
+        # TODO need better way to get endorsements since they are not on JWT anymore
+        uzr=AuthDomainUser(user_id=user_id,
+                       email="fake@fake.com",
+                       username=f"fake_username_{__file__}")
+        return get_endorsements(uzr)
 
-    def upload(self, file: SubmitFile, submission_id: int, user: Agent, client: Client) -> Upload:
+    def upload(self, file: SubmitFile, submission_id: int, user: User, client: Client) -> Upload:
         """Saves file to legacy FS and sets the upload package on the submission."""
         if not file or not file.filename or not file.content_type or not hasattr(file, "stream"):
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,

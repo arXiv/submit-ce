@@ -11,7 +11,7 @@ from arxiv.forms import csrf
 from wtforms.fields.numeric import IntegerField
 from wtforms.fields.simple import HiddenField
 
-from submit_ce.ui.backend import api
+from submit_ce.ui.backend import api, user_and_client_from_session
 from submit_ce.api.exceptions import SaveError
 from werkzeug.datastructures import MultiDict
 from werkzeug.exceptions import InternalServerError
@@ -22,7 +22,6 @@ from submit_ce.api.domain.event import ConfirmPolicy
 from submit_ce.ui.controllers.util import validate_command
 from submit_ce.ui.routes.flow_control import ready_for_next, stay_on_this_stage
 from submit_ce.ui.backend import get_submission
-from submit_ce.ui.auth import user_and_client_from_session
 
 Response = Tuple[Dict[str, Any], int, Dict[str, Any]]  # pylint: disable=C0103
 

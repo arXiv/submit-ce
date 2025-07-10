@@ -15,9 +15,8 @@ from arxiv.base import logging, alerts
 from arxiv.forms import csrf
 from submit_ce.api.domain.event import RequestWithdrawal
 
-from ..auth import user_and_client_from_session
 from .util import FieldMixin, validate_command
-from submit_ce.ui.backend import api, get_submission
+from submit_ce.ui.backend import api, get_submission, user_and_client_from_session
 from submit_ce.api.exceptions import SaveError
 
 logger = logging.getLogger(__name__)  # pylint: disable=C0103
@@ -61,13 +60,17 @@ def request_withdrawal(method: str, params: MultiDict, session: Session,
     if method == 'GET':
         params = MultiDict({})
 
+
     params.setdefault("confirmed", False)
     form = WithdrawalForm(params)
     response_data = {
         'submission_id': submission_id,
         'submission': submission,
         'form': form,
+        'submission_history': [], # abs macro expects this
     }
+    if method == 'GET':
+        return response_data, status.OK, {}
 
     cmd = RequestWithdrawal(reason=form.withdrawal_reason.data,
                             creator=submitter, client=client)

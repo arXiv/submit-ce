@@ -14,8 +14,10 @@ from dataclasses import dataclass, field
 from enum import Enum
 
 from .annotation import Comment
-from .agent import Agent, agent_factory
+from .agent import User, agent_factory
 from .util import get_tzaware_utc_now
+
+__all__ = ['Proposal', 'Status']
 
 
 class Status(Enum):
@@ -30,10 +32,10 @@ class Proposal:
 
 
     event_id: str
-    creator: Agent
+    creator: User
     created: datetime = field(default_factory=get_tzaware_utc_now)
     # scope: str      # TODO: document this.
-    proxy: Optional[Agent] = field(default=None)
+    proxy: Optional[User] = field(default=None)
 
     proposed_event_type: Optional[type] = field(default=None)
     proposed_event_data: dict = field(default_factory=dict)

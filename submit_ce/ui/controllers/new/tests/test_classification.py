@@ -144,7 +144,7 @@ class TestCrossList(CtrlBase):
 
 
         mock_load.side_effect = raise_no_such_submission
-        with self.assertRaises(NotFound):
+        with self.assertRaises(NoSuchSubmission):
             classification.cross_list('GET', MultiDict(), self.session, submission_id)
 
     @mock.patch(f'{classification.__name__}.ClassificationForm.Meta.csrf',

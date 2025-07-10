@@ -14,12 +14,11 @@ from wtforms.validators import ValidationError, optional
 
 from arxiv.base import logging, alerts
 from arxiv.forms import csrf
-from submit_ce.ui.backend import api, get_submission
+from submit_ce.ui.backend import api, get_submission, user_and_client_from_session
 from submit_ce.api.domain.event import RequestCrossList
 from submit_ce.api.exceptions import SaveError
 from arxiv.taxonomy.definitions import CATEGORIES_ACTIVE as CATEGORIES
 from arxiv.taxonomy.definitions import ARCHIVES_ACTIVE as ARCHIVES
-from ..auth import user_and_client_from_session
 from .util import OptGroupSelectField, \
     validate_command
 from ...api import Submission
@@ -75,15 +74,15 @@ class CrossListForm(csrf.CSRFForm):
     confirmed = BooleanField('Confirmed',
                              false_values=('false', False, 0, '0', ''))
 
-    def validate_selected(form: csrf.CSRFForm, field: Field) -> None:
-        if form.confirmed.data and not field.data:
+    def validate_selected(self, field: Field) -> None:
+        if self.confirmed.data and not field.data:
             raise ValidationError('Please select a category')
         for value in field.data:
             if value not in CATEGORIES:
                 raise ValidationError('Not a valid category')
 
-    def validate_category(form: csrf.CSRFForm, field: Field) -> None:
-        if not form.confirmed.data and not field.data:
+    def validate_category(self, field: Field) -> None:
+        if not self.confirmed.data and not field.data:
             raise ValidationError('Please select a category')
 
     def filter_choices(self, submission: Submission, session: Session,

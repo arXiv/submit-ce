@@ -6,8 +6,21 @@ from typing import Optional, Tuple, List, IO
 
 from arxiv.files import FileObj
 
-from submit_ce.api import SubmitApi, Event, Submission, License, SubmitFile, Agent, Client, Upload, SubmissionFileStore
+from submit_ce.api import SubmitApi, Event, Submission, License, SubmitFile, User, Client, Upload, SubmissionFileStore
+from submit_ce.api.CompileService import CompileService
+from submit_ce.api.domain.event.process import Result
+from submit_ce.api.domain.process import ProcessStatus
 from submit_ce.implementations.schedule import next_announcement_time, next_freeze_time
+
+class NullCompilerService(CompileService):
+
+    def start_compile(self, submission: Submission, user: User, client: Client, api: 'SubmitApi',
+                      source_package_id: Optional[str] = None) -> Result:
+        pass
+
+    def check(self, process_id: str, user: User, client: Client) -> ProcessStatus:
+        pass
+
 
 class NullFileStore(SubmissionFileStore):
 
@@ -45,13 +58,16 @@ class NullFileStore(SubmissionFileStore):
 class NullImplementation(SubmitApi):
     """Submission that does as little as possible."""
 
+    def get_compiler(self) -> CompileService:
+        return NullCompilerService()
+
     def get(self, submission_id: str) -> Submission:
         Submission(submission_id)
 
     def get_file_store(self) -> SubmissionFileStore:
         return NullFileStore()
 
-    def upload(self, files: SubmitFile, submission_id: int, user: Agent, client: Client) -> Upload:
+    def upload(self, files: SubmitFile, submission_id: int, user: User, client: Client) -> Upload:
         return Upload()
 
     def licenses(self, active_only=True) -> List[License]:

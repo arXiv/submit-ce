@@ -7,11 +7,11 @@ from typing import Optional, Union, Type, Dict, Any
 from dataclasses import field, dataclass
 from mypy_extensions import TypedDict
 
-from .agent import Agent, agent_factory
+from .agent import User, agent_factory
 
 
 PossibleDuplicate = TypedDict('PossibleDuplicate',
-                              {'id': int, 'title': str, 'owner': Agent})
+                              {'id': int, 'title': str, 'owner': User})
 
 
 @dataclass
@@ -22,11 +22,11 @@ class Flag:
         pass
 
     event_id: str
-    creator: Agent
+    creator: User
     created: datetime
     flag_data: Optional[Union[int, str, float, dict, list]]
     comment: str
-    proxy: Optional[Agent] = field(default=None)
+    proxy: Optional[User] = field(default=None)
     flag_datatype: str = field(default_factory=str)
 
     def __post_init__(self) -> None:
