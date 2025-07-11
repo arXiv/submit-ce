@@ -27,55 +27,11 @@ def _parse_csrf_token( response):
         assert 0, 'Could not find CSRF token'
 
 
-def test_unsubmit_submission(app, authorized_user_session, authorized_client, authorized_user):
+def test_unsubmit_submission(authorized_client, published_submission):
     """Test that progress through the unsubmit workflow."""
 
-    session, jwt = authorized_user_session
     client = authorized_client
-    user = authorized_user
-    ua = InternalClient(name=f"test_client_{__file__}")
-
-    # Create a finalized submission.
-    ua = InternalClient(name=f"test_client_{__file__}")
-    cc0 = 'http://creativecommons.org/publicdomain/zero/1.0/'
-    submission, _ = api.save(
-        CreateSubmission(creator=user, client=ua),
-        ConfirmContactInformation(creator=user, client=ua),
-        ConfirmAuthorship(creator=user, client=ua, submitter_is_author=True),
-        SetLicense(
-            creator=user, client=ua,
-            license_uri=cc0,
-            license_name='CC0 1.0'
-        ),
-        ConfirmPolicy(creator=user, client=ua),
-        SetPrimaryClassification(creator=user, client=ua,
-                                 category='astro-ph.GA'),
-        SetUploadPackage(
-            creator=user, client=ua,
-            checksum="a9s9k342900skks03330029k",
-            source_format=SubmissionContent.Format.TEX,
-            identifier="123",
-            uncompressed_size=593992,
-            compressed_size=59392,
-        ),
-        SetTitle(creator=user, client=ua, title='foo title'),
-        SetAbstract(creator=user, client=ua, abstract='ab stract' * 20),
-        SetComments(creator=user, client=ua, comments='indeed'),
-        SetReportNumber(creator=user, client=ua, report_num='the number 12'),
-        SetAuthors(
-            creator=user, client=ua,
-            authors=[Author(
-                order=0,
-                forename='Bob',
-                surname='Paulson',
-                email='Robert.Paulson@nowhere.edu',
-                affiliation='Fight Club'
-            )]
-        ),
-        FinalizeSubmission(creator=user, client=ua)
-    )
-
-    submission_id = submission.submission_id
+    submission, paper_id = published_submission
 
     # Get the unsubmit confirmation page.
     endpoint = f'/{submission_id}/unsubmit'
@@ -90,5 +46,5 @@ def test_unsubmit_submission(app, authorized_user_session, authorized_client, au
     assert response.status_code == status.SEE_OTHER
 
     # Check what happened.
-    submission = api.get(submission_id=str(submission_id))
+    submission = api.get(submission_id=str(submission.submission_id))
     assert submission.status == 0 or submission.status == "working"

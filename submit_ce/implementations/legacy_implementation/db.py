@@ -510,7 +510,10 @@ def _create_jref(session: SQLAlchemySession, document_id: int, paper_id: str, ve
 
     # Otherwise, create a new JREF row.
     dbs = models.Submission(type=models.Submission.JOURNAL_REFERENCE,
-                            document_id=document_id, version=version)
+                            document_id=document_id,
+                            version=version,
+                            remote_addr=submission.client.remote_addr,
+                            remote_host=submission.client.remote_host)
     dbs.update_from_submission(submission)
     dbs.created = created
     dbs.updated = created
