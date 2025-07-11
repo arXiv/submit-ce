@@ -15,7 +15,8 @@ from arxiv.taxonomy.definitions import CATEGORIES_ACTIVE, ARCHIVES_ACTIVE
 from markupsafe import Markup
 
 from submit_ce.api import User
-from submit_ce.ui.backend import api, endorsed_for, user_and_client_from_session
+from submit_ce.ui.backend import api, endorsed_for
+from submit_ce.ui.auth import user_and_client_from_session
 from werkzeug.datastructures import MultiDict
 from werkzeug.exceptions import InternalServerError
 from wtforms import widgets, HiddenField, validators
@@ -128,7 +129,7 @@ def classification(method: str, params: MultiDict, session: Session,
 
     if method != 'POST':
         return response_data, status.OK, {}
-        
+
     if form.validate():
         command = SetPrimaryClassification(category=form.category.data, creator=submitter, client=client)
         if validate_command(form, command, submission, 'category'):

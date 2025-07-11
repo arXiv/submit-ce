@@ -11,7 +11,8 @@ from arxiv.auth.domain import Session
 from arxiv.base import logging
 from arxiv.forms import csrf
 from arxiv.license import LICENSES
-from submit_ce.ui.backend import api, user_and_client_from_session
+from submit_ce.ui.backend import api
+from submit_ce.ui.auth import user_and_client_from_session
 from submit_ce.api.exceptions import SaveError
 from werkzeug.datastructures import MultiDict
 from werkzeug.exceptions import InternalServerError

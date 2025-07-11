@@ -11,7 +11,8 @@ import logging
 from http import HTTPStatus as status
 from arxiv.forms import csrf
 from arxiv.auth.domain import Session, User, Client
-from submit_ce.ui.backend import api, user_and_client_from_session
+from submit_ce.ui.backend import api
+from submit_ce.ui.auth import user_and_client_from_session
 
 from submit_ce.api.domain import Submission, Event
 from submit_ce.api.domain.event import SetTitle, SetAuthors, SetAbstract, \

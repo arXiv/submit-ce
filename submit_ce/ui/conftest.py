@@ -13,6 +13,7 @@ from werkzeug.datastructures import Headers
 from arxiv.taxonomy.definitions import CATEGORIES
 
 import submit_ce
+import submit_ce.ui.auth
 
 from submit_ce.api.domain.agent import InternalClient
 from submit_ce.api.domain.event import ConfirmAuthorship, ConfirmContactInformation, ConfirmPolicy, FinalizeSubmission, SetAbstract, SetAuthors, SetComments, SetLicense, SetPrimaryClassification, SetReportNumber, SetTitle, SetUploadPackage
@@ -118,7 +119,7 @@ def authorized_user_session(app, jwt_secret):
 @pytest.fixture
 def authorized_user(authorized_user_session):
     session, _ = authorized_user_session
-    user = backend._get_user(session)
+    user = submit_ce.ui.auth._get_user(session)
     user.endorsements = ['astro-ph.GA', 'astro-ph.CO']
     return user
 

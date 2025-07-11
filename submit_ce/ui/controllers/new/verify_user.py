@@ -16,7 +16,8 @@ import logging
 from arxiv.forms import csrf
 from arxiv.auth.domain import Session
 from submit_ce.api.exceptions import SaveError
-from submit_ce.ui.backend import api, user_and_client_from_session
+from submit_ce.ui.backend import api
+from submit_ce.ui.auth import user_and_client_from_session
 from submit_ce.api.domain.event import ConfirmContactInformation
 
 from submit_ce.ui.backend import get_submission

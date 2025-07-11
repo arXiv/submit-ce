@@ -1,12 +1,14 @@
 import logging
-from typing import Callable, Tuple
+from typing import Callable, Tuple, Optional
 
 from arxiv.auth.auth import tokens
 from arxiv.auth.auth.exceptions import InvalidToken
 from arxiv.auth.domain import Session
 from arxiv.base.middleware import BaseMiddleware
+from flask import request
 from werkzeug.exceptions import InternalServerError, Unauthorized
 
+from submit_ce.api import User, PublicUser, HttpClient, Client
 from submit_ce.ui.config import settings
 
 logger = logging.getLogger(__name__)
@@ -47,3 +49,70 @@ class SubmitAuthMiddleware(BaseMiddleware):
 def _public_user(session: Session) -> bool:
     # TODO how to tell if session is EUST, mod or public user?
     return True
+
+
+def _get_user(session: Optional[Session]=None) -> User:
+    if not session:
+        session = request.environ['auth']  # was already setup by arxiv.auth.auth.middleware
+
+    if not(session and session.user and session.user.user_id and session.authorizations):
+        raise Unauthorized()
+
+    if session.user.name:
+        name = " ".join([session.user.name.forename, session.user.name.surname])
+    else:
+        name = "un-named user"
+
+    if hasattr(session.authorizations, 'endorsements'):
+        endorsements = session.authorizations.endorsements
+    else:
+        endorsements = []  # todo what to do?
+
+    # TODO handle staff users
+    return PublicUser(
+        user_id=session.user.user_id,
+        name=name,
+        email=session.user.email,
+        endorsements = endorsements,
+        scopes = session.authorizations.scopes,
+    )
+
+
+def _get_client() -> HttpClient:
+    # ua = request.headers.get("User-Agent", None)
+    # if ua is None:
+    #     agent_type = "ua-not-set"
+    # if ua.lower().startswith("mozilla"):
+    #     agent_type = "browser"
+    # else:
+    #     agent_type = ua[:20]
+
+    # return HttpClient(
+    #     remote_addr=request.remote_addr or "unknown-remote-addr",
+    #     remote_host="",  # TODO get hostname
+    # )
+    # TODO implement _get_client
+    return HttpClient(
+        remote_addr= "unknown-remote-addr",
+        remote_host=""
+    )
+
+
+def user_and_client_from_session(session: Session) \
+        -> Tuple[User, Optional[Client]]:
+    """
+    Get submission user/client representations from a :class:`.Session`.
+
+    When we're building submission-related events, we frequently need a
+    submission-friendly representation of the user or client responsible for
+    those events. This function generates those event-domain representations
+    from a :class:`arxiv.users.domain.Submission` object.
+    """
+
+    # TODO: currently this does nothing with the client. We will need to add that
+    # bit once we have a plan for handling client information in this interface.
+    if not session or not session.user or not session.user.user_id or not session.user.profile:
+        # TODO: fix this to handle SA or other non user clients
+        raise RuntimeError("Must pass a valid `Session`")
+
+    return _get_user(session), _get_client()

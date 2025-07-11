@@ -16,7 +16,8 @@ from arxiv.forms import csrf
 from submit_ce.api.domain.event import RequestWithdrawal
 
 from .util import FieldMixin, validate_command
-from submit_ce.ui.backend import api, get_submission, user_and_client_from_session
+from submit_ce.ui.backend import api, get_submission
+from ..auth import user_and_client_from_session
 from submit_ce.api.exceptions import SaveError
 
 logger = logging.getLogger(__name__)  # pylint: disable=C0103
