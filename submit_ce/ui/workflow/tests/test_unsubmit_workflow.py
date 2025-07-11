@@ -27,14 +27,14 @@ def _parse_csrf_token( response):
         assert 0, 'Could not find CSRF token'
 
 
-def test_unsubmit_submission(authorized_client, published_submission):
+def test_unsubmit_submission(authorized_client, submitted_submission):
     """Test that progress through the unsubmit workflow."""
 
     client = authorized_client
-    submission, paper_id = published_submission
+    submission = submitted_submission
 
     # Get the unsubmit confirmation page.
-    endpoint = f'/{submission_id}/unsubmit'
+    endpoint = f'/{submission.submission_id}/unsubmit'
     response = client.get(endpoint)
     assert response.status_code == status.OK and response.content_type == 'text/html; charset=utf-8'
     assert 'Unsubmit This Submission' in response.text
