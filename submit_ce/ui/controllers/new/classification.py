@@ -105,7 +105,7 @@ def classification(method: str, params: MultiDict, session: Session,
                    submission_id: int, **kwargs) -> Response:
     """Handle primary classification requests for a new submission."""
     submitter, client = user_and_client_from_session(session)
-    submission, submission_events = get_submission(submission_id)
+    submission, _ = get_submission(submission_id)
 
     if method == 'GET':
         # Prepopulate the form based on the state of the submission.
@@ -116,10 +116,8 @@ def classification(method: str, params: MultiDict, session: Session,
         params.setdefault('category', session.user.profile.default_category)
 
     params['operation'] = PrimaryClassificationForm.ADD
-
     form = PrimaryClassificationForm(params)
     form.filter_choices(submission, submitter)
-
     response_data = {
         'submission_id': submission_id,
         'submission': submission,
@@ -128,18 +126,25 @@ def classification(method: str, params: MultiDict, session: Session,
         'form': form
     }
 
-    if method == 'POST':
-        if form.validate():
-            command = SetPrimaryClassification(category=form.category.data, creator=submitter, client=client)
-            if validate_command(form, command, submission, 'category'):
-                try:
-                    submission, _ = api.save(command, submission_id=submission_id)
-                    response_data['submission'] = submission
-                    return ready_for_next((response_data, status.OK, {}))
-                except SaveError as ex:
-                    raise InternalServerError(response_data) from ex
-
-    return response_data, status.OK, {}
+    if method != 'POST':
+        return response_data, status.OK, {}
+        
+    if form.validate():
+        command = SetPrimaryClassification(category=form.category.data, creator=submitter, client=client)
+        if validate_command(form, command, submission, 'category'):
+            try:
+                submission, _ = api.save(command, submission_id=submission_id)
+                response_data['submission'] = submission
+                return ready_for_next((response_data, status.OK, {}))
+            except SaveError as ex:
+                raise InternalServerError(response_data) from ex
+            finally:
+                pass
+        else:                                  
+            return response_data, status.BAD_REQUEST, {}
+    else:
+        return response_data, status.BAD_REQUEST, {}
+        
 
 
 def cross_list(method: str, params: MultiDict, session: Session,
@@ -147,9 +152,7 @@ def cross_list(method: str, params: MultiDict, session: Session,
     """Handle secondary classification requests for a new submission."""
     submitter, client = user_and_client_from_session(session)
     #submission, submission_events = get_submission(submission_id)
-    xxx = get_submission(submission_id)
-    print(f"type of xxx is {type(xxx)}")
-    submission, submission_events = xxx
+    submission, _ = get_submission(submission_id)
 
     form = ClassificationForm(params)
     form.operation._value = lambda: form.operation.data

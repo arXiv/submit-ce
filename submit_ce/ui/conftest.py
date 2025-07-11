@@ -14,6 +14,9 @@ from arxiv.taxonomy.definitions import CATEGORIES
 
 import submit_ce
 
+from submit_ce.api.domain.agent import InternalClient
+from submit_ce.api.domain.event import ConfirmAuthorship, ConfirmContactInformation, ConfirmPolicy, FinalizeSubmission, SetAbstract, SetAuthors, SetComments, SetLicense, SetPrimaryClassification, SetReportNumber, SetTitle, SetUploadPackage
+from submit_ce.api.domain.submission import Author
 from submit_ce.ui.tests import TestClientArxivAuth
 from submit_ce.ui import backend
 
@@ -126,3 +129,125 @@ def authorized_client(app, authorized_user_session):
     _, jwt = authorized_user_session
     app.test_client_class = TestClientArxivAuth
     yield app.test_client(jwt=jwt)
+
+
+#################### submissions in different stages ####################
+@pytest.fixture(scope="function")
+def sub_created(app, authorized_user):
+    """A submitted submission that is just created."""
+    with app.app_context():
+        user = authorized_user
+        ua = InternalClient(name=f"test_client_{__file__}")
+        submission, _ = backend.api.save(CreateSubmission(creator=user, client=ua))
+        return submission
+
+
+@pytest.fixture(scope="function")
+def sub_verified_user(app, authorized_user, sub_created):
+    """A submisison with VerifyUser done."""
+    with app.app_context():
+        user = authorized_user
+        ua = InternalClient(name=f"test_client_{__file__}")
+        submission, _ = backend.api.save(ConfirmContactInformation(creator=user, client=ua),
+                                         submission_id=sub_created.submission_id)
+        return submission
+
+@pytest.fixture(scope="function")
+def sub_authorship(app, authorized_user, sub_verified_user):
+    """A submission with verify and confirm authorship done."""
+    with app.app_context():
+        user = authorized_user
+        ua = InternalClient(name=f"test_client_{__file__}")
+        submission, _ = backend.api.save(
+            ConfirmAuthorship(creator=user, client=ua, submitter_is_author=True),
+            submission_id = sub_verified_user.submission_id)
+        return submission
+
+
+@pytest.fixture(scope="function")
+def sub_license(app, authorized_user, sub_authorship):
+    """A submission with license set."""
+    with app.app_context():
+        user = authorized_user
+        ua = InternalClient(name=f"test_client_{__file__}")
+        cc0 = "http://creativecommons.org/publicdomain/zero/1.0/"
+        submission, _ = backend.api.save(
+            SetLicense(creator=user, client=ua, license_uri=cc0, license_name="CC0 1.0"),
+            submission_id=sub_authorship.submission_id)
+        return submission
+
+
+@pytest.fixture(scope="function")
+def sub_policy(app, authorized_user, sub_license):
+    """A submission with policy done."""
+    with app.app_context():
+        user = authorized_user
+        ua = InternalClient(name=f"test_client_{__file__}")
+        submission, _ = backend.api.save(
+            ConfirmPolicy(creator=user, client=ua), submission_id=sub_license.submission_id)
+        return submission
+
+
+@pytest.fixture(scope="function")
+def sub_primary(app, authorized_user, sub_policy):
+    """A submission with primary set."""
+    with app.app_context():
+        user = authorized_user
+        ua = InternalClient(name=f"test_client_{__file__}")
+        submission, _ = backend.api.save(
+            SetPrimaryClassification(creator=user, client=ua, category="astro-ph.GA"),
+            submission_id=sub_policy.submission_id)
+        return submission
+
+
+@pytest.fixture(scope="function")
+def sub_files(app, authorized_user, sub_primary):
+    """A submission marked as with files uploaded. (but no real files)"""
+    with app.app_context():
+        user = authorized_user
+        ua = InternalClient(name=f"test_client_{__file__}")
+        submission, _ = backend.api.save(
+            SetUploadPackage(creator=user, client=ua,
+                checksum="a9s9k342900skks03330029k",
+                source_format=SubmissionContent.Format.TEX,
+                identifier="123",
+                uncompressed_size=593992,
+                compressed_size=59392,
+            ), submission_id=sub_primary.submission_id)
+        return submission
+
+
+@pytest.fixture(scope="function")
+def sub_processed(app, authorized_user, sub_files):
+    """A submission metadata."""
+    with app.app_context():
+        user = authorized_user
+        ua = InternalClient(name=f"test_client_{__file__}")
+        submission, _ = backend.api.save(
+            SetTitle(creator=user, client=ua, title="foo title, submitted submission"),
+            SetAbstract(creator=user, client=ua, abstract="foo abstract {__file__}"),
+            SetComments(creator=user, client=ua, comments="pickels"),
+            SetReportNumber(creator=user, client=ua, report_num="the number 13"),
+            SetAuthors(creator=user, client=ua,
+                authors=[
+                    Author(
+                        order=0,
+                        forename="Bob",
+                        surname="Paulson",
+                        email="Robert.Paulson@nowhere.edu",
+                        affiliation="Fight Club",
+                    )
+                ],
+            ),submission_id=sub_files.submission_id)
+
+
+@pytest.fixture(scope="function")
+def sub_finalized(app, authorized_user, sub_processed):
+    """A submission that is finalized."""
+    with app.app_context():
+        user = authorized_user
+        ua = InternalClient(name=f"test_client_{__file__}")
+        submission, _ = backend.api.save(
+            FinalizeSubmission(creator=user, client=ua),
+            submission_id=sub_processed.submission_id)
+        return submission
