@@ -16,8 +16,10 @@ from . import filters, backend
 from .routes.ui import UI
 
 from flask.logging import default_handler
+import logging
 root = logging.getLogger()
 root.addHandler(default_handler)
+root.setLevel(logging.INFO)
 
 def create_web_app(config: Optional[dict]=None) -> Flask:
     """Initialize an instance of the search frontend UI web application."""

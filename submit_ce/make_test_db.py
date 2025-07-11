@@ -311,7 +311,7 @@ def bootstrap_db(output_jwt: bool=False, db_uri = f"sqlite:///{DEV_SQLITE_FILE}"
                 ),
                 authorizations=domain.Authorizations(scopes=scope)
             )
-            print(f"about to encode with JWT_SECRET {app.config['JWT_SECRET']}")
+
             token = tokens.encode(session, app.config["JWT_SECRET"])
             return token
             #

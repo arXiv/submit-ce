@@ -10,7 +10,6 @@ from submit_ce.ui.tests.csrf_util import parse_csrf_token
 # file upload. Once the remaining stages have stabilized, this should have
 # tests for the whole submit process.
 
-
 def _parse_csrf_token(response):
     try:
         return parse_csrf_token(response)
@@ -21,7 +20,6 @@ def test_create_submission(app, authorized_client, mocker):
     """User creates a new submission, and proceeds up to upload stage."""
     client = authorized_client
 
-    mock_resp
     # Get the home page of the submit system.
     response = client.get('/')
     assert status.OK ==  response.status_code
@@ -103,14 +101,17 @@ def test_create_submission(app, authorized_client, mocker):
 
     # GET primary page
     response = client.get(next_page.path)
-    assert b'Choose a Primary Classification' in response.data
+    assert b'Choose a Primary Classification' in response.data \
+        and response.status_code == status.OK
 
     # POST the primary category page.
     response = client.post(next_page.path,data={'category': 'astro-ph.GA',
                                                 'action': 'next',
                                                 'csrf_token': _parse_csrf_token(response)})
-    assert response.status_code in [ status.FOUND, status.SEE_OTHER ]
+    assert response.status_code in [ status.FOUND, status.SEE_OTHER ] \
+        and response.status_code != status.BAD_REQUEST
 
+    assert _sub().primary_category == 'astro-ph.GA'
     # GET the next page in the process. This is the cross list stage.
     next_page = urlparse(response.headers['Location'])
     assert 'cross' in next_page.path

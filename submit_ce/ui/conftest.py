@@ -78,11 +78,12 @@ def app(legacy_db, jwt_secret) -> Flask:
     app = create_web_app()
     app.config["CLASSIC_DB_URI"] = uri
     app.config["JWT_SECRET"] = jwt_secret
+
     return app
 
 
 @pytest.fixture
-def authorized_user_session(app, jwt_secret):
+def authorized_user_session(app, jwt_secret, mocker):
     with app.app_context():
 
         start = datetime.now(ZoneInfo("US/Eastern"))
@@ -108,19 +109,21 @@ def authorized_user_session(app, jwt_secret):
                 scopes=[auth.scopes.CREATE_SUBMISSION,
                         auth.scopes.EDIT_SUBMISSION,
                         auth.scopes.VIEW_SUBMISSION],
-                endorsements=['astro-ph.GA',
-                              'astro-ph.CO',] # endorsements don't work here, arxiv-base doesn't add them
+                # No endorsements here, arxiv-base doesn't allow them
             )
         )
         ng_jwt = auth.tokens.encode(session, jwt_secret)
+
+        mock_add_endo =mocker.patch("submit_ce.ui.auth.get_endorsements")
+        mock_add_endo.return_value = ['astro-ph.GA', 'astro-ph.CO']
+
         return session, ng_jwt
 
 
 @pytest.fixture
-def authorized_user(authorized_user_session):
+def authorized_user(authorized_user_session, mocker):
     session, _ = authorized_user_session
     user = submit_ce.ui.auth._get_user(session)
-    user.endorsements = ['astro-ph.GA', 'astro-ph.CO']
     return user
 
 

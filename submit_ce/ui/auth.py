@@ -9,6 +9,8 @@ from flask import request
 from werkzeug.exceptions import InternalServerError, Unauthorized
 
 from submit_ce.api import User, PublicUser, HttpClient, Client
+from submit_ce.api.domain.agent import ServiceAgent, StaffUser, System
+from submit_ce.ui.backend import get_endorsements
 from submit_ce.ui.config import settings
 
 logger = logging.getLogger(__name__)
@@ -33,7 +35,7 @@ class SubmitAuthMiddleware(BaseMiddleware):
         token = token.removeprefix("Bearer ")
         
         try:
-            environ['auth'] = tokens.decode(token, settings.JWT_SECRET)            
+            environ['auth'] = tokens.decode(token, settings.JWT_SECRET)
             environ['token'] = token  # Attach the encrypted token so that we can use it in sub requests.
         except InvalidToken:   # Let the application decide what to do.
             logger.debug('Auth token not valid: %s', token)
@@ -51,6 +53,12 @@ def _public_user(session: Session) -> bool:
     return True
 
 
+def _add_endorsements(user: User) -> None:
+    """Adds endorsements to user."""
+    if isinstance(user, (PublicUser, StaffUser)):
+        user.endorsements.extend(get_endorsements(user))
+
+
 def _get_user(session: Optional[Session]=None) -> User:
     if not session:
         session = request.environ['auth']  # was already setup by arxiv.auth.auth.middleware
@@ -63,19 +71,19 @@ def _get_user(session: Optional[Session]=None) -> User:
     else:
         name = "un-named user"
 
-    if hasattr(session.authorizations, 'endorsements'):
-        endorsements = session.authorizations.endorsements
-    else:
-        endorsements = []  # todo what to do?
+    # arxiv-base session usually lacks endorsements
+    endorsements = getattr(session.authorizations, 'endorsements', [])
 
     # TODO handle staff users
-    return PublicUser(
+    user = PublicUser(
         user_id=session.user.user_id,
         name=name,
         email=session.user.email,
         endorsements = endorsements,
         scopes = session.authorizations.scopes,
     )
+    _add_endorsements(user)
+    return user
 
 
 def _get_client() -> HttpClient:

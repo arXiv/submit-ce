@@ -113,28 +113,31 @@ def handle(controller: Callable, template: str, title: str,
 
     """
     response: Response
-    logger.debug('Handle call to controller %s with template %s, title %s,'
-                 ' and ID %s', controller, template, title, submission_id)
+    logger.debug('%s %s %s, title %s, and ID %s',
+                 controller.__name__, request.method, template, title, submission_id)
     if request.method == 'GET' and get_params:
         request_data = MultiDict(request.args.items(multi=True))
     else:
         request_data = MultiDict(request.form.items(multi=True))
 
     context = {'pagetitle': title}
-
     data, code, headers = controller(request.method, request_data,
                                      request.auth, submission_id,
                                      **kwargs)
     context.update(data)
 
     if flow_controlled:
+        logger.debug('%s flow_controled %s', controller.__name__, code )
         return (data, code, headers,
                 lambda: make_response(render_template(template, **context), code))
     if code < 300:
+        logger.debug('%s status %s', controller.__name__, code)
         response = make_response(render_template(template, **context), code)
     elif 'Location' in headers:
+        logger.debug('%s redirect to %s', controller.__name__, headers['Location'])
         response = redirect(headers['Location'], code=code)
     else:
+        logger.debug('%s status %s', controller.__name__, code)
         response = FResponse(response=context, status=code, headers=headers)
     return response
 
