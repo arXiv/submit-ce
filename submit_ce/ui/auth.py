@@ -6,10 +6,11 @@ from arxiv.auth.auth.exceptions import InvalidToken
 from arxiv.auth.domain import Session
 from arxiv.base.middleware import BaseMiddleware
 from flask import request
-from werkzeug.exceptions import InternalServerError, Unauthorized
+from werkzeug.exceptions import InternalServerError, Unauthorized, NotFound
 
 from submit_ce.api import User, PublicUser, HttpClient, Client
 from submit_ce.api.domain.agent import ServiceAgent, StaffUser, System
+from submit_ce.ui import backend
 from submit_ce.ui.backend import get_endorsements
 from submit_ce.ui.config import settings
 
@@ -56,7 +57,10 @@ def _public_user(session: Session) -> bool:
 def _add_endorsements(user: User) -> None:
     """Adds endorsements to user."""
     if isinstance(user, (PublicUser, StaffUser)):
-        user.endorsements.extend(get_endorsements(user))
+        if user.endorsements:
+            user.endorsements.extend(get_endorsements(user))
+        else:
+            user.endorsements = get_endorsements(user)
 
 
 def _get_user(session: Optional[Session]=None) -> User:
@@ -124,3 +128,14 @@ def user_and_client_from_session(session: Session) \
         raise RuntimeError("Must pass a valid `Session`")
 
     return _get_user(session), _get_client()
+
+
+def is_owner(session: Session, submission_id: str, **kw) -> bool:
+    """Check whether the user has privileges to edit a submission."""
+    submission, events = backend.get_submission(int(submission_id))
+    if not submission:
+        raise NotFound('No such submission')
+    logger.debug('Submission owned by %s; request is from %s',
+                 submission.owner.identifier,
+                 session.user.user_id)
+    return str(submission.owner.user_id) == str(session.user.user_id)

@@ -16,7 +16,7 @@ from submit_ce.ui import controllers as cntrls
 from submit_ce.ui import util
 from submit_ce.ui.controllers.new import upload
 from submit_ce.ui.controllers.new import upload_delete
-from submit_ce.ui.routes.auth import is_owner
+from ..auth import is_owner
 from submit_ce.ui.workflow.processor import WorkflowProcessor
 from submit_ce.ui.workflow.stages import FileUpload
 from .flow_control import flow_control, get_workflow, endpoint_name

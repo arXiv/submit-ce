@@ -107,7 +107,6 @@ def classification(method: str, params: MultiDict, session: Session,
     """Handle primary classification requests for a new submission."""
     submitter, client = user_and_client_from_session(session)
     submission, _ = get_submission(submission_id)
-
     if method == 'GET':
         # Prepopulate the form based on the state of the submission.
         if submission.primary_classification and submission.primary_classification.category:
