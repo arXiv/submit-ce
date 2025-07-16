@@ -4,12 +4,17 @@ import tempfile
 import uuid
 from datetime import datetime, timedelta
 
+from arxiv.auth.legacy.exceptions import AuthenticationFailed
 import pytest
 from zoneinfo import ZoneInfo
 from arxiv.auth import domain, auth
 from flask import Flask
 
 from arxiv.taxonomy.definitions import CATEGORIES
+from arxiv.auth.legacy.accounts import register
+from arxiv.auth.legacy.sessions import create
+from arxiv.auth.legacy.authenticate import authenticate
+from arxiv.auth.auth.tokens import encode
 
 import submit_ce
 import submit_ce.ui.auth
@@ -96,34 +101,43 @@ def app(legacy_db, jwt_secret) -> Flask:
 @pytest.fixture
 def authorized_user_session(app, jwt_secret, mocker):
     with app.app_context():
+        username="foouser"
+        email="foo@foo.com"
+        user_id = '235678'
+        pw = "fakepw-"+jwt_secret
+        user, auths = None, None
+        try:
+            user, auths = authenticate(email, pw)
+        except AuthenticationFailed:
+            pass
 
-        start = datetime.now(ZoneInfo("US/Eastern"))
-
-        end = start + timedelta(seconds=36000)
-        session = domain.Session(
-            session_id='123-session-abc',
-            start_time=start, end_time=end,
-            user=domain.User(
-                user_id='235678',
-                email='foo@foo.com',
-                username='foouser',
-                name=domain.UserFullName(forename="Jane", surname="Bloggs", suffix="III"),
-                profile=domain.UserProfile(
-                    affiliation="FSU",
-                    rank=3,
-                    country="de",
-                    default_category=CATEGORIES['astro-ph.GA'],
-                    submission_groups=['grp_physics']
-                )
-            ),
-            authorizations=domain.Authorizations(
-                scopes=[auth.scopes.CREATE_SUBMISSION,
-                        auth.scopes.EDIT_SUBMISSION,
-                        auth.scopes.VIEW_SUBMISSION],
-                # No endorsements here, arxiv-base doesn't allow them
+        if not user:
+            user = domain.User(
+                    user_id=user_id,
+                    email=email,
+                    username=username,
+                    name=domain.UserFullName(forename="Jane", surname="Bloggs", suffix="III"),
+                    profile=domain.UserProfile(
+                        affiliation="FSU",
+                        rank=3,
+                        country="de",
+                        default_category=CATEGORIES['astro-ph.GA'],
+                        submission_groups=['grp_physics']
+                    )
             )
-        )
-        ng_jwt = auth.tokens.encode(session, jwt_secret)
+            user, auths = register(user, pw, "127.0.0.1", "localhost")
+            Session.add(classic.Endorsement(endorsee_id=user.user_id,
+                                            archive="astro-ph", subject_class="GA",
+                                            flag_valid=1, type="auto", point_value=10,
+                                            issued_when=11074371513))
+            Session.add(classic.Endorsement(endorsee_id=user.user_id,
+                                            archive="astro-ph", subject_class="CO",
+                                            flag_valid=1, type="auto", point_value=10,
+                                            issued_when=11074371513))
+            Session.commit()
+
+        session = create(auths, "127.0.0.1", "localhost", "", user)
+        ng_jwt = encode(session, jwt_secret)
 
         mock_add_endo =mocker.patch("submit_ce.ui.auth.get_endorsements")
         mock_add_endo.return_value = ['astro-ph.GA', 'astro-ph.CO']

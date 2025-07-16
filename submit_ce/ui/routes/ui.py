@@ -13,7 +13,7 @@ from werkzeug import Response as WResponse
 from werkzeug.datastructures import MultiDict
 
 from submit_ce.ui import controllers as cntrls
-from submit_ce.ui import util
+#from submit_ce.ui import util
 from submit_ce.ui.controllers.new import upload
 from submit_ce.ui.controllers.new import upload_delete
 from ..auth import is_owner
