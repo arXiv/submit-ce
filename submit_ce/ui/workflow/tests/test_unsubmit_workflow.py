@@ -1,22 +1,9 @@
 """Tests for the submission application as a whole."""
 
-import os
-import tempfile
 from http import HTTPStatus as status
-from unittest import TestCase, mock
-from urllib.parse import urlparse
 
-from arxiv.auth.auth import scopes
-from arxiv.auth.helpers import generate_token
 
-from submit_ce.api.domain import Author, SubmissionContent
-from submit_ce.api.domain import User
-from submit_ce.api.domain.agent import InternalClient
-from submit_ce.api.domain.event import SetPrimaryClassification, CreateSubmission, ConfirmContactInformation, \
-    ConfirmAuthorship, SetLicense, ConfirmPolicy, SetUploadPackage, SetTitle, SetAbstract, SetComments, SetReportNumber, \
-    SetAuthors, FinalizeSubmission
 from submit_ce.ui.backend import api
-from submit_ce.ui.tests import CtrlBase
 from submit_ce.ui.tests.csrf_util import parse_csrf_token
 
 

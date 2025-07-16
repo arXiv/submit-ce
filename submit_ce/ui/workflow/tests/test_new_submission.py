@@ -5,7 +5,6 @@ from submit_ce.ui.auth import user_and_client_from_session
 from submit_ce.ui.tests import CtrlBase
 from submit_ce.ui.workflow import processor
 from submit_ce.api.domain.event import CreateSubmission
-from submit_ce.api.domain import User
 from submit_ce.ui.workflow.stages import *
 from submit_ce.api.domain import SubmissionContent, SubmissionMetadata
 

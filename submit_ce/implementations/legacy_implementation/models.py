@@ -10,6 +10,7 @@ from sqlalchemy.ext.indexable import index_property
 from sqlalchemy.orm import relationship, declarative_base
 
 from submit_ce.api import domain
+from submit_ce.api.domain.agent import PublicUser
 from submit_ce.api.domain.proposal import Status as ProposalStatus
 
 Base = declarative_base()
@@ -201,17 +202,11 @@ class Submission(Base):    # type: ignore
                               back_populates='submission', lazy='joined',
                               cascade="all, delete-orphan")
 
-    def get_submitter(self) -> domain.User:
+    def get_submitter(self) -> domain.PublicUser:
         """Generate a :class:`.User` representing the submitter."""
-        extra = {}
-        if self.submitter:
-            extra.update(dict(forename=self.submitter.first_name,
-                              surname=self.submitter.last_name,
-                              suffix=self.submitter.suffix_name))
-        return domain.User(identifier=str(self.submitter_id),
-                           native_id =str(self.submitter_id),
-                           email=self.submitter_email, **extra)
-
+        return PublicUser(user_id=str(self.submitter_id),
+                          name=self.submitter_name or "",
+                          email=self.submitter_email or "")
 
     WDR_DELIMETER = '. Withdrawn: '
 

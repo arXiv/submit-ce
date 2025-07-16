@@ -35,7 +35,7 @@ class PublicUser(BaseModel):
     """A non staff submitting user.
 
     Intentionally lacks name field, get that from user store."""
-    user_id: str = Field(min_length=3, max_length= 30)
+    user_id: str = Field(min_length=1, max_length=30)
     name: str = Field(min_length=3, max_length=64) #length in arXiv_submissions
     email: str = Field(min_length=3, max_length=64) #length in arXiv_submissions
     endorsements: list[str] = []
