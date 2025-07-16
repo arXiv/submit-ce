@@ -56,10 +56,6 @@ def get_submission(submission_id: int) -> Tuple[Submission, List[Event]]:
         raise NotFound()
 
 
-def get_endorsements(user: User) -> List[str]:
-    # TODO implemente get_endorsements
-    return []
-
 
 def endorsed_for(user: User, category: str) -> bool:
     """

@@ -139,9 +139,6 @@ def authorized_user_session(app, jwt_secret, mocker):
         session = create(auths, "127.0.0.1", "localhost", "", user)
         ng_jwt = encode(session, jwt_secret)
 
-        mock_add_endo =mocker.patch("submit_ce.ui.auth.get_endorsements")
-        mock_add_endo.return_value = ['astro-ph.GA', 'astro-ph.CO']
-
         return session, ng_jwt
 
 

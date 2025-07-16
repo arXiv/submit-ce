@@ -12,11 +12,11 @@ from werkzeug.http import parse_cookie
 from arxiv.auth.auth import tokens
 from arxiv.auth.auth.exceptions import ExpiredToken, InvalidToken, MissingToken, SessionCreationFailed
 from arxiv.auth import domain as auth_domian
+from arxiv.auth.legacy.endorsements import explicit_endorsements
 
 from submit_ce.api import User, PublicUser, HttpClient, Client
 from submit_ce.api.domain.agent import StaffUser
 from submit_ce.ui import backend
-from submit_ce.ui.backend import get_endorsements
 from submit_ce.ui.config import settings
 
 logger = logging.getLogger(__name__)
@@ -116,13 +116,8 @@ def setup_auth():
     setattr(request,"auth", _session_from_db(session))
 
 
-def _add_endorsements(user: User) -> None:
-    """Adds endorsements to user."""
-    if isinstance(user, (PublicUser, StaffUser)):
-        if user.endorsements:
-            user.endorsements.extend(get_endorsements(user))
-        else:
-            user.endorsements = get_endorsements(user)
+def get_endorsements(user: auth_domian.User) -> list[str]:
+    return [cat.id for cat in explicit_endorsements(user)]
 
 
 def _get_user(session: Optional[auth_domian.Session]=None) -> User:
@@ -137,18 +132,14 @@ def _get_user(session: Optional[auth_domian.Session]=None) -> User:
     else:
         name = "un-named user"
 
-    # arxiv-base session usually lacks endorsements
-    endorsements = getattr(session.authorizations, 'endorsements', [])
-
     # TODO handle staff users
     user = PublicUser(
         user_id=session.user.user_id,
         name=name,
         email=session.user.email,
-        endorsements = endorsements,
+        endorsements = get_endorsements(session.user),
         scopes = session.authorizations.scopes,
     )
-    _add_endorsements(user)
     return user
 
 
