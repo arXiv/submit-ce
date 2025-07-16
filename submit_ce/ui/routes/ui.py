@@ -121,9 +121,11 @@ def handle(controller: Callable, template: str, title: str,
         request_data = MultiDict(request.form.items(multi=True))
 
     context = {'pagetitle': title}
-    data, code, headers = controller(request.method, request_data,
-                                     request.auth, submission_id,
-                                     **kwargs)
+    auth = getattr(request, "auth", None)
+    if auth and isinstance(auth, Exception):
+        raise auth # rerasie any excpetion from auth middleware
+
+    data, code, headers = controller(request.method, request_data, auth, submission_id, **kwargs)
     context.update(data)
 
     if flow_controlled:
@@ -149,17 +151,15 @@ def service_status():
 
 
 @UI.route('/', methods=["GET"])
-@scoped(scopes.CREATE_SUBMISSION,
-                        unauthorized=redirect_to_login)
+@scoped(scopes.CREATE_SUBMISSION, unauthorized=redirect_to_login)
 def manage_submissions():
     """Display the submission management dashboard."""
-    return handle(cntrls.create, 'submit/manage_submissions.html',
+    return handle(cntrls.manage_submissions, 'submit/manage_submissions.html',
                   'Manage submissions')
 
 
 @UI.route('/', methods=["POST"])
-@scoped(scopes.CREATE_SUBMISSION,
-                        unauthorized=redirect_to_login)
+@scoped(scopes.CREATE_SUBMISSION, unauthorized=redirect_to_login)
 def create_submission():
     """Create a new submission."""
     return handle(cntrls.create, 'submit/manage_submissions.html',

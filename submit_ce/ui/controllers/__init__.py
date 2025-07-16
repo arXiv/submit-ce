@@ -6,6 +6,7 @@ from werkzeug.datastructures import MultiDict
 
 from submit_ce.ui.routes.flow_control import advance_to_current
 from . import util, jref, withdraw, delete, cross
+from .manage_submissions import manage_submissions
 from .new import process
 from .new import upload
 from .new.authorship import authorship
