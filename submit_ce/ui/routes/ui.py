@@ -122,8 +122,7 @@ def handle(controller: Callable, template: str, title: str,
 
     context = {'pagetitle': title}
     auth = getattr(request, "auth", None)
-    if auth and isinstance(auth, Exception):
-        raise auth # rerasie any excpetion from auth middleware
+    # TODO this might be a good place to detect unauth and redirect to login
 
     data, code, headers = controller(request.method, request_data, auth, submission_id, **kwargs)
     context.update(data)

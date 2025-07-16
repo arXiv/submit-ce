@@ -4,7 +4,7 @@ from typing import Callable, Tuple, Optional
 from arxiv.auth.legacy import util
 from arxiv.db.models import Demographic, TapirNickname, TapirUser
 from arxiv.db import Session as DB  # renamed due to too many session
-from flask import request
+from flask import has_app_context, has_request_context, request
 from werkzeug.datastructures import MultiDict
 from werkzeug.exceptions import Unauthorized, NotFound
 from werkzeug.http import parse_cookie
@@ -16,7 +16,7 @@ from arxiv.auth.legacy.endorsements import explicit_endorsements
 
 from submit_ce.api import User, PublicUser, HttpClient, Client
 from submit_ce.api.domain.agent import StaffUser
-from submit_ce.ui import backend
+from submit_ce.ui import backend, get_device_type
 from submit_ce.ui.config import settings
 
 logger = logging.getLogger(__name__)
@@ -26,7 +26,7 @@ def _ip_address(environ) -> str:
     try:
         return environ['HTTP_X_FORWARDED_FOR'].split(',')[-1].strip()
     except KeyError:
-        return environ['REMOTE_ADDR']
+        return environ['REMOTE_ADDR'] or "unknown"
 
 def _get_cookies(environ) -> list[str]:
     """Get all cookies with key ARXIVNG_SESSION_ID."""
@@ -64,7 +64,6 @@ def _session_from_db(jwt: auth_domian.Session) -> auth_domian.Session:
 
     Uses endorsements and scopes from db, not from jwt since jwt seems not record these.
     """
-    ip = _ip_address(request.environ)
     if not jwt or not jwt.user or not jwt.user.user_id:
         raise SessionCreationFailed(f"no session or no user. ip {ip}")
     user_id = jwt.user.user_id
@@ -102,6 +101,7 @@ def _session_from_db(jwt: auth_domian.Session) -> auth_domian.Session:
                                        start_time=jwt.start_time, end_time=jwt.end_time,
                                        user=user, authorizations=authorizations)
     logger.debug('loaded user %s', db_session.user.user_id)
+    db_session.ip_address = jwt.ip_address
     return db_session
 
 
@@ -112,7 +112,7 @@ def setup_auth():
     Must be run inside a flask request context."""
     session, token = _get_first_valid_jwt(settings.JWT_SECRET,
                                           _get_cookies(request.environ) + _get_auth_bearer(request.environ))
-    request.environ['token'] = token  # Attach the encrypted token for use in sub requests
+    request.environ['token'] = token  # Attach which token decrypted for use in sub requests
     setattr(request,"auth", _session_from_db(session))
 
 
@@ -144,22 +144,13 @@ def _get_user(session: Optional[auth_domian.Session]=None) -> User:
 
 
 def _get_client(session: auth_domian.Session) -> HttpClient:
-    # ua = request.headers.get("User-Agent", None)
-    # if ua is None:
-    #     agent_type = "ua-not-set"
-    # if ua.lower().startswith("mozilla"):
-    #     agent_type = "browser"
-    # else:
-    #     agent_type = ua[:20]
-
-    # return HttpClient(
-    #     remote_addr=request.remote_addr or "unknown-remote-addr",
-    #     remote_host="",  # TODO get hostname
-    # )
-    # TODO implement _get_client
+    ua = request.headers.get("User-Agent", "") if has_request_context() else "BogusTestingUa"
+    lang = request.headers.get("Accept-Language","none") if has_request_context() else "da, en-gb;q=0.8, en;q=0.7"
     return HttpClient(
-        remote_addr= session.ip_address or "",
-        remote_host= ""
+        remote_addr= session.ip_address,
+        remote_host= session.remote_host,
+        device_type=get_device_type(ua),
+        language=lang.split(",")[0][:4],
     )
 
 
