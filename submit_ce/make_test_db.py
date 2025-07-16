@@ -25,8 +25,11 @@ Then you can run it again, and it will find the existing db.
 import os
 import uuid
 
+from arxiv.auth.legacy import accounts
+from arxiv.auth.legacy.sessions import create
 from arxiv.base import Base
-from arxiv.taxonomy.definitions import CATEGORIES
+from arxiv.taxonomy.category import Category
+from arxiv.taxonomy.definitions import CATEGORIES, CATEGORIES_ACTIVE, GROUPS
 from flask import Flask
 from pytz import timezone
 from sqlalchemy.orm import Session
@@ -49,7 +52,7 @@ from arxiv.db import models
 
 import random
 from datetime import datetime, timedelta
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 
 from mimesis import Person, Internet, Datetime
 from mimesis.locales import Locale
@@ -201,8 +204,51 @@ def users(count: int = 500) -> List[models.TapirUser]:
             policy_class=2,  # Public user.
             joined_date=_epoch(Datetime(locale).datetime()),
             joined_ip_num=ip_addr,
-            joined_remote_host=ip_addr
+            joined_remote_host=ip_addr,
+            #tapir_nicknames=models.TapirNickname(),
+            #demographics=models.Demographics(),
+
         ))
+    return _users
+
+def get_endorsements(ii) -> Tuple[List[Category], Category, str]:
+    """Randomly return `[endorsements, default_category, group]`."""
+    group = random.choice([item for item in GROUPS.values() if item.is_active]).id
+    categories=random.sample(list(CATEGORIES_ACTIVE.values()), k=random.randint(4,16))
+    return categories, random.choice(categories), group
+
+
+def users_v2(count: int = 500) -> List[Tuple[domain.User, str, str, str, List[Category]]]:
+    """Generate a bunch of random users for use with `accounts.register()`."""
+    _users=[]
+    for ii in range(count):
+        locale = _get_locale()
+        person = Person(locale)
+        net = Internet()
+        endorsed, default_category, group = get_endorsements(ii)
+        _users.append(
+            (
+            domain.User(
+                user_id=str(ii),
+                email=person.email(),
+                username=person.username(),
+                name=domain.UserFullName(
+                    forename=person.name(),
+                    surname=person.surname(),
+                    suffix=person.title()),
+                profile=domain.UserProfile(
+                    affiliation=person.university(),
+                    rank=3,
+                    country=str(locale)[:2],
+                    default_archive=default_category,
+                    submission_groups=[group]
+            )),
+            person.password(),
+            net.ip_v4(),
+            net.hostname(),
+            endorsed
+            )
+        )
     return _users
 
 
@@ -286,45 +332,39 @@ def bootstrap_db(output_jwt: bool=False, db_uri = f"sqlite:///{DEV_SQLITE_FILE}"
             logger.debug(f'JWT_SECRET: {app.config["JWT_SECRET"]}')
         else:
             raise ValueError('Must set JWT_SECRET')
+        app.config['SESSION_DURATION']=36000 # Make this as long as you want.
 
-        def user_to_jwt(user):
-            start = datetime.now(tz=timezone('US/Eastern'))
-            end = start + timedelta(seconds=36000)  # Make this as long as you want.
-
-            session = domain.Session(
-                session_id=str(uuid.uuid4()),
-
-                start_time=start, end_time=end,
-                user=domain.User(
-                    user_id=str(user.user_id),
-                    email=user.email,
-                    username=user.email,
-                    name=domain.UserFullName(forename=user.first_name, surname=user.last_name, suffix=user.suffix_name),
-                    profile=domain.UserProfile(
-                        affiliation="Cornell University",
-                        rank=int(3),
-                        country="us",
-                        default_category=CATEGORIES['astro-ph.GA'],
-                        submission_groups=[]
-                    ),
-                    verified=True,
-                ),
-                authorizations=domain.Authorizations(scopes=scope)
-            )
-
+        def user_to_jwt(user, auths):
+            session = create(auths, "127.0.0.1", "localhost", "", user)
             token = tokens.encode(session, app.config["JWT_SECRET"])
             return token
-            #
-            # return generate_token(
-            #     str(user.user_id),
-            #     user.email,
-            #     user.email,
-            #     scope=scope,
-            #     first_name=user.first_name,
-            #     last_name=user.last_name,
-            #     suffix_name=user.suffix_name,
-            #     #endorsements=["*.*"],
+
+            # start = datetime.now(tz=timezone('US/Eastern'))
+            # end = start + timedelta(seconds=36000)
+
+            # session = domain.Session(
+            #     session_id=str(uuid.uuid4()),
+
+            #     start_time=start, end_time=end,
+            #     user=domain.User(
+            #         user_id=str(user.user_id),
+            #         email=user.email,
+            #         username=user.email,
+            #         name=domain.UserFullName(forename=user.first_name, surname=user.last_name, suffix=user.suffix_name),
+            #         profile=domain.UserProfile(
+            #             affiliation="Cornell University",
+            #             rank=int(3),
+            #             country="us",
+            #             default_category=CATEGORIES['astro-ph.GA'],
+            #             submission_groups=[]
+            #         ),
+            #         verified=True,
+            #     ),
+            #     authorizations=domain.Authorizations(scopes=scope)
             # )
+            #
+            # token = tokens.encode(session, app.config["JWT_SECRET"])
+            # return token
 
         with Session(engine) as session:
             logger.info("Waiting for database server to be available")
@@ -341,7 +381,7 @@ def bootstrap_db(output_jwt: bool=False, db_uri = f"sqlite:///{DEV_SQLITE_FILE}"
                     time.sleep(wait)
                     wait *= 2
 
-            logger.info("Checking for database")
+            logger.debug("Checking for database")
 
 
             if not engine.dialect.has_table(engine.connect(), "arXiv_submissions"):
@@ -353,19 +393,33 @@ def bootstrap_db(output_jwt: bool=False, db_uri = f"sqlite:///{DEV_SQLITE_FILE}"
                 for obj in licenses():
                     session.add(obj)
                 session.commit()
-                logger.info("Added %i licenses", len(licenses()))
+                logger.debug("Added %i licenses", len(licenses()))
                 for obj in policy_classes():
                     session.add(obj)
                 session.commit()
-                logger.info("Added %i policy classes", len(policy_classes()))
+                logger.debug("Added %i policy classes", len(policy_classes()))
                 for obj in categories():
                     session.add(obj)
                 session.commit()
-                logger.info("Added %i categories", len(categories()))
-                users_to_add = users(10)
-                for obj in users_to_add:
-                    session.add(obj)
-                    created_users.append(obj)
+                logger.debug("Added %i categories", len(categories()))
+                users_to_add = users_v2(20)
+                for user, pw, ip, host, endos in users_to_add:
+                    new_user, auths = accounts.register(user, pw, ip, host)
+                    for cat in endos:
+                        if cat.in_archive == cat.id:  # it's an archive
+                            session.add(models.Endorsement(endorsee_id=new_user.user_id,
+                                                       archive=cat.in_archive,
+                                                       subject_class="",
+                                                       flag_valid=1, type="auto", point_value=10,
+                                                       issued_when=11074371513))
+                        else:
+                            sc = cat.id.split(".")[1] if "." in cat.id else cat.id
+                            session.add(models.Endorsement(endorsee_id=new_user.user_id,
+                                                       archive=cat.in_archive,
+                                                       subject_class=sc,
+                                                       flag_valid=1, type="auto", point_value=10,
+                                                       issued_when=11074371513))
+                    created_users.append((new_user, auths))
                 logger.info("Added %i users for testing", len(users_to_add))
                 session.commit()
 
@@ -374,7 +428,7 @@ def bootstrap_db(output_jwt: bool=False, db_uri = f"sqlite:///{DEV_SQLITE_FILE}"
                 else:
                     pass
                 print("\n")
-                return user_to_jwt(created_users[0])
+                return user_to_jwt(created_users[0][0], created_users[0][1])
 
             else:
                 logger.info("arXiv_submissions table already exists, DB bootstraped. No new users created.")

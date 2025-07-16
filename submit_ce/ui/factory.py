@@ -7,7 +7,7 @@ from flask import Flask
 
 from arxiv.base import Base
 from arxiv.config import settings as base_settings
-from arxiv.db import Session
+from arxiv import db
 
 from .auth import setup_auth
 from .config import settings
@@ -30,13 +30,15 @@ def create_web_app(config: Optional[dict]=None) -> Flask:
 
     app.config.from_object(settings)
     backend.config_backend_api(settings)
-
+    db.init(settings)
     Base(app)
     app.register_blueprint(UI)
 
     for filter_name, filter_func in filters.get_filters():
         app.jinja_env.filters[filter_name] = filter_func
 
+
+    app.config['CLASSIC_DB_URI'] = settings.CLASSIC_DB_URI
     app.config['CLASSIC_SESSION_HASH'] = settings.JWT_SECRET  # shove this in for arxiv-base use
     app.config['SESSION_DURATION']=7200 # to appease arxiv-base, not really used
     @app.before_request
@@ -45,6 +47,6 @@ def create_web_app(config: Optional[dict]=None) -> Flask:
 
     @app.teardown_appcontext
     def shutdown_session(exception=None):
-        Session.remove()
+        db.Session.remove()
 
     return app
