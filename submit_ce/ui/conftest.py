@@ -145,7 +145,7 @@ def authorized_user_session(app, jwt_secret, mocker):
 @pytest.fixture
 def authorized_user(authorized_user_session, mocker):
     session, _ = authorized_user_session
-    user = submit_ce.ui.auth._get_user(session)
+    user, _ = submit_ce.ui.auth.user_and_client_from_session(session)
     return user
 
 

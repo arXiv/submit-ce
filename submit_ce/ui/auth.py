@@ -16,7 +16,7 @@ from arxiv.auth.legacy.endorsements import explicit_endorsements
 
 from submit_ce.api import User, PublicUser, HttpClient, Client
 from submit_ce.api.domain.agent import StaffUser
-from submit_ce.ui import backend, get_device_type
+from submit_ce.ui import backend, get_device_type, is_admin
 from submit_ce.ui.config import settings
 
 logger = logging.getLogger(__name__)
@@ -120,40 +120,6 @@ def get_endorsements(user: auth_domian.User) -> list[str]:
     return [cat.id for cat in explicit_endorsements(user)]
 
 
-def _get_user(session: Optional[auth_domian.Session]=None) -> User:
-    if not session:
-        session = request.environ['auth']  # was already setup by arxiv.auth.auth.middleware
-
-    if not(session and session.user and session.user.user_id and session.authorizations):
-        raise Unauthorized()
-
-    if session.user.name:
-        name = " ".join([session.user.name.forename, session.user.name.surname])
-    else:
-        name = "un-named user"
-
-    # TODO handle staff users
-    user = PublicUser(
-        user_id=session.user.user_id,
-        name=name,
-        email=session.user.email,
-        endorsements = get_endorsements(session.user),
-        scopes = session.authorizations.scopes,
-    )
-    return user
-
-
-def _get_client(session: auth_domian.Session) -> HttpClient:
-    ua = request.headers.get("User-Agent", "") if has_request_context() else "BogusTestingUa"
-    lang = request.headers.get("Accept-Language","none") if has_request_context() else "da, en-gb;q=0.8, en;q=0.7"
-    return HttpClient(
-        remote_addr= session.ip_address,
-        remote_host= session.remote_host,
-        device_type=get_device_type(ua),
-        language=lang.split(",")[0][:4],
-    )
-
-
 def user_and_client_from_session(session: auth_domian.Session) -> Tuple[User, Optional[Client]]:
     """
     Get submission user/client representations from a :class:`.Session`.
@@ -166,11 +132,40 @@ def user_and_client_from_session(session: auth_domian.Session) -> Tuple[User, Op
 
     # TODO: currently this does nothing with the client. We will need to add that
     # bit once we have a plan for handling client information in this interface.
-    if not session or not session.user or not session.user.user_id or not session.user.profile:
+    if not (session.user and session.user.user_id and session.user.profile and session.authorizations):
         # TODO: fix this to handle SA or other non user clients
-        raise RuntimeError("Must pass a valid `Session`")
+        raise Unauthorized()
 
-    return _get_user(session), _get_client(session)
+    name = " ".join([session.user.name.forename, session.user.name.surname]) if session.user.name \
+        else "un-named user"
+
+    if is_admin(session):
+        user = StaffUser(
+            user_id=session.user.user_id,
+            name=name,
+            email=session.user.email,
+            endorsements = get_endorsements(session.user),
+            scopes = session.authorizations.scopes,
+        )
+    else:
+        user = PublicUser(
+            user_id=session.user.user_id,
+            name=name,
+            email=session.user.email,
+            endorsements = get_endorsements(session.user),
+            scopes = session.authorizations.scopes,)
+
+    ua = request.headers.get("User-Agent", "") if has_request_context() \
+        else "BogusTestingUa"
+    lang = request.headers.get("Accept-Language","none") if has_request_context() \
+        else "da, en-gb;q=0.8, en;q=0.7"
+    client = HttpClient(
+        remote_addr= session.ip_address,
+        remote_host= session.remote_host,
+        device_type=get_device_type(ua),
+        language=lang.split(",")[0][:4],)
+
+    return user, client
 
 
 def is_owner(session: auth_domian.Session, submission_id: str, **kw) -> bool:

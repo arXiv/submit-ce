@@ -1,5 +1,7 @@
 import re
 
+from arxiv.auth.domain import Session
+
 def get_device_type(user_agent):
     """
     Parses a user agent string to determine the device type.
@@ -31,3 +33,15 @@ def get_device_type(user_agent):
         return "Computer"
     else:
         return user_agent[:25]
+
+
+# TODO move these to somewhere under arxiv.auth.auth
+ADMIN_MASK = 1
+DEV_MASK = 1<<2
+
+def is_admin(session: Session)->bool:
+    return bool(getattr(session.authorizations, "classic", 0) & ADMIN_MASK)
+
+
+def is_dev(session: Session)->bool:
+    return bool(getattr(session.authorizations, "classic", 0) & DEV_MASK)
