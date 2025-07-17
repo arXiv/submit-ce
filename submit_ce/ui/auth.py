@@ -65,10 +65,10 @@ def _session_from_db(jwt: auth_domian.Session) -> auth_domian.Session:
     Uses endorsements and scopes from db, not from jwt since jwt seems not record these.
     """
     if not jwt or not jwt.user or not jwt.user.user_id:
-        raise SessionCreationFailed(f"no session or no user. ip {ip}")
+        raise SessionCreationFailed(f"no session or no user. ip {jwt.ip_address}")
     user_id = jwt.user.user_id
     if jwt.expired:
-        raise ExpiredToken(f'JWT has an expired session {jwt.session_id} user {user_id} ip {ip}')    
+        raise ExpiredToken(f'JWT has an expired session {jwt.session_id} user {user_id} ip {jwt.ip_address}')
 
     data: Tuple[TapirUser, TapirNickname, Demographic] = \
     DB.query(
