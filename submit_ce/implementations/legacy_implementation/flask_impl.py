@@ -1,14 +1,11 @@
-from arxiv.auth.domain import Session as AuthSession, User as AuthUser
-from arxiv.auth.legacy.endorsements import get_endorsements
+from pathlib import Path
 from arxiv.db import Session
-from flask import request
 
 from . import LegacySubmitImplementation
 from sqlalchemy.orm import Session as SqlalchemySession
 
 from ..compile.compile_at_gcp_service import GcpCompileAtLegacy
 from ..file_store.legacy_file_store import LegacyFileStore
-from ...api.domain import Client, User
 
 
 def flask_get_session() -> SqlalchemySession:
@@ -16,36 +13,12 @@ def flask_get_session() -> SqlalchemySession:
     return Session()
 
 
-def flask_get_user() -> User:
-    """Gets a `User` based on `arxiv.auth.auth.Auth` flask middleware."""
-    session: AuthSession = request.auth
-    return User(
-        session.user.user_id,
-        email=session.user.email,
-        forename=getattr(session.user.name, 'forename', None),
-        surname=getattr(session.user.name, 'surname', None),
-        suffix=getattr(session.user.name, 'suffix', None),
-        endorsements=get_endorsements(AuthUser(user_id=session.user.user_id))
-    )
-
-
-def flask_get_client() -> Client:
-    """Gets a `Client` based on flask `request`."""
-    return Client(
-        remoteAddress=request.remote_addr,
-        remoteHost="",
-        agent_type="TODO",
-    )
-
-
 class FlaskSubmitImplementation(LegacySubmitImplementation):
     """Implementation of the `SubmitApi` usable with flask."""
 
     def __init__(self, *args, **kwargs):
         root_dir = "data/new"
-        store = LegacyFileStore(root_dir=root_dir)
+        store = LegacyFileStore(root_dir=Path(root_dir))
         compiler = GcpCompileAtLegacy(root_dir)
         super().__init__(store=store, compiler=compiler, **kwargs)
         self.get_session = flask_get_session
-        self.get_user = flask_get_user
-        self.get_client = flask_get_client

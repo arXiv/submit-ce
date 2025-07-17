@@ -1,3 +1,24 @@
+"""* TODO workspace snapshots
+** make workspace snapshots
+** get workspace snapshots
+** list workspace snapshots
+
+* What to do about workspaces and objects vs functions?
+I kind of like the API being very much just functions because it makes
+it direct to then make a REST API from it.
+
+But a submission.file_store.worksapce would be nice in the python code.
+
+Could I have both?  Like a file_store_convenience(file_store_impl) class that
+returns a WorkspaceConvenience(file_store_impl, workspace_impl)
+
+Seems doable.
+
+* How to add worksapces?
+Maybe just have an opitonal workspace_id on each call? If not set, it goes to the current worksapce.
+
+
+"""
 from abc import ABCMeta, abstractmethod
 from io import BytesIO
 from typing import Protocol, Optional, IO
@@ -39,7 +60,7 @@ class SubmissionFileStore(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def store_source_package(self, submission_id: str, content: SubmitFile, chunk_size) -> str:
+    def store_source_package(self, submission_id: str, content: SubmitFile, chunk_size: int) -> str:
         """Store a source package for a submission.
 
         Returns checksum"""
@@ -56,7 +77,7 @@ class SubmissionFileStore(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def store_preview(self, submission_id: str, content: IO[bytes]) -> str:
+    def store_preview(self, submission_id: str, content: IO[bytes], chunk_size: int) -> str:
         """Store a preview PDF for a submission.
 
         Returns checksum"""

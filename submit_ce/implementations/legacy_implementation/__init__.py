@@ -1,6 +1,7 @@
 import logging
 from datetime import datetime, UTC
 from typing import Optional, List, Tuple, Callable
+from typing_extensions import override
 
 from arxiv.auth.domain import User as AuthDomainUser
 from arxiv.auth.legacy.endorsements import get_endorsements
@@ -45,11 +46,7 @@ class LegacySubmitImplementation(SubmitApi):
                  store: SubmissionFileStore,
                  compiler: CompileService,
                  get_session:Callable[[],SqlalchemySession] = None,
-                 get_user: Callable[[],api.User] = None,
-                 get_client: Callable[[], api.Client] = None,
                  serialize_file_operations:bool = False):
-        self.get_user = get_user
-        self.get_client = get_client
         self.get_session = get_session
         self.serialize_file_operations = serialize_file_operations
         self.compiler = compiler
@@ -59,12 +56,23 @@ class LegacySubmitImplementation(SubmitApi):
         else:
             self.store = store
 
-
+    @override
     def get(self, submission_id: str) -> Submission:
         return self._load(self.get_session(), submission_id)[0]
 
+    @override
     def get_with_history(self, submission_id: str) -> Tuple[Submission, List[Event]]:
         return self._load(self.get_session(), submission_id)
+
+    @override
+    def load_submissions_for_user(self, user_id: str) -> List[Submission]:
+        session = self.get_session()
+        stmt = select(models.Submission) \
+            .where(models.Submission.submitter_id == int(user_id),
+                   models.Submission.status.in_([0, 1, 2, 4])) \
+            .order_by(Submission.submission_id.desc())
+        return [to_submission(row) for row in
+                session.execute(stmt).unique().scalars().all()]
 
     def _load(self, session: SqlalchemySession, submission_id: str, lock_row: bool = False) \
             -> Tuple[Submission, List[Event]]:
@@ -81,15 +89,8 @@ class LegacySubmitImplementation(SubmitApi):
         else:
             return (to_submission(submission), [])
 
-    def load_submissions_for_user(self, user_id: str) -> List[Submission]:
-        session = self.get_session()
-        stmt = select(models.Submission) \
-            .where(models.Submission.submitter_id == int(user_id),
-                   models.Submission.status.in_([0, 1, 2, 4])) \
-            .order_by(Submission.submission_id.desc())
-        submissions: List[Submission] = [to_submission(row) for row in session.execute(stmt).unique().scalars().all()]
-        return submissions
 
+    @override
     def save(self, *events: Event, submission_id: Optional[int] = None) -> Tuple[Submission, List[Event]]:
         if not events:
             raise NothingToDo()
@@ -102,7 +103,11 @@ class LegacySubmitImplementation(SubmitApi):
                 raise NoSuchSubmission('Unable to determine submission')
             return self._save(*events, submission=before, session=session, existing_events=existing_events)
 
-    def _save(self, *events, submission: Submission, session, existing_events: List[Event] ) -> Tuple[Submission, List[Event]]:
+    def _save(self, *events,
+              submission: Submission,
+              session,
+              existing_events: List[Event]
+              ) -> Tuple[Submission, List[Event]]:
         """Internal save for when submission is already read from the db."""
         before = submission
         committed: List[Event] = []
@@ -135,17 +140,16 @@ class LegacySubmitImplementation(SubmitApi):
         session.commit()
         return after, list(all_)
 
-
-
-
+    @override
     def get_service_status(self, impl_data: dict):
         return f"{self.__class__.__name__}  impl_data: {impl_data}"
-
+    
+    @override
     def licenses(self, active_only=True) -> List[License]:
         with self.get_session() as session:
             return db.get_licenses(session, active_only=active_only)
 
-
+    @override
     def categories_for_user(self, user_id: str) -> Optional[str]:
         # TODO need better way to get endorsements since they are not on JWT anymore
         uzr=AuthDomainUser(user_id=user_id,
@@ -153,6 +157,7 @@ class LegacySubmitImplementation(SubmitApi):
                        username=f"fake_username_{__file__}")
         return get_endorsements(uzr)
 
+    @override
     def upload(self, file: SubmitFile, submission_id: int, user: User, client: Client) -> Upload:
         """Saves file to legacy FS and sets the upload package on the submission."""
         if not file or not file.filename or not file.content_type or not hasattr(file, "stream"):
@@ -213,15 +218,19 @@ class LegacySubmitImplementation(SubmitApi):
         session.commit()  # unlocks submission row
         return workspace
 
+    @override
     def get_file_store(self) -> SubmissionFileStore:
         return self.store
 
+    @override
     def get_compiler(self) -> CompileService:
         return self.compiler
 
+    @override
     def next_announcement_time(self, reference: Optional[datetime] = None) -> datetime:
         return next_announcement_time(reference)
 
+    @override
     def next_freeze_time(self, reference: Optional[datetime] = None) -> datetime:
         return next_freeze_time(reference)
 
