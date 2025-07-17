@@ -20,7 +20,7 @@ from ..auth import is_owner
 from submit_ce.ui.workflow.processor import WorkflowProcessor
 from submit_ce.ui.workflow.stages import FileUpload
 from .flow_control import flow_control, get_workflow, endpoint_name
-from ..backend import api, get_submission
+from ..backend import get_submission
 
 logger = logging.getLogger(__name__)
 

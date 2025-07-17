@@ -38,7 +38,8 @@ def test_create_submission(app, authorized_client, mocker):
     sub_id, _ = next_page.path.lstrip('/').split('/verify_user', 1)
     def _sub():
         with app.app_context():
-            return backend.api.get(sub_id)
+            from flask import current_app
+            return current_app.api.get(sub_id)
     assert _sub()
     
     token = _parse_csrf_token(response)

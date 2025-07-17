@@ -164,7 +164,7 @@ class LegacySubmitImplementation(SubmitApi):
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
                                 detail="Must have file, it must have a filename, content-type and steam")
 
-        acceptable_types = ["application/gzip", "application/tar", "application/tar+gzip"]
+        acceptable_types = ["application/gzip", "application/tar", "application/x-tar", "application/tar+gzip"]
         if file.content_type not in acceptable_types:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
                                 detail=f"File content type must be one of {acceptable_types}")
@@ -202,13 +202,13 @@ class LegacySubmitImplementation(SubmitApi):
 
         submission, event_list = self._load(session, submission_id, lock_row=self.serialize_file_operations)
 
-        checksum = self.store.store_source_package(submission.submission_id, file)
+        checksum = self.store.store_source_package(submission.submission_id, file, 4098)
         workspace = self.store.get_workspace(submission.submission_id, "fakeuploadid")
 
         command = SetUploadPackage(creator=user, client=client,
                                    submission_id=submission.submission_id,
                                    identifier=str(workspace.identifier),
-                                   checksum=checksum,
+                                   checksum=f"BOGUS {__file__}",
                                    uncompressed_size=workspace.size,
                                    compressed_size=workspace.compressed_size or 0,
                                    source_format=workspace.source_format,

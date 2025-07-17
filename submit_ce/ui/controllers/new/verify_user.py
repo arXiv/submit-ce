@@ -6,7 +6,7 @@ Creates an event of type `core.events.event.ConfirmContactInformation`
 from http import HTTPStatus as status
 from typing import Tuple, Dict, Any, Optional
 
-from flask import url_for
+from flask import url_for, current_app
 from werkzeug.datastructures import MultiDict
 from werkzeug.exceptions import InternalServerError, NotFound, BadRequest
 from wtforms import BooleanField
@@ -16,7 +16,7 @@ import logging
 from arxiv.forms import csrf
 from arxiv.auth.domain import Session
 from submit_ce.api.exceptions import SaveError
-from submit_ce.ui.backend import api
+
 from submit_ce.ui.auth import user_and_client_from_session
 from submit_ce.api.domain.event import ConfirmContactInformation
 
@@ -65,7 +65,7 @@ def verify(method: str, params: MultiDict, session: Session,
             cmd = ConfirmContactInformation(creator=submitter, client=client)
             if validate_command(form, cmd, submission, 'verify_user'):
                 try:
-                    submission, _ = api.save(cmd, submission_id=submission_id)
+                    submission, _ = current_app.api.save(cmd, submission_id=submission_id)
                     response_data['submission'] = submission
                     return ready_for_next((response_data, status.OK, {}))
                 except SaveError as ex:

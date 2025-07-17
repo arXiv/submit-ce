@@ -69,7 +69,7 @@ class GsFileStore(SubmissionFileStore):
         self.bucket = self.storage_client.bucket(self.gs_bucket)
         self.obj_store = GsObjectStore(self.bucket)
 
-    def get_workspace(self, submission_id: str) -> Upload:
+    def get_workspace(self, submission_id: str, upload_id="fake") -> Upload:
         src_dir = self._source_path(submission_id)
         anc_dir = src_dir / "anc"
         files: List[FileStatus] = []

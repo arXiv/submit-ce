@@ -13,7 +13,7 @@ from arxiv.auth.legacy.exceptions import AuthenticationFailed
 from arxiv.auth.legacy.sessions import create
 from arxiv.db import Session
 from arxiv.taxonomy.definitions import CATEGORIES
-from flask import Flask
+from flask import Flask, current_app
 from sqlalchemy import desc, select
 
 import submit_ce
@@ -42,7 +42,7 @@ from submit_ce.api.domain.submission import Author
 #import submit_ce.api.implementations.legacy_implementation
 from submit_ce.make_test_db import bootstrap_db, create_all_legacy_db
 from submit_ce.ui import backend
-from submit_ce.ui.backend import api
+
 from submit_ce.ui.tests import TestClientArxivAuth
 
 
@@ -165,7 +165,7 @@ def sub_created(app, authorized_user):
     with app.app_context():
         user = authorized_user
         ua = InternalClient(name=f"test_client_{__file__}")
-        submission, _ = backend.api.save(CreateSubmission(creator=user, client=ua))
+        submission, _ = current_app.api.save(CreateSubmission(creator=user, client=ua))
         return submission
 
 
@@ -175,7 +175,7 @@ def sub_verified_user(app, authorized_user, sub_created):
     with app.app_context():
         user = authorized_user
         ua = InternalClient(name=f"test_client_{__file__}")
-        submission, _ = backend.api.save(ConfirmContactInformation(creator=user, client=ua),
+        submission, _ = current_app.api.save(ConfirmContactInformation(creator=user, client=ua),
                                          submission_id=sub_created.submission_id)
         return submission
 
@@ -185,7 +185,7 @@ def sub_authorship(app, authorized_user, sub_verified_user):
     with app.app_context():
         user = authorized_user
         ua = InternalClient(name=f"test_client_{__file__}")
-        submission, _ = backend.api.save(
+        submission, _ = current_app.api.save(
             ConfirmAuthorship(creator=user, client=ua, submitter_is_author=True),
             submission_id = sub_verified_user.submission_id)
         return submission
@@ -198,7 +198,7 @@ def sub_license(app, authorized_user, sub_authorship):
         user = authorized_user
         ua = InternalClient(name=f"test_client_{__file__}")
         cc0 = "http://creativecommons.org/publicdomain/zero/1.0/"
-        submission, _ = backend.api.save(
+        submission, _ = current_app.api.save(
             SetLicense(creator=user, client=ua, license_uri=cc0, license_name="CC0 1.0"),
             submission_id=sub_authorship.submission_id)
         return submission
@@ -210,7 +210,7 @@ def sub_policy(app, authorized_user, sub_license):
     with app.app_context():
         user = authorized_user
         ua = InternalClient(name=f"test_client_{__file__}")
-        submission, _ = backend.api.save(
+        submission, _ = current_app.api.save(
             ConfirmPolicy(creator=user, client=ua), submission_id=sub_license.submission_id)
         return submission
 
@@ -221,7 +221,7 @@ def sub_primary(app, authorized_user, sub_policy):
     with app.app_context():
         user = authorized_user
         ua = InternalClient(name=f"test_client_{__file__}")
-        submission, _ = backend.api.save(
+        submission, _ = current_app.api.save(
             SetPrimaryClassification(creator=user, client=ua, category="astro-ph.GA"),
             submission_id=sub_policy.submission_id)
         return submission
@@ -233,7 +233,7 @@ def sub_files(app, authorized_user, sub_primary):
     with app.app_context():
         user = authorized_user
         ua = InternalClient(name=f"test_client_{__file__}")
-        submission, _ = backend.api.save(
+        submission, _ = current_app.api.save(
             SetUploadPackage(creator=user, client=ua,
                 checksum="a9s9k342900skks03330029k",
                 source_format=SubmissionContent.Format.TEX,
@@ -250,7 +250,7 @@ def sub_processed(app, authorized_user, sub_files):
     with app.app_context():
         user = authorized_user
         ua = InternalClient(name=f"test_client_{__file__}")
-        submission, _ = backend.api.save(
+        submission, _ = current_app.api.save(
             SetTitle(creator=user, client=ua, title="foo title, submitted submission"),
             SetAbstract(creator=user, client=ua, abstract="foo abstract {__file__}"),
             SetComments(creator=user, client=ua, comments="pickels"),
@@ -274,7 +274,7 @@ def sub_finalized(app, authorized_user, sub_processed):
     with app.app_context():
         user = authorized_user
         ua = InternalClient(name=f"test_client_{__file__}")
-        submission, _ = backend.api.save(
+        submission, _ = current_app.api.save(
             FinalizeSubmission(creator=user, client=ua),
             submission_id=sub_processed.submission_id)
         return submission
@@ -291,7 +291,7 @@ def submitted_submission(app, authorized_user):
         # Create a finalized submission.
         ua = InternalClient(name=f"test_client_{__file__}")
         cc0 = "http://creativecommons.org/publicdomain/zero/1.0/"
-        submission, _ = api.save(
+        submission, _ = current_app.api.save(
             CreateSubmission(creator=user, client=ua),
             ConfirmContactInformation(creator=user, client=ua),
             ConfirmAuthorship(creator=user, client=ua, submitter_is_author=True),
@@ -334,7 +334,7 @@ def published_submission(app, authorized_user):
         # Create a finalized submission.
         ua = InternalClient(name=f"test_client_{__file__}")
         cc0 = "http://creativecommons.org/publicdomain/zero/1.0/"
-        submission, _ = api.save(
+        submission, _ = current_app.api.save(
             CreateSubmission(creator=user, client=ua),
             ConfirmContactInformation(creator=user, client=ua),
             ConfirmAuthorship(creator=user, client=ua, submitter_is_author=True),
@@ -399,4 +399,4 @@ def published_submission(app, authorized_user):
             session.add(db_submission)
             session.add(db_document)
             session.commit()
-            return api.get(str(submission.submission_id)), paper_id
+            return current_app.api.get(str(submission.submission_id)), paper_id

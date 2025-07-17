@@ -15,11 +15,12 @@ from arxiv.taxonomy.definitions import CATEGORIES_ACTIVE, ARCHIVES_ACTIVE
 from markupsafe import Markup
 
 from submit_ce.api import User
-from submit_ce.ui.backend import api, endorsed_for
+from submit_ce.ui.backend import endorsed_for
 from submit_ce.ui.auth import user_and_client_from_session
 from werkzeug.datastructures import MultiDict
 from werkzeug.exceptions import InternalServerError
 from wtforms import widgets, HiddenField, validators
+from flask import current_app
 
 from submit_ce.api.domain import Submission
 from submit_ce.api.domain.event import RemoveSecondaryClassification, \
@@ -27,7 +28,7 @@ from submit_ce.api.domain.event import RemoveSecondaryClassification, \
 from submit_ce.api.exceptions import SaveError
 from submit_ce.ui.controllers.util import OptGroupSelectField, validate_command
 from submit_ce.ui.routes.flow_control import ready_for_next, stay_on_this_stage
-from submit_ce.ui.backend import get_submission, api
+from submit_ce.ui.backend import get_submission
 
 Response = Tuple[Dict[str, Any], int, Dict[str, Any]]  # pylint: disable=C0103
 
@@ -133,7 +134,7 @@ def classification(method: str, params: MultiDict, session: Session,
         command = SetPrimaryClassification(category=form.category.data, creator=submitter, client=client)
         if validate_command(form, command, submission, 'category'):
             try:
-                submission, _ = api.save(command, submission_id=submission_id)
+                submission, _ = current_app.api.save(command, submission_id=submission_id)
                 response_data['submission'] = submission
                 return ready_for_next((response_data, status.OK, {}))
             except SaveError as ex:
@@ -193,7 +194,7 @@ def cross_list(method: str, params: MultiDict, session: Session,
     if method == 'POST' and form.validate() \
        and validate_command(form, command, submission, 'category'):
         try:
-            submission, _ = api.save(command, submission_id=submission_id)
+            submission, _ = current_app.api.save(command, submission_id=submission_id)
             response_data['submission'] = submission
             
             # Re-build the formset to reflect changes that we just made, and

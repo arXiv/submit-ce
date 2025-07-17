@@ -9,8 +9,8 @@ import logging
 from arxiv.base import alerts
 from arxiv.forms import csrf
 from markupsafe import Markup
+from flask import current_app
 
-from submit_ce.ui.backend import api
 from submit_ce.ui.auth import user_and_client_from_session
 from submit_ce.api.domain.event import UpdateUploadPackage
 from submit_ce.api.domain.uploads import Upload
@@ -92,7 +92,7 @@ def delete_all(method: str, params: MultiDict, session: Session,
         if not (form.validate() and form.confirmed.data):
             return stay_on_this_stage((rdata, status.OK, {}))
 
-        api.get_file_store().delete_workspace(submission.submission_id)
+        current_app.api.get_file_store().delete_workspace(submission.submission_id)
         # TODO Record that the files were deleted
 
         # fm = Filemanager.current_session()
@@ -126,7 +126,7 @@ def delete_all(method: str, params: MultiDict, session: Session,
         #     return return_to_parent_stage((rdata, status.OK, {}))
         #
         # try:
-        #     submission, _ = api.save(command, submission_id=submission_id)
+        #     submission, _ = current_app.api.save(command, submission_id=submission_id)
         # except SaveError:
         #     alerts.flash_failure(Markup(
         #         'There was a problem carrying out your request. Please try'
@@ -232,7 +232,7 @@ def delete_file(method: str, params: MultiDict, session: Session,
                 logger.debug('Command validation failed')
                 return stay_on_this_stage((rdata, status.OK, {}))
             try:
-                submission, _ = api.save(command, submission_id=submission_id)
+                submission, _ = current_app.api.save(command, submission_id=submission_id)
             except SaveError:
                 alerts.flash_failure(Markup(
                     'There was a problem carrying out your request. Please try'

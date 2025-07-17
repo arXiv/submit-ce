@@ -6,12 +6,13 @@ from werkzeug.datastructures import MultiDict
 from werkzeug.exceptions import InternalServerError, BadRequest
 from wtforms.fields import StringField, TextAreaField, Field
 from wtforms import validators
+from flask import current_app
 import logging
 
 from http import HTTPStatus as status
 from arxiv.forms import csrf
 from arxiv.auth.domain import Session, User, Client
-from submit_ce.ui.backend import api
+
 from submit_ce.ui.auth import user_and_client_from_session
 
 from submit_ce.api.domain import Submission, Event
@@ -115,7 +116,7 @@ def metadata(method: str, params: MultiDict, session: Session,
         if commands and all(valid):   # Metadata has changed and is valid
             try:
                 # Save the events created during form validation.
-                submission, _ = api.save(*commands, submission_id=submission_id)
+                submission, _ = current_app.api.save(*commands, submission_id=submission_id)
                 response_data['submission'] = submission
                 return ready_for_next((response_data, status.OK, {}))
             except SaveError as e:
@@ -159,7 +160,7 @@ def optional(method: str, params: MultiDict, session: Session,
             return ready_for_next((response_data, status.OK, {}))
         if all(valid):  # Metadata has changed and is all valid
             try:
-                submission, _ = api.save(*commands, submission_id=submission_id)
+                submission, _ = current_app.api.save(*commands, submission_id=submission_id)
                 response_data['submission'] = submission
                 return ready_for_next((response_data, status.OK, {}))
             except SaveError as e:

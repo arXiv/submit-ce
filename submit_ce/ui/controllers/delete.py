@@ -3,13 +3,13 @@
 from http import HTTPStatus as status
 
 from arxiv.auth.domain import Session
-from flask import url_for
+from flask import url_for, current_app
 from wtforms import BooleanField, validators
 from werkzeug.datastructures import MultiDict
 from werkzeug.exceptions import BadRequest, InternalServerError, NotFound
 
 from arxiv.base import alerts
-from submit_ce.ui.backend import api, get_submission
+from submit_ce.ui.backend import get_submission
 from submit_ce.ui.auth import user_and_client_from_session
 from submit_ce.api.domain.event import Rollback, CancelRequest
 from arxiv.forms import csrf
@@ -62,7 +62,7 @@ def delete(method: str, params: MultiDict, session: Session,
                 raise BadRequest(response_data)
 
             try:
-                api.save(command, submission_id=submission_id)
+                current_app.api.save(command, submission_id=submission_id)
             except Exception as e:
                 alerts.flash_failure("Whoops!")
                 raise InternalServerError(response_data) from e
@@ -120,7 +120,7 @@ def cancel_request(method: str, params: MultiDict, session: Session,
                 raise BadRequest(response_data)
 
             try:
-                api.save(command, submission_id=submission_id)
+                current_app.api.save(command, submission_id=submission_id)
             except Exception as e:
                 alerts.flash_failure("Whoops!" + str(e))
                 raise InternalServerError(response_data) from e

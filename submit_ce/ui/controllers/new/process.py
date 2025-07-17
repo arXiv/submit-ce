@@ -11,14 +11,14 @@ import io
 from http import HTTPStatus as status
 from typing import Tuple, Dict, Any
 import logging
-
+from flask import current_app
 from arxiv.base import alerts
 from arxiv.forms import csrf
 from markupsafe import Markup
 
 from submit_ce.api.domain.event.process import StartCompileSource
 from submit_ce.api.exceptions import SaveError
-from submit_ce.ui.backend import api
+
 from ...auth import user_and_client_from_session
 from submit_ce.api.domain.event import ConfirmSourceProcessed
 from arxiv.auth.domain import Session
@@ -99,7 +99,7 @@ def _check_status(params: MultiDict, session: Session,  submission_id: int,
         # TODO rename this SourceProcessedCompleted() Confirm is ambiguous with the user confirming
         command = ConfirmSourceProcessed(creator=submitter, client=client)
         try:
-            submission, _ = api.save(command, submission_id=submission_id)
+            submission, _ = current_app.api.save(command, submission_id=submission_id)
             return ready_for_next(({}, status.OK, {}))
         except SaveError as e:
             alerts.flash_failure(Markup(
@@ -187,7 +187,7 @@ def start_compilation(params: MultiDict, session: Session, submission_id: int,
     command = StartCompileSource(creator=submitter, client=client, source_id=submission.source_content.identifier)
     if validate_command(form, command, submission):
         try:
-            api.save(command, submission_id=submission.submission_id)  # The api implementation will call CompileSource.execute()
+            current_app.api.save(command, submission_id=submission.submission_id)  # The api implementation will call CompileSource.execute()
             return stay_on_this_stage((response_data, status.OK, {}))
         except SaveError as e:
             alerts.flash_failure(f"We couldn't process your submission. {SUPPORT}", title="Processing failed")
@@ -222,7 +222,7 @@ def file_preview(params, session: Session, submission_id: int, token: str,
     """Serve the PDF preview for a submission."""
     submitter, client = user_and_client_from_session(session)
     submission, submission_events = get_submission(submission_id)
-    fstore = api.get_file_store()
+    fstore = current_app.api.get_file_store()
     stream = fstore.get_preview(submission.submission_id)
     pdf_checksum = fstore.get_preview_checksum(submission.submission_id)
     headers = {'Content-Type': 'application/pdf', 'ETag': pdf_checksum}

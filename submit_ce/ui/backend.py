@@ -1,23 +1,33 @@
 """Core persistence methods for submissions and submission events."""
 from typing import Tuple, List, cast
 
+from arxiv.config import Settings
 from arxiv.db import session_factory, configure_db
-from flask import g, has_app_context
+from flask import g, has_app_context, current_app
 from werkzeug.exceptions import BadRequest, NotFound
 
 from submit_ce.api import SubmitApi, Submission, Event
 from submit_ce.api.domain import User
 from submit_ce.api.exceptions import NoSuchSubmission
+from submit_ce.implementations import NullImplementation
+from submit_ce.implementations.compile.compile_at_gcp_service import GcpCompileAtLegacy
+from submit_ce.implementations.file_store.gs_file_store import GsFileStore
+from submit_ce.implementations.file_store.legacy_file_store import LegacyFileStore
 from submit_ce.implementations.legacy_implementation.flask_impl import FlaskSubmitImplementation
 
 
-def config_backend_api(settings) -> None:
+def config_backend_api(settings: Settings) -> SubmitApi:
     engine, _ = configure_db(settings)
     session_factory.configure(bind=engine)
-
-
-api: SubmitApi = FlaskSubmitImplementation()
-"""Backend forced to be legacy implementation just for testing. It should be configurable via Settings."""
+    if settings.STORE == "gs":
+        store = GsFileStore(gs_bucket=settings.STORE_GS_BUCKET,
+                            gs_prefix=settings.STORE_GS_PREFIX)
+    else:
+        store = LegacyFileStore(root_dir=settings.STORE_LOCAL_ROOT)
+    
+    return FlaskSubmitImplementation(
+        store=store,
+        compiler=GcpCompileAtLegacy("data/new"))  # TODO compiler needs to know about store
 
 
 def get_submission(submission_id: int) -> Tuple[Submission, List[Event]]:
@@ -42,12 +52,12 @@ def get_submission(submission_id: int) -> Tuple[Submission, List[Event]]:
         raise BadRequest('No submission id')
 
     if not has_app_context():  # for testing to avoid problems with flask app context
-        return api.get_with_history(submission_id)
+        return current_app.api.get_with_history(submission_id)
 
     if "submission" in g and "events" in g and g.submission is not None and g.events is not None:        
         return (cast(Submission, g.submission), cast(List[Event], g.events))
     try:
-        submission, history = api.get_with_history(submission_id)
+        submission, history = current_app.api.get_with_history(submission_id)
         g.submission = submission
         g.events = history        
         return submission, history

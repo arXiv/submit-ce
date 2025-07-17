@@ -4,7 +4,7 @@ from http import HTTPStatus as status
 from typing import Tuple, Dict, Any
 
 from arxiv.auth.domain import Session
-from flask import url_for
+from flask import url_for, current_app
 from markupsafe import Markup
 from werkzeug.datastructures import MultiDict
 from werkzeug.exceptions import InternalServerError
@@ -16,7 +16,7 @@ from arxiv.forms import csrf
 from submit_ce.api.domain.event import RequestWithdrawal
 
 from .util import FieldMixin, validate_command
-from submit_ce.ui.backend import api, get_submission
+from submit_ce.ui.backend import get_submission
 from ..auth import user_and_client_from_session
 from submit_ce.api.exceptions import SaveError
 
@@ -80,7 +80,7 @@ def request_withdrawal(method: str, params: MultiDict, session: Session,
        and validate_command(form, cmd, submission, 'withdrawal_reason'):
         try:
             # Save the events created during form validation.
-            submission, _ = api.save(cmd, submission_id=submission_id)
+            submission, _ = current_app.api.save(cmd, submission_id=submission_id)
             # Success! Send user back to the submission page.
             alerts.flash_success("Withdrawal request submitted.")
             status_url = url_for('ui.create_submission')

@@ -12,6 +12,8 @@ from arxiv.auth.domain import Session
 from arxiv.base import logging
 from arxiv.forms import csrf
 
+
+from flask import current_app
 from werkzeug.datastructures import MultiDict
 from werkzeug.exceptions import InternalServerError
 from wtforms import BooleanField, RadioField
@@ -20,7 +22,7 @@ from wtforms.validators import InputRequired, ValidationError, optional
 from submit_ce.api.domain.event import ConfirmAuthorship
 from submit_ce.api.exceptions import SaveError
 
-from submit_ce.ui.backend import api
+
 from submit_ce.ui.auth import user_and_client_from_session
 from submit_ce.ui.controllers.util import validate_command
 from submit_ce.ui.routes.flow_control import ready_for_next
@@ -68,7 +70,7 @@ def authorship(method: str, params: MultiDict, session: Session,
                                         submitter_is_author=value)
             if validate_command(form, command, submission, 'authorship'):
                 try:
-                    submission, _ = api.save(command, submission_id=submission_id)
+                    submission, _ = current_app.api.save(command, submission_id=submission_id)
                     response_data['submission'] = submission
                     return response_data, status.SEE_OTHER, {}
                 except SaveError as e:

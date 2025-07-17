@@ -16,9 +16,12 @@ def flask_get_session() -> SqlalchemySession:
 class FlaskSubmitImplementation(LegacySubmitImplementation):
     """Implementation of the `SubmitApi` usable with flask."""
 
-    def __init__(self, *args, **kwargs):
-        root_dir = "data/new"
-        store = LegacyFileStore(root_dir=Path(root_dir))
-        compiler = GcpCompileAtLegacy(root_dir)
-        super().__init__(store=store, compiler=compiler, **kwargs)
+    def __init__(self,
+                 store,
+                 compiler):
+        # TODO this init is not good
+        root_dir =  "data/new"
+        store = store or LegacyFileStore(root_dir=Path(root_dir))
+        compiler = compiler or GcpCompileAtLegacy(root_dir)
+        super().__init__(store=store, compiler=compiler)
         self.get_session = flask_get_session

@@ -13,7 +13,7 @@ from submit_ce.api.domain.agent import PublicUser
 from submit_ce.api.domain.event import SetPrimaryClassification, CreateSubmission, ConfirmContactInformation, \
     ConfirmAuthorship, SetLicense, ConfirmPolicy, SetUploadPackage, SetTitle, SetAbstract, SetComments, SetReportNumber, \
     SetAuthors, FinalizeSubmission
-from submit_ce.ui.backend import api
+
 from submit_ce.ui.tests import CtrlBase, TestClientArxivAuth
 from submit_ce.ui.tests.csrf_util import parse_csrf_token
 
@@ -76,7 +76,7 @@ from arxiv.db import models
     # Create and announce a submission.
     # with self.app.app_context():
     #     cc0 = 'http://creativecommons.org/publicdomain/zero/1.0/'
-    #     self.submission, _ = api.save(
+    #     self.submission, _ = current_app.api.save(
     #         CreateSubmission(creator=self.user, client=self.api_client),
     #         ConfirmContactInformation(creator=self.user),
     #         ConfirmAuthorship(creator=self.user, submitter_is_author=True),

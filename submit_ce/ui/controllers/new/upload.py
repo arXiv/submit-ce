@@ -17,6 +17,7 @@ from locale import strxfrm
 from pathlib import Path
 from typing import Tuple, Dict, Any, Optional, List, Union
 
+from flask import current_app
 from arxiv.auth.domain import Session
 from arxiv.base import alerts
 from arxiv.forms import csrf
@@ -35,7 +36,7 @@ from submit_ce.api.domain.event import SetUploadPackage, UpdateUploadPackage
 from submit_ce.api.domain.submission import SubmissionContent, Submission
 from submit_ce.api.domain.uploads import Upload, FileStatus, UploadStatus
 from submit_ce.api.exceptions import SaveError
-from submit_ce.ui.backend import api
+
 from submit_ce.ui.auth import user_and_client_from_session
 from submit_ce.ui.controllers.util import add_immediate_alert, validate_command
 from submit_ce.ui.routes.flow_control import stay_on_this_stage
@@ -204,7 +205,7 @@ def _update_submission(form: UploadForm, submission: Submission, stat: Upload,
         return None
 
     try:
-        submission, _ = api.save(command, submission_id=submission.submission_id)
+        submission, _ = current_app.api.save(command, submission_id=submission.submission_id)
     except SaveError:
         alerts.flash_failure(Markup('There was a problem carrying out your request. Please try'
                     f' again. {PLEASE_CONTACT_SUPPORT}'))
@@ -245,7 +246,7 @@ def _get_upload(params: MultiDict, session: Session, submission: Submission,
     if type(status_data) is dict and status_data['identifier'] == upload_id:
         workspace = Upload.from_dict(status_data)
     else:
-        workspace = api.get_file_store().get_workspace(submission_id=submission.submission_id,
+        workspace = current_app.api.get_file_store().get_workspace(submission_id=submission.submission_id,
                                                        upload_id=submission.source_content.identifier)
     rdata.update({'status': workspace})
 
@@ -296,7 +297,7 @@ def _new_upload(params: MultiDict, pointer: FileStorage, session: Session,
         logger.debug('Invalid form data')
         return stay_on_this_stage((rdata, status.OK, {}))
 
-    stat = api.upload(form.data['file'], submission.submission_id, submitter, client)
+    stat = current_app.api.upload(form.data['file'], submission.submission_id, submitter, client)
     converted_size = tidy_filesize(stat.size)
     if stat.status is UploadStatus.READY:
         alerts.flash_success(
@@ -369,7 +370,7 @@ def _new_file(params: MultiDict, pointer: FileStorage, session: Session,
             title="Something went wrong")
         return stay_on_this_stage((rdata, status.OK, {}))
     #try:
-    stat = api.get_file_store().add_file(upload_id, pointer, token,
+    stat = current_app.api.get_file_store().add_file(upload_id, pointer, token,
                                          ancillary=form.ancillary.data)
     # except  as ex:
     #     try:

@@ -1,5 +1,5 @@
 import os
-from typing import Tuple, List
+from typing import Literal, Tuple, List
 
 from arxiv.config import settings as arxivbase_settings, Settings as ArxivBaseSettings
 
@@ -92,6 +92,23 @@ class Settings(ArxivBaseSettings):
     """
     Used to encoded and decode JWTs for auth.
     """
+
+    STORE: Literal["local","gs"] = "local"
+
+    STORE_GS_BUCKET: str = ""
+    """If in gs mode, what bucket to store submissions in."""
+    
+    STORE_GS_PREFIX: str = ""
+    """If in gs mode, a prefix to put before each submssion ex data/new.
+    
+    Don't start with a /"""
+    
+    STORE_LOCAL_ROOT: str = "data/new"
+    """If in `STORE="local"` mode, what directory to store in.
+
+    Can be relative or absolute."""
+    
+
 
 
 settings = Settings()

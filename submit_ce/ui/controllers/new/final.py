@@ -12,8 +12,8 @@ from werkzeug.datastructures import MultiDict
 from werkzeug.exceptions import InternalServerError
 from wtforms import BooleanField
 from wtforms.validators import InputRequired
+from flask import current_app
 
-from submit_ce.ui.backend import api
 from submit_ce.ui.auth import user_and_client_from_session
 from submit_ce.api.domain.event import FinalizeSubmission
 from submit_ce.api.exceptions import SaveError
@@ -53,7 +53,7 @@ def finalize(method: str, params: MultiDict, session: Session,
        and proofread_confirmed \
        and validate_command(form, command, submission):
         try:
-            submission, stack = api.save(  # pylint: disable=W0612
+            submission, stack = current_app.api.save(  # pylint: disable=W0612
                 command, submission_id=submission_id)
         except SaveError as e:
             logger.error('Could not save primary event')

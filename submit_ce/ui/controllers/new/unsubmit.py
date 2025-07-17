@@ -2,14 +2,14 @@
 
 from http import HTTPStatus as status
 
-from flask import url_for
+from flask import url_for, current_app
 from wtforms import BooleanField, validators
 from werkzeug.datastructures import MultiDict
 from werkzeug.exceptions import BadRequest, InternalServerError
 
 from arxiv.base import alerts
 from arxiv.forms import csrf
-from submit_ce.ui.backend import api
+
 from submit_ce.ui.auth import user_and_client_from_session
 from submit_ce.api.domain.event import UnFinalizeSubmission
 from arxiv.auth.domain import Session
@@ -49,7 +49,7 @@ def unsubmit(method: str, params: MultiDict, session: Session,
                 raise BadRequest(response_data)
 
 
-            api.save(command, submission_id=submission_id)
+            current_app.api.save(command, submission_id=submission_id)
             alerts.flash_success("Unsubmitted.")
             redirect = url_for('ui.create_submission')
             return {}, status.SEE_OTHER, {'Location': redirect}

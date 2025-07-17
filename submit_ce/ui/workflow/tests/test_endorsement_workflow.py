@@ -14,7 +14,7 @@ from submit_ce.api.domain import User
 from submit_ce.api.domain.event import SetPrimaryClassification, CreateSubmission, ConfirmContactInformation, \
     ConfirmAuthorship, SetLicense, ConfirmPolicy, SetUploadPackage, SetTitle, SetAbstract, SetComments, SetReportNumber, \
     SetAuthors, FinalizeSubmission
-from submit_ce.ui.backend import api
+
 from submit_ce.ui.tests import CtrlBase
 from submit_ce.ui.tests.csrf_util import parse_csrf_token
 

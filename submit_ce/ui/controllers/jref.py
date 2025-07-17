@@ -4,7 +4,7 @@ from http import HTTPStatus as status
 from typing import Tuple, Dict, Any, List
 
 from arxiv.auth.domain import Session
-from flask import url_for
+from flask import url_for, current_app
 from markupsafe import Markup
 from werkzeug.datastructures import MultiDict
 from werkzeug.exceptions import InternalServerError, BadRequest
@@ -19,7 +19,7 @@ from submit_ce.api.domain.event import SetDOI, SetJournalReference, \
     SetReportNumber
 from submit_ce.api.exceptions import SaveError
 
-from submit_ce.ui.backend import api, get_submission
+from submit_ce.ui.backend import get_submission
 from ..auth import user_and_client_from_session
 from .util import FieldMixin, validate_command
 
@@ -112,7 +112,7 @@ def jref(method: str, params: MultiDict, session: Session,
             logger.debug('Form is valid, with data: %s', str(form.data))
             try:
                 # Save the events created during form validation.
-                submission, _ = api.save(*commands, submission_id=submission_id)
+                submission, _ = current_app.api.save(*commands, submission_id=submission_id)
             except SaveError as e:
                 logger.error('Could not save metadata event')
                 raise InternalServerError(response_data) from e

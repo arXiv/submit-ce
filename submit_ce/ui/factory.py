@@ -29,7 +29,10 @@ def create_web_app(config: Optional[dict]=None) -> Flask:
     app.url_map.strict_slashes = False
 
     app.config.from_object(settings)
-    backend.config_backend_api(settings)
+
+    # Put the SubmitApi on the flask app
+    app.api = backend.config_backend_api(settings)
+
     db.init(settings)
     Base(app)
     app.register_blueprint(UI)

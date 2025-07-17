@@ -11,7 +11,7 @@ from arxiv.forms import csrf
 from wtforms.fields.numeric import IntegerField
 from wtforms.fields.simple import HiddenField
 
-from submit_ce.ui.backend import api
+from flask import current_app
 from submit_ce.ui.auth import user_and_client_from_session
 from submit_ce.api.exceptions import SaveError
 from werkzeug.datastructures import MultiDict
@@ -51,7 +51,7 @@ def policy(method: str, params: MultiDict, session: Session,
             command = ConfirmPolicy(creator=submitter, client=client)
             if validate_command(form, command, submission, 'policy'):
                 try:
-                    submission, _ = api.save(command, submission_id=submission_id)
+                    submission, _ = current_app.api.save(command, submission_id=submission_id)
                     response_data['submission'] = submission
                     return ready_for_next((response_data, status.OK, {}))
                 except SaveError as e:

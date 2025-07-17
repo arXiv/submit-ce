@@ -11,7 +11,8 @@ from arxiv.auth.domain import Session
 from arxiv.base import logging
 from arxiv.forms import csrf
 from arxiv.license import LICENSES
-from submit_ce.ui.backend import api
+
+from flask import current_app
 from submit_ce.ui.auth import user_and_client_from_session
 from submit_ce.api.exceptions import SaveError
 from werkzeug.datastructures import MultiDict
@@ -57,7 +58,7 @@ def license(method: str, params: MultiDict, session: Session,
             command = SetLicense(creator=submitter, client=client, license_uri=license_uri)
             if validate_command(form, command, submission, 'license'):
                 try:
-                    submission, _ = api.save(command, submission_id=submission_id)
+                    submission, _ = current_app.api.save(command, submission_id=submission_id)
                     return ready_for_next((response_data, status.OK, {}))
                 except SaveError as e:
                     raise InternalServerError(response_data) from e

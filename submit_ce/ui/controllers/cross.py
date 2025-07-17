@@ -4,7 +4,7 @@ from http import HTTPStatus as status
 from typing import Tuple, Dict, Any, Optional, List
 
 from arxiv.auth.domain import Session
-from flask import url_for
+from flask import url_for, current_app
 from markupsafe import Markup
 from werkzeug.datastructures import MultiDict
 from werkzeug.exceptions import InternalServerError, BadRequest
@@ -14,7 +14,7 @@ from wtforms.validators import ValidationError, optional
 
 from arxiv.base import logging, alerts
 from arxiv.forms import csrf
-from submit_ce.ui.backend import api, get_submission
+from submit_ce.ui.backend import get_submission
 from ..auth import user_and_client_from_session
 from submit_ce.api.domain.event import RequestCrossList
 from submit_ce.api.exceptions import SaveError
@@ -176,7 +176,7 @@ def request_cross(method: str, params: MultiDict, session: Session,
                 raise BadRequest(response_data)
 
             try:    # Submit the cross-list request.
-                api.save(command, submission_id=submission_id)
+                current_app.api.save(command, submission_id=submission_id)
             except SaveError as e:
                 # This would be due to a database error, or something else
                 # that likely isn't the user's fault.

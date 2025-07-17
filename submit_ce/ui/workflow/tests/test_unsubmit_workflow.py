@@ -2,8 +2,8 @@
 
 from http import HTTPStatus as status
 
+from flask import curent_app
 
-from submit_ce.ui.backend import api
 from submit_ce.ui.tests.csrf_util import parse_csrf_token
 
 
@@ -33,5 +33,6 @@ def test_unsubmit_submission(authorized_client, submitted_submission):
     assert response.status_code == status.SEE_OTHER
 
     # Check what happened.
-    submission = api.get(submission_id=str(submission.submission_id))
+    submission =
+    current_app.api.get(submission_id=str(submission.submission_id))
     assert submission.status == 0 or submission.status == "working"
