@@ -23,7 +23,7 @@ import urllib.parse
 from typing import List, Optional
 from enum import Enum
 
-GCP_COMPILE_URL = 'https://tex-to-pdf-npp77dfppq-uc.a.run.app'
+GCP_COMPILE_URL = "https://tex-to-pdf-default-1090350072932.us-central1.run.app"
 
 # The output of (La)TeX compilation
 GCP_LOG_NAME = "gcp_compile.log"
