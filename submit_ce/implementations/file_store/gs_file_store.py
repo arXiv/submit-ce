@@ -52,8 +52,8 @@ class GsFileStore(SubmissionFileStore):
 
     def __init__(self,
                  gs_bucket: str,
-                 gs_prefix = "/data/new"
-                 source_prefix = "src"
+                 gs_prefix = "data/new",
+                 source_prefix = "src",
                  ):
         self.gs_bucket = gs_bucket
         """GS to store the files."""
@@ -62,8 +62,8 @@ class GsFileStore(SubmissionFileStore):
         self.source_prefix = source_prefix
         """Prefix for source files"""
         
-        if not self.gs_prefix[0] == "/":
-            self.gs_prefix = "/" + self.gs_prefix
+        if self.gs_prefix.startswith("/"):
+            self.gs_prefix = self.gs_prefix[1:]
             
         self.storage_client = storage.Client()
         self.bucket = self.storage_client.bucket(self.gs_bucket)
@@ -104,17 +104,18 @@ class GsFileStore(SubmissionFileStore):
                      chunk_size: int) -> str:
         """Store a source package for a submission."""
         files=[]
+        src_dir = self._source_path(submission_id)
         
         with tarfile.open(fileobj=content.stream, mode="r:*") as tar:
             for member in tar.getmembers():
                 if not member.isfile():
                     continue                
                 with tar.extractfile(member) as file:
-                    blob = self.bucket.blob(member.name)
+                    blob = self.bucket.blob(str(src_dir / member.name))
                     blob.upload_from_file(file, size=member.size)
                     files.append( {"file":member.name, "bytes": member.size})
                     
-        return "fake_chksum"  # we don't have the tar so we don't really have a checksum
+        return files
 
 
 
