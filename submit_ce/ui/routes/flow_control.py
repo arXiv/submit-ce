@@ -179,7 +179,6 @@ def flow_control(blueprint_this_stage: Optional[Stage] = None,
         @wraps(controller)
         def wrapper(submission_id: str) -> Response:
             """Update the redirect to the next, previous, or exit page."""
-            
             action = request.form.get('action', None)
             submission, _ = get_submission(submission_id)
             workflow = request.workflow
@@ -268,7 +267,7 @@ def flow_decision(method: str,
         if user_action is None:  # like cross_list with action ADD?
             return 'SHOW_CONTROLLER_RESULT'
 
-    if controller_action == STAGE_RESHOW:
+    if controller_action == STAGE_RESHOW or code == 400:
         if user_action == NEXT:
             # Reshow the form to the due to form errors
             return 'SHOW_CONTROLLER_RESULT'

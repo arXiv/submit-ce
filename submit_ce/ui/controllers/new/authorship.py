@@ -39,7 +39,7 @@ def authorship(method: str, params: MultiDict, session: Session,
                submission_id: int, **kwargs) -> Response:
     """Handle the authorship assertion view."""
     submitter, client = user_and_client_from_session(session)
-    submission, submission_events = get_submission(submission_id)
+    submission, _ = get_submission(submission_id)
 
     # The form should be prepopulated based on the current state of the
     # submission.
@@ -62,22 +62,23 @@ def authorship(method: str, params: MultiDict, session: Session,
         'client': client,
     }
 
-    if method == 'POST' and form.validate():
-        value = (form.authorship.data == form.YES)
-        # No need to do this more than once.
-        if submission.submitter_is_author != value:
-            command = ConfirmAuthorship(creator=submitter, client=client,
-                                        submitter_is_author=value)
-            if validate_command(form, command, submission, 'authorship'):
-                try:
-                    submission, _ = current_app.api.save(command, submission_id=submission_id)
-                    response_data['submission'] = submission
-                    return response_data, status.SEE_OTHER, {}
-                except SaveError as e:
-                    raise InternalServerError(response_data) from e
-        return ready_for_next((response_data, status.OK, {}))
+    if method == "GET":            
+        return response_data, status.OK, {}
+    if method != "POST":
+        return response_data, status.METHOD_NOT_ALLOWED, {}
+    if not form.validate():
+        return response_data, status.BAD_REQUEST, {}        
+
+    value = form.authorship.data == form.YES
+    not_yet_done = submission.submitter_is_author != value
+    command = ConfirmAuthorship(creator=submitter, client=client,
+                                submitter_is_author=value)
+    if not_yet_done and validate_command(form, command, submission, 'authorship'):
+            submission, _ = current_app.api.save(command, submission_id=submission_id)
+            response_data['submission'] = submission
     
-    return response_data, status.OK, {}
+    return ready_for_next((response_data, status.OK, {}))
+
 
 
 class AuthorshipForm(csrf.CSRFForm):
