@@ -23,7 +23,7 @@ from submit_ce.ui.backend import get_submission
 
 
 logger = logging.getLogger(__name__)
-
+logger.setLevel(logging.DEBUG)
 EXIT = 'ui.create_submission'
 
 PREVIOUS = 'previous'
@@ -172,11 +172,8 @@ def flow_control(blueprint_this_stage: Optional[Stage] = None,
     """
     def route(controller: Callable) -> Callable:
         """Decorate blueprint route so that it wrapps the controller with
-        workflow redirection."""        
-        # controler gets 'updated' to look like wrapper but keeps
-        # name and docstr
-        # https://docs.python.org/2/library/functools.html#functools.wraps
-        @wraps(controller)
+        workflow redirection."""
+        @wraps(controller)  # controler gets 'updated' to look like wrapper but keeps name and docstr
         def wrapper(submission_id: str) -> Response:
             """Update the redirect to the next, previous, or exit page."""
             action = request.form.get('action', None)
@@ -191,8 +188,9 @@ def flow_control(blueprint_this_stage: Optional[Stage] = None,
             if workflow.is_complete() and not endpoint_name() == workflow.workflow.confirmation.endpoint:
                 return to_stage(workflow.workflow.confirmation, submission_id)
 
-            if not workflow.can_proceed_to(this_stage):
-                logger.debug(f'sub {submission_id} cannot proceed to {this_stage}')
+            if blocked := workflow.blocked(this_stage):
+                logger.debug("sub %s proceed to %s blocked by %s",
+                             submission_id, this_stage.__class__.__name__, blocked)
                 return to_current(workflow, submission_id)
 
             # If the user selects "go back", we attempt to save their input
@@ -200,7 +198,7 @@ def flow_control(blueprint_this_stage: Optional[Stage] = None,
             # from going to the previous step.
             try:
                 data, code, headers, resp_fn = controller(submission_id)
-                #WARNING: controllers do not update the submission in this scope
+                # WARNING: the above call does not update the `submission` in this scope
             except BadRequest:
                 if action == PREVIOUS:
                     return to_previous(workflow, this_stage, submission_id)

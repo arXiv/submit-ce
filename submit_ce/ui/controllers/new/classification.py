@@ -127,32 +127,25 @@ def classification(method: str, params: MultiDict, session: Session,
         'form': form
     }
 
-    if method != 'POST':
+    if method == "GET":
         return response_data, status.OK, {}
+    if method != 'POST':
+        return response_data, status.METHOD_NOT_ALLOWED, {}
 
-    if form.validate():
-        command = SetPrimaryClassification(category=form.category.data, creator=submitter, client=client)
-        if validate_command(form, command, submission, 'category'):
-            try:
-                submission, _ = current_app.api.save(command, submission_id=submission_id)
-                response_data['submission'] = submission
-                return ready_for_next((response_data, status.OK, {}))
-            except SaveError as ex:
-                raise InternalServerError(response_data) from ex
-            finally:
-                pass
-        else:                                  
-            return response_data, status.BAD_REQUEST, {}
-    else:
+    validated = form.validate()
+    command = SetPrimaryClassification(category=form.category.data, creator=submitter, client=client)
+    if validated and validate_command(form, command, submission, 'category'):
+        submission, _ = current_app.api.save(command, submission_id=submission_id)
+        response_data['submission'] = submission
+        return ready_for_next((response_data, status.OK, {}))
+    else:                                  
         return response_data, status.BAD_REQUEST, {}
-        
 
 
 def cross_list(method: str, params: MultiDict, session: Session,
                submission_id: int, **kwargs) -> Response:
     """Handle secondary classification requests for a new submission."""
     submitter, client = user_and_client_from_session(session)
-    #submission, submission_events = get_submission(submission_id)
     submission, _ = get_submission(submission_id)
 
     form = ClassificationForm(params)
@@ -180,6 +173,11 @@ def cross_list(method: str, params: MultiDict, session: Session,
         },
     }
 
+    if method == "GET":
+        return response_data, status.OK, {}
+    if method != "POST":
+        return response_data, status.METHOD_NOT_ALLOWED, {}
+    
     # Ensure the user is not attempting to move to a different step.
     # Since the interface provides an "add" button to add cross-list
     # categories, we only want to handle the form data if the user is not
@@ -187,34 +185,29 @@ def cross_list(method: str, params: MultiDict, session: Session,
 
     if form.operation.data == form.REMOVE:
         command_type = RemoveSecondaryClassification
-    else:
+    elif form.operation.data == form.ADD:
         command_type = AddSecondaryClassification
-    command = command_type(category=form.category.data,
-                           creator=submitter, client=client)
-    if method == 'POST' and form.validate() \
-       and validate_command(form, command, submission, 'category'):
-        try:
-            submission, _ = current_app.api.save(command, submission_id=submission_id)
-            response_data['submission'] = submission
-            
-            # Re-build the formset to reflect changes that we just made, and
-            # generate a fresh form for adding another secondary. The POSTed
-            # data should now be reflected in the formset.
-            response_data['formset'] = ClassificationForm.formset(submission)
-            form = ClassificationForm()
-            form.operation._value = lambda: form.operation.data
-            form.filter_choices(submission, submitter)
-            response_data['form'] = form
+    else:
+        return response_data, status.OK, {}  # user may be changing step?
 
-            # do not go to next yet, re-show cross form
-            return stay_on_this_stage((response_data, status.OK, {}))
-        except SaveError as ex:
-            raise InternalServerError(response_data) from ex
+    validated_form = form.validate()
+    command = command_type(category=form.category.data, creator=submitter, client=client)
+    validated_command = validate_command(form, command, submission, 'category')
+    if not (validated_form and validated_command):
+        return response_data, status.BAD_REQUEST, {}
 
-        
-    if len(submission.secondary_categories) > 3:
-        alerts.flash_warning(Markup(
-            'Adding more than three cross-list classifications will'
-            ' result in a delay in the acceptance of your submission.'
-        ))
-    return response_data, status.OK, {}
+    submission, _ = current_app.api.save(command, submission_id=submission_id)
+    response_data['submission'] = submission
+
+    # Re-build the formset to reflect changes that we just made, and
+    # generate a fresh form for adding another secondary. The POSTed
+    # data should now be reflected in the formset.
+    response_data['formset'] = ClassificationForm.formset(submission)
+    form = ClassificationForm()
+    form.operation._value = lambda: form.operation.data
+    form.filter_choices(submission, submitter)
+    response_data['form'] = form
+
+    # do not go to next yet, re-show cross form
+    return stay_on_this_stage((response_data, status.OK, {}))
+

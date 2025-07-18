@@ -1,178 +1,72 @@
 """Tests for :mod:`submit_ce.controllers.classification`."""
 
-from unittest import TestCase, mock
+from submit_ce.api.domain.submission import Submission
+from submit_ce.ui.tests import gets
+from submit_ce.ui.tests.csrf_util import parse_csrf_token
+ 
 
-from arxiv.auth import auth, domain
-from werkzeug.datastructures import MultiDict
-from werkzeug.exceptions import NotFound
-from wtforms import Form
-from http import HTTPStatus as status
-import submit_ce as events
+def test_primary_classification(app, authorized_client, sub_policy):
+    sub: Submission = sub_policy
+    assert sub and not sub.primary_classification
 
-from pytz import timezone
-from datetime import timedelta, datetime
+    url = "/9929929292/classification"
+    resp = authorized_client.get(url)
+    assert resp.status_code == 404
 
-import submit_ce.api.domain
-from submit_ce.api.exceptions import NoSuchSubmission
-from submit_ce.ui.controllers.new import classification
-from submit_ce.ui.routes.flow_control import STAGE_CURRENT, STAGE_RESHOW, get_controllers_desire
-from submit_ce.ui.tests import CtrlBase
+    url = f"/{sub.submission_id}/classification"
+    resp = authorized_client.get(url)
+    assert resp.status_code == 200 and b"Choose a Primary Category" in resp.data and b"<form " in resp.data
 
-class TestClassification(CtrlBase):
-    """Test behavior of :func:`.classification` controller."""
+    resp = authorized_client.post(url, data={})
+    assert resp.status_code == 400 and b"Choose a Primary Category" in resp.data and b"<form " in resp.data
+    resp = authorized_client.post(url, data={'csrf_token':parse_csrf_token(resp)})
+    assert resp.status_code == 400 and b"Choose a Primary Category" in resp.data and b"<form " in resp.data
 
+    #tests unendorsed
+    resp = authorized_client.post(url, data={'csrf_token':parse_csrf_token(resp), 'category':'math.GR'})
+    assert resp.status_code == 400 and b"Choose a Primary Category" in resp.data and b"<form " in resp.data
 
-    @mock.patch(f'{classification.__name__}.ClassificationForm.Meta.csrf', False)
-    @mock.patch('submit_ce.ui.controllers.new.classification.get_submission')
-    def test_get_request_with_submission(self, mock_load):
-        """GET request with a submission ID."""
-        submission_id = 2
-        before = mock.MagicMock(submission_id=submission_id,
-                                is_finalized=False, is_announced=False, version=1, arxiv_id=None)
-        mock_load.return_value = (before, [])
-        data, code, _ = classification.classification('GET', MultiDict(),
-                                                   self.session,
-                                                   submission_id)
-        self.assertIsInstance(data['form'], Form, "Data includes a form")
-        self.assertEqual(code, status.OK)
-
-    @mock.patch(f'{classification.__name__}.ClassificationForm.Meta.csrf', False)
-    @mock.patch('submit_ce.ui.controllers.new.classification.get_submission')
-    def test_get_request_with_nonexistant_submission(self, mock_load):
-        """GET request with a submission ID."""
-        submission_id = 2
-        def raise_no_such_submission(*args, **kwargs):
-            raise NotFound('Nada')
-
-        mock_load.side_effect = raise_no_such_submission
-        with self.assertRaises(NotFound):
-            classification.classification('GET', MultiDict(), self.session, submission_id)
-
-    @mock.patch(f'{classification.__name__}.ClassificationForm.Meta.csrf', False)
-    @mock.patch('submit_ce.ui.controllers.new.classification.get_submission')
-    def test_post_request(self, mock_load):
-        """POST request with no data."""
-        submission_id = 2
-        before = mock.MagicMock(submission_id=submission_id,
-                                is_finalized=False, is_announced=False, version=1, arxiv_id=None)
-        mock_load.return_value = (before, [])
-        data, code, _ = classification.classification('POST', MultiDict(), self.session, submission_id)
-        self.assertIsInstance(data['form'], Form, "Data includes a form")
-        self.assertEqual(code, status.BAD_REQUEST, "no data should do 400")
-
-    @mock.patch(f'{classification.__name__}.ClassificationForm.Meta.csrf', False)
-    @mock.patch('submit_ce.ui.auth.get_endorsements')
-    @mock.patch(f'{classification.__name__}.api.save')
-    @mock.patch('submit_ce.ui.controllers.new.classification.get_submission')
-    def test_post_with_already_set_category(self, mock_load, mock_save, mock_endo):
-        """POST request with valid category."""
-        submission_id = 2
-        mock_endo.return_value = self.user.endorsements
-        before = mock.MagicMock(submission_id=submission_id,
-                                is_finalized=False, is_announced=False, version=1, arxiv_id=None)
-        mock_clsn = mock.MagicMock(category='astro-ph.CO')
-        after = mock.MagicMock(submission_id=submission_id,
-                               is_finalized=False, primary_classification=mock_clsn,
-                               is_announced=False, version=1, arxiv_id=None)
-        mock_load.return_value = (before, [])
-        mock_save.return_value = (after, [])
-        params = MultiDict({'category': 'astro-ph.CO'})
-        data, code, _ = classification.classification('POST', params, self.session, submission_id)
+    resp = authorized_client.post(url, data={'csrf_token':parse_csrf_token(resp), 'category':'astro-ph.CO'})
+    assert resp.status_code == 200 and b"Choose a Primary Category" in resp.data and b"<form " in resp.data
+    assert gets(app,sub).primary_classification and gets(app,sub).primary_classification.id == "astro-ph.CO"
 
 
-class TestCrossList(CtrlBase):
-    """Test behavior of :func:`.cross_list` controller."""
+def test_cross_classification(app, authorized_client, sub_policy):
+    sub: Submission = sub_policy
+    assert sub and not sub.primary_classification
 
-    @mock.patch(f'{classification.__name__}.ClassificationForm.Meta.csrf', False)
-    @mock.patch('submit_ce.ui.auth.get_endorsements')
-    @mock.patch('submit_ce.ui.backend.api.get_with_history')
-    def test_get_request_with_submission(self, mock_load, mock_endo):
-        """GET request with a submission ID."""
-        submission_id = 2
-        mock_endo.return_value = ['astro-ph.EP']+self.user.endorsements
-        mock_clsn = mock.MagicMock(category='astro-ph.EP')
-        before = mock.MagicMock(submission_id=submission_id,
-                                is_finalized=False,
-                                primary_classification=mock_clsn,
-                                is_announced=False, version=1, arxiv_id=None)
-        mock_load.return_value = (before, [])
-        params = MultiDict()
-        data, code, _ = classification.cross_list('GET', params, self.session, submission_id)
-        self.assertEqual(code, status.OK, "Returns 200 OK")
-        self.assertIsInstance(data['form'], Form, "Data includes a form")
+    assert authorized_client.get("/9929929292/cross_list").status_code == 404
 
-    @mock.patch(f'{classification.__name__}.ClassificationForm.Meta.csrf', False)
-    @mock.patch('submit_ce.ui.auth.get_endorsements')
-    @mock.patch('submit_ce.ui.backend.api.get_with_history')
-    def test_get_request_with_nonexistant_submission(self, mock_load, mock_endo):
-        """GET request with a submission ID."""
-        submission_id = 2
-        mock_endo.return_value = ['astro-ph.EP']+self.user.endorsements
-        def raise_no_such_submission(*args, **kwargs):
-            raise NoSuchSubmission('Nada')
+    # # must do primary before cross
+    cross_url = f"/{sub.submission_id}/cross_list"
+    resp = authorized_client.get(cross_url)
+    assert resp.status_code == 303 and resp.headers["Location"] == f"/{sub.submission_id}/classification"
 
-        mock_load.side_effect = raise_no_such_submission
-        with self.assertRaises(NoSuchSubmission):
-            classification.cross_list('GET', MultiDict(), self.session, submission_id)
+    # do primary so we can get to cross
+    primary_url=f"/{sub.submission_id}/classification"
+    resp = authorized_client.get(primary_url)
+    resp = authorized_client.post(primary_url, data={'csrf_token':parse_csrf_token(resp),
+                                                     'action':'next',
+                                                     'category':'astro-ph.CO'})
+    assert resp.status_code == 303 and resp.headers["Location"] == cross_url
+    assert gets(app,sub).primary_classification and gets(app,sub).primary_classification.id == "astro-ph.CO"
 
-    @mock.patch(f'{classification.__name__}.ClassificationForm.Meta.csrf', False)
-    @mock.patch('submit_ce.ui.backend.api.get_with_history')
-    def test_post_request(self, mock_load):
-        """POST request with no data."""
-        submission_id = 2
-        mock_clsn = mock.MagicMock(category='astro-ph.EP')
-        before = mock.MagicMock(submission_id=submission_id,
-                                is_finalized=False,
-                                primary_classification=mock_clsn,
-                                is_announced=False, version=1, arxiv_id=None)
-        mock_load.return_value = (before, [])
+    # now client can get the cross form
+    cross_url = f"/{sub.submission_id}/cross_list"
+    resp = authorized_client.get(cross_url)
+    assert resp.status_code == 200 and b"<title>Choose Cross-List" in resp.data and b"<form " in resp.data
+    
+    # attempt some bad data    
+    resp = authorized_client.post(cross_url, data={})
+    assert resp.status_code == 400 and b"<title>Choose Cross-List" in resp.data and b"<form " in resp.data
+    resp = authorized_client.post(cross_url, data={'csrf_token':parse_csrf_token(resp)})
+    assert resp.status_code == 400 and b"<title>Choose Cross-List" in resp.data and b"<form " in resp.data
 
-        data, _, _ = classification.cross_list('POST', MultiDict(), self.session,
-                                               submission_id)
-        self.assertIsInstance(data['form'], Form, "Data includes a form")
+    #tests unendorsed
+    resp = authorized_client.post(cross_url, data={'csrf_token':parse_csrf_token(resp), 'category':'math.GR'})
+    assert resp.status_code == 400 and b"<title>Choose Cross-List" in resp.data and b"<form " in resp.data
 
-    @mock.patch(f'{classification.__name__}.ClassificationForm.Meta.csrf', False)
-    @mock.patch(f'submit_ce.ui.backend.api.save')
-    @mock.patch('submit_ce.ui.backend.api.get_with_history')
-    def test_post_with_invalid_category(self, mock_load, mock_save):
-        """POST request with invalid category."""
-        submission_id = 2
-        mock_clsn = mock.MagicMock(category='astro-ph.EP')
-        before = mock.MagicMock(submission_id=submission_id,
-                                is_finalized=False,
-                                primary_classification=mock_clsn,
-                                is_announced=False, version=1, arxiv_id=None)
-        mock_load.return_value = (before, [])
-        mock_save.return_value = (before, [])
-        params = MultiDict({'category': 'astro-ph'})  # <- expired
-        data, code, _ = classification.classification('POST', params, self.session,
-                                                   submission_id)        
-        self.assertIsInstance(data['form'], Form, "Data includes a form")
-        self.assertEqual(code, status.BAD_REQUEST, "bad data should do 400")
-
-    @mock.patch(f'{classification.__name__}.ClassificationForm.Meta.csrf', False)
-    @mock.patch(f'submit_ce.ui.backend.api.save')
-    @mock.patch('submit_ce.ui.backend.api.get_with_history')
-    def test_post_with_category(self, mock_load, mock_save):
-        """POST request with valid category."""
-        submission_id = 2
-        mock_clsn = mock.MagicMock(category='astro-ph.EP')
-        before = mock.MagicMock(submission_id=submission_id,
-                                is_finalized=False,
-                                primary_classification=mock_clsn,
-                                primary_category='astro-ph.EP',
-                                is_announced=False, version=1, arxiv_id=None)
-        after = mock.MagicMock(submission_id=submission_id, is_finalized=False,
-                               primary_classification=mock_clsn,
-                               primary_category='astro-ph.EP',
-                               secondary_categories=[
-                                   mock.MagicMock(category='astro-ph.CO')
-                               ],
-                               is_announced=False, version=1, arxiv_id=None)
-        mock_load.return_value = (before, [])
-        mock_save.return_value = (after, [])
-        params = MultiDict({'category': 'astro-ph.CO'})
-        data, code, _ = classification.cross_list('POST', params, self.session,
-                                                  submission_id)
-        self.assertEqual(code, status.OK, "Returns 200 OK")
-        self.assertIsInstance(data['form'], Form, "Data includes a form")
+    # invalid due to cross to primary
+    resp = authorized_client.post(cross_url, data={'csrf_token':parse_csrf_token(resp), 'category':'astro-ph.CO'})
+    assert resp.status_code == 400 and b"<title>Choose Cross-List" in resp.data and b"<form " in resp.data
+    assert gets(app,sub).primary_classification and gets(app,sub).primary_classification.id == "astro-ph.CO"

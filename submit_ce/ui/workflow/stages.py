@@ -36,6 +36,12 @@ class Stage:
     def is_complete(self, submission: Submission) -> bool:
         return all([fn(submission) for fn in self.completed])
 
+    def incomplete(self, submission: Submission) -> list[str]:
+        """Returns names of conditions that caused incomplete, or empty list if completed."""
+        return [done_check.__name__ for
+                done_check in self.completed
+                if not done_check(submission)]
+
 
 class VerifyUser(Stage):
     """The user is asked to verify their personal information."""
@@ -94,7 +100,7 @@ class CrossList(Stage):
     label = 'add cross-list categories'
     title = "Add cross-list"
     display = "Cross-list"
-    completed = [conditions.has_secondary]
+    completed = [conditions.has_secondary]  # TODO Might be a problem, should be "has_see"
 
 
 class FileUpload(Stage):

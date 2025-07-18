@@ -10,6 +10,7 @@ from werkzeug.datastructures import Headers
 
 from arxiv.taxonomy.definitions import CATEGORIES
 
+from submit_ce.api.domain.submission import Submission
 from submit_ce.ui import backend
 
 
@@ -57,3 +58,10 @@ class CtrlBase(TestCase):
     @pytest.fixture(autouse=True)
     def add_auth_client(self, authorized_client):
         self.client = authorized_client
+
+
+
+def gets(appx, subx) -> Submission:
+    """Helper to get submission from a context."""
+    with appx.app_context():
+        return appx.api.get(subx.submission_id)

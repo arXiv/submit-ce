@@ -53,6 +53,7 @@ from dataclasses import field
 from datetime import datetime
 from typing import Optional, List, Union, ClassVar
 
+from arxiv.license import LICENSES
 import bleach
 from arxiv.taxonomy.definitions import CATEGORIES
 from pytz import UTC
@@ -349,6 +350,12 @@ class SetLicense(Event):
     def validate(self, submission: Submission) -> None:
         """Validate the selected license."""
         validators.submission_is_not_finalized(self, submission)
+        if not self.license_uri:
+            raise InvalidEvent(self, "License must have a URL")
+        if self.license_uri not in LICENSES:
+            raise InvalidEvent(self, "License URL is not on the list of valid licenses")
+        if self.license_uri not in [uri for uri, license in LICENSES.items() if license["is_current"]]:
+            raise InvalidEvent(self, "License URL is not on the current list of valid licenses")
 
     def project(self, submission: Submission) -> Submission:
         """Set :attr:`.domain.Submission.license`."""
@@ -436,19 +443,19 @@ class SetAbstract(Event):
     def validate(self, submission: Submission) -> None:
         """Validate the abstract value."""
         validators.submission_is_not_finalized(self, submission)
-        self._acceptable_length(submission)
+        self._acceptable_length()
 
     def project(self, submission: Submission) -> Submission:
         """Update the abstract on a :class:`.domain.submission.Submission`."""
         submission.metadata.abstract = self.abstract
         return submission
 
-    def _acceptable_length(self, submission: Submission) -> None:
+    def _acceptable_length(self) -> None:
         N = len(self.abstract)
         if N < self.MIN_LENGTH or N > self.MAX_LENGTH:
             raise InvalidEvent(self,
                                f"Abstract must be between {self.MIN_LENGTH}"
-                               f" and {self.MAX_LENGTH} characters")
+                               f" and {self.MAX_LENGTH} characters. Was {len(self.abstract)}")
 
     @staticmethod
     def cleanup(value: str) -> str:

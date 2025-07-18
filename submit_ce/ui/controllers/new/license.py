@@ -35,11 +35,10 @@ def license(method: str, params: MultiDict, session: Session,
     """Convert license form data into a `SetLicense` event."""
     submitter, client = user_and_client_from_session(session)
 
-    submission, submission_events = get_submission(submission_id)
+    submission, _ = get_submission(submission_id)
 
     if method == 'GET' and submission.license:
-        # The form should be prepopulated based on the current state of the
-        # submission.
+        # prepopulated form based on current state of submission
         params['license'] = submission.license.uri
 
     form = LicenseForm(params)
@@ -48,23 +47,21 @@ def license(method: str, params: MultiDict, session: Session,
         'form': form,
         'submission': submission
     }
+    if method == "GET":
+        return stay_on_this_stage((response_data, status.OK, {}))
+    if method != "POST":
+        return response_data, status.METHOD_NOT_ALLOWED, {}
 
-    if method == 'POST' and form.validate():
-        license_uri = form.license.data
-        if submission.license and submission.license.uri == license_uri:
-            return ready_for_next((response_data, status.OK, {}))
-        if not submission.license \
-           or submission.license.uri != license_uri:
-            command = SetLicense(creator=submitter, client=client, license_uri=license_uri)
-            if validate_command(form, command, submission, 'license'):
-                try:
-                    submission, _ = current_app.api.save(command, submission_id=submission_id)
-                    return ready_for_next((response_data, status.OK, {}))
-                except SaveError as e:
-                    raise InternalServerError(response_data) from e
+    license_uri = form.license.data
+    if submission.license and submission.license.uri == license_uri:
+        return ready_for_next((response_data, status.OK, {}))
 
-    return stay_on_this_stage((response_data, status.OK, {}))
-
+    command = SetLicense(creator=submitter, client=client, license_uri=license_uri)
+    if validate_command(form, command, submission, 'license'):
+        submission, _ = current_app.api.save(command, submission_id=submission_id)
+        return ready_for_next((response_data, status.OK, {}))
+    else:
+        return stay_on_this_stage((response_data, status.BAD_REQUEST, {}))
 
 class LicenseForm(csrf.CSRFForm):
     """Generate form to select license."""

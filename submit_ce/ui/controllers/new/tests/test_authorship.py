@@ -1,14 +1,5 @@
 """Tests for :mod:`submit_ce.controllers.authorship`."""
 
-from http import HTTPStatus as status
-
-from werkzeug.datastructures import MultiDict
-from werkzeug.exceptions import InternalServerError, NotFound
-from wtforms import Form
-
-import submit_ce as events
-from submit_ce.api.domain.event import ConfirmAuthorship
-from submit_ce.ui.controllers.new import authorship
 from submit_ce.ui.tests.csrf_util import parse_csrf_token
 
 def get(appx, subx):
@@ -44,11 +35,11 @@ def test_authorship_form(app, authorized_client, sub_verified_user):
     assert get(app, sub).submitter_is_author
 
 
-def test_no_submission(app, authorized_client):
-    url = f"/2343/authorship"
+def test_no_submission(authorized_client):
+    url = "/2343/authorship"
     resp = authorized_client.get(url)
     assert resp.status_code == 404
 
-    url = f"/totaljunkid/authorship"
+    url = "/totaljunkid/authorship"
     resp = authorized_client.get(url)
     assert resp.status_code == 404

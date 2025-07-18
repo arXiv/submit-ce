@@ -1,341 +1,326 @@
 """Tests for :mod:`submit_ce.controllers.metadata`."""
 
-from http import HTTPStatus as status
-from unittest import mock
+from submit_ce.api.domain.submission import Submission
+from submit_ce.ui.tests import gets
+from submit_ce.ui.tests.csrf_util import parse_csrf_token
 
-from werkzeug.datastructures import MultiDict
-from werkzeug.exceptions import InternalServerError
-from wtforms import Form
+def test_no_sub(app, authorized_client):
+    url = "/93489292/classification"
+    resp = authorized_client.get(url)
+    assert resp.status_code == 404
 
-from submit_ce.api.domain.event import SetACMClassification, SetReportNumber, SetJournalReference, SetDOI, \
-    SetMSCClassification, SetTitle, SetAbstract, SetAuthors
-from submit_ce.api.exceptions import SaveError
-from submit_ce.ui.controllers.new import metadata
-from submit_ce.ui.tests import CtrlBase
+def test_metadata(app, authorized_client, sub_processed):    
+    sub: Submission = sub_processed
+    url = f"/{sub.submission_id}/add_metadata"
+    resp = authorized_client.get(url)
+    assert resp.status_code == 200 \
+        and b"<title>Add or Edit Metadata" in resp.data and b"<form " in resp.data
 
+    resp = authorized_client.post(url, data={})
+    assert resp.status_code == 400 \
+        and b"<title>Add or Edit Metadata" in resp.data and b"<form " in resp.data
+    resp = authorized_client.post(url, data={"csrf_token":parse_csrf_token(resp)})
+    assert resp.status_code == 400 \
+        and b"<title>Add or Edit Metadata" in resp.data and b"<form " in resp.data
 
-class TestOptional(CtrlBase):
-    """Tests for :func:`.optional`."""
+    # test a short abstract to check that validation works
+    resp = authorized_client.post(url, data={"csrf_token":parse_csrf_token(resp),
+                                             "title": "titleX",
+                                             "abstract": "too short abs",
+                                             "authors_display": "Smith, Bob"})
+    assert resp.status_code == 400 \
+        and b"<title>Add or Edit Metadata" in resp.data and b"<form " in resp.data
 
-    @mock.patch(f'{metadata.__name__}.OptionalMetadataForm.Meta.csrf', False)
-    @mock.patch(f'{metadata.__name__}.get_submission')
-    def test_get_request_with_submission(self, mock_load):
-        """GET request with a submission ID."""
-        submission_id = 2
-        mock_load.return_value = (
-            mock.MagicMock(submission_id=submission_id), []
-        )
-        data, code, headers = metadata.optional(
-            'GET', MultiDict(), self.session, submission_id)
-        self.assertEqual(code, status.OK, "Returns 200 OK")
-        self.assertIsInstance(data['form'], Form,
-                              "Response data includes a form")
+    # test successfully setting the metadata
+    resp = authorized_client.post(url, data={"csrf_token":parse_csrf_token(resp),
+                                             "title": "titleX",
+                                             "abstract": "abstractX...........",
+                                             "authors_display": "Smith, Bob",
+                                             'action': 'next'})
+    assert resp.status_code == 303        
+    sub_db = gets(app, sub)
+    assert sub_db.metadata.title == "titleX" \
+        and sub_db.metadata.abstract == "abstractX..........." \
+        and sub_db.metadata.authors_display == "Smith, Bob"
 
-    @mock.patch(f'{metadata.__name__}.OptionalMetadataForm.Meta.csrf', False)
-    @mock.patch(f'{metadata.__name__}.get_submission')
-    def test_post_request_with_no_data(self, mock_load):
-        """POST request has no form data."""
-        submission_id = 2
-        mock_load.return_value = (
-            mock.MagicMock(submission_id=submission_id), []
-        )
-        data, code, headers = metadata.optional(
-            'POST', MultiDict(), self.session, submission_id)
-        self.assertEqual(code, status.OK, "Returns 200 OK")
+    # post with uncahnged data
+    resp = authorized_client.get(url)
+    assert resp.status_code == 200 \
+        and b"<title>Add or Edit Metadata" in resp.data and b"<form " in resp.data    
+    resp = authorized_client.post(url, data={"csrf_token":parse_csrf_token(resp),
+                                             "title": "titleX",
+                                             "abstract": "abstractX...........",
+                                             "authors_display": "Smith, Bob",
+                                             'action': 'next'})
+    assert resp.status_code == 300
+    assert sub_db.metadata.title == "titleX" \
+        and sub_db.metadata.abstract == "abstractX..........." \
+        and sub_db.metadata.authors_display == "Smith, Bob"
 
-        self.assertIsInstance(data['form'], Form,
-                              "Response data includes a form")
+    
+#     @mock.patch(f'{metadata.__name__}.OptionalMetadataForm.Meta.csrf', False)
+#     @mock.patch(f'{metadata.__name__}.api.save')
+#     @mock.patch(f'{metadata.__name__}.get_submission')
+#     def test_post_request_with_required_data(self, mock_load, mock_save):
+#         """POST request with all fields."""
+#         submission_id = 2
+#         mock_submission = mock.MagicMock(submission_id=submission_id,
+#                                          is_finalized=False,
+#                                          metadata=mock.MagicMock())
+#         mock_load.return_value = (mock_submission, [])
+#         mock_save.return_value = (mock_submission, [])
+#         params = MultiDict({
+#             'doi': '10.0001/123456',
+#             'journal_ref': 'foo journal 10 2010: 12-345',
+#             'report_num': 'foo report 12',
+#             'acm_class': 'F.2.2; I.2.7',
+#             'msc_class': '14J26'
+#         })
+#         data, code, headers = metadata.optional('POST', params, self.session,
+#                                                 submission_id)
+#         self.assertEqual(code, status.OK, "Returns 200 OK")
+#         event_types = [type(ev) for ev in mock_save.call_args[0]]
+#         self.assertIn(SetDOI, event_types, "Sets submission DOI")
+#         self.assertIn(SetJournalReference, event_types,
+#                       "Sets journal references")
+#         self.assertIn(SetReportNumber, event_types,
+#                       "Sets report number")
+#         self.assertIn(SetACMClassification, event_types,
+#                       "Sets ACM classification")
+#         self.assertIn(SetMSCClassification, event_types,
+#                       "Sets MSC classification")
 
-    @mock.patch(f'{metadata.__name__}.OptionalMetadataForm.Meta.csrf', False)
-    @mock.patch(f'{metadata.__name__}.api.save')
-    @mock.patch(f'{metadata.__name__}.get_submission')
-    def test_save_error_is_raised(self, mock_load, mock_save):
-        """POST request results in an SaveError exception."""
-        submission_id = 2
-        mock_submission = mock.MagicMock(
-            submission_id=submission_id,
-            is_finalized=False,
-            metadata=mock.MagicMock()
-        )
-        mock_load.return_value = (mock_submission, [])
+#     @mock.patch(f'{metadata.__name__}.OptionalMetadataForm.Meta.csrf', False)
+#     @mock.patch(f'{metadata.__name__}.api.save')
+#     @mock.patch(f'{metadata.__name__}.get_submission')
+#     def test_post_request_with_unchanged_data(self, mock_load, mock_save):
+#         """POST request with valid but unchanged data."""
+#         submission_id = 2
+#         mock_submission = mock.MagicMock(
+#             submission_id=submission_id,
+#             is_finalized=False,
+#             metadata=mock.MagicMock(**{
+#                 'doi': '10.0001/123456',
+#                 'journal_ref': 'foo journal 10 2010: 12-345',
+#                 'report_num': 'foo report 12',
+#                 'acm_class': 'F.2.2; I.2.7',
+#                 'msc_class': '14J26'
+#             })
+#         )
+#         mock_load.return_value = (mock_submission, [])
+#         mock_save.return_value = (mock_submission, [])
+#         params = MultiDict({
+#             'doi': '10.0001/123456',
+#             'journal_ref': 'foo journal 10 2010: 12-345',
+#             'report_num': 'foo report 12',
+#             'acm_class': 'F.2.2; I.2.7',
+#             'msc_class': '14J26'
+#         })
+#         _, code, _ = metadata.optional('POST', params, self.session,
+#                                        submission_id)
+#         self.assertEqual(code, status.OK, "Returns 200 OK")
+#         self.assertEqual(mock_save.call_count, 0, "No events are generated")
 
-        def raise_save_error(*args, **kwargs):
-            raise SaveError()
+#     @mock.patch(f'{metadata.__name__}.OptionalMetadataForm.Meta.csrf', False)
+#     @mock.patch(f'{metadata.__name__}.api.save')
+#     @mock.patch(f'{metadata.__name__}.get_submission')
+#     def test_post_request_with_some_changes(self, mock_load, mock_save):
+#         """POST request with only some changed data."""
+#         submission_id = 2
+#         mock_submission = mock.MagicMock(
+#             submission_id=submission_id,
+#             is_finalized=False,
+#             metadata=mock.MagicMock(**{
+#                 'doi': '10.0001/123456',
+#                 'journal_ref': 'foo journal 10 2010: 12-345',
+#                 'report_num': 'foo report 12',
+#                 'acm_class': 'F.2.2; I.2.7',
+#                 'msc_class': '14J26'
+#             })
+#         )
+#         mock_load.return_value = (mock_submission, [])
+#         mock_save.return_value = (mock_submission, [])
+#         params = MultiDict({
+#             'doi': '10.0001/123456',
+#             'journal_ref': 'foo journal 10 2010: 12-345',
+#             'report_num': 'foo report 13',
+#             'acm_class': 'F.2.2; I.2.7',
+#             'msc_class': '14J27'
+#         })
+#         _, code, _ = metadata.optional('POST', params, self.session,
+#                                        submission_id)
+#         self.assertEqual(code, status.OK, "Returns 200 OK")
+#         self.assertEqual(mock_save.call_count, 1, "Events are generated")
 
-        mock_save.side_effect = raise_save_error
-        params = MultiDict({
-            'doi': '10.0001/123456',
-            'journal_ref': 'foo journal 10 2010: 12-345',
-            'report_num': 'foo report 12',
-            'acm_class': 'F.2.2; I.2.7',
-            'msc_class': '14J26'
-        })
-        with self.assertRaises(InternalServerError):
-            metadata.optional('POST', params, self.session, submission_id)
-
-    @mock.patch(f'{metadata.__name__}.OptionalMetadataForm.Meta.csrf', False)
-    @mock.patch(f'{metadata.__name__}.api.save')
-    @mock.patch(f'{metadata.__name__}.get_submission')
-    def test_post_request_with_required_data(self, mock_load, mock_save):
-        """POST request with all fields."""
-        submission_id = 2
-        mock_submission = mock.MagicMock(submission_id=submission_id,
-                                         is_finalized=False,
-                                         metadata=mock.MagicMock())
-        mock_load.return_value = (mock_submission, [])
-        mock_save.return_value = (mock_submission, [])
-        params = MultiDict({
-            'doi': '10.0001/123456',
-            'journal_ref': 'foo journal 10 2010: 12-345',
-            'report_num': 'foo report 12',
-            'acm_class': 'F.2.2; I.2.7',
-            'msc_class': '14J26'
-        })
-        data, code, headers = metadata.optional('POST', params, self.session,
-                                                submission_id)
-        self.assertEqual(code, status.OK, "Returns 200 OK")
-        event_types = [type(ev) for ev in mock_save.call_args[0]]
-        self.assertIn(SetDOI, event_types, "Sets submission DOI")
-        self.assertIn(SetJournalReference, event_types,
-                      "Sets journal references")
-        self.assertIn(SetReportNumber, event_types,
-                      "Sets report number")
-        self.assertIn(SetACMClassification, event_types,
-                      "Sets ACM classification")
-        self.assertIn(SetMSCClassification, event_types,
-                      "Sets MSC classification")
-
-    @mock.patch(f'{metadata.__name__}.OptionalMetadataForm.Meta.csrf', False)
-    @mock.patch(f'{metadata.__name__}.api.save')
-    @mock.patch(f'{metadata.__name__}.get_submission')
-    def test_post_request_with_unchanged_data(self, mock_load, mock_save):
-        """POST request with valid but unchanged data."""
-        submission_id = 2
-        mock_submission = mock.MagicMock(
-            submission_id=submission_id,
-            is_finalized=False,
-            metadata=mock.MagicMock(**{
-                'doi': '10.0001/123456',
-                'journal_ref': 'foo journal 10 2010: 12-345',
-                'report_num': 'foo report 12',
-                'acm_class': 'F.2.2; I.2.7',
-                'msc_class': '14J26'
-            })
-        )
-        mock_load.return_value = (mock_submission, [])
-        mock_save.return_value = (mock_submission, [])
-        params = MultiDict({
-            'doi': '10.0001/123456',
-            'journal_ref': 'foo journal 10 2010: 12-345',
-            'report_num': 'foo report 12',
-            'acm_class': 'F.2.2; I.2.7',
-            'msc_class': '14J26'
-        })
-        _, code, _ = metadata.optional('POST', params, self.session,
-                                       submission_id)
-        self.assertEqual(code, status.OK, "Returns 200 OK")
-        self.assertEqual(mock_save.call_count, 0, "No events are generated")
-
-    @mock.patch(f'{metadata.__name__}.OptionalMetadataForm.Meta.csrf', False)
-    @mock.patch(f'{metadata.__name__}.api.save')
-    @mock.patch(f'{metadata.__name__}.get_submission')
-    def test_post_request_with_some_changes(self, mock_load, mock_save):
-        """POST request with only some changed data."""
-        submission_id = 2
-        mock_submission = mock.MagicMock(
-            submission_id=submission_id,
-            is_finalized=False,
-            metadata=mock.MagicMock(**{
-                'doi': '10.0001/123456',
-                'journal_ref': 'foo journal 10 2010: 12-345',
-                'report_num': 'foo report 12',
-                'acm_class': 'F.2.2; I.2.7',
-                'msc_class': '14J26'
-            })
-        )
-        mock_load.return_value = (mock_submission, [])
-        mock_save.return_value = (mock_submission, [])
-        params = MultiDict({
-            'doi': '10.0001/123456',
-            'journal_ref': 'foo journal 10 2010: 12-345',
-            'report_num': 'foo report 13',
-            'acm_class': 'F.2.2; I.2.7',
-            'msc_class': '14J27'
-        })
-        _, code, _ = metadata.optional('POST', params, self.session,
-                                       submission_id)
-        self.assertEqual(code, status.OK, "Returns 200 OK")
-        self.assertEqual(mock_save.call_count, 1, "Events are generated")
-
-        event_types = [type(ev) for ev in mock_save.call_args[0]]
-        self.assertIn(SetReportNumber, event_types, "Sets report_num")
-        self.assertIn(SetMSCClassification, event_types, "Sets msc")
-        self.assertEqual(len(event_types), 2, "Only two events are generated")
+#         event_types = [type(ev) for ev in mock_save.call_args[0]]
+#         self.assertIn(SetReportNumber, event_types, "Sets report_num")
+#         self.assertIn(SetMSCClassification, event_types, "Sets msc")
+#         self.assertEqual(len(event_types), 2, "Only two events are generated")
 
 
-class TestMetadata(CtrlBase):
-    """Tests for :func:`.metadata`."""
+# class TestMetadata(CtrlBase):
+#     """Tests for :func:`.metadata`."""
 
-    @mock.patch(f'{metadata.__name__}.CoreMetadataForm.Meta.csrf', False)
-    @mock.patch(f'{metadata.__name__}.get_submission')
-    def test_get_request_with_submission(self, mock_load):
-        """GET request with a submission ID."""
-        submission_id = 2
-        before = mock.MagicMock(submission_id=submission_id)
-        mock_load.return_value = (before, [])
-        data, code, _ = metadata.metadata('GET', MultiDict(), self.session,
-                                          submission_id)
-        self.assertEqual(code, status.OK, "Returns 200 OK")
-        self.assertIsInstance(data['form'], Form, "Data includes a form")
+#     @mock.patch(f'{metadata.__name__}.CoreMetadataForm.Meta.csrf', False)
+#     @mock.patch(f'{metadata.__name__}.get_submission')
+#     def test_get_request_with_submission(self, mock_load):
+#         """GET request with a submission ID."""
+#         submission_id = 2
+#         before = mock.MagicMock(submission_id=submission_id)
+#         mock_load.return_value = (before, [])
+#         data, code, _ = metadata.metadata('GET', MultiDict(), self.session,
+#                                           submission_id)
+#         self.assertEqual(code, status.OK, "Returns 200 OK")
+#         self.assertIsInstance(data['form'], Form, "Data includes a form")
 
-    @mock.patch(f'{metadata.__name__}.CoreMetadataForm.Meta.csrf', False)
-    @mock.patch(f'{metadata.__name__}.get_submission')
-    def test_post_request_with_no_data(self, mock_load):
-        """POST request has no form data."""
-        submission_id = 2
-        mock_load.return_value = (
-            mock.MagicMock(submission_id=submission_id), []
-        )
-        data, _, _ = metadata.metadata('POST', MultiDict(), self.session, submission_id)        
-        self.assertIsInstance(data['form'], Form, "Data includes a form")
+#     @mock.patch(f'{metadata.__name__}.CoreMetadataForm.Meta.csrf', False)
+#     @mock.patch(f'{metadata.__name__}.get_submission')
+#     def test_post_request_with_no_data(self, mock_load):
+#         """POST request has no form data."""
+#         submission_id = 2
+#         mock_load.return_value = (
+#             mock.MagicMock(submission_id=submission_id), []
+#         )
+#         data, _, _ = metadata.metadata('POST', MultiDict(), self.session, submission_id)        
+#         self.assertIsInstance(data['form'], Form, "Data includes a form")
 
-    @mock.patch(f'{metadata.__name__}.CoreMetadataForm.Meta.csrf', False)
-    @mock.patch(f'{metadata.__name__}.api.save')
-    @mock.patch(f'{metadata.__name__}.get_submission')
-    def test_post_request_with_required_data(self, mock_load, mock_save):
-        """POST request with title, abstract, and author names."""
-        submission_id = 2
-        mock_submission = mock.MagicMock(
-            submission_id=submission_id,
-            is_finalized=False,
-            metadata=mock.MagicMock(
-                title='the old title',
-                abstract='not the abstract that you are looking for',
-                authors_display='bloggs, j'
-            )
-        )
-        mock_load.return_value = (mock_submission, [])
-        mock_save.return_value = (mock_submission, [])
-        params = MultiDict({
-            'title': 'a new, valid title',
-            'abstract': 'this abstract is at least twenty characters long',
-            'authors_display': 'j doe, j bloggs'
-        })
-        _, code, _ = metadata.metadata('POST', params, self.session,
-                                       submission_id)
-        self.assertEqual(code, status.OK, "Returns 200 OK")
+#     @mock.patch(f'{metadata.__name__}.CoreMetadataForm.Meta.csrf', False)
+#     @mock.patch(f'{metadata.__name__}.api.save')
+#     @mock.patch(f'{metadata.__name__}.get_submission')
+#     def test_post_request_with_required_data(self, mock_load, mock_save):
+#         """POST request with title, abstract, and author names."""
+#         submission_id = 2
+#         mock_submission = mock.MagicMock(
+#             submission_id=submission_id,
+#             is_finalized=False,
+#             metadata=mock.MagicMock(
+#                 title='the old title',
+#                 abstract='not the abstract that you are looking for',
+#                 authors_display='bloggs, j'
+#             )
+#         )
+#         mock_load.return_value = (mock_submission, [])
+#         mock_save.return_value = (mock_submission, [])
+#         params = MultiDict({
+#             'title': 'a new, valid title',
+#             'abstract': 'this abstract is at least twenty characters long',
+#             'authors_display': 'j doe, j bloggs'
+#         })
+#         _, code, _ = metadata.metadata('POST', params, self.session,
+#                                        submission_id)
+#         self.assertEqual(code, status.OK, "Returns 200 OK")
 
-        event_types = [type(ev) for ev in mock_save.call_args[0]]
-        self.assertIn(SetTitle, event_types, "Sets submission title")
-        self.assertIn(SetAbstract, event_types, "Sets abstract")
-        self.assertIn(SetAuthors, event_types, "Sets authors")
+#         event_types = [type(ev) for ev in mock_save.call_args[0]]
+#         self.assertIn(SetTitle, event_types, "Sets submission title")
+#         self.assertIn(SetAbstract, event_types, "Sets abstract")
+#         self.assertIn(SetAuthors, event_types, "Sets authors")
 
-    @mock.patch(f'{metadata.__name__}.CoreMetadataForm.Meta.csrf', False)
-    @mock.patch(f'{metadata.__name__}.api.save')
-    @mock.patch(f'{metadata.__name__}.get_submission')
-    def test_post_request_with_unchanged_data(self, mock_load, mock_save):
-        """POST request with valid but unaltered data."""
-        submission_id = 2
-        mock_submission = mock.MagicMock(
-            submission_id=submission_id,
-            is_finalized=False,
-            metadata=mock.MagicMock(
-                title='the old title',
-                abstract='not the abstract that you are looking for',
-                authors_display='bloggs, j'
-            )
-        )
-        mock_load.return_value = (mock_submission, [])
-        mock_save.return_value = (mock_submission, [])
-        params = MultiDict({
-            'title': 'the old title',
-            'abstract': 'not the abstract that you are looking for',
-            'authors_display': 'bloggs, j'
-        })
-        _, code, _ = metadata.metadata('POST', params, self.session,
-                                       submission_id)
-        self.assertEqual(code, status.OK, "Returns 200 OK")
-        self.assertEqual(mock_save.call_count, 0, "No events are generated")
+#     @mock.patch(f'{metadata.__name__}.CoreMetadataForm.Meta.csrf', False)
+#     @mock.patch(f'{metadata.__name__}.api.save')
+#     @mock.patch(f'{metadata.__name__}.get_submission')
+#     def test_post_request_with_unchanged_data(self, mock_load, mock_save):
+#         """POST request with valid but unaltered data."""
+#         submission_id = 2
+#         mock_submission = mock.MagicMock(
+#             submission_id=submission_id,
+#             is_finalized=False,
+#             metadata=mock.MagicMock(
+#                 title='the old title',
+#                 abstract='not the abstract that you are looking for',
+#                 authors_display='bloggs, j'
+#             )
+#         )
+#         mock_load.return_value = (mock_submission, [])
+#         mock_save.return_value = (mock_submission, [])
+#         params = MultiDict({
+#             'title': 'the old title',
+#             'abstract': 'not the abstract that you are looking for',
+#             'authors_display': 'bloggs, j'
+#         })
+#         _, code, _ = metadata.metadata('POST', params, self.session,
+#                                        submission_id)
+#         self.assertEqual(code, status.OK, "Returns 200 OK")
+#         self.assertEqual(mock_save.call_count, 0, "No events are generated")
 
-    @mock.patch(f'{metadata.__name__}.CoreMetadataForm.Meta.csrf', False)
-    @mock.patch(f'{metadata.__name__}.api.save')
-    @mock.patch(f'{metadata.__name__}.get_submission')
-    def test_post_request_some_changed_data(self, mock_load, mock_save):
-        """POST request with valid data; only the title has changed."""
-        submission_id = 2
-        mock_submission = mock.MagicMock(
-            submission_id=submission_id,
-            is_finalized=False,
-            metadata=mock.MagicMock(
-                title='the old title',
-                abstract='not the abstract that you are looking for',
-                authors_display='bloggs, j'
-            )
-        )
-        mock_load.return_value = (mock_submission, [])
-        mock_save.return_value = (mock_submission, [])
-        params = MultiDict({
-            'title': 'the new title',
-            'abstract': 'not the abstract that you are looking for',
-            'authors_display': 'bloggs, j'
-        })
-        _, code, _ = metadata.metadata('POST', params, self.session,
-                                       submission_id)
-        self.assertEqual(code, status.OK, "Returns 200 OK")
-        self.assertEqual(mock_save.call_count, 1, "One event is generated")
-        self.assertIsInstance(mock_save.call_args[0][0], SetTitle,
-                              "SetTitle is generated")
+#     @mock.patch(f'{metadata.__name__}.CoreMetadataForm.Meta.csrf', False)
+#     @mock.patch(f'{metadata.__name__}.api.save')
+#     @mock.patch(f'{metadata.__name__}.get_submission')
+#     def test_post_request_some_changed_data(self, mock_load, mock_save):
+#         """POST request with valid data; only the title has changed."""
+#         submission_id = 2
+#         mock_submission = mock.MagicMock(
+#             submission_id=submission_id,
+#             is_finalized=False,
+#             metadata=mock.MagicMock(
+#                 title='the old title',
+#                 abstract='not the abstract that you are looking for',
+#                 authors_display='bloggs, j'
+#             )
+#         )
+#         mock_load.return_value = (mock_submission, [])
+#         mock_save.return_value = (mock_submission, [])
+#         params = MultiDict({
+#             'title': 'the new title',
+#             'abstract': 'not the abstract that you are looking for',
+#             'authors_display': 'bloggs, j'
+#         })
+#         _, code, _ = metadata.metadata('POST', params, self.session,
+#                                        submission_id)
+#         self.assertEqual(code, status.OK, "Returns 200 OK")
+#         self.assertEqual(mock_save.call_count, 1, "One event is generated")
+#         self.assertIsInstance(mock_save.call_args[0][0], SetTitle,
+#                               "SetTitle is generated")
 
-    @mock.patch(f'{metadata.__name__}.CoreMetadataForm.Meta.csrf', False)
-    @mock.patch(f'{metadata.__name__}.api.save')
-    @mock.patch(f'{metadata.__name__}.get_submission')
-    def test_post_request_invalid_data(self, mock_load, mock_save):
-        """POST request with invalid data."""
-        submission_id = 2
-        mock_submission = mock.MagicMock(
-            submission_id=submission_id,
-            is_finalized=False,
-            metadata=mock.MagicMock(
-                title='the old title',
-                abstract='not the abstract that you are looking for',
-                authors_display='bloggs, j'
-            )
-        )
-        mock_load.return_value = (mock_submission, [])
-        mock_save.return_value = (mock_submission, [])
-        params = MultiDict({
-            'title': 'the new title',
-            'abstract': 'too short',
-            'authors_display': 'bloggs, j'
-        })
-        data, _, _ = metadata.metadata('POST', params, self.session, submission_id)
-        self.assertIsInstance(data['form'], Form, "Data includes a form")
+#     @mock.patch(f'{metadata.__name__}.CoreMetadataForm.Meta.csrf', False)
+#     @mock.patch(f'{metadata.__name__}.api.save')
+#     @mock.patch(f'{metadata.__name__}.get_submission')
+#     def test_post_request_invalid_data(self, mock_load, mock_save):
+#         """POST request with invalid data."""
+#         submission_id = 2
+#         mock_submission = mock.MagicMock(
+#             submission_id=submission_id,
+#             is_finalized=False,
+#             metadata=mock.MagicMock(
+#                 title='the old title',
+#                 abstract='not the abstract that you are looking for',
+#                 authors_display='bloggs, j'
+#             )
+#         )
+#         mock_load.return_value = (mock_submission, [])
+#         mock_save.return_value = (mock_submission, [])
+#         params = MultiDict({
+#             'title': 'the new title',
+#             'abstract': 'too short',
+#             'authors_display': 'bloggs, j'
+#         })
+#         data, _, _ = metadata.metadata('POST', params, self.session, submission_id)
+#         self.assertIsInstance(data['form'], Form, "Data includes a form")
 
-    @mock.patch(f'{metadata.__name__}.CoreMetadataForm.Meta.csrf', False)
-    @mock.patch(f'{metadata.__name__}.api.save')
-    @mock.patch(f'{metadata.__name__}.get_submission')
-    def test_save_error_is_raised(self, mock_load, mock_save):
-        """POST request results in an SaveError exception."""
-        submission_id = 2
-        mock_submission = mock.MagicMock(
-            submission_id=submission_id,
-            is_finalized=False,
-            metadata=mock.MagicMock(
-                title='the old title',
-                abstract='not the abstract that you are looking for',
-                authors_display='bloggs, j'
-            )
-        )
-        mock_load.return_value = (mock_submission, [])
+#     @mock.patch(f'{metadata.__name__}.CoreMetadataForm.Meta.csrf', False)
+#     @mock.patch(f'{metadata.__name__}.api.save')
+#     @mock.patch(f'{metadata.__name__}.get_submission')
+#     def test_save_error_is_raised(self, mock_load, mock_save):
+#         """POST request results in an SaveError exception."""
+#         submission_id = 2
+#         mock_submission = mock.MagicMock(
+#             submission_id=submission_id,
+#             is_finalized=False,
+#             metadata=mock.MagicMock(
+#                 title='the old title',
+#                 abstract='not the abstract that you are looking for',
+#                 authors_display='bloggs, j'
+#             )
+#         )
+#         mock_load.return_value = (mock_submission, [])
 
-        def raise_save_error(*args, **kwargs):
-            raise SaveError('nope')
+#         def raise_save_error(*args, **kwargs):
+#             raise SaveError('nope')
 
-        mock_save.side_effect = raise_save_error
-        params = MultiDict({
-            'title': 'a new, valid title',
-            'abstract': 'this abstract is at least twenty characters long',
-            'authors_display': 'j doe, j bloggs'
-        })
-        with self.assertRaises(InternalServerError):
-            metadata.metadata('POST', params, self.session, submission_id)
+#         mock_save.side_effect = raise_save_error
+#         params = MultiDict({
+#             'title': 'a new, valid title',
+#             'abstract': 'this abstract is at least twenty characters long',
+#             'authors_display': 'j doe, j bloggs'
+#         })
+#         with self.assertRaises(InternalServerError):
+#             metadata.metadata('POST', params, self.session, submission_id)

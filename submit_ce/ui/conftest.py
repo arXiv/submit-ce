@@ -2,6 +2,7 @@ import os
 import shutil
 import tempfile
 import uuid
+import logging
 
 import arxiv.db.models as classic
 import pytest
@@ -21,9 +22,11 @@ import submit_ce.ui.auth
 from submit_ce.api.domain import Author, SubmissionContent
 from submit_ce.api.domain.agent import InternalClient
 from submit_ce.api.domain.event import (
+    AddSecondaryClassification,
     ConfirmAuthorship,
     ConfirmContactInformation,
     ConfirmPolicy,
+    ConfirmSourceProcessed,
     CreateSubmission,
     FinalizeSubmission,
     SetAbstract,
@@ -44,6 +47,11 @@ from submit_ce.make_test_db import bootstrap_db, create_all_legacy_db
 from submit_ce.ui import backend
 
 from submit_ce.ui.tests import TestClientArxivAuth
+
+def pytest_configure(config):
+    """Run before all tests"""
+    logging.getLogger("faker.factory").setLevel(logging.ERROR)
+    logging.getLogger("submit_ce.make_test_db").setLevel(logging.ERROR)
 
 
 @pytest.fixture(scope='session')
@@ -228,7 +236,19 @@ def sub_primary(app, authorized_user, sub_policy):
 
 
 @pytest.fixture(scope="function")
-def sub_files(app, authorized_user, sub_primary):
+def sub_cross(app, authorized_user, sub_primary):
+    """A submission with cross set."""
+    with app.app_context():
+        user = authorized_user
+        ua = InternalClient(name=f"test_client_{__file__}")
+        submission, _ = current_app.api.save(
+            AddSecondaryClassification(creator=user, client=ua, category="astro-ph.CO"),
+            submission_id=sub_primary.submission_id)
+        return submission
+
+
+@pytest.fixture(scope="function")
+def sub_files(app, authorized_user, sub_cross):
     """A submission marked as with files uploaded. (but no real files)"""
     with app.app_context():
         user = authorized_user
@@ -240,12 +260,30 @@ def sub_files(app, authorized_user, sub_primary):
                 identifier="123",
                 uncompressed_size=593992,
                 compressed_size=59392,
-            ), submission_id=sub_primary.submission_id)
+            ), submission_id=sub_cross.submission_id)
         return submission
 
 
 @pytest.fixture(scope="function")
 def sub_processed(app, authorized_user, sub_files):
+    with app.app_context():
+        user = authorized_user
+        ua = InternalClient(name=f"test_client_{__file__}")
+        submission, _ = current_app.api.save(
+            ConfirmSourceProcessed(
+                creator=user, client=ua,
+                soruce_id="123",
+                source_checksum="a9s9k342900skks03330029k",
+                prefiew_checksum="pxxx",
+                size_bytes=23432,
+            )
+            ,submission_id=sub_files.submission_id)
+        return submission
+
+
+
+@pytest.fixture(scope="function")
+def sub_metadata(app, authorized_user, sub_files):
     """A submission metadata."""
     with app.app_context():
         user = authorized_user

@@ -58,9 +58,8 @@ def validate_command(form: Form, event: Event,
                      submission: Optional[Submission] = None,
                      field: str = 'events',
                      message: Optional[str] = None) -> bool:
-    """
-    Validate an uncommitted command and if there are any errors, put them on the
-     correct fields in the form.
+    """Validate an uncommitted command and if there are any errors, put them on
+    the correct fields in the form.
 
     Parameters
     ----------
@@ -80,26 +79,19 @@ def validate_command(form: Form, event: Event,
     Returns
     -------
     bool
-
     """
     try:
         event.validate(submission)
+        return True
     except InvalidEvent as e:
         # This use of _errors causes a problem in WTForms 2.3.3
         # This fix might be of interest: https://github.com/wtforms/wtforms/pull/584
-        # if field not in form._errors:
-        #     form._errors[field] = []
-        # if message is None:
-        #     message = e.message
-        # form._errors[field].append(message)
-
         if hasattr(form, field):
             field_obj = getattr(form, field)
             if not field_obj.errors:
                 field_obj.errors = []
-            field_obj.errors.append(message)
+            field_obj.errors.append(message or e.message)
         return False
-    return True
 
 
 class FieldMixin:

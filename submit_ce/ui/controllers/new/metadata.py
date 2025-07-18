@@ -11,8 +11,9 @@ import logging
 
 from http import HTTPStatus as status
 from arxiv.forms import csrf
-from arxiv.auth.domain import Session, User, Client
+from arxiv.auth.domain import Session
 
+from submit_ce.api.domain.agent import Client, User
 from submit_ce.ui.auth import user_and_client_from_session
 
 from submit_ce.api.domain import Submission, Event
@@ -99,34 +100,33 @@ def metadata(method: str, params: MultiDict, session: Session,
     submitter, client = user_and_client_from_session(session)
     logger.debug(f'method: {method}, submission: {submission_id}. {params}')
     submission, submission_events = get_submission(submission_id)
+
     if method == 'GET':
         params = _data_from_submission(params, submission, CoreMetadataForm)
-
     form = CoreMetadataForm(params)
     response_data = {
         'submission_id': submission_id,
         'form': form,
         'submission': submission
     }
+    if method == 'GET':
+        return response_data, status.OK, {}
+    if method != 'POST':
+        return response_data, status.METHOD_NOT_ALLOWED, {}
 
-    if method == 'POST' and form.validate():
-        commands, valid = _commands(form, submission, submitter, client)
-        # We only want to apply an UpdateMetadata if the metadata has
-        # actually changed.
-        if commands and all(valid):   # Metadata has changed and is valid
-            try:
-                # Save the events created during form validation.
-                submission, _ = current_app.api.save(*commands, submission_id=submission_id)
-                response_data['submission'] = submission
-                return ready_for_next((response_data, status.OK, {}))
-            except SaveError as e:
-                raise InternalServerError(response_data) from e
-        else:
-            return ready_for_next((response_data, status.OK, {}))
-    else:
-        return stay_on_this_stage((response_data, status.OK, {}))
+    validate = form.validate()
+    if not validate:
+        return stay_on_this_stage((response_data, status.BAD_REQUEST, {}))
+    changes, valid = _commands(form, submission, submitter, client)
+    if not changes:
+        return ready_for_next((response_data, status.OK, {}))
 
-    return response_data, status.OK, {}
+    if not changes or not all(valid):   # Metadata has changed and is valid
+        return stay_on_this_stage((response_data, status.BAD_REQUEST, {}))
+
+    submission, _ = current_app.api.save(*changes, submission_id=submission_id)
+    response_data['submission'] = submission
+    return ready_for_next((response_data, status.OK, {}))
 
 
 def optional(method: str, params: MultiDict, session: Session,
@@ -136,10 +136,8 @@ def optional(method: str, params: MultiDict, session: Session,
 
     logger.debug(f'method: {method}, submission: {submission_id}. {params}')
 
-    # Will raise NotFound if there is no such submission.
-    submission, submission_events = get_submission(submission_id)
-    # The form should be prepopulated based on the current state of the
-    # submission.
+    submission, _ = get_submission(submission_id)  # raises NotFound if no submission.
+    # The form should be prepopulated based on the current state of the submission.
     if method == 'GET':
         params = _data_from_submission(params, submission,
                                        OptionalMetadataForm)
