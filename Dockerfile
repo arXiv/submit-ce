@@ -35,7 +35,7 @@ RUN uv sync --locked
 FROM gcr.io/google.com/cloudsdktool/google-cloud-cli:emulators AS run-tests
 USER root
 # If we don't copy the python the links in the venv will point nowhere
-COPY --from=builder --chown=python:python /python /python
+COPY --from=builder  /python /python
 
 RUN useradd --create-home e-prints
 USER e-prints
@@ -52,7 +52,7 @@ RUN pytest submit_ce/implementations submit_ce/api submit_ce/ui
 FROM python:3.11-bookworm AS production
 RUN apt-get -q update && apt-get -q -y upgrade && \
     apt-get -y install default-libmysqlclient-dev
-COPY --from=builder --chown=python:python /python /python
+COPY --from=builder  /python /python
 
 RUN useradd --create-home e-prints
 USER e-prints
