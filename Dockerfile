@@ -18,12 +18,9 @@ USER e-prints
 WORKDIR /home/e-prints
 COPY pyproject.toml uv.lock ./
 
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv venv && \
+RUN uv venv && \
     uv sync --locked --no-install-project --no-dev
 COPY ./submit_ce ./submit_ce
-# RUN --mount=type=cache,target=/root/.cache/uv \
-#     uv sync --locked --no-dev
 
 ENV PATH="/home/e-prints/.venv/bin:$PATH"
 
@@ -31,9 +28,7 @@ ENV PATH="/home/e-prints/.venv/bin:$PATH"
 FROM builder AS with-dev-venv
 USER e-prints
 WORKDIR /home/e-prints
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --locked
-
+RUN uv sync --locked
 
 #################### tester ####################
 # based on gcloud cli image for pubsub emulator
