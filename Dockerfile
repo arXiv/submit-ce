@@ -1,8 +1,13 @@
 FROM ghcr.io/astral-sh/uv:python3.11-bookworm AS builder
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy
 ENV UV_PYTHON_INSTALL_DIR=/python
-ENV UV_PYTHON_PREFERENCE=only-managed
-RUN uv python install 3.11
+
+
+# used with the pubsub test for the COPY of python
+# ENV UV_PYTHON_PREFERENCE=only-managed
+# RUN uv python install 3.11
+
+ENV UV_PYTHON_DOWNLOADS=0
 
 ARG git_commit
 ENV PYTHONFAULTHANDLER=1 \
@@ -61,7 +66,10 @@ RUN pytest submit_ce/api submit_ce/ui submit_ce/implementations/legacy_implement
 FROM python:3.11-bookworm AS production
 RUN apt-get -q update && apt-get -q -y upgrade && \
     apt-get -y install default-libmysqlclient-dev
-COPY --from=builder  /python /python
+
+# this has the same python paths as ghcr.io/astral-sh/uv:python3.11-bookworm
+# so this is no longer needed.
+#COPY --from=builder  /python /python
 
 RUN useradd --create-home e-prints
 USER e-prints
