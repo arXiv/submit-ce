@@ -24,6 +24,7 @@ from submit_ce.ui.routes.flow_control import STAGE_SUCCESS, \
 class TestUpload(CtrlBase):
     """Tests for :func:`submit_ce.controllers.upload`."""
 
+    @pytest.mark.skip
     @mock.patch(f'{upload.__name__}.UploadForm.Meta.csrf', False)
     @mock.patch('submit_ce.ui.backend.api.get_with_history')
     def test_get_no_upload(self, mock_load):

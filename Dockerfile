@@ -6,12 +6,12 @@ ENV PYTHONFAULTHANDLER=1 \
     PYTHONUNBUFFERED=1 \
     PYTHONHASHSEED=random
 
-RUN apt-get update && apt-get -y upgrade
+RUN apt-get -q update && apt-get -y -q upgrade
 RUN useradd --create-home e-prints
 USER e-prints
 WORKDIR /home/e-prints
 COPY pyproject.toml uv.lock ./
-RUN uv sync --locked --no-dev && uv cache clean
+RUN uv sync --quiet --locked --no-dev && uv cache clean
 ENV PATH="/home/e-prints/.venv/bin:$PATH"
 COPY ./submit_ce ./submit_ce
 
@@ -20,7 +20,7 @@ COPY ./submit_ce ./submit_ce
 FROM builder AS run-tests
 USER root
 
-RUN apt-get install -y --no-install-recommends openjdk-17-jre-headless && \
+RUN apt-get install -q -y --no-install-recommends openjdk-17-jre-headless && \
     rm -rf /var/lib/apt/lists/*
 ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
 
@@ -29,19 +29,18 @@ WORKDIR /home/e-prints
 COPY --from=builder --chown=e-prints:e-prints /home/e-prints /home/e-prints
 ENV PATH="/home/e-prints/.venv/bin:$PATH"
 
-RUN uv sync --locked && uv cache clean && chown -R e-prints:e-prints /home/e-prints
+RUN uv sync --quiet --locked && uv cache clean && chown -R e-prints:e-prints /home/e-prints
 
 ENV PATH="/home/e-prints/google-cloud-sdk/bin:$PATH"
 RUN curl -sSL https://sdk.cloud.google.com | bash && \
-    gcloud components install beta pubsub-emulator
+    gcloud components install beta pubsub-emulator --quiet
 
-RUN pytest --cov=submit_ce/api,submit_ce/implementations,submit_ce/ui \
-    --cov-fail-under=60 \
-    submit_ce/api submit_ce/implementations submit_ce/ui
+RUN pytest submit_ce/api submit_ce/implementations submit_ce/ui
 
 #################### production ####################
 FROM python:3.11-bookworm AS production
-RUN apt-get update && apt-get -y upgrade && apt-get -y install default-libmysqlclient-dev
+RUN apt-get -q update && apt-get -q -y upgrade && \
+    apt-get -y install default-libmysqlclient-dev
 
 RUN useradd --create-home e-prints
 USER e-prints

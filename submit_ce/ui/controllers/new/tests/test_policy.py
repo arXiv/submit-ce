@@ -68,6 +68,7 @@ def test_policy(app, authorized_client, sub_license):
         and not sub_from_db().submitter_accepts_policy
 
     # test good policy
+    assert not sub_from_db().submitter_accepts_policy
     resp = authorized_client.post(url, data={"csrf_token": parse_csrf_token(resp),
                                              "policy_id": 1,
                                              "policy": "y"})
@@ -83,4 +84,16 @@ def test_policy(app, authorized_client, sub_license):
     resp = authorized_client.post(url, data={"csrf_token": parse_csrf_token(resp),
                                              "policy_id": 1,
                                              "policy": "false"})
+    assert resp.status_code == status.BAD_REQUEST and sub_from_db().submitter_accepts_policy
+    resp = authorized_client.post(url, data={"csrf_token": parse_csrf_token(resp),
+                                             "policy_id": 1,
+                                             "policy": "n"})
+    assert resp.status_code == status.BAD_REQUEST and sub_from_db().submitter_accepts_policy
+    resp = authorized_client.post(url, data={"csrf_token": parse_csrf_token(resp),
+                                             "policy_id": 1,
+                                             "policy": "0"})
+    assert resp.status_code == status.BAD_REQUEST and sub_from_db().submitter_accepts_policy
+    resp = authorized_client.post(url, data={"csrf_token": parse_csrf_token(resp),
+                                             "policy_id": 1,
+                                             "policy": 0})
     assert resp.status_code == status.BAD_REQUEST and sub_from_db().submitter_accepts_policy

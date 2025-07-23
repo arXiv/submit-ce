@@ -20,7 +20,7 @@ from submit_ce.ui.auth import user_and_client_from_session
 from werkzeug.datastructures import MultiDict
 from werkzeug.exceptions import InternalServerError
 from wtforms import widgets, HiddenField, validators
-from flask import current_app
+from flask import current_app, request
 
 from submit_ce.api.domain import Submission
 from submit_ce.api.domain.event import RemoveSecondaryClassification, \
@@ -177,11 +177,10 @@ def cross_list(method: str, params: MultiDict, session: Session,
         return response_data, status.OK, {}
     if method != "POST":
         return response_data, status.METHOD_NOT_ALLOWED, {}
-    
-    # Ensure the user is not attempting to move to a different step.
-    # Since the interface provides an "add" button to add cross-list
-    # categories, we only want to handle the form data if the user is not
-    # attempting to move to a different step.
+
+    # check if is attempting to move to a different step.
+    if "operation" not in request.form:
+        ready_for_next((response_data, status.OK, {}))
 
     if form.operation.data == form.REMOVE:
         command_type = RemoveSecondaryClassification

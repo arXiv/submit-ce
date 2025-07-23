@@ -91,7 +91,7 @@ def test_create_submission(app, authorized_client, mocker):
 
     # Submit the policy page.
     response = client.post(next_page.path, data={'policy': 'y',
-                                                 'policy_id': 3,
+                                                 'policy_id': 1,
                                                  'action': 'next',
                                                  'csrf_token': _parse_csrf_token(response)})
     assert response.status_code in [ status.FOUND, status.SEE_OTHER ]
@@ -127,8 +127,8 @@ def test_create_submission(app, authorized_client, mocker):
                                       'csrf_token': _parse_csrf_token(response)})
     assert response.status_code ==  status.OK
 
-    response = client.post(next_page.path,
-                                data={'action': 'next'})
+    # cross is a little different in that after a successful post it will stay on the page
+    response = client.post(next_page.path, data={'action': 'next'})
     assert response.status_code ==  status.SEE_OTHER
 
     # Get the next page in the process. This is the file upload stage.
@@ -138,3 +138,5 @@ def test_create_submission(app, authorized_client, mocker):
     assert b'Upload Files' in response.data
     token = _parse_csrf_token(response)
 
+    # TODO Test upload
+    # TODO Test stages past upload

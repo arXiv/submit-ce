@@ -4,6 +4,7 @@ from http import HTTPStatus as status
 
 from flask import current_app
 
+from submit_ce.ui.tests import gets
 from submit_ce.ui.tests.csrf_util import parse_csrf_token
 
 
@@ -14,7 +15,7 @@ def _parse_csrf_token( response):
         assert 0, 'Could not find CSRF token'
 
 
-def test_unsubmit_submission(authorized_client, submitted_submission):
+def test_unsubmit_submission(app, authorized_client, submitted_submission):
     """Test that progress through the unsubmit workflow."""
 
     client = authorized_client
@@ -33,5 +34,5 @@ def test_unsubmit_submission(authorized_client, submitted_submission):
     assert response.status_code == status.SEE_OTHER
 
     # Check what happened.
-    submission = current_app.api.get(submission_id=str(submission.submission_id))
+    submission = gets(app, submission)
     assert submission.status == 0 or submission.status == "working"

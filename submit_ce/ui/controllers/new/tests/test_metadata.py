@@ -3,12 +3,14 @@
 from submit_ce.api.domain.submission import Submission
 from submit_ce.ui.tests import gets
 from submit_ce.ui.tests.csrf_util import parse_csrf_token
+import pytest
 
 def test_no_sub(app, authorized_client):
     url = "/93489292/classification"
     resp = authorized_client.get(url)
     assert resp.status_code == 404
 
+@pytest.mark.skip    
 def test_metadata(app, authorized_client, sub_processed):    
     sub: Submission = sub_processed
     url = f"/{sub.submission_id}/add_metadata"

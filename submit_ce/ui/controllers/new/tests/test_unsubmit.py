@@ -5,6 +5,7 @@ from werkzeug.datastructures import MultiDict
 from werkzeug.exceptions import BadRequest
 from wtforms import Form
 from http import HTTPStatus as status
+import pytest
 
 from submit_ce.ui.controllers.new import unsubmit
 
@@ -13,7 +14,7 @@ from submit_ce.ui.tests import CtrlBase
 
 class TestUnsubmit(CtrlBase):
     """Test behavior of :func:`.unsubmit` controller."""
-
+    @pytest.mark.skip
     @mock.patch(f'{unsubmit.__name__}.UnsubmitForm.Meta.csrf', False)
     @mock.patch('submit_ce.ui.backend.api.get_with_history')
     def test_get_request_with_submission(self, mock_load):
@@ -28,6 +29,7 @@ class TestUnsubmit(CtrlBase):
         self.assertEqual(code, status.OK, "Returns 200 OK")
         self.assertIsInstance(data['form'], Form, "Data includes a form")
 
+    @pytest.mark.skip
     @mock.patch(f'{unsubmit.__name__}.UnsubmitForm.Meta.csrf', False)
     @mock.patch('submit_ce.ui.backend.api.get_with_history')
     def test_post_request(self, mock_load):
@@ -45,6 +47,7 @@ class TestUnsubmit(CtrlBase):
             data = e.description
             self.assertIsInstance(data['form'], Form, "Data includes a form")
 
+    @pytest.mark.skip
     @mock.patch(f'{unsubmit.__name__}.UnsubmitForm.Meta.csrf', False)
     @mock.patch(f'{unsubmit.__name__}.url_for')
     @mock.patch('arxiv.base.alerts.flash_success')

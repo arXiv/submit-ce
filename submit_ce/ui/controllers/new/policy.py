@@ -85,7 +85,7 @@ class PolicyCheckBoxField(Field):
         self.data = bool(value)
 
     def process_formdata(self, valuelist):
-        """Only accept "1" as `True`."""
+        """Only accept "y" as `True`."""
         if not valuelist or valuelist[0] != "y":
             self.data = False
         else:
@@ -114,9 +114,9 @@ class PolicyForm(csrf.CSRFForm):
             raise ValidationError("Must use the current policy id")
 
 
-ALLOWED_FIELDS = set(["policy_id","policy","csrf_token"])
+ALLOWED_FIELDS = set(["policy_id","policy","csrf_token","action"])
 
 
 def _only_allowed_fields(form:PolicyForm):
     fields_on_sent_form = set([field for field in form])
-    return ALLOWED_FIELDS == fields_on_sent_form
+    return fields_on_sent_form.issubset(ALLOWED_FIELDS)
