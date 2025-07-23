@@ -27,6 +27,7 @@ def port_and_tmpdir():
 def pubsub_emulator(monkeypatch, xprocess, project_id, port_and_tmpdir):
     port, tmpdir = port_and_tmpdir
     class Starter(ProcessStarter):
+        timeout = 12
         pattern = "INFO: Server started"
         args=f"gcloud beta emulators pubsub start --project={project_id} --host-port=[::1]:{port} --data-dir={tmpdir}".split()
 
