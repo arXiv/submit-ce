@@ -68,14 +68,9 @@ class Settings(ArxivBaseSettings):
     #submission_api_implementation: ImportString = 'submit_ce.implementations.legacy_implementation.implementation'
     """Class to use for submission API implementation."""
 
-    AUTH_UPDATED_SESSION_REF: bool = True
-    """Setting related to auth to force it to use 'auth' for the location of the user session instead of
-    'session' which usually has the flask session. This should always be 1 and in the future the setting should
-    be removed from arxiv-base auth."""
-
-    CSRF_SESSION_KEY: str = ""
-    """arxiv-base CSRF key, should be replaced with just normal ue of wtforms."""
     CSRF_SECRET: str = "foobar"
+    """Used to make the CSRF secret on web forms. Must be the same for all
+    distributed instances of submit-ce."""
 
     CLASSIC_DB_URI: str = f"sqlite:///{DEV_SQLITE_FILE}"
     
@@ -89,9 +84,7 @@ class Settings(ArxivBaseSettings):
     """
 
     JWT_SECRET: str = "foobar"
-    """
-    Used to encoded and decode JWTs for auth.
-    """
+    """Used to encoded and decode JWTs for auth."""
 
     STORE: Literal["local","gs"] = "local"
 

@@ -10,7 +10,7 @@ RUN apt-get update && apt-get -y upgrade
 RUN useradd --create-home e-prints
 USER e-prints
 WORKDIR /home/e-prints
-COPY pyproject.toml uv.lock .
+COPY pyproject.toml uv.lock ./
 RUN uv sync --locked --no-dev && uv cache clean
 ENV PATH="/home/e-prints/.venv/bin:$PATH"
 COPY ./submit_ce ./submit_ce
