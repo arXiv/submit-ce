@@ -30,23 +30,32 @@ USER e-prints
 WORKDIR /home/e-prints
 RUN uv sync --locked
 
+# This is a test that tries to do pubsub but it takes a very long time on GCP
 #################### tester ####################
 # based on gcloud cli image for pubsub emulator
-FROM gcr.io/google.com/cloudsdktool/google-cloud-cli:emulators AS run-tests
-USER root
-# If we don't copy the python the links in the venv will point nowhere
-COPY --from=builder  /python /python
+# FROM gcr.io/google.com/cloudsdktool/google-cloud-cli:emulators AS run-tests
+# USER root
+# # If we don't copy the python the links in the venv will point nowhere
+# COPY --from=builder  /python /python
 
-RUN useradd --create-home e-prints
+# RUN useradd --create-home e-prints
+# USER e-prints
+# WORKDIR /home/e-prints
+# COPY --from=with-dev-venv --chown=e-prints:e-prints /home/e-prints /home/e-prints
+
+# # # Install pubsub emulator, used by submit_ce/implementations/pubsub
+# RUN gcloud components install beta pubsub-emulator --quiet
+
+# ENV PATH="/home/e-prints/.venv/bin:$PATH"
+# RUN pytest submit_ce/implementations submit_ce/api submit_ce/ui
+
+#################### tester ####################
+FROM with-dev-venv AS run-tests
 USER e-prints
 WORKDIR /home/e-prints
-COPY --from=with-dev-venv --chown=e-prints:e-prints /home/e-prints /home/e-prints
-
-# # Install pubsub emulator, used by submit_ce/implementations/pubsub
-RUN gcloud components install beta pubsub-emulator --quiet
-
 ENV PATH="/home/e-prints/.venv/bin:$PATH"
-RUN pytest submit_ce/implementations submit_ce/api submit_ce/ui
+RUN pytest submit_ce/api submit_ce/ui submit_ce/implementations/legacy_implementation/ \
+    submit_ce/implementations/file_store/ submit_ce/implementations/compile
 
 #################### production ####################
 FROM python:3.11-bookworm AS production
