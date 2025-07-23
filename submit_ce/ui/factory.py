@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Optional
 
 from flask.logging import default_handler
-from flask import Flask
+from flask import Flask, request
 
 from arxiv.base import Base
 from arxiv.config import settings as base_settings
@@ -46,7 +46,8 @@ def create_web_app(config: Optional[dict]=None) -> Flask:
     app.config['SESSION_DURATION']=7200 # to appease arxiv-base, not really used
     @app.before_request
     def check_auth():
-        setup_auth()
+        if not request.path.startswith("/static"):
+            setup_auth()
 
     @app.teardown_appcontext
     def shutdown_session(exception=None):

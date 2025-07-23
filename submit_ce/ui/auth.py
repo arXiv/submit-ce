@@ -110,10 +110,19 @@ def setup_auth():
     """For use with `@app.before_reqeust()` to add auth attributes to `request`.
 
     Must be run inside a flask request context."""
-    session, token = _get_first_valid_jwt(settings.JWT_SECRET,
+    try:
+        session, token = _get_first_valid_jwt(settings.JWT_SECRET,
                                           _get_cookies(request.environ) + _get_auth_bearer(request.environ))
-    request.environ['token'] = token  # Attach which token decrypted for use in sub requests
-    setattr(request,"auth", _session_from_db(session))
+        request.environ['token'] = token  # Attach which token decrypted for use in sub requests
+        setattr(request,"auth", _session_from_db(session))
+    except MissingToken:
+        raise Unauthorized("no token or cookie")
+    except InvalidToken:
+        raise Unauthorized("no invalid token or cookie")
+    except SessionCreationFailed:
+        raise Unauthorized("no session or user")
+    except ExpiredToken:
+        raise Unauthorized("expired")
 
 
 def get_endorsements(user: auth_domian.User) -> list[str]:
