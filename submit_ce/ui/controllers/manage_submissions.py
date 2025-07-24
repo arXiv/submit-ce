@@ -30,22 +30,17 @@ def manage_submissions(method: str, params: MultiDict, session: Session, *args,
     """Create a new submission, and redirect to workflow."""
     submitter, client = user_and_client_from_session(session)
     response_data = {}
-    if method == 'GET':     # Display a splash page.
+    if method == 'GET':
         response_data['user_submissions'] = current_app.api.load_submissions_for_user(session.user.user_id)
+        response_data['submitter'] = submitter
         params = MultiDict()
 
-    # We're using a form here for CSRF protection.
-    form = CreateSubmissionForm(params)
+    form = CreateSubmissionForm(params)  # We're using a form here for CSRF protection of create
     response_data['form'] = form
 
     command = CreateSubmission(creator=submitter, client=client)
     if method == 'POST' and form.validate() and validate_command(form, command):
-        try:
-            submission, _ = current_app.api.save(command)
-        except SaveError as e:
-            logger.error('Could not save command: %s', e)
-            raise InternalServerError(response_data) from e
-
+        submission, _ = current_app.api.save(command)
         # TODO Do we need a better way to enter a workflow?
         # Maybe a controller that is defined as the entrypoint?
         loc = url_for('ui.verify_user', submission_id=submission.submission_id)

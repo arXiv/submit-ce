@@ -10,7 +10,7 @@
   <div class="column box is-one-third-tablet is-one-third-desktop">
     <div class="box-new-submission">
       <!-- TODO: add controller and dynamic first name user.name.forename -->
-      <h2>Welcome [First Name]</h2>
+      <h2>Welcome {{submitter.name}}</h2>
       <p>Click to start a new submission</p>
       <form class="form" method="POST" action="{{ url_for('ui.create_submission') }}">
         {{ form.csrf_token }}
