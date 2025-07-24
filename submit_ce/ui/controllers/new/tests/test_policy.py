@@ -8,7 +8,7 @@ from http import HTTPStatus as status
 def test_policy(app, authorized_client, sub_license):
     sub: Submission = sub_license
     assert sub and not sub.submitter_accepts_policy
-
+    current_policy_id = 3
     def sub_from_db():
         return gets(app, sub)
     
@@ -41,14 +41,14 @@ def test_policy(app, authorized_client, sub_license):
     
     # test no policy
     resp = authorized_client.post(url, data={"csrf_token": parse_csrf_token(resp),
-                                             "policy_id": 2})
+                                             "policy_id": current_policy_id})
     assert resp.status_code == status.BAD_REQUEST \
         and not sub_from_db().submitter_accepts_policy
     
     # test crazy additional data
     resp = authorized_client.post(url, data={"csrf_token": parse_csrf_token(resp),
                                              "policy": "y",
-                                             "policy_id": 2,
+                                             "policy_id": current_policy_id,
                                              "x": "I DON'T AGREE TO THIS POLICY"})
     assert resp.status_code == status.BAD_REQUEST \
         and not sub_from_db().submitter_accepts_policy
@@ -60,9 +60,15 @@ def test_policy(app, authorized_client, sub_license):
     assert resp.status_code == status.BAD_REQUEST \
         and not sub_from_db().submitter_accepts_policy
 
+    resp = authorized_client.post(url, data={"csrf_token": parse_csrf_token(resp),
+                                             "policy_id": f"{current_policy_id}-RA1N1AC",
+                                             "policy": "y"})
+    assert resp.status_code == status.BAD_REQUEST \
+        and not sub_from_db().submitter_accepts_policy
+
     # test unexpected policy
     resp = authorized_client.post(url, data={"csrf_token": parse_csrf_token(resp),
-                                             "policy_id": 1,
+                                             "policy_id": current_policy_id,
                                              "policy": "3RA1N1AC"})
     assert resp.status_code == status.BAD_REQUEST \
         and not sub_from_db().submitter_accepts_policy
@@ -70,30 +76,30 @@ def test_policy(app, authorized_client, sub_license):
     # test good policy
     assert not sub_from_db().submitter_accepts_policy
     resp = authorized_client.post(url, data={"csrf_token": parse_csrf_token(resp),
-                                             "policy_id": 1,
+                                             "policy_id": current_policy_id,
                                              "policy": "y"})
     assert resp.status_code == status.OK and sub_from_db().submitter_accepts_policy
 
     # attempt repost 
     resp = authorized_client.post(url, data={"csrf_token": parse_csrf_token(resp),
-                                             "policy_id": 1,
+                                             "policy_id": current_policy_id,
                                              "policy": "y"})
     assert resp.status_code == status.OK and sub_from_db().submitter_accepts_policy
 
     # attempt repost but reject
     resp = authorized_client.post(url, data={"csrf_token": parse_csrf_token(resp),
-                                             "policy_id": 1,
+                                             "policy_id": current_policy_id,
                                              "policy": "false"})
     assert resp.status_code == status.BAD_REQUEST and sub_from_db().submitter_accepts_policy
     resp = authorized_client.post(url, data={"csrf_token": parse_csrf_token(resp),
-                                             "policy_id": 1,
+                                             "policy_id": current_policy_id,
                                              "policy": "n"})
     assert resp.status_code == status.BAD_REQUEST and sub_from_db().submitter_accepts_policy
     resp = authorized_client.post(url, data={"csrf_token": parse_csrf_token(resp),
-                                             "policy_id": 1,
+                                             "policy_id": current_policy_id,
                                              "policy": "0"})
     assert resp.status_code == status.BAD_REQUEST and sub_from_db().submitter_accepts_policy
     resp = authorized_client.post(url, data={"csrf_token": parse_csrf_token(resp),
-                                             "policy_id": 1,
+                                             "policy_id": current_policy_id,
                                              "policy": 0})
     assert resp.status_code == status.BAD_REQUEST and sub_from_db().submitter_accepts_policy

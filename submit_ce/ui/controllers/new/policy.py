@@ -111,7 +111,12 @@ class PolicyForm(csrf.CSRFForm):
         self.policy_id.data = current_policy_id
 
     def validate_policy_id(self, field):
-        if field.data is None or field.data != self.current_policy_id:
+        form_processed_data_matches_current_policy_id = field.data == self.current_policy_id
+        raw_data_matches_current_policy_id = len(field.raw_data)==1 \
+            and str(field.raw_data[0]) == str(self.current_policy_id)
+        if field.data is None \
+           or not form_processed_data_matches_current_policy_id \
+           or not raw_data_matches_current_policy_id:
             raise ValidationError("Must use the current policy id")
 
 
