@@ -20,7 +20,7 @@
             <div class="column">{{ item.modified|timesince }}</div>
             <div class="column has-text-centered is-narrow">
              <a href="{{ url_for('ui.file_delete', submission_id=submission_id) }}?path={{ item.path }}" aria-label="Delete {{ item.name }}">
-               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" class="icon"><path d="M32 464a48 48 0 0 0 48 48h288a48 48 0 0 0 48-48V128H32zm272-256a16 16 0 0 1 32 0v224a16 16 0 0 1-32 0zm-96 0a16 16 0 0 1 32 0v224a16 16 0 0 1-32 0zm-96 0a16 16 0 0 1 32 0v224a16 16 0 0 1-32 0zM432 32H312l-9.4-18.7A24 24 0 0 0 281.1 0H166.8a23.72 23.72 0 0 0-21.4 13.3L136 32H16A16 16 0 0 0 0 48v32a16 16 0 0 0 16 16h416a16 16 0 0 0 16-16V48a16 16 0 0 0-16-16z"/></svg>
+               {{svg.trashcan()}}
                <span class="is-sr-only">Delete file</span>
              </a>
             </div>
@@ -29,7 +29,7 @@
     </div>
     {% else %}
     {% if key %}
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512" class="icon filter-blue" role="presentation"><path d="M572.694 292.093L500.27 416.248A63.997 63.997 0 0 1 444.989 448H45.025c-18.523 0-30.064-20.093-20.731-36.093l72.424-124.155A64 64 0 0 1 152 256h399.964c18.523 0 30.064 20.093 20.73 36.093zM152 224h328v-48c0-26.51-21.49-48-48-48H272l-64-64H48C21.49 64 0 85.49 0 112v278.046l69.077-118.418C86.214 242.25 117.989 224 152 224z"/></svg>
+    {{svg.exclamation(klass="icon filter-blue")}}
     {{ key }}/{% endif %}
     <ol class="{% if not key %}file-tree{% endif %}" style="list-style-type: none;">
       {% for k, subitem in item.items() %}
@@ -77,7 +77,7 @@
             <label class="file-label">
               {{ form.file(class="file-input") }}
               <span class="file-cta">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon" role="presentation"><path d="M296 384h-80c-13.3 0-24-10.7-24-24V192h-87.7c-17.8 0-26.7-21.5-14.1-34.1L242.3 5.7c7.5-7.5 19.8-7.5 27.3 0l152.2 152.2c12.6 12.6 3.7 34.1-14.1 34.1H320v168c0 13.3-10.7 24-24 24zm216-8v112c0 13.3-10.7 24-24 24H24c-13.3 0-24-10.7-24-24V376c0-13.3 10.7-24 24-24h136v8c0 30.9 25.1 56 56 56h80c30.9 0 56-25.1 56-56v-8h136c13.3 0 24 10.7 24 24zm-124 88c0-11-9-20-20-20s-20 9-20 20 9 20 20 20 20-9 20-20zm64 0c0-11-9-20-20-20s-20 9-20 20 9 20 20 20 20-9 20-20z"/></svg>
+                {{svg.exclamation(klass="icon")}}
                 <span class="file-label">Choose a file…</span>
               </span>
               <span id="filename" class="file-name">Select a file to upload</span>
@@ -88,7 +88,7 @@
           <label class="checkbox">
             {{ form.ancillary }} Ancillary
             <a class="icon has-text-link help-bubble" href="{{ url_for('help_ancillary_files') }}">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon filter-blue" role="presentation"><path d="M504 256c0 136.997-111.043 248-248 248S8 392.997 8 256C8 119.083 119.043 8 256 8s248 111.083 248 248zM262.655 90c-54.497 0-89.255 22.957-116.549 63.758-3.536 5.286-2.353 12.415 2.715 16.258l34.699 26.31c5.205 3.947 12.621 3.008 16.665-2.122 17.864-22.658 30.113-35.797 57.303-35.797 20.429 0 45.698 13.148 45.698 32.958 0 14.976-12.363 22.667-32.534 33.976C247.128 238.528 216 254.941 216 296v4c0 6.627 5.373 12 12 12h56c6.627 0 12-5.373 12-12v-1.333c0-28.462 83.186-29.647 83.186-106.667 0-58.002-60.165-102-116.531-102zM256 338c-25.365 0-46 20.635-46 46 0 25.364 20.635 46 46 46s46-20.636 46-46c0-25.365-20.635-46-46-46z"/></svg>
+              {{svg.question()}}
               <span class="is-sr-only">Click to learn more about ancilarry files</span>
               <div class="bubble-text">Ancillary files will be placed in an /anc directory automatically. Click to learn more.</div>
             </a>
@@ -125,7 +125,7 @@
       <p class="help has-text-right" style="margin-right: .5rem">
         <a href="{{ url_for('ui.file_delete_all', submission_id=submission_id) }}">
           Remove All
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" class="icon filter-blue" role="presentation"><path d="M32 464a48 48 0 0 0 48 48h288a48 48 0 0 0 48-48V128H32zm272-256a16 16 0 0 1 32 0v224a16 16 0 0 1-32 0zm-96 0a16 16 0 0 1 32 0v224a16 16 0 0 1-32 0zm-96 0a16 16 0 0 1 32 0v224a16 16 0 0 1-32 0zM432 32H312l-9.4-18.7A24 24 0 0 0 281.1 0H166.8a23.72 23.72 0 0 0-21.4 13.3L136 32H16A16 16 0 0 0 0 48v32a16 16 0 0 0 16 16h416a16 16 0 0 0 16-16V48a16 16 0 0 0-16-16z"/></svg>
+          {{svg.trashcan()}}
         </a>
       </p>
       {% elif error %}
@@ -143,24 +143,21 @@
       <div class="message">
         <div class="message-body">
           <p class="has-text-weight-semibold">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon filter-dark_grey" role="presentation"><path d="M256 8C119.043 8 8 119.083 8 256c0 136.997 111.043 248 248 248s248-111.003 248-248C504 119.083 392.957 8 256 8zm0 110c23.196 0 42 18.804 42 42s-18.804 42-42 42-42-18.804-42-42 18.804-42 42-42zm56 254c0 6.627-5.373 12-12 12h-88c-6.627 0-12-5.373-12-12v-24c0-6.627 5.373-12 12-12h12v-64h-12c-6.627 0-12-5.373-12-12v-24c0-6.627 5.373-12 12-12h64c6.627 0 12 5.373 12 12v100h12c6.627 0 12 5.373 12 12v24z"/></svg>
-            Accepted formats, in order of preference
+            {{svg.info(klass="icon filter-dark_grey")}}Accepted formats, in order of preference
           </p>
           <ul>
             <li><a href="{{ url_for('help_submit_tex') }}">(La)TeX or PDFLaTeX</a> | <a href="{{ url_for('help_submit_pdf') }}">PDF</a> | <a href="{{ url_for('help_submit_html') }}">HTML</a> (for proceedings index only)</li>
             <li>PDF documents created from TeX are not typically accepted. <a href="{{ url_for('help_whytex') }}">Why?</a></li>
           </ul>
           <p class="has-text-weight-semibold">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon filter-dark_grey" role="presentation"><path d="M256 8C119.043 8 8 119.083 8 256c0 136.997 111.043 248 248 248s248-111.003 248-248C504 119.083 392.957 8 256 8zm0 110c23.196 0 42 18.804 42 42s-18.804 42-42 42-42-18.804-42-42 18.804-42 42-42zm56 254c0 6.627-5.373 12-12 12h-88c-6.627 0-12-5.373-12-12v-24c0-6.627 5.373-12 12-12h12v-64h-12c-6.627 0-12-5.373-12-12v-24c0-6.627 5.373-12 12-12h64c6.627 0 12 5.373 12 12v100h12c6.627 0 12 5.373 12 12v24z"/></svg>
-            Accepted formats for figures
+            {{svg.info(klass="icon filter-dark_grey")}}Accepted formats for figures
           </p>
           <ul>
             <li>(La)TeX: Postscript</li>
             <li>PDFLaTeX: JPG, GIF, PNG, or PDF</li>
           </ul>
           <p class="has-text-weight-semibold">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="icon filter-dark_grey" role="presentation"><path d="M256 8C119.043 8 8 119.083 8 256c0 136.997 111.043 248 248 248s248-111.003 248-248C504 119.083 392.957 8 256 8zm0 110c23.196 0 42 18.804 42 42s-18.804 42-42 42-42-18.804-42-42 18.804-42 42-42zm56 254c0 6.627-5.373 12-12 12h-88c-6.627 0-12-5.373-12-12v-24c0-6.627 5.373-12 12-12h12v-64h-12c-6.627 0-12-5.373-12-12v-24c0-6.627 5.373-12 12-12h64c6.627 0 12 5.373 12 12v100h12c6.627 0 12 5.373 12 12v24z"/></svg>
-            Accepted file properties
+            {{svg.info(klass="icon filter-dark_grey")}}Accepted file properties
           </p>
           <ul>
             <li>Names containing a-z A-Z 0-9 . , - _</li>

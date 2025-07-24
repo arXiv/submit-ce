@@ -1,7 +1,6 @@
 {% extends "submit/base.html" %}
 {% import "svg.html" as svg  %}
 
-
 {% block extra_head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/manage_submissions.css')}}" />{% endblock %}
 
 {% block title_preamble %}{% endblock %}
@@ -73,7 +72,8 @@
                 <!-- TODO: need real link to status descriptions -->
                 <a href="{{ url_for('help') }}" class="help-bubble">{{svg.info()}}
                   <span class="is-sr-only">Read status descriptions</span>
-                  <div class="bubble-text">The current status of your submission in arXiv moderation. Click to read all status descriptinos.</div>
+                  <div class="bubble-text">The current status of your submission in arXiv moderation.
+                    Click to read all status descriptinos.</div>
                 </a>
               </th>
               <th scope="col">Identifier</th>
