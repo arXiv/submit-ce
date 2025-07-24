@@ -5,22 +5,21 @@ from arxiv.auth.domain import Session
 from werkzeug.datastructures import MultiDict
 
 from submit_ce.ui.routes.flow_control import advance_to_current
-from . import util, jref, withdraw, delete, cross
+
+from ..backend import get_submission
+from . import cross, delete, jref, util, withdraw
 from .manage_submissions import manage_submissions
-from .new import process
-from .new import upload
+from .new import process, upload
 from .new.authorship import authorship
 from .new.classification import classification, cross_list
 from .new.create import create
 from .new.final import finalize
 from .new.license import license
 from .new.metadata import metadata
-from .new.metadata import optional
 from .new.policy import policy
 from .new.unsubmit import unsubmit
 from .new.verify_user import verify
 from .util import Response
-from ..backend import get_submission
 
 
 def submission_status(method: str, params: MultiDict, session: Session,

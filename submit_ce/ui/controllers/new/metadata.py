@@ -3,8 +3,7 @@
 from typing import Tuple, Dict, Any, List
 
 from werkzeug.datastructures import MultiDict
-from werkzeug.exceptions import InternalServerError, BadRequest
-from wtforms.fields import StringField, TextAreaField, Field
+from wtforms.fields import StringField, TextAreaField
 from wtforms import validators
 from flask import current_app
 import logging
@@ -20,7 +19,6 @@ from submit_ce.api.domain import Submission, Event
 from submit_ce.api.domain.event import SetTitle, SetAuthors, SetAbstract, \
     SetACMClassification, SetMSCClassification, SetComments, SetReportNumber, \
     SetJournalReference, SetDOI
-from submit_ce.api.exceptions import SaveError
 
 from submit_ce.ui.backend import get_submission
 from submit_ce.ui.controllers.util import validate_command, FieldMixin
@@ -31,18 +29,16 @@ logger = logging.getLogger(__name__)  # pylint: disable=C0103
 Response = Tuple[Dict[str, Any], int, Dict[str, Any]]  # pylint: disable=C0103
 
 
-class CoreMetadataForm(csrf.CSRFForm, FieldMixin):
-    """Handles core metadata fields on a submission."""
+class MetadataForm(csrf.CSRFForm, FieldMixin):
+    """Handles metadata fields on a submission."""
 
     title = StringField('*Title', validators=[validators.DataRequired()])
     authors_display = TextAreaField(
         '*Authors',
         validators=[validators.DataRequired()],
-        description=(
-            "use <code>GivenName(s) FamilyName(s)</code> or <code>I. "
-            "FamilyName</code>; separate individual authors with "
-            "a comma or 'and'."
-        )
+        description=("use <code>GivenName(s) FamilyName(s)</code> or <code>I. "
+                     "FamilyName</code>; separate individual authors with "
+                     "a comma or 'and'.")
     )
     abstract = TextAreaField('*Abstract',
                              validators=[validators.DataRequired()],
@@ -54,11 +50,6 @@ class CoreMetadataForm(csrf.CSRFForm, FieldMixin):
                             "Supplemental information such as number of pages "
                             "or figures, conference information."
                          ))
-
-
-class OptionalMetadataForm(csrf.CSRFForm, FieldMixin):
-    """Handles optional metadata fields on a submission."""
-
     doi = StringField('DOI',
                     validators=[validators.optional()],
                     description="Full DOI of the version of record.")
@@ -102,8 +93,8 @@ def metadata(method: str, params: MultiDict, session: Session,
     submission, submission_events = get_submission(submission_id)
 
     if method == 'GET':
-        params = _data_from_submission(params, submission, CoreMetadataForm)
-    form = CoreMetadataForm(params)
+        params = _data_from_submission(params, submission, MetadataForm)
+    form = MetadataForm(params)
     response_data = {
         'submission_id': submission_id,
         'form': form,
@@ -129,45 +120,7 @@ def metadata(method: str, params: MultiDict, session: Session,
     return ready_for_next((response_data, status.OK, {}))
 
 
-def optional(method: str, params: MultiDict, session: Session,
-             submission_id: int, **kwargs) -> Response:
-    """Update optional metadata on the submission."""
-    submitter, client = user_and_client_from_session(session)
-
-    logger.debug(f'method: {method}, submission: {submission_id}. {params}')
-
-    submission, _ = get_submission(submission_id)  # raises NotFound if no submission.
-    # The form should be prepopulated based on the current state of the submission.
-    if method == 'GET':
-        params = _data_from_submission(params, submission,
-                                       OptionalMetadataForm)
-
-    form = OptionalMetadataForm(params)
-    response_data = {
-        'submission_id': submission_id,
-        'form': form,
-        'submission': submission
-    }
-
-    if method == 'POST' and form.validate():
-        logger.debug('Form is valid, with data: %s', str(form.data))
-
-        commands, valid = _opt_commands(form, submission, submitter, client)
-        # We only want to apply updates if the metadata has actually changed.
-        if not commands:
-            return ready_for_next((response_data, status.OK, {}))
-        if all(valid):  # Metadata has changed and is all valid
-            try:
-                submission, _ = current_app.api.save(*commands, submission_id=submission_id)
-                response_data['submission'] = submission
-                return ready_for_next((response_data, status.OK, {}))
-            except SaveError as e:
-                raise InternalServerError(response_data) from e
-
-    return stay_on_this_stage((response_data, status.OK, {}))
-
-
-def _commands(form: CoreMetadataForm, submission: Submission,
+def _commands(form: MetadataForm, submission: Submission,
               creator: User, client: Client) -> Tuple[List[Event], List[bool]]:
     commands: List[Event] = []
     valid: List[bool] = []
@@ -201,15 +154,8 @@ def _commands(form: CoreMetadataForm, submission: Submission,
         valid.append(validate_command(form, command, submission,
                                       'authors_display'))
         commands.append(command)
-    return commands, valid
 
-
-def _opt_commands(form: OptionalMetadataForm, submission: Submission,
-                  creator: User, client: Client) \
-        -> Tuple[List[Event], List[bool]]:
-
-    commands: List[Event] = []
-    valid: List[bool] = []
+    # #################### OPTIONAL FIELDS #################### #
 
     if form.msc_class.data and submission.metadata \
             and form.msc_class.data != submission.metadata.msc_class:
@@ -245,4 +191,5 @@ def _opt_commands(form: OptionalMetadataForm, submission: Submission,
         command = SetDOI(doi=form.doi.data, creator=creator, client=client)
         valid.append(validate_command(form, command, submission, 'doi'))
         commands.append(command)
+
     return commands, valid

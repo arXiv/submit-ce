@@ -128,9 +128,6 @@ NewSubmissionWorkflow = WorkflowDefinition(
      stages.FileUpload(),
      stages.Process(),
      stages.Metadata(),
-     stages.OptionalMetadata(required=False,
-                             #must_see=True
-                             ),
      stages.FinalPreview()
      ],
     stages.Confirm()
@@ -146,7 +143,6 @@ ReplacementWorkflow = WorkflowDefinition(
      stages.FileUpload(must_see=True),
      stages.Process(must_see=True),
      stages.Metadata(must_see=True),
-     stages.OptionalMetadata(required=False, must_see=True),
      stages.FinalPreview(must_see=True)
      ],
     stages.Confirm()

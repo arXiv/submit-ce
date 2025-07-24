@@ -48,8 +48,6 @@ def test_create_submission(app, authorized_client, mocker):
     assert response.status_code in [ status.FOUND, status.SEE_OTHER ], "disallow skip forward"
     response = client.get(f'/{sub_id}/final_preview')
     assert response.status_code in [ status.FOUND, status.SEE_OTHER ], "disallow skip forward"
-    response = client.get(f'/{sub_id}/add_optional_metadata')
-    assert response.status_code in [ status.FOUND, status.SEE_OTHER ], "disallow skip forward"
 
     # Submit the verify user page.
     response = client.post(next_page.path, data={'verify_user': 'y',

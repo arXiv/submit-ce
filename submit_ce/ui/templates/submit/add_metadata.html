@@ -113,6 +113,162 @@
       </div>
     </div>
     {% endwith %}
+
+    {# #################### OPTIONAL FIELDS #################### #}
+    <div>
+        {% with field = form.doi %}
+        <div class="field is-short-field">
+          <div class="control">
+            <label class="label" id="doi-label" for="doi">{{ field.label.text }} <a href="{{ url_for('help_metadata') }}" class="help-bubble">
+              {{svg.question()}}
+              <div class="bubble-text">This field is <strong>only</strong> for a DOI. Separate multiple DOIs with a space. Click for a detailed help page.</div></a>
+            </label>
+            {% if field.errors %}
+              <div class="help is-danger">
+                {% for error in field.errors %}
+                    {{ error }}
+                {% endfor %}
+              </div>
+            {% endif %}
+            {% if field.description %}
+            <p class="help has-text-grey is-marginless">
+              {{ field.description|safe }}
+            </p>
+            {% endif %}
+            {% if field.errors %}
+              {{ field(class="input is-danger")|safe }}
+            {% else %}
+              {{ field(class="input")|safe }}
+            {% endif %}
+          </div>
+        </div>
+        {% endwith %}
+
+        {% with field = form.journal_ref %}
+        <div class="field is-short-field">
+          <div class="control">
+            <label class="label" id="journal_ref-label" for="journal_ref">{{ field.label.text }} <a href="{{ url_for('help_metadata') }}" class="help-bubble">
+              {{svg.question()}}
+              <div class="bubble-text">Click for a detailed help page on journal reference formatting. Click for a detailed help page.</div></a>
+            </label>
+            {% if field.errors %}
+              <div class="help is-danger">
+                {% for error in field.errors %}
+                    {{ error }}
+                {% endfor %}
+              </div>
+            {% endif %}
+            {% if field.description %}
+            <p class="help has-text-grey is-marginless">
+              {{ field.description|safe }}
+            </p>
+            {% endif %}
+            {% if field.errors %}
+              {{ field(class="input is-danger")|safe }}
+            {% else %}
+              {{ field(class="input")|safe }}
+            {% endif %}
+          </div>
+        </div>
+        {% endwith %}
+
+        {% with field = form.report_num %}
+        <div class="field is-short-field">
+          <div class="control">
+            <label class="label" id="report_num-label" for="report_num">{{ field.label.text }} <a href="{{ url_for('help_metadata') }}" class="help-bubble">
+              {{svg.question()}}
+              <div class="bubble-text">This field is <strong>only</strong> for an institution-supplied number. Click for a detailed help page.</div></a>
+            </label>
+            {% if field.errors %}
+              <div class="help is-danger">
+                {% for error in field.errors %}
+                    {{ error }}
+                {% endfor %}
+              </div>
+            {% endif %}
+            {% if field.description %}
+            <p class="help has-text-grey is-marginless">
+              {{ field.description|safe }}
+            </p>
+            {% endif %}
+            {% if field.errors %}
+              {{ field(class="input is-danger")|safe }}
+            {% else %}
+              {{ field(class="input")|safe }}
+            {% endif %}
+          </div>
+        </div>
+        {% endwith %}
+
+        {% with field = form.acm_class %}
+        <div class="field is-short-field">
+          <div class="control">
+            <label class="label" id="acm_class-label" for="acm_class">{{ field.label.text }} <a href="{{ url_for('help_metadata') }}" class="help-bubble">
+              {{svg.question()}}
+              <div class="bubble-text">For classifications in CS only. Click for a detailed help page.</div></a>
+            </label>
+            {% if field.errors %}
+              <div class="help is-danger">
+                {% for error in field.errors %}
+                    {{ error }}
+                {% endfor %}
+              </div>
+            {% endif %}
+            {% if field.description %}
+            <p class="help has-text-grey is-marginless">
+              {{ field.description|safe }}
+            </p>
+            {% endif %}
+            {% if field.errors %}
+              {{ field(class="input is-danger")|safe }}
+            {% else %}
+              {{ field(class="input")|safe }}
+            {% endif %}
+          </div>
+        </div>
+        {% endwith %}
+
+        {% with field = form.msc_class %}
+        <div class="field is-short-field">
+          <div class="control">
+            <label class="label" id="msc_class-label" for="msc_class">{{ field.label.text }} <a href="{{ url_for('help_metadata') }}" class="help-bubble">
+              {{svg.question()}}
+              <div class="bubble-text">For classifications in math only. Click for a detailed help page.</div></a>
+            </label>
+            {% if field.errors %}
+              <div class="help is-danger">
+                {% for error in field.errors %}
+                    {{ error }}
+                {% endfor %}
+              </div>
+            {% endif %}
+            {% if field.description %}
+            <p class="help has-text-grey is-marginless">
+              {{ field.description|safe }}
+            </p>
+            {% endif %}
+            {% if field.errors %}
+              {{ field(class="input is-danger")|safe }}
+            {% else %}
+              {{ field(class="input")|safe }}
+            {% endif %}
+          </div>
+        </div>
+        {% endwith %}
+    </div>
+
+    <div>
+      <div class="message">
+        <div class="message-body">
+          <p>
+            {{svg.info(klass="icon filter-dark_grey")}}
+            If this article has not yet been published elsewhere, this information can be <a href="{{ ('help_jref') }}">added at any later time</a> without submitting a new version.
+          </p>
+        </div>
+          </div>
+    </div>
+  </div>
+
   </div>
   {{ submit_macros.submit_nav(submission_id) }}
 </form>

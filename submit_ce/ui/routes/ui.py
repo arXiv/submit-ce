@@ -444,17 +444,6 @@ def add_metadata(submission_id: int) -> Response:
                   'Add or Edit Metadata', submission_id, flow_controlled=True)
 
 
-@UI.route('/<int:submission_id>/add_optional_metadata', methods=['GET', 'POST'])
-@scoped(scopes.EDIT_SUBMISSION, authorizer=is_owner,
-                        unauthorized=redirect_to_login)
-@flow_control()
-def add_optional_metadata(submission_id: int) -> Response:
-    """Render step 9, metadata."""
-    return handle(cntrls.optional,
-                  'submit/add_optional_metadata.html',
-                  'Add or Edit Metadata', submission_id, flow_controlled=True)
-
-
 @UI.route('/<int:submission_id>/final_preview', methods=['GET', 'POST'])
 @scoped(scopes.EDIT_SUBMISSION, authorizer=is_owner,
                         unauthorized=redirect_to_login)
