@@ -91,7 +91,7 @@ def test_create_submission(app, authorized_client, mocker):
 
     # Submit the policy page.
     response = client.post(next_page.path, data={'policy': 'y',
-                                                 'policy_id': 1,
+                                                 'policy_id': 3,
                                                  'action': 'next',
                                                  'csrf_token': _parse_csrf_token(response)})
     assert response.status_code in [ status.FOUND, status.SEE_OTHER ]
