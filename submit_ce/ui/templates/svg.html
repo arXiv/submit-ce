@@ -1,0 +1,53 @@
+{# Handling of SVG images for jinja templates
+
+########## How to add another SVG ##########
+1. add the path to the SVGPATH DEFINITIONS section. Becareful to use single quotes to escape
+the <path> since it will have double quotes. Make sure to have a comma at the end.
+
+2. make a new macro using `pencile` or `trascan` as an example. These allow the `svg.pencil` syntax.
+
+#}
+
+{# ########## SVGPATH DEFINITIONS ########## #}
+{% if not svgpaths %}{# add svg paths to jinja global if they don't yet exist #}
+  {%
+  do svgpaths.update({
+
+  "info": '<path d="M256 8C119.043 8 8 119.083 8 256c0 136.997 111.043 248 248 248s248-111.003 248-248C504 119.083 392.957 8 256 8zm0 110c23.196 0 42 18.804 42 42s-18.804 42-42 42-42-18.804-42-42 18.804-42 42-42zm56 254c0 6.627-5.373 12-12 12h-88c-6.627 0-12-5.373-12-12v-24c0-6.627 5.373-12 12-12h12v-64h-12c-6.627 0-12-5.373-12-12v-24c0-6.627 5.373-12 12-12h64c6.627 0 12 5.373 12 12v100h12c6.627 0 12 5.373 12 12v24z"/>',
+
+  "pencil": '<path d="M497.9 142.1l-46.1 46.1c-4.7 4.7-12.3 4.7-17 0l-111-111c-4.7-4.7-4.7-12.3 0-17l46.1-46.1c18.7-18.7 49.1-18.7 67.9 0l60.1 60.1c18.8 18.7 18.8 49.1 0 67.9zM284.2 99.8L21.6 362.4.4 483.9c-2.9 16.4 11.4 30.6 27.8 27.8l121.5-21.3 262.6-262.6c4.7-4.7 4.7-12.3 0-17l-111-111c-4.8-4.7-12.4-4.7-17.1 0zM124.1 339.9c-5.5-5.5-5.5-14.3 0-19.8l154-154c5.5-5.5 14.3-5.5 19.8 0s5.5 14.3 0 19.8l-154 154c-5.5 5.5-14.3 5.5-19.8 0zM88 424h48v36.3l-64.5 11.3-31.1-31.1L51.7 376H88v48z"/>',
+
+  "trashcan": '<path d="M32 464a48 48 0 0 0 48 48h288a48 48 0 0 0 48-48V128H32zm272-256a16 16 0 0 1 32 0v224a16 16 0 0 1-32 0zm-96 0a16 16 0 0 1 32 0v224a16 16 0 0 1-32 0zm-96 0a16 16 0 0 1 32 0v224a16 16 0 0 1-32 0zM432 32H312l-9.4-18.7A24 24 0 0 0 281.1 0H166.8a23.72 23.72 0 0 0-21.4 13.3L136 32H16A16 16 0 0 0 0 48v32a16 16 0 0 0 16 16h416a16 16 0 0 0 16-16V48a16 16 0 0 0-16-16z"/>',
+
+  "recycle": '<path d="M255.545 8c-66.269.119-126.438 26.233-170.86 68.685L48.971 40.971C33.851 25.851 8 36.559 8 57.941V192c0 13.255 10.745 24 24 24h134.059c21.382 0 32.09-25.851 16.971-40.971l-41.75-41.75c30.864-28.899 70.801-44.907 113.23-45.273 92.398-.798 170.283 73.977 169.484 169.442C423.236 348.009 349.816 424 256 424c-41.127 0-79.997-14.678-110.63-41.556-4.743-4.161-11.906-3.908-16.368.553L89.34 422.659c-4.872 4.872-4.631 12.815.482 17.433C133.798 479.813 192.074 504 256 504c136.966 0 247.999-111.033 248-247.998C504.001 119.193 392.354 7.755 255.545 8z"/>',
+  })
+  %}
+{% endif %}
+
+{% macro svg(pathname, viewbox="0 0 512 512", klass="icon filter-blue", title="") %}
+  {% if svgpaths|length == 0 %}
+    <b>NO PATHS IN <pre>svgraphs</pre>. DEFINED IN /submit_ce/ui/templates/svg.html</b>    
+  {% elif pathname not in svgpaths %}
+    <b>ICON "{{pathname}}" NOT IN <pre>svgpaths</pre> IN /submit_ce/ui/templates/svg.html</b>
+  {% else %}
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="{{viewbox}}" class="{{klass}}">
+      {%if title%}<title>{{title}}</title>{% endif %}
+      {{svgpaths[pathname]|safe}}/></svg>
+  {%endif%}
+{% endmacro %}
+
+{% macro info(viewbox="0 0 512 512", klass="icon filter-blue", title="") %}
+{{ svg("info", viewbox, klass, title) }}
+{% endmacro %}
+
+{% macro pencil(viewbox="0 0 512 512", klass="icon filter-blue", title="") %}
+{{ svg("info", viewbox, klass, title) }}
+{% endmacro %}
+
+{% macro trashcan(viewbox="0 0 448 512", klass="icon filter-blue", title="") %}
+{{ svg("trashcan", viewbox, klass, title) }}
+{% endmacro %}
+
+{% macro recycle(viewbox="0 0 512 512", klass="icon filter-blue", title="") %}
+{{ svg("recycle", viewbox, klass, title) }}
+{% endmacro %}

@@ -37,9 +37,10 @@ def create_web_app(config: Optional[dict]=None) -> Flask:
     Base(app)
     app.register_blueprint(UI)
 
+    app.jinja_env.add_extension('jinja2.ext.do')
     for filter_name, filter_func in filters.get_filters():
         app.jinja_env.filters[filter_name] = filter_func
-
+    app.jinja_env.globals['svgpaths']={}# will be loaded by ui/templates/svg.html
 
     app.config['CLASSIC_DB_URI'] = settings.CLASSIC_DB_URI
     app.config['CLASSIC_SESSION_HASH'] = settings.JWT_SECRET  # shove this in for arxiv-base use
