@@ -35,7 +35,7 @@ def policy(method: str, params: MultiDict, session: Session,
     if method == 'GET' and submission.submitter_accepts_policy:
         params['policy'] = 'true'
 
-    current_policy_id=1  # TODO !!! add to api and use that
+    current_policy_id=3  # TODO !!! add to api and use that
     form = PolicyForm(params, current_policy_id)
     response_data = {
         'submission_id': submission_id,
@@ -108,9 +108,10 @@ class PolicyForm(csrf.CSRFForm):
     def __init__(self, params, current_policy_id):
         super().__init__(params)
         self.current_policy_id = current_policy_id
+        self.policy_id.data = current_policy_id
 
     def validate_policy_id(self, field):
-        if not field.data or not field.data.isdigit() or int(field.data) != self.current_policy_id:
+        if field.data is None or field.data != self.current_policy_id:
             raise ValidationError("Must use the current policy id")
 
 

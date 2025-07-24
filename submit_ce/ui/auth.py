@@ -24,7 +24,7 @@ from submit_ce.ui import backend, get_device_type, is_admin
 from submit_ce.ui.config import settings
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
+
 
 def _to_datetime(time:str|int|datetime|None)-> datetime:
     if isinstance(time, datetime):
@@ -209,8 +209,8 @@ def _ng_dict_jwt_auth(tokens: list[str]) -> Tuple[auth_domian.Session, str]:
     db_session.ip_address = _ip_address()
     return db_session, token
     
-def setup_auth():
-    """For use with `@app.before_reqeust()` to add auth attributes to `request`.
+def request_auth():
+    """For use with `@app.before_reqeust()` to add `auth` attributes to `request`.
 
     Must be run inside a flask request context."""
     tokens = _get_cookies(request.environ) + _get_auth_bearer(request.environ)
@@ -218,9 +218,10 @@ def setup_auth():
     try:
         try:
             session, jwt_orig = _modern_auth(tokens)
-        except ValidationError as ve:
+        except ValidationError as ve: # nested try/except is intentional
             logger.debug(ve)
             session, jwt_orig = _ng_dict_jwt_auth(tokens)
+    # same except handling for both _modern_auth and _ng_dict_jwt_auth
     except MissingToken:
         raise Unauthorized("no token or cookie")
     except InvalidToken:

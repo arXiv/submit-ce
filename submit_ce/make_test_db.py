@@ -304,7 +304,7 @@ def bootstrap_db(output_jwt: bool=False, db_uri = f"sqlite:///{DEV_SQLITE_FILE}"
             session.commit()
             logger.debug("Added %i categories", len(categories()))
 
-            users_to_add = users_v2(2)
+            users_to_add = users_v2(10)
             created_users = []
             for user, pw, ip, host, endos in users_to_add:
                 new_user, auths = accounts.register(user, pw, ip, host)

@@ -9,7 +9,7 @@ from arxiv.base import Base
 from arxiv.config import settings as base_settings
 from arxiv import db
 
-from .auth import setup_auth
+from .auth import request_auth
 from .config import settings
 from . import backend, filters
 from .routes.ui import UI
@@ -49,7 +49,7 @@ def create_web_app(config: Optional[dict]=None) -> Flask:
         if request.path.startswith("/static") or request.path == "/status":
             return
         else:
-            setup_auth()
+            request_auth()
 
     @app.teardown_appcontext
     def shutdown_session(exception=None):
