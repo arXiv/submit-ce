@@ -46,7 +46,9 @@ def create_web_app(config: Optional[dict]=None) -> Flask:
     app.config['SESSION_DURATION']=7200 # to appease arxiv-base, not really used
     @app.before_request
     def check_auth():
-        if not request.path.startswith("/static"):
+        if request.path.startswith("/static") or request.path == "/status":
+            return
+        else:
             setup_auth()
 
     @app.teardown_appcontext
