@@ -21,6 +21,15 @@ from submit_ce.ui.tests import CtrlBase
 from submit_ce.ui.routes.flow_control import STAGE_SUCCESS, \
     get_controllers_desire, STAGE_RESHOW
 
+
+def test_upload(app, authorized_client, sub_cross):
+    sub = sub_cross
+    url = f"/{sub.submission_id}/file_upload"
+    resp = authorized_client.get(url)
+    assert resp.status_code == status.OK and \
+        b"<title>Upload" in resp.data \
+        and b"<form " in resp.data
+
 class TestUpload(CtrlBase):
     """Tests for :func:`submit_ce.controllers.upload`."""
 

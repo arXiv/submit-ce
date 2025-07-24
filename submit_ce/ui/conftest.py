@@ -283,7 +283,7 @@ def sub_processed(app, authorized_user, sub_files):
 
 
 @pytest.fixture(scope="function")
-def sub_metadata(app, authorized_user, sub_files):
+def sub_metadata(app, authorized_user, sub_processed):
     """A submission metadata."""
     with app.app_context():
         user = authorized_user
@@ -303,18 +303,20 @@ def sub_metadata(app, authorized_user, sub_files):
                         affiliation="Fight Club",
                     )
                 ],
-            ),submission_id=sub_files.submission_id)
+            ),submission_id=sub_processed.submission_id)
+        return submission
 
 
 @pytest.fixture(scope="function")
-def sub_finalized(app, authorized_user, sub_processed):
+def sub_finalized(app, authorized_user, sub_metadata):
     """A submission that is finalized."""
+    assert sub_metadata
     with app.app_context():
         user = authorized_user
         ua = InternalClient(name=f"test_client_{__file__}")
         submission, _ = current_app.api.save(
             FinalizeSubmission(creator=user, client=ua),
-            submission_id=sub_processed.submission_id)
+            submission_id=sub_metadata.submission_id)
         return submission
 
 

@@ -1,6 +1,5 @@
 """Custom Jinja2 filters."""
 
-from dataclasses import asdict
 from datetime import datetime, timedelta
 from typing import List, Tuple, Callable
 
@@ -33,17 +32,6 @@ def timesince(timestamp: datetime, default: str = "just now") -> str:
         if period > 1:
             return "%d %s ago" % (period, singular if period == 1 else plural)
     return default
-
-
-def duration(delta: timedelta) -> str:
-    s = ""
-    for period in ['days', 'hours', 'minutes', 'seconds']:
-        value = getattr(delta, period, 0)
-        if value > 0:
-            s += f"{value} {period}"
-    if not s:
-        return "less than a second"
-    return s
 
 
 def just_updated(status: FileStatus, seconds: int = 2) -> bool:
@@ -132,9 +120,7 @@ def get_filters() -> List[Tuple[str, Callable]]:
         ('get_category_name', get_category_name),
         ('process_status_display', process_status_display),
         ('compilation_status_display', compilation_status_display),
-        ('duration', duration),
         ('tidy_filesize', tidy_filesize),
-        ('asdict', asdict),
         ('compilation_log_display', compilation_log_display)
     ]
 

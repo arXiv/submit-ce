@@ -34,6 +34,8 @@ def unsubmit(method: str, params: MultiDict, session: Session,
         'submission': submission,
         'submission_id': submission.submission_id,
     }
+    if not submission.is_finalized:
+        return {}, status.BAD_REQUEST, {}
 
     if method == 'GET':
         form = UnsubmitForm()

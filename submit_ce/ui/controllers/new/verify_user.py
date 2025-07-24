@@ -42,10 +42,8 @@ def verify(method: str, params: MultiDict, session: Session,
     # Will raise NotFound if there is no such submission.
     submission, _ = get_submission(submission_id)
 
-    # Initialize the form with the current state of the submission.
     if method == 'GET':
-        if submission.submitter_contact_verified:
-            params['verify_user'] = 'true'
+        params['verify_user'] = 'true' if submission.submitter_contact_verified else 'false'
 
     form = VerifyUserForm(params)
     response_data = {
@@ -56,23 +54,24 @@ def verify(method: str, params: MultiDict, session: Session,
         'user': session.user,   # We want the most up-to-date representation.
     }
 
-    if method == 'POST' and form.validate() and form.verify_user.data:
-        # Now that we have a submission, we can verify the user's contact
-        # information. There is no need to do this more than once.
-        if submission.submitter_contact_verified:
-            return ready_for_next((response_data, status.OK,{}))
-        else:
-            cmd = ConfirmContactInformation(creator=submitter, client=client)
-            if validate_command(form, cmd, submission, 'verify_user'):
-                try:
-                    submission, _ = current_app.api.save(cmd, submission_id=submission_id)
-                    response_data['submission'] = submission
-                    return ready_for_next((response_data, status.OK, {}))
-                except SaveError as ex:
-                    raise InternalServerError(response_data) from ex
+    if method == "GET":
+        return stay_on_this_stage((response_data, status.OK, {}))
+    if method != "POST":
+        return response_data, status.METHOD_NOT_ALLOWED, {}
 
+    if not form.validate() or not form.verify_user.data:
+        return stay_on_this_stage((response_data, status.BAD_REQUEST, {}))
+    
+    if submission.submitter_contact_verified:
+        return ready_for_next((response_data, status.OK,{}))
 
-    return stay_on_this_stage((response_data, status.OK, {}))
+    cmd = ConfirmContactInformation(creator=submitter, client=client)
+    if validate_command(form, cmd, submission, 'verify_user'):
+        submission, _ = current_app.api.save(cmd, submission_id=submission_id)
+        response_data['submission'] = submission
+        return ready_for_next((response_data, status.OK, {}))
+    else:
+        return stay_on_this_stage((response_data, status.BAD_REQUEST, {}))
 
 
 class VerifyUserForm(csrf.CSRFForm):

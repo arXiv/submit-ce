@@ -1,73 +1,29 @@
 """Tests for :mod:`submit_ce.controllers.unsubmit`."""
 
-from unittest import mock
-from werkzeug.datastructures import MultiDict
-from werkzeug.exceptions import BadRequest
-from wtforms import Form
-from http import HTTPStatus as status
-import pytest
+from submit_ce.api.domain.submission import Submission
+from submit_ce.ui.tests.csrf_util import parse_csrf_token
 
-from submit_ce.ui.controllers.new import unsubmit
+def test_unsubmit_no_sub(authorized_client):
+    url = "/93489292/unsubmit"
+    resp = authorized_client.get(url)
+    assert resp.status_code == 404
 
-from submit_ce.ui.tests import CtrlBase
+def test_disallow_alter_unsubmit(authorized_client, sub_finalized):
+    sub: Submission = sub_finalized
+    url = f"/{sub.submission_id}/add_metadata"
+    resp = authorized_client.get(url)
+    assert resp.status_code == 303 and resp.headers["Location"].endswith("confirmation")
 
 
-class TestUnsubmit(CtrlBase):
-    """Test behavior of :func:`.unsubmit` controller."""
-    @pytest.mark.skip
-    @mock.patch(f'{unsubmit.__name__}.UnsubmitForm.Meta.csrf', False)
-    @mock.patch('submit_ce.ui.backend.api.get_with_history')
-    def test_get_request_with_submission(self, mock_load):
-        """GET request with a submission ID."""
-        submission_id = 2
-        before = mock.MagicMock(submission_id=submission_id,
-                                is_finalized=True,
-                                submitter_contact_verified=False)
-        mock_load.return_value = (before, [])
-        data, code, _ = unsubmit.unsubmit('GET', MultiDict(), self.session,
-                                          submission_id)
-        self.assertEqual(code, status.OK, "Returns 200 OK")
-        self.assertIsInstance(data['form'], Form, "Data includes a form")
+def test_unsuvmit(authorized_client, sub_finalized):
+    sub: Submission = sub_finalized
+    url = f"/{sub.submission_id}/unsubmit"
+    resp = authorized_client.get(url)
+    assert resp.status_code == 200
+    respx = authorized_client.post(url,data={'confirmed':'true', 'csrf_token':parse_csrf_token(resp)})
+    assert respx.status_code == 303 and respx.headers["Location"] == "/"
 
-    @pytest.mark.skip
-    @mock.patch(f'{unsubmit.__name__}.UnsubmitForm.Meta.csrf', False)
-    @mock.patch('submit_ce.ui.backend.api.get_with_history')
-    def test_post_request(self, mock_load):
-        """POST request with no data."""
-        submission_id = 2
-        before = mock.MagicMock(submission_id=submission_id,
-                                is_finalized=True,
-                                submitter_contact_verified=False)
-        mock_load.return_value = (before, [])
-        params = MultiDict()
-        try:
-            unsubmit.unsubmit('POST', params, self.session, submission_id)
-            self.fail('BadRequest not raised')
-        except BadRequest as e:
-            data = e.description
-            self.assertIsInstance(data['form'], Form, "Data includes a form")
-
-    @pytest.mark.skip
-    @mock.patch(f'{unsubmit.__name__}.UnsubmitForm.Meta.csrf', False)
-    @mock.patch(f'{unsubmit.__name__}.url_for')
-    @mock.patch('arxiv.base.alerts.flash_success')
-    @mock.patch('submit_ce.ui.backend.api.save')
-    @mock.patch('submit_ce.ui.backend.api.get_with_history')
-    def test_post_request_with_data(self, mock_load, mock_save,
-                                    mock_flash_success, mock_url_for):
-        """POST request with `confirmed` set."""
-        # Event store does not complain; returns object with `submission_id`.
-        submission_id = 2
-        before = mock.MagicMock(submission_id=submission_id,
-                                is_finalized=True, is_announced=False)
-        after = mock.MagicMock(submission_id=submission_id,
-                               is_finalized=False, is_announced=False)
-        mock_load.return_value = (before, [])
-        mock_save.return_value = (after, [])
-        mock_flash_success.return_value = None
-        mock_url_for.return_value = 'https://foo.bar.com/yes'
-
-        form_data = MultiDict({'confirmed': True})
-        _, code, _ = unsubmit.unsubmit('POST', form_data, self.session,
-                                       submission_id)
-        self.assertEqual(code, status.SEE_OTHER, "Returns redirect")
+    url = f"/{sub.submission_id}/unsubmit"
+    assert authorized_client.get(url).status_code == 400
+    resp = authorized_client.post(url,data={'confirmed':'true', 'csrf_token':parse_csrf_token(resp)})
+    assert resp.status_code == 400
