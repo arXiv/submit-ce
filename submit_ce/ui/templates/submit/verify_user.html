@@ -15,7 +15,7 @@
       <p>You are currently endorsed for: </p>
       <ul>
       {% for endorsement in submitter.endorsements %}
-        <li>{{ endorsement.display }}</li>
+        <li>{{ endorsement }}</li>
       {% endfor %}
       </ul>
       <p>If you wish to submit to a category other than those listed, you will need to <a href="{{ url_for('help_endorse') }}">seek endorsement</a> before submitting.</p>
