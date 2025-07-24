@@ -10,7 +10,6 @@ def test_no_sub(app, authorized_client):
     resp = authorized_client.get(url)
     assert resp.status_code == 404
 
-@pytest.mark.skip    
 def test_metadata(app, authorized_client, sub_processed):    
     sub: Submission = sub_processed
     url = f"/{sub.submission_id}/add_metadata"
@@ -54,7 +53,7 @@ def test_metadata(app, authorized_client, sub_processed):
                                              "abstract": "abstractX...........",
                                              "authors_display": "Smith, Bob",
                                              'action': 'next'})
-    assert resp.status_code == 300
+    assert resp.status_code == 303
     assert sub_db.metadata.title == "titleX" \
         and sub_db.metadata.abstract == "abstractX..........." \
         and sub_db.metadata.authors_display == "Smith, Bob"
