@@ -21,7 +21,8 @@ Suggestions from Jonathan:
        file store while uploading files. FileStore is a separate object and the
        SubmitAPI has a FileStore.
 
-   
+    6. compare-and-set feature to avoid race conditions
+
 Ideas after talking with Jonathan:
     
     1. Maybe there should be a DataStore and a FileStore. Or maybe a

@@ -101,7 +101,9 @@ class Settings(ArxivBaseSettings):
 
     Can be relative or absolute."""
     
-
+    ADMIN_ONLY: bool = False
+    """If true, only admin users can use the system. Intended to
+    allowe closed to the public dev or beta system."""
 
 
 settings = Settings()
