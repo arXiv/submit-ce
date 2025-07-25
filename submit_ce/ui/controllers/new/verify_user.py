@@ -42,8 +42,8 @@ def verify(method: str, params: MultiDict, session: Session,
     # Will raise NotFound if there is no such submission.
     submission, _ = get_submission(submission_id)
 
-    if method == 'GET':
-        params['verify_user'] = 'true' if submission.submitter_contact_verified else 'false'
+    if method == 'GET' and submission.submitter_contact_verified:
+        params['verify_user'] = 'true'
 
     form = VerifyUserForm(params)
     response_data = {
