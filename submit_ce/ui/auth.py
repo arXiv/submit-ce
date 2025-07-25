@@ -20,7 +20,7 @@ from arxiv.auth.legacy.endorsements import explicit_endorsements
 
 from submit_ce.api import User, PublicUser, HttpClient, Client
 from submit_ce.api.domain.agent import StaffUser
-from submit_ce.ui import backend, get_device_type, is_admin
+from submit_ce.ui import backend, get_device_type, is_admin, is_dev
 from submit_ce.ui.config import settings
 
 logger = logging.getLogger(__name__)
@@ -261,6 +261,9 @@ def user_and_client_from_session(session: auth_domian.Session) -> Tuple[User, Op
     name = " ".join([session.user.name.forename, session.user.name.surname]) if session.user.name \
         else "un-named user"
 
+    if settings.ADMIN_ONLY and not (is_admin(session) or is_dev(session)):
+            raise Unauthorized("This system is configured ADMIN_ONLY")
+
     if is_admin(session):
         user = StaffUser(
             user_id=session.user.user_id,
@@ -270,8 +273,6 @@ def user_and_client_from_session(session: auth_domian.Session) -> Tuple[User, Op
             scopes = session.authorizations.scopes,
         )
     else:
-        if settings.ADMIN_ONLY:
-            raise Unauthorized("This system is configured ADMIN_ONLY")
         user = PublicUser(
             user_id=session.user.user_id,
             name=name,
