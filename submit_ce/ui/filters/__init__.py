@@ -1,5 +1,6 @@
 """Custom Jinja2 filters."""
 
+from dataclasses import asdict
 from datetime import datetime, timedelta
 from typing import List, Tuple, Callable
 
@@ -121,6 +122,7 @@ def get_filters() -> List[Tuple[str, Callable]]:
         ('process_status_display', process_status_display),
         ('compilation_status_display', compilation_status_display),
         ('tidy_filesize', tidy_filesize),
+        ('asdict', asdict),
         ('compilation_log_display', compilation_log_display)
     ]
 

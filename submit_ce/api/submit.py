@@ -1,3 +1,64 @@
+"""The central `SubmitAPI` for working with submissions.
+
+Suggestions from Jonathan:
+    
+    1. DONE Allow load of submission without history, he is concerned the
+    history may grow to be very large
+    
+    2. Event type maybe should be renamed. Command? Change?
+    
+    2.5 Maybe the History should be made of different types than the
+       Command/Change?
+    
+    3. If save() has submission_id as optional just to support start_submission
+       maybe split that out to different function?
+    
+    4. NOT_AN_ACTION_ITEM: JY was expecting Submission to be an active object
+       like SqlAlchemy but this much more like a simple data structure.
+    
+    5. NOT_AN_ACTION_ITEM: JY felt that SubmitAPI and FileStorage should be
+       separate objects. I explained that SubmitAPI needed to lock the DB and
+       file store while uploading files. FileStore is a separate object and the
+       SubmitAPI has a FileStore.
+
+   
+Ideas after talking with Jonathan:
+    
+    1. Maybe there should be a DataStore and a FileStore. Or maybe a
+    MetadataStore and FileStore? And then the SubmitAPI uses those?
+    
+    2. There are events that just change the metadata data and that is what the
+    NG is designed around. And also events that do additional things: upload
+    files, delete files, compile pdf, extract text, qa checks. The SubmitAPI
+    needs to handle many of these since the metadata and file changes need to be
+    cordinated. File upload is an exampel: the SubmitAPI has a FileManager and
+    it should have an Upload event. The Upload event should have a BytesIO on it and
+    the SubmitAPI should handle the whole "upload and record metadata"
+    
+    3. Is the NG style Event where the event knows how to change the submission
+    good? Can we expand that to allow the event access to the SubmitAPI to do
+    file uploads, file deletes, etc? How would we implement something like "no
+    event can succeed before the arXiv TOS has been accepted?" (Yes, that would
+    be easy to do, just check the event history in the validation step) 
+    
+    4. High on the list of priorities are testability and simplicity. 
+
+    5. Testability of the design. Can we mock things? Can we do pytest fixtures?
+    Response: Makinig pytest fixtures has been easy and makes test writing
+    productive. Mocks have not yet been explored.
+    
+    6. What is evidence the design is going well?
+   
+    a. The `PubsubEventSubmitImplementation` was very easy to write and
+    test. Auth will be done simliar with a composed object. That will be good
+    becasue all the auth logic will be in one file instead of spread across the
+    app.
+
+    7. Need a way for files to be retreived via a bytestream or as just a gs URL.
+
+
+"""
+
 from abc import ABC, abstractmethod
 from datetime import datetime
 from typing import Tuple, List, Optional
@@ -98,38 +159,6 @@ class SubmitApi(ABC):
         """
         ...
 
-    """Suggestions from Jonathan:
-    
-    1. DONE Allow load of submission without history, he is concerned the history may grow to be very large
-    2. Event type maybe should be renamed. Command? Change?
-    2.5 Maybe the History should be made of different types than the Command/Change?
-    3. If save() has submission_id as optional just to support start_submission maybe split that out to 
-       different function?
-    4. JY was expecting Submission to be an active object like SqlAlchemy but this much more
-       like a simple data structure. 
-    5. JY felt that SubmitAPI and FileStorage should be separate objects. I explained that SubmitAPI
-       needed to lock the DB and file store while uploading files. So the SubmitAPI has a FileStore.
-    
-    Ideas after talking with Jonathan:
-    
-    1. Maybe there should be a DataStore and a FileStore. Or maybe a MetadataStore and FileStore? And then the 
-    SubmitAPI uses those? Maybe something to send PubSub like messages?
-    
-    2. It is clear to me that there are events that just change the metadata data and that is what the 
-    NG is designed around. And there are also events that do additional things: upload files, delete files, compile pdf,
-    extract text, qa checks. These need something otherwise the metadata changes will be well handled by the SubmitAPI
-    But all the other things, the difficult things, will not be.  
-    
-    3. Is the NG style Event where the event knows how to change the submission good? Can we expand that to allow the
-    event access to the SubmitAPI to do file uploads, file deletes, etc? How would we implement something like "no
-    event can succeed before the arXiv TOS has been accepted?" What does the NG design get us and can we get it a different
-    way?
-    
-    4. High on the list of priorities are testability and simplicity. Testability has a lot to do with can we mock 
-    things? Can we do pytest fixtures? 
-          
-    
-    """
     # Ex what happens on a Command like CompileSource
     # What about longer commands? or things like compile source that may have a later result?
     # In legacy compile source is just synchronous.
@@ -222,8 +251,8 @@ class SubmitApi(ABC):
         Parameters
         ----------
         active_only : bool
-           Whether to return only actively accepted license. If set to false, the list will include old licenses that
-           are not currently accepted.
+           Whether to return only actively accepted license. If set to false,
+           the list will include old licenses that are not currently accepted.
         """
         ...
 
