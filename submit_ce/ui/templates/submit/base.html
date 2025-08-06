@@ -29,7 +29,7 @@
   {# Sometimes we need to show an alert immediately, without a redirect. #}
   {% block immediate_alerts %}
     {% if immediate_alerts -%}
-      <div class="notifications" role="alert" aria-atomic="true">
+      <div class="notifications">
         {% for category, message in immediate_alerts -%}
           <div class="notification is-{{ category }}">
             {% if message.dismissable %}<button class="delete notification-dismiss"></button>{% endif %}
