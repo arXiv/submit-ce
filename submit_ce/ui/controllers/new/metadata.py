@@ -32,15 +32,15 @@ Response = Tuple[Dict[str, Any], int, Dict[str, Any]]  # pylint: disable=C0103
 class MetadataForm(csrf.CSRFForm, FieldMixin):
     """Handles metadata fields on a submission."""
 
-    title = StringField('*Title', validators=[validators.DataRequired()])
+    title = StringField('Title', validators=[validators.DataRequired()])
     authors_display = TextAreaField(
-        '*Authors',
+        'Authors',
         validators=[validators.DataRequired()],
         description=("use <code>GivenName(s) FamilyName(s)</code> or <code>I. "
                      "FamilyName</code>; separate individual authors with "
                      "a comma or 'and'.")
     )
-    abstract = TextAreaField('*Abstract',
+    abstract = TextAreaField('Abstract',
                              validators=[validators.DataRequired()],
                              description='Limit of 1920 characters')
     comments = StringField('Comments',

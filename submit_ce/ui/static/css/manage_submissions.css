@@ -2,23 +2,20 @@
   .box {
     padding: unset;
     padding-bottom: 0.75em; } }
+
 @media only screen and (max-width: 760px), (min-device-width: 768px) and (max-device-width: 1024px) {
   table {
     display: block; }
-
   thead {
     display: block; }
     thead tr {
       position: absolute;
       top: -9999px;
       left: -9999px; }
-
   tbody {
     display: block; }
-
   th {
     display: block; }
-
   td {
     display: block;
     border: none;
@@ -58,15 +55,14 @@
     td.user-announced:nth-of-type(4):before {
       content: "Actions";
       font-weight: bold; }
-
   tr {
     display: block;
     border: 1px solid #ccc; }
-
   .table td {
     padding-left: 30%; }
   .table th {
     padding-left: 30%; } }
+
 .box-new-submission {
   padding: 2rem important; }
 
@@ -85,5 +81,3 @@
 .alpha-before {
   position: relative;
   margin-left: 2em; }
-
-/*# sourceMappingURL=manage_submissions.css.map */

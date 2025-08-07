@@ -8,9 +8,7 @@
  <link rel="stylesheet" href="{{ url_for('static', filename='css/submit.css')}}" />
 {% endblock addl_head %}
 
-{% block alerts %}
-{# don't show alerts in the place the base templates show them #}
-{% endblock alerts %}
+{% block alerts %}{# don't show alerts in the place the base templates show them #}{% endblock alerts %}
 
 {% block content %}
   {% if submission_id and workflow %}
@@ -24,8 +22,19 @@
       {% block title %}{% endblock title %}
   </h1>
 
-  {# alerts from base macro #}
-  {{ macros.alerts(get_alerts()) }}
+  {# alerts instead of from arxiv-base #}
+  {% set messages = get_alerts() %}
+  {% if messages -%}
+  <div class="notifications" role="alert" aria-atomic="true">
+    {% for category, message in messages -%}
+    <div class="notification is-{{ category }}">
+        {% if message.dismissable %}<button class="delete notification-dismiss"></button>{% endif %}
+        {% if message.title %}<h2 class="is-size-5 is-marginless">{{ message.title }}</h2>{%- endif %}
+        <p>{{ message.message }}</p>
+    </div>
+    {%- endfor %}
+  </div>
+  {%- endif %}
   {# Sometimes we need to show an alert immediately, without a redirect. #}
   {% block immediate_alerts %}
     {% if immediate_alerts -%}
