@@ -19,7 +19,6 @@ RUN apt-get -q update && apt-get -y -q upgrade && \
     apt-get -y install default-libmysqlclient-dev
 
 RUN useradd --create-home e-prints
-USER e-prints
 WORKDIR /home/e-prints
 COPY pyproject.toml uv.lock ./
 
@@ -28,6 +27,8 @@ RUN uv venv && \
 COPY ./submit_ce ./submit_ce
 
 ENV PATH="/home/e-prints/.venv/bin:$PATH"
+RUN python submit_ce/ui/compile_sass.py
+
 
 #################### with-dev-venv ####################
 FROM builder AS with-dev-venv
