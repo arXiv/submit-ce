@@ -10,7 +10,7 @@
 {% endblock important_text_box %}
             
 {% block within_content %}
-<form form="form" method="POST" action="{{ url_for('ui.license',submission_id=submission_id) }}">
+<form id="form" method="POST" action="{{ url_for('ui.license',submission_id=submission_id) }}">
   {{ form.csrf_token }}
   <div class="content-container">
     <h2>Submission license details - Scroll to read before selecting a license</h2>

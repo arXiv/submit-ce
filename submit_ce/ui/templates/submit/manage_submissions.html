@@ -12,7 +12,7 @@
     <div class="box-new-submission">
       <h2>Welcome {{submitter.name}}</h2>
       <p>Click to start a new submission</p>
-      <form class="form" method="POST" action="{{ url_for('ui.create_submission') }}">
+      <form id="form" class="form" method="POST" action="{{ url_for('ui.create_submission') }}">
         {{ form.csrf_token }}
         <button name="new" class="button is-success button-is-wrappable is-large is-link" value="new" aria-label="Create New Submission">Start a New Submission</button>
       </form>

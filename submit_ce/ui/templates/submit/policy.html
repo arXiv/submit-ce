@@ -3,7 +3,7 @@
 {% block title -%}Acknowledge Policy Statement{%- endblock title %}
 
 {% block within_content %}
-<form form="form" method="POST" action="{{ url_for('ui.policy', submission_id=submission_id) }}">
+<form id="form" method="POST" action="{{ url_for('ui.policy', submission_id=submission_id) }}">
   <div class="content-container">
     <h2>Terms and Conditions - Scroll to read before proceeding</h2>
     <div class="policy-scroll">

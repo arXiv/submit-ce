@@ -57,7 +57,7 @@
   {%- endmacro %}
 
   {% block within_content %}
-  <form method="POST" action="{{ url_for('ui.add_metadata', submission_id=submission_id) }}">
+  <form id="form" method="POST" action="{{ url_for('ui.add_metadata', submission_id=submission_id) }}">
     <div class="action-container">
       {{ form.csrf_token }}
       {{ field_macro( form.title, "input", help_url, texism_help_text ) }}

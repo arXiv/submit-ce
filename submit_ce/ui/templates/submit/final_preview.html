@@ -52,7 +52,7 @@
 </div>
 
 
-<form method="POST" action="{{ url_for('ui.final_preview', submission_id=submission_id) }}">
+<form id="form" method="POST" action="{{ url_for('ui.final_preview', submission_id=submission_id) }}">
 
   <div class="content-container">
     <a href="{{ url_for('ui.add_metadata', submission_id=submission_id) }}" class="button is-small is-link is-outlined">
