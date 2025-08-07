@@ -1,7 +1,16 @@
-{% extends "submit/base.html" %}
+{% extends "submit/base_edit.html" %}
 
 {% block title -%}Add or Edit Metadata{%- endblock title %}
 
+{% block important_text_box %}
+  <div class="message">
+    <div class="message-body">
+        {{svg.info(klass="icon filter-dark_grey")}} If this article has not yet
+        been published elsewhere, this information can be <a href="{{ ('help_jref') }}">
+        added at any later time</a> without submitting a new version.
+    </div>
+  </div>
+  {% endblock important_text_box %}
 {% set help_url=url_for('help_metadata') %}
 {% set texism_help_text="Unicode, TeX accent characters, and MathJax are supported. Click for detailed information." %}
 {% set author_help_text="Click for detailed information on author name formatting." %}
@@ -62,13 +71,6 @@
       {{ field_macro( form.acm_class, "input", help_url, amc_help_text, required=False) }}
       {{ field_macro( form.msc_class, "input", help_url, msc_help_text, required=False) }}
   </div>
-  <div class="message">
-    <div class="message-body">
-        {{svg.info(klass="icon filter-dark_grey")}} If this article has not yet
-        been published elsewhere, this information can be <a href="{{ ('help_jref') }}">
-        added at any later time</a> without submitting a new version.
-    </div>
-  </div>
-  {{ submit_macros.submit_nav(submission_id) }}
+
 </form>
 {% endblock within_content %}

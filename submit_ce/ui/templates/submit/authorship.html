@@ -1,4 +1,4 @@
-{% extends "submit/base.html" %}
+{% extends "submit/base_edit.html" %}
 
 {% block addl_head %}
 {{super()}}
@@ -7,8 +7,14 @@
 
 {% block title -%}Confirm Authorship{%- endblock title %}
 
+{% block important_text_box %}
+  <p class="has-text-weight-semibold">{{svg.info(klass="icon filter-dark_grey")}}Authorship guidelines</p>
+  <p>Complete and accurate authorship is required and will be <a href="{{ url_for('help_author') }}">displayed in the public metadata</a>.</p>
+  <p>Third party submissions may have additional requirements, learn more on the <a href="{{ url_for('help_third_party_submission') }}" target="_blank">detailed help page</a>.</p>
+{% endblock important_text_box %}
+
 {% block within_content %}
-<form method="POST" action="{{ url_for('ui.authorship',submission_id=submission_id) }}">
+<form id="form" method="POST" action="{{ url_for('ui.authorship',submission_id=submission_id) }}">
 {{ form.csrf_token }}
 <div class="action-container" role="group" aria-labelledby="authorship_options">
   <div class="columns">
@@ -49,19 +55,6 @@
         {% endif %}
         {% if form.authorship.errors %}</div>{% endif %}
     </div>
-
-    <div class="column is-one-half-desktop is-one-half-tablet">
-      <div class="message">
-        <div class="message-body">
-          <p class="is-size-6 is-white has-text-weight-semibold">{{svg.info(klass="icon filter-dark_grey")}}
-            Authorship guidelines</p>
-          <p>Complete and accurate authorship is required and will be <a href="{{ url_for('help_author') }}"">displayed in the public metadata</a>.</p>
-          <p>Third party submissions may have additional requirements, learn more on the <a href="{{ url_for('help_third_party_submission') }}" target="_blank">detailed help page</a>.</p>
-        </div>
-      </div>
-    </div>
-  </div>
 </div>
-{{ submit_macros.submit_nav(submission_id) }}
 </form>
 {% endblock within_content %}

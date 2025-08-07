@@ -1,6 +1,13 @@
-{% extends "submit/base.html" %}
+{% extends "submit/base_edit.html" %}
 
 {% block title -%}Review and Approve Your Submission{%- endblock title %}
+{% block important_text_box %}
+{#<a href="{{ url_for('ui.delete_submission', submission_id=submission_id) }}" name="cancel" class="button" style="border:0" value="cancel" aria-label="Cancel submission" title="Cancel submission">
+  {{svg.trashcan()}}
+  Cancel and Delete
+</a>#}
+{% endblock important_text_box %}
+
 
 {% block within_content %}
 <div class="columns">
@@ -77,14 +84,5 @@
     {% if form.proceed.errors %}</div>{% endif %}
   </div>
 
-  <div class="buttons submit-nav" role="navigation" aria-label="Submission form controls">
-      <a href="{{ url_for('ui.delete_submission', submission_id=submission_id) }}" name="cancel" class="button is-size-6 is-size-7-mobile" style="border:0" value="cancel" aria-label="Cancel submission" title="Cancel submission">
-        {{svg.trashcan()}}
-        Cancel and Delete
-      </a>
-      <button name="action" class="button is-size-6 is-size-7-mobile" value="previous" aria-label="Go back one step">Go Back</button>
-      <button name="action" type="submit" class="button is-size-6 is-size-7-mobile" value="save_exit" aria-label="Save and Exit">Save and Exit</button>
-      <button name="action" class="button is-success is-size-6 is-size-7-mobile" value="next" aria-label="Confirm and submit">Confirm and Submit</button>
-  </div>
 </form>
 {% endblock within_content %}

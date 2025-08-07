@@ -1,4 +1,4 @@
-{% extends "submit/base.html" %}
+{% extends "submit/base_edit.html" %}
 
 {% block title -%}Process Files{%- endblock title %}
 
@@ -9,7 +9,9 @@
   {% endif %}
 {% endblock addl_head %}
 
-
+  {% block important_text_box %}
+    <p>{{svg.info(klass="icon filter-blue")}} This step runs all files through a series of automatic checks and compiles TeX and LaTeX source packages into a PDF. <a href="{{ url_for('help_texlive') }}">Learn more about our compiler and included packages</a>.</p>
+  {% endblock important_text_box %}
 
 {% block more_notifications -%}
 {% if status and status != "not_started" %}
@@ -153,14 +155,13 @@
 
 
 {% block within_content %}
-<form method="POST" action="{{ url_for('ui.file_process', submission_id=submission_id) }}">
+<form id="form" method="POST" action="{{ url_for('ui.file_process', submission_id=submission_id) }}">
   {{ form.csrf_token }}
-
-<div class="columns action-container">
-  <div class="column is-one-third-desktop is-half-tablet is-full-mobile">
+  <div class="columns action-container">
+    <div class="column is-one-third-desktop is-half-tablet is-full-mobile">
 
     {% if not status or status == "not_started" %}
-    <p>{{svg.info(klass="icon filter-blue")}} This step runs all files through a series of automatic checks and compiles TeX and LaTeX source packages into a PDF. <a href="{{ url_for('help_texlive') }}">Learn more about our compiler and included packages</a>.</p>
+
     <div class="field is-grouped">
       <div class="control">
         <!-- Selecting a preferred compiler is not supported in v0.1
@@ -274,7 +275,5 @@
     {% endif %}
   </div>
 </div>
-
-{{ submit_macros.submit_nav(submission_id) }}
 </form>
 {% endblock within_content %}

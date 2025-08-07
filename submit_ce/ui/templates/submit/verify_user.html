@@ -1,8 +1,8 @@
-{% extends "submit/base.html" %}
+{% extends "submit/base_edit.html" %}
 
 {% block title -%}Verify Your Contact Information{%- endblock title %}
 
-{% block more_notifications -%}
+{% block important_text_box -%}
   {% if submitter.endorsements|endorsetype == 'Some' %}
   <div class="message is-warning">
     <div class="message-header">
@@ -35,7 +35,7 @@
     </div>
   </div>
   {% endif %}
-{%- endblock more_notifications %}
+{%- endblock important_text_box %}
 
 {% block within_content %}
 <p>Check this information carefully! A <span class="has-text-weight-bold">current email address is required</span> to complete your submission. The name and email address of the submitter will be <a href="{{ url_for('help_email') }}"">viewable to registered arXiv users</a>.</p>
@@ -77,7 +77,7 @@
   </div>
 </article>
 
-<form method="POST" action="{% if submission_id %}{{ url_for('ui.verify_user', submission_id=submission_id) }}{% else %}{{ url_for('ui.verify_user') }}{% endif %}">
+<form id="form" method="POST" action="{% if submission_id %}{{ url_for('ui.verify_user', submission_id=submission_id) }}{% else %}{{ url_for('ui.verify_user') }}{% endif %}">
   {{ form.csrf_token }}
   <div class="field action-container">
     {% if form.verify_user.errors %}<div class="notification is-danger">{% endif %}
@@ -92,6 +92,6 @@
     </div>
     {% if form.verify_user.errors %}</div>{% endif %}
   </div>
-  {{ submit_macros.submit_nav(submission_id) }}
+
 </form>
 {% endblock within_content %}

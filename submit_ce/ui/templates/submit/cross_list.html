@@ -1,23 +1,25 @@
-{% extends "submit/base.html" %}
+{% extends "submit/base_edit.html" %}
 
 {% block title -%}Choose Cross-List Categories (Optional){%- endblock title %}
 
-{% block within_content %}
-<p>You may cross-list your article to another relevant category here.
+{% block important_text_box %}
+<div>You may cross-list your article to another relevant category here.
   If accepted your article will appear in the regular listing for that category (in the cross-list section).
   Cross-lists should be of direct interest to the professionals studying that field, not simply use techniques of, or derived from, that field.
-</p>
+</div>
 <div class="message is-warning">
   <div class="message-body">
-    <p>{{svg.info(klass="icon filter-orange")}}
+    <div>{{svg.info(klass="icon filter-orange")}}
       <span class="has-text-weight-bold">Adding more than three cross-list classifications will result in a delay in the acceptance of your submission.</span>
       Readers consider excessive or inappropriate cross-listing to be bad etiquette.
       It is rarely appropriate to add more than one or two cross-lists.
       Note you are unlikely to know that a cross-list is appropriate unless you are yourself a reader of the archive which you are considering.
-    </p>
+    </div>
   </div>
 </div>
+{% endblock important_text_box %}
 
+{% block within_content %}
 {% if formset.items %}
 <div class="content-container">
   <p>(Optional) Add cross-list categories from the list below.</p>
@@ -42,7 +44,7 @@
 </div>
 {% endif %}
 
-<form method="POST" action="{{ url_for('ui.cross_list', submission_id=submission_id) }}">
+<form id="form" method="POST" action="{{ url_for('ui.cross_list', submission_id=submission_id) }}">
   <div class="action-container">
     {{ form.csrf_token }}
     {{ form.operation }}

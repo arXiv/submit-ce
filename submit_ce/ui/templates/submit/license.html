@@ -1,10 +1,16 @@
-{% extends "submit/base.html" %}
+{% extends "submit/base_edit.html" %}
 
 {% block title -%}Select a License{%- endblock title %}
 
+{% block important_text_box %}
+  <p class="is-size-6 is-white has-text-weight-semibold">{{svg.info(klass="icon filter-dark_grey")}}
+    Not sure which license to select?</p>
+    <p>See the <a href="{{ url_for('help_license') }}">Discussion of licenses</a> for more information.</p>
+<p>If you wish to use a different CC license, then select arXiv's non-exclusive license to distribute in the arXiv and indicate the desired Creative Commons license in the article's full text.</p>
+{% endblock important_text_box %}
+            
 {% block within_content %}
-
-<form method="POST" action="{{ url_for('ui.license',submission_id=submission_id) }}">
+<form form="form" method="POST" action="{{ url_for('ui.license',submission_id=submission_id) }}">
   {{ form.csrf_token }}
   <div class="content-container">
     <h2>Submission license details - Scroll to read before selecting a license</h2>
@@ -60,18 +66,8 @@
         {% endif %}
         {% if form.license.errors %}</div>{% endif %}
       </div>
-      <div class="column is-two-thirds-tablet is-half-desktop">
-        <div class="message">
-          <div class="message-body">
-            <p class="is-size-6 is-white has-text-weight-semibold">{{svg.info(klass="icon filter-dark_grey")}}
-              Not sure which license to select?</p>
-            <p>See the <a href="{{ url_for('help_license') }}">Discussion of licenses</a> for more information.</p>
-            <p>If you wish to use a different CC license, then select arXiv's non-exclusive license to distribute in the arXiv and indicate the desired Creative Commons license in the article's full text.</p>
-          </div>
-        </div>
-      </div>
+
     </div>
   </div>
-  {{ submit_macros.submit_nav(submission_id) }}
 </form>
 {% endblock within_content %}

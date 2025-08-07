@@ -1,9 +1,9 @@
-{% extends "submit/base.html" %}
+{% extends "submit/base_edit.html" %}
 
 {% block title -%}Acknowledge Policy Statement{%- endblock title %}
 
 {% block within_content %}
-<form method="POST" action="{{ url_for('ui.policy', submission_id=submission_id) }}">
+<form form="form" method="POST" action="{{ url_for('ui.policy', submission_id=submission_id) }}">
   <div class="content-container">
     <h2>Terms and Conditions - Scroll to read before proceeding</h2>
     <div class="policy-scroll">
@@ -76,6 +76,5 @@
       </div>
       {% if form.policy.errors %}</div>{% endif %}
   </div>
-  {{ submit_macros.submit_nav(submission_id) }}
 </form>
 {% endblock within_content %}

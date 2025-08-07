@@ -1,4 +1,4 @@
-{% extends "submit/base.html" %}
+{% extends "submit/base_edit.html" %}
 
 {% block addl_head %}
 {{super()}}
@@ -63,10 +63,39 @@
   {% endfor %}
 {% endif %}
 
+{% block important_text_box %}
+
+  <p>TeX and (La)TeX submissions are highly encouraged. This format is the most likely to retain readability and high-quality output in the future. TeX source uploaded to arXiv will be made publicly available.</p>
+
+  <p>You can upload all your files at once as a single .zip or .tar.gz file, or upload individual files as needed.</p>
+<p><strong>Avoid common causes of delay:</strong> Make sure included files match the filenames exactly (it is case sensitive), and verify your references, citations and captions.</p>
+                
+<p class="has-text-weight-semibold">
+  {{svg.info(klass="icon filter-dark_grey")}}Accepted formats, in order of preference
+</p>
+<ul>
+  <li><a href="{{ url_for('help_submit_tex') }}">(La)TeX or PDFLaTeX</a> | <a href="{{ url_for('help_submit_pdf') }}">PDF</a> | <a href="{{ url_for('help_submit_html') }}">HTML</a> (for proceedings index only)</li>
+  <li>PDF documents created from TeX are not typically accepted. <a href="{{ url_for('help_whytex') }}">Why?</a></li>
+</ul>
+<p class="has-text-weight-semibold">
+  {{svg.info(klass="icon filter-dark_grey")}}Accepted formats for figures
+</p>
+<ul>
+  <li>(La)TeX: Postscript</li>
+  <li>PDFLaTeX: JPG, GIF, PNG, or PDF</li>
+</ul>
+<p class="has-text-weight-semibold">
+  {{svg.info(klass="icon filter-dark_grey")}}Accepted file properties
+</p>
+<ul>
+  <li>Names containing a-z A-Z 0-9 . , - _</li>
+  <li>Total compressed package size limit is 6MB, and uncompressed is 18MB</li>
+  <li>More information about <a href="{{ url_for('help_submit_sizes') }}">submission size and exemptions to size limits</a></li>
+</ul>
+   {% endblock important_text_box %}
 
 {% block within_content %}
-<p>TeX and (La)TeX submissions are highly encouraged. This format is the most likely to retain readability and high-quality output in the future. TeX source uploaded to arXiv will be made publicly available.</p>
-<form class="form" action="{{ url_for('ui.file_upload', submission_id=submission_id) }}" method="POST" enctype="multipart/form-data">
+<form id="form" class="form" action="{{ url_for('ui.file_upload', submission_id=submission_id) }}" method="POST" enctype="multipart/form-data">
   <div class="columns action-container">
 
     <div class="column is-one-half-desktop is-one-half-tablet">
@@ -103,12 +132,7 @@
           <p class="help is-danger field-error">{{ error }}</p>
         {% endfor %}
       {% endif %}
-      <p class="is-marginless help has-text-grey upload-notes">
-        You can upload all your files at once as a single .zip or .tar.gz file, or upload individual files as needed.
-        <br><br>
-        <strong>Avoid common causes of delay:</strong> Make sure included files match the filenames exactly (it is case sensitive),
-        and verify your references, citations and captions.
-      </p>
+
       {% if status and status.errors %}
         {% for error in status.errors %}
         <p class="help has-text-weight-bold is-marginless {% if error.error_type == FileErrorLevels.ERROR %}is-danger{% else %}is-warning{% endif %}">
@@ -139,37 +163,9 @@
       {% endif %}
     </div>
 
-    <div class="column is-one-half-desktop is-one-half-tablet">
-      <div class="message">
-        <div class="message-body">
-          <p class="has-text-weight-semibold">
-            {{svg.info(klass="icon filter-dark_grey")}}Accepted formats, in order of preference
-          </p>
-          <ul>
-            <li><a href="{{ url_for('help_submit_tex') }}">(La)TeX or PDFLaTeX</a> | <a href="{{ url_for('help_submit_pdf') }}">PDF</a> | <a href="{{ url_for('help_submit_html') }}">HTML</a> (for proceedings index only)</li>
-            <li>PDF documents created from TeX are not typically accepted. <a href="{{ url_for('help_whytex') }}">Why?</a></li>
-          </ul>
-          <p class="has-text-weight-semibold">
-            {{svg.info(klass="icon filter-dark_grey")}}Accepted formats for figures
-          </p>
-          <ul>
-            <li>(La)TeX: Postscript</li>
-            <li>PDFLaTeX: JPG, GIF, PNG, or PDF</li>
-          </ul>
-          <p class="has-text-weight-semibold">
-            {{svg.info(klass="icon filter-dark_grey")}}Accepted file properties
-          </p>
-          <ul>
-            <li>Names containing a-z A-Z 0-9 . , - _</li>
-            <li>Total compressed package size limit is 6MB, and uncompressed is 18MB</li>
-            <li>More information about <a href="{{ url_for('help_submit_sizes') }}">submission size and exemptions to size limits</a></li>
-          </ul>
-        </div>
-      </div>
-    </div>
+   
 
   </div>
-{{ submit_macros.submit_nav(submission_id) }}
 </form>
 
 {% endblock within_content %}

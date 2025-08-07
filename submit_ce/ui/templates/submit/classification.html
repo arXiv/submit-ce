@@ -1,17 +1,19 @@
-{% extends "submit/base.html" %}
+{% extends "submit/base_edit.html" %}
 
 {% block title -%}Choose a Primary Category{%- endblock title %}
 
-{% block more_notifications -%}
-  {% if submitter.endorsements|endorsetype == 'None' %}
+{% block important_text_box -%}
+<!-- TODO: add link to categories with descriptions -->
+<p>Select the primary category that is most specific for your article. If there is interest in more than one category for your article, you may choose cross-lists as secondary categories on the next step.</p>
+<p>Category selection is subject to moderation which may cause a delay in announcement in some cases. Click here to view a <a href="#" target="_blank">complete list of categories and descriptions</a>.</p>
+
+{% if submitter.endorsements|endorsetype == 'None' %}
   <div class="message is-danger">
     <div class="message-header">
       <p>Endorsements</p>
     </div>
     <div class="message-body">
-      <div class="is-pulled-left">
         {{svg.exclamation(klass="icon filter-red")}}
-      </div>
       <p>Your account does not currently have any endorsed categories. You will need to <a href="{{ url_for('help_endorse') }}">seek endorsement</a> before submitting.</p>
     </div>
   </div>
@@ -25,13 +27,11 @@
       </div>
     </div>
   {% endif %}
-{%- endblock more_notifications %}
+{%- endblock important_text_box %}
 
-{% block within_content %}
-<!-- TODO: add link to categories with descriptions -->
-<p>Select the primary category that is most specific for your article. If there is interest in more than one category for your article, you may choose cross-lists as secondary categories on the next step.</p>
-<p>Category selection is subject to moderation which may cause a delay in announcement in some cases. Click here to view a <a href="#" target="_blank">complete list of categories and descriptions</a>.</p>
-<form method="POST" action="{{ url_for('ui.classification', submission_id=submission_id) }}">
+{% block within_content %} 
+
+<form id="form" method="POST" action="{{ url_for('ui.classification', submission_id=submission_id) }}">
   <div class="action-container">
     {{ form.csrf_token }}
     <div class="columns">
@@ -76,8 +76,8 @@
       <div class="column is-two-thirds-tablet is-half-desktop">
         <div class="message">
           <div class="message-body">
-            <p class="is-size-6">
-              {{svg.exclamation(klass="icon filter-grey")}}
+            <p>
+              {{svg.exclamation(klass="icon")}}
               Select a category from the dropdown to view its description
             </p>
           </div>
@@ -86,6 +86,5 @@
 
     </div> <!-- end columns -->
   </div>
-  {{ submit_macros.submit_nav(submission_id) }}
 </form>
 {% endblock within_content %}

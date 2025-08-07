@@ -1,0 +1,600 @@
+/*
+Not generated with SASS
+Copied from arxiv-submit addfiles.css on 2025-08-07
+*/
+:root {
+    --control-btn-width: 1rem;
+    --info-column-margin: 2rem;
+}
+
+/* allow for a sticky header */
+.table-container table {
+    position:relative;
+    border-collapse: separate;
+    border-left: 1px;
+}
+/* Ensure the table and messages takes nearly full width */
+.table-container table,
+fieldset#addfiles .message,
+fieldset#addfiles .error_div {
+    width: 95%;
+    max-width: 100rem;
+}
+
+/* Ensure right alignment of the button in the check-files-container */
+.check-files-container {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    align-items: flex-start; /* Align items to the start */
+    margin-top: 20px;
+    width: 100%; /* New */
+}
+
+.check-files-container.top {
+    margin-bottom: 10px; /* Space between top container and table */
+}
+
+.check-files-container.bottom {
+    margin-top: 10px; /* Space between table and bottom container */
+}
+
+.check-files-container .sub-process-button {
+    white-space: nowrap;
+    margin-bottom: 5px; /* Space between button and text */
+}
+
+.check-files-container .submit-instructions {
+    max-width: 45%; /* Ensure text doesn't overflow container */
+    word-wrap: break-word; /* Wrap text within the container */
+    margin-bottom: 10px; /* Add some space below the text */
+    text-align: left; /* Left justify the text */
+}
+
+/* Container for the files and file input */
+.files-container {
+    width: 100%; /* New */
+    padding-right: 5px;
+    margin-top: 20px;
+    box-sizing: border-box; /* Include padding and border in width */
+}
+
+/* Adjust table cells padding as needed */
+.files-container td, .files-container th {
+    padding: 8px;
+}
+
+/* Align file placeholder text */
+.file-placeholder {
+    border: 1px dashed #ccc;
+    width: 100%; /* New */
+    height: 200px;
+    display: flex;
+    flex: 1;
+    flex-grow: 1;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    color: #aaa;
+    margin-bottom: 3rem;
+}
+
+/* Container for compiler and TeX selection */
+.compiler-tex-container {
+    display: flex;
+    flex-direction: column; /* Stack vertically */
+    align-items: flex-start; /* Align items to the left */
+}
+
+.compiler-container,
+.top-level-tex {
+    margin-bottom: 1rem; /* Adjust margin as needed */
+}
+
+/* All larger devices use a second info column in the dropdown menus. */
+@media (min-width: 767.98px) {
+    .top-level-tex > .layout-container,
+    .compiler-container > .layout-container {
+        flex-direction: row-reverse;
+        justify-content: flex-end;
+    }
+    .top-level-tex > .layout-container > *,
+    .compiler-container > .layout-container,
+    .compiler-select.controls {
+        margin-right: var(--info-column-margin);
+        margin-top: .1rem;
+    }
+}
+
+
+/* Container for additional TeX dropdowns */
+#content {
+    margin-right: 0;
+    font-size: 0.9rem;
+}
+
+/* Small devices (landscape phones, less than 768px) */
+@media (max-width: 767.98px) {
+    .info-container,
+    .main-content {
+        width: 100%;
+    }
+    .info-container-bottom {
+        display: none;
+    }
+}
+/* All larger devices use a sidebar */
+@media (min-width: 767.98px) {
+    .layout-container {
+        display: flex;
+        flex-direction: row-reverse;
+    }
+    .info-container {
+        display: flex;
+        flex-grow: 1;
+        flex-direction: column;
+        justify-content: space-between;
+        flex-wrap: nowrap;
+        align-items: center;
+        width: var(--sidebar-width);
+        border: 1px solid #ddd;
+        padding: 0.75rem;
+        box-sizing: border-box; /* Include padding in the width/height */
+        background: #f9f9f9;
+        color: #333;
+    }
+    .main-content {
+    /* Note: needed if we take the messages outside of .main-content again
+      fieldset#addfiles .message,
+      fieldset#addfiles .error_div { */
+        width: calc(100% - var(--sidebar-width));
+        padding-right: 4rem;
+    }
+    .info-container-top {
+        align-self: flex-start;
+        width: 100%;
+        position: sticky;
+        top: 2rem;
+    }
+    .info-container-bottom {
+        align-self: flex-end;
+        width: 100%;
+    }
+}
+
+.info-container .sub-process-button {
+    float: none;
+    bottom: 0.25rem;
+}
+
+.info-container .button-message {
+    display: block; /* Ensure the message appears on a new line */
+    font-size: 0.75rem; /* Adjust font size */
+    color: #666; /* Light gray for less emphasis */
+    margin-left: 4px;
+    margin-top: 10px; /* Add some space above the message */
+    margin-top: 0; /* Add some space above the message */
+    padding: 0;
+    margin-block-start: 0; /* Explicitly override browser default */
+    margin-block-end: 0; /* Explicitly override browser default */
+    clear: both; /* Ensure the message clears any floated elements */
+}
+
+/* TODO: Retest on Safari. */
+/* .main-form-container {
+    overflow: auto;
+} */
+
+div.restart-addfiles-container {
+    margin-top:.8rem;
+    margin-left:0rem;
+}
+
+.secondary-button.back-button {
+    padding: .375rem .5rem .375rem .65rem;
+}
+.back-button > .button-icon {
+    vertical-align: middle;
+    display: inline-block;
+    margin-top: 0;
+    margin-bottom: 0;
+    margin-right: 0.25rem;
+}
+
+ol {
+    padding-inline-start: 1em;
+}
+li {
+    padding-bottom: 0.5em;
+}
+/* ---- */
+
+/* Style for the important text box */
+.important-text-box {
+    position: relative; /* Default flow; sits directly below the top section */
+    margin: 0; /* Remove any margin to ensure it floats to the top */
+    background-color: #ffffff; /* White background for contrast */
+    padding: 1.25rem 0.625rem;
+    border: 1px solid #ccc;
+    overflow-y: auto; /* Enable scrolling if content overflows */
+    border-radius: 0.25rem; /* Rounded corners */
+    width: 95%;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); /* Slight shadow for emphasis */
+    margin-top: 10px; /* Reserve space for the top button */
+    margin-bottom: 80px; /* Reserve space for the bottom button */
+}
+
+/* A well-sized upload button */
+.secondary-button.upload-file {
+  padding: 0.25rem 0.3rem 0.25rem 0.3rem;
+  font-size: 0.8rem;
+  bottom: 0;
+}
+
+/* Ensure consistent alignment of elements in the file list */
+.files-table thead th,
+.files-table tbody td {
+    vertical-align: middle; /* Align text and elements in the middle */
+}
+
+.files-table td {
+    text-align: center; /* Center text in table cells */
+}
+
+/* Ensure "Download Package" link is inside the "File Name" header cell */
+.file-name-header {
+    display: flex;
+    flex-direction: column; /* Stack the header and link vertically */
+    align-items: flex-start; /* Align to the left */
+}
+
+/* Adjust margin for submit instructions under buttons */
+.submit-instructions {
+    text-align: right; /* Ensure text is aligned to the right */
+    margin-top: 0; /* Remove top margin to ensure text is close to the button */
+}
+
+/* More CSS for the delete feature */
+table.tbcss {
+    border-top: none;
+}
+table.tbcss th {
+    position: sticky;
+    top: 0;
+    border-top: 1px solid #3a4b6d;
+}
+table.tbcss tr:has(>td:target) > td:not(.tbbutton) {
+    animation: highlight-review-row 5s ease-in-out;
+}
+@keyframes highlight-review-row {
+    from {
+        background-color: #f7eda5;
+    }
+    to {
+        background-color: #fafafa;
+    }
+}
+
+table.review-files > thead > tr:nth-child(2) > th {
+    top: 2.09rem;
+}
+/* Ensure delete buttons are compact cells */
+th.column-delete,
+td.column-button {
+    width:5rem;
+}
+td.column-button {
+    text-align: center;
+}
+thead > tr:first-child:not(:only-child) > .column-delete {
+    border-bottom: none;
+}
+thead > tr:nth-child(2) > .column-delete {
+    border-top: none;
+    font-size: 0.8rem;
+    text-decoration: underline;
+    font-weight: normal;
+}
+
+/* Highlight the entire row pending deletion */
+tbody > tr:has(> td.tbbod:hover,> td.tbbod:active) > td {
+    /* background-color: #DFDFDF; */
+    background-color: #f7eda5; /* Main highlight color on hover */
+}
+tbody > tr:has(> td.tbbutton > input.delete-checkbox:checked):has(> td.tbbod:hover,> td.tbbod:active) > td.tbbod {
+    background-color: #f7eda5; /* Main highlight color on hover */
+}
+
+label {
+    font-size: 12px;
+    font-weight: normal;
+}
+
+.gray-text {
+    color: lightgray;
+}
+
+/* Review stage UI */
+#additional-tex-selects {
+    min-width: max-content;
+}
+.top-level-tex-container {
+    display: flex;
+    /* Do not reflow the buttons away from the dropdown */
+    white-space: nowrap;
+    width: 100%;
+}
+.top-level-tex.controls {
+    width: max-content;
+}
+.top-level-tex-container > select {
+    min-width: 6rem;
+    width: calc(100% - 3*var(--control-btn-width) - var(--info-column-margin));
+}
+.compiler-select.controls,
+.top-level-tex.controls {
+    width: max-content;
+}
+.compiler-select.controls > select {
+    width: 8.65rem;
+}
+.compiler-select.controls > select:has(option:disabled[selected]) {
+    width: 10.65rem;
+}
+.top-level-tex-container > * {
+    align-self: center;
+    margin-right: 0.1rem;
+    padding-block-end: 0;
+}
+.top-level-tex-container .cancel-top-level {
+    filter: grayscale(100%);
+}
+
+select {
+    -webkit-appearance:initial;
+    -moz-appearance: initial;
+    appearance: initial;
+    background-image: url("/images/fa-icon-caret-down.svg");
+    background-size: 0.3rem;
+    background-repeat: no-repeat;
+    background-position: calc(100% - 0.5rem) center;
+    background-color: #ffffff;
+    padding: .3rem;
+    border-radius: .25rem;
+}
+select.tex-dropdown {
+    padding-right: 1rem;
+    padding-bottom: 0.3rem;
+}
+
+
+td > a > .button-icon {
+    width: 21px;
+    height: 21px;
+}
+.button-icon {
+    width: var(--control-btn-width);
+    height: var(--control-btn-width);
+    margin-bottom: 0;
+    margin-top: 0.1rem;
+}
+
+table.review-files .tbbutton.center-checkbox
+{
+   width: 2rem;
+   text-align: center;
+   background-color: #f7eda5;
+}
+tr:has(>td.center-checkbox > input:checked) > td.tbbod.column-file,
+tr:has(>td.center-checkbox > input:checked) > td.tbbod.column-message {
+    /* background-color: #f2eed1; */
+    background-color: #ebebeb;
+    color:#888;
+    & > .is-neutral {
+        color:#888;
+    }
+}
+td.tbbod.column-file,
+td.tbbod.column-message {
+    word-wrap: break-word;
+    word-break: break-all;
+}
+/* Styling for files inside directories */
+td.tbbod.column-file.dir-level-2 {
+  padding-left: 1.8rem;
+}
+td.tbbod.column-file.dir-level-3 {
+    padding-left: 3rem;
+}
+td.tbbod.column-file.dir-level-4 {
+    padding-left: 4.2rem;
+}
+td.tbbod.column-file.dir-level-5 {
+    padding-left: 5.4rem;
+}
+td.tbbod.column-file.dir-level-6 {
+    padding-left: 6.6rem;
+}
+td.tbbod.column-file.dir-level-7,
+td.tbbod.column-file.dir-level-8,
+td.tbbod.column-file.dir-level-9,
+td.tbbod.column-file.dir-level-10 {
+    padding-left: 7.8rem;
+}
+
+td.type-directory {
+    &::before {
+        display: inline-block;
+        content: url(/images/fa-icon-folder-open.svg);
+        width: 0.9rem;
+        padding-right: 0.3rem;
+        vertical-align: middle;
+    }
+}
+
+td.tbbutton > input.delete-checkbox {
+    /* accent-color: #b31b1b; */
+    accent-color: #888;
+}
+td.tbbod.column-message {
+    /* coordinate with .tex-fatal from process page */
+    & > .is-danger {
+        background-color: #cd0200;
+        color: white;
+        padding: 0 0.2em;
+    }
+    /* coordinate with .tex-success from process page */
+    & > .is-success {
+        background-color: #3cb52126;
+        color: #092c01;
+        padding: 0 0.2em;
+    }
+    /* coordinate with .tex-warning from process page */
+    & > .is-warning {
+        background-color: #d6760066;
+        color: #211608;
+        padding: 0 0.2em;
+    }
+    & > .is-neutral {
+        color: black;
+    }
+}
+td.tbbod.column-message > .is-danger,
+td.tbbod.column-message > .is-warning,
+td.tbbod.column-message > .is-success {
+    line-height: 2;
+}
+td.tbbod.column-message > .is-neutral {
+    line-height: inherit;
+}
+td.tbbod.column-message > .is-silent {
+    display: none;
+}
+/* No need to set neutral, let the used/unused color apply. */
+/* td.tbbod.column-message > .is-neutral */
+
+p.table-legend {
+  margin-top: -1rem;
+}
+
+/* Right infobox UI */
+.download-package-link {
+    display: inline-block; /* Ensures proper block behavior for styling */
+    white-space: nowrap; /* Prevents wrapping */
+    vertical-align: middle; /* Aligns the link with other elements */
+}
+
+.download-package-link .icon {
+    display: inline-block; /* Makes the icon inline */
+    width: 16px; /* Size of the icon */
+    height: 16px;
+    background: url('/images/download.svg') no-repeat center center; /* Replace with your icon's URL */
+    background-size: contain; /* Ensures the icon fits the box */
+    margin-right: 8px; /* Space between the icon and text */
+    vertical-align: middle; /* Aligns icon with text */
+}
+
+
+/* Add some basic CSS for modal styling */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.4);
+}
+
+.modal-content {
+    background-color: white;
+    margin: 5% auto;
+    padding: 20px;
+    border: 1px solid #888;
+    width: 30rem;
+}
+.modal-title {
+    margin-top:0.5rem;
+    margin-bottom: 2rem;
+    text-align: center;
+}
+.modal-content p {
+    text-align: center;
+    padding-bottom: 1rem;
+}
+.modal-content .modal-file-list {
+    max-height: 50vh;
+    overflow: auto;
+    overflow-wrap: anywhere;
+}
+.modal-content .modal-file-list li {
+    text-align: left;
+    margin-bottom: 0.1rem;
+}
+.modal-content .close {
+    color: #aaa;
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+}
+.modal-content .modal-actions-container button {
+    flex-grow: 1;
+}
+.modal-content .modal-actions-container {
+    display: flex;
+    justify-content: space-evenly;
+}
+
+.close:hover,
+.close:focus {
+    color: black;
+    text-decoration: none;
+    cursor: pointer;
+}
+.modal-content #deleteNote {
+    margin-top: 10px;
+    font-size: 14px;
+    color: #555;
+}
+
+.modal-content button {
+    cursor: pointer;
+    border: none;
+    transition: background-color 0.3s;
+    border-radius: .25rem;
+    padding: .375rem .75rem;
+    margin: 0.25rem;
+    font-size: 1rem;
+    font-weight: bold;
+}
+.confirm-modal-button {
+    background-color: #1f5e96;
+    color: white;
+}
+.confirm-modal-button:hover {
+    background-color: #a5d6fe;
+    color: black;
+}
+.cancel-modal-button {
+    background-color: #f24726;
+    color: white;
+}
+.cancel-modal-button:hover {
+    background-color:  #f12e07;
+    color: black;
+}
+
+div.top-level-tex-container:only-child button.move-file-up,
+div.top-level-tex-container:only-child button.move-file-down,
+div.top-level-tex-container:first-child button.move-file-up,
+div.top-level-tex-container:last-child button.move-file-down,
+div.top-level-tex-container:only-child button.cancel-file {
+    cursor: not-allowed;
+    pointer-events: none;
+    filter: opacity(50%);
+}
+
+#add-tex-button {
+    display: inline-block;
+}
