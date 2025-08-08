@@ -89,7 +89,11 @@ def get_category_name(category: str) -> str:
         Raised if the specified category is not found in the active categories.
 
     """
-    return taxonomy.definitions.CATEGORIES_ACTIVE[category].full_name
+    cat = taxonomy.definitions.CATEGORIES.get(category, None)
+    if not cat:
+        return "--Unknown Category--"
+    else:
+        return cat.full_name
 
 
 def process_status_display(status: ProcessStatus.Status) -> str:
@@ -112,6 +116,12 @@ def compilation_status_display(status: Compilation.Status) -> str:
     raise ValueError("Unknown status")
 
 
+def pluralize(number, singular="", plural="s"):
+    if number == 1:
+        return singular
+    else:
+        return plural
+
 def get_filters() -> List[Tuple[str, Callable]]:
     """Get the filter functions available in this module."""
     return [
@@ -123,7 +133,8 @@ def get_filters() -> List[Tuple[str, Callable]]:
         ('compilation_status_display', compilation_status_display),
         ('tidy_filesize', tidy_filesize),
         ('asdict', asdict),
-        ('compilation_log_display', compilation_log_display)
+        ('compilation_log_display', compilation_log_display),
+        ('pluralize', pluralize),
     ]
 
 

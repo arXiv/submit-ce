@@ -1,6 +1,6 @@
 """Helpers for controllers."""
 
-from typing import Any, Dict, Tuple, Optional, List, Union
+from typing import Any, Dict, Iterable, Tuple, Optional, List, Union
 
 from markupsafe import Markup
 from wtforms.validators import StopValidation
@@ -92,6 +92,35 @@ def validate_command(form: Form, event: Event,
                 field_obj.errors = []
             field_obj.errors.append(message or e.message)
         return False
+
+
+def validate_commands(form: Form, events: Iterable[Event],
+                     submission: Optional[Submission] = None,
+                     field: str = 'events',
+                     message: Optional[str] = None) -> bool:
+    """Validate an uncommitted command and if there are any errors, put them on
+    the correct fields in the form.
+
+    Parameters
+    ----------
+    form : :class:`.Form`
+    commands : `Iterable[Event]`
+        Commands/events to validate.
+    submission : :class:`.Submission`
+        The submission to which the command applies.
+    field : str
+        Name of the field on the form to update with error messages if
+        validation fails. Default is `events`, accessible at
+        ``form.errors['events']``.
+    message : str or None
+        If provided, the error message to add to the form. If ``None``
+        (default) the :class:`.InvalidEvent` message will be used.
+
+    Returns
+    -------
+    bool if all commands validate.
+    """
+    return all([validate_command(form, event, submission, field, message) for event in events])
 
 
 class FieldMixin:

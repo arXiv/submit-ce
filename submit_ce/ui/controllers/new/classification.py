@@ -1,212 +1,285 @@
-"""
-Controller for classification actions.
+"""Controller for classification actions.
 
-Creates an event of type `core.events.event.SetPrimaryClassification`
-Creates an event of type `core.events.event.AddSecondaryClassification`
+** Does form handling in cases outside of wtforms. **
+
+Creates an events of type:
+ - `core.events.event.SetPrimaryClassification`
+ - `core.events.event.AddSecondaryClassification`
+ - `core.events.event.RemoveSecondaryClassification`
+
+The forms on this are a bit tricky since it will stage added or removed
+secondaries and only save those and the primary on "save & continue".
+
+General idea is to have the state rendered on the form, and submitted back
+to controller. The state has the existing saved categories and staged changes.
+The staged are only saved on "save & continue".
 """
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
 from http import HTTPStatus as status
-from typing import Tuple, Dict, Any
+from typing import Optional, Tuple, Dict, Any
 
 from arxiv import taxonomy
 from arxiv.auth.domain import Session
-from arxiv.base import alerts
 from arxiv.forms import csrf
+from arxiv.taxonomy.category import Category
 from arxiv.taxonomy.definitions import CATEGORIES_ACTIVE, ARCHIVES_ACTIVE
-from markupsafe import Markup
 
 from submit_ce.api import User
+from submit_ce.api.domain.meta import Classification
 from submit_ce.ui.backend import endorsed_for
 from submit_ce.ui.auth import user_and_client_from_session
 from werkzeug.datastructures import MultiDict
-from werkzeug.exceptions import InternalServerError
-from wtforms import widgets, HiddenField, validators
+from wtforms import (
+    Field,
+    SelectField,
+    SelectMultipleField,
+    TextAreaField,
+    widgets,
+    HiddenField,
+    validators,
+)
 from flask import current_app, request
 
 from submit_ce.api.domain import Submission
-from submit_ce.api.domain.event import RemoveSecondaryClassification, \
-    AddSecondaryClassification, SetPrimaryClassification
-from submit_ce.api.exceptions import SaveError
-from submit_ce.ui.controllers.util import OptGroupSelectField, validate_command
+from submit_ce.api.domain.event import (
+    RemoveSecondaryClassification,
+    AddSecondaryClassification,
+    SetPrimaryClassification,
+)
+from submit_ce.ui.controllers.util import OptGroupSelectField, validate_command, validate_commands
 from submit_ce.ui.routes.flow_control import ready_for_next, stay_on_this_stage
 from submit_ce.ui.backend import get_submission
 
 Response = Tuple[Dict[str, Any], int, Dict[str, Any]]  # pylint: disable=C0103
 
+STAGE_ADD = "STAGE_ADD"
+STAGE_REMOVE = "STAGE_REMOVE"
+SAVE = "SAVE"
 
-class ClassificationForm(csrf.CSRFForm):
-    """Form for classification selection."""
-
-    CATEGORIES = [
-        (archive.id, [
+CATEGORIES = [
+    (
+        archive.id,
+        [
             (category_id, f"{category_id}  {category.full_name}")
             for category_id, category in CATEGORIES_ACTIVE.items()
             if category.in_archive == archive_id
-        ])
-        for archive_id, archive in ARCHIVES_ACTIVE.items()
-    ]
-    """Categories grouped by archive."""
+        ],
+    )
+    for archive_id, archive in ARCHIVES_ACTIVE.items()
+]
+"""Categories grouped by archive."""
 
-    ADD = 'add'
-    REMOVE = 'remove'
-    OPERATIONS = [
-        (ADD, 'Add'),
-        (REMOVE, 'Remove')
-    ]
-    operation = HiddenField(default=ADD, validators=[validators.optional()])
-    category = OptGroupSelectField('Category', choices=CATEGORIES, default='')
+
+def _cat(cat: str | Classification | None) -> Optional[Category]:
+    if cat is None or not cat:
+        return None
+    if isinstance(cat, Classification):
+        return taxonomy.definitions.CATEGORIES[cat.category]
+    else:
+        return taxonomy.definitions.CATEGORIES[cat]
+
+
+class HiddenCatetorySet(TextAreaField):
+    """Hidden field for a `Set` of staged category changes."""
+
+    def _value(self):
+        if self.data:
+            return ",".join(self.data)
+        else:
+            return ""
+
+    def process_formdata(self, valuelist):
+        if valuelist:
+            self.data = set([x.strip() for x in valuelist[0].split(",") if x.strip()])
+        else:
+            self.data = set()
+
+
+class ClassificationFormV2(csrf.CSRFForm):
+    """Represents the state of the classification page from the request."""
+
+    # user_id = IntegerField(widget=HiddenInput())
+    primary = OptGroupSelectField("Primary Category", choices=CATEGORIES, default="")
+    """On get primary is loaded from saved, or user default primary.
+    On POST operation other than SAVE, it should keep whatever is in the form."""
+    add_secondary = OptGroupSelectField(choices=CATEGORIES, default="")
+
+    secondaries_staged_add = HiddenCatetorySet()
+    secondaries_staged_remove = HiddenCatetorySet()
+
+    def fitler_primary_choices(self, user: User)->None:
+        p_options = []
+        for archive, archive_choices in CATEGORIES:
+            cat_list = []
+            for category, display in archive_choices:
+                if endorsed_for(user, category):
+                    cat_list.append((category, display))
+            if cat_list:
+                p_options.append((archive, cat_list))
+        self.primary.choices = [(archive, _choices) for archive, _choices in p_options if _choices]
 
     def filter_choices(self, submission: Submission, user: User) -> None:
         """Remove redundant choices, and limit to endorsed categories."""
 
-        selected = self.category.data
-        primary = submission.primary_classification
+        primary = (self.primary.data) or (
+            submission.primary_classification.category
+            if submission.primary_classification
+            and submission.primary_classification.category
+            else ""
+        )
 
-        choices = [
-            (archive, [
-                (category, display) for category, display in archive_choices
-                if endorsed_for(user, category) and \
-                  (((primary is None or category != primary.category)
-                    and category not in submission.secondary_categories)
-                   or category == selected)
-            ])
-            for archive, archive_choices in self.category.choices
-        ]
-        self.category.choices = [
-            (archive, _choices) for archive, _choices in choices
-            if len(_choices) > 0
-        ]
+        options = []
+        for archive, archive_choices in CATEGORIES:
+            cat_list = []
+            for category, display in archive_choices:
+                if not endorsed_for(user, category) or category == primary:
+                    continue
 
-    @classmethod
-    def formset(cls, submission: Submission) \
-            -> Dict[str, 'ClassificationForm']:
-        """Generate a set of forms used to remove cross-list categories."""
-        formset = {}
-        if hasattr(submission, 'secondary_classification') and \
-                submission.secondary_classification:
-            for ix, secondary in enumerate(submission.secondary_classification):
-                this_category = str(secondary.category)
-                subform = cls(operation=cls.REMOVE, category=this_category)
-                subform.category.widget = widgets.HiddenInput()
-                subform.category.id = f"{ix}_category"
-                subform.operation.id = f"{ix}_operation"
-                subform.csrf_token.id = f"{ix}_csrf_token"
-                formset[secondary.category] = subform
-        return formset
+                already_saved = category in submission.secondary_categories
+                already_staged = self.secondaries_staged_add.data and \
+                    category in self.secondaries_staged_add.data
+                staged_for_remove = category in submission.secondary_categories and\
+                    self.secondaries_staged_remove.data and \
+                    category in self.secondaries_staged_remove.data
+                if staged_for_remove or not (already_saved or already_staged):
+                    cat_list.append((category, display))
 
+            if cat_list:
+                options.append((archive, cat_list))
 
-class PrimaryClassificationForm(ClassificationForm):
-    """Form for setting the primary classification."""
+        self.add_secondary.choices = [(archive, _choices) for archive, _choices in options if _choices]
 
-    def validate_operation(self, field) -> None:
-        """Make sure the client isn't monkeying with the operation."""
-        if field.data != self.ADD:
-            raise validators.ValidationError('Invalid operation')
+    def secondaries_save_and_staged(
+            self, submission: Submission, user: User
+    ) -> list[str]:
+        """Gets a list of saved and staged secondaries."""
+        self.filter_choices(submission, user)
+        saved = set(submission.secondary_categories)
+        staged_add = set(self.secondaries_staged_add.data or [])
+        staged_remove = set(self.secondaries_staged_remove.data or [])
+        return sorted(staged_add | (saved - staged_remove))
 
+    def mutate_stage_secondary_add(self, category:str, submission:Submission):
+        in_staged_add = (
+                self.secondaries_staged_add.data is not None
+                and category in self.secondaries_staged_add.data
+            )
+        in_staged_remove = (
+                self.secondaries_staged_remove.data is not None
+                and category in self.secondaries_staged_remove.data
+            )
 
-def classification(method: str, params: MultiDict, session: Session,
-                   submission_id: int, **kwargs) -> Response:
+        if in_staged_remove:
+            self.secondaries_staged_remove.data.remove(category)
+
+        if not category in submission.secondary_categories:
+            self.secondaries_staged_add.data.add(category)
+
+    def mutate_stage_secondary_remove(self, category:str, submission:Submission):
+        in_saved_sec = category in submission.secondary_categories
+        in_staged_add = (
+            self.secondaries_staged_add.data is not None
+            and category in self.secondaries_staged_add.data
+        )
+        in_staged_remove = (
+            self.secondaries_staged_remove.data is not None
+            and category in self.secondaries_staged_remove.data
+        )
+
+        if in_staged_add:
+            self.secondaries_staged_add.data.remove(category)
+        if in_saved_sec and not in_staged_remove:
+            self.secondaries_staged_remove.data.add(category)
+
+    def mutate_primary_change(self, submission:Submission):
+        # Does same as mutate_primary_change, alias just make it explicitly stated
+        self.mutate_stage_secondary_remove(self.primary.data, submission)
+
+# ############################## CONTROLLER ############################## #
+def classification(
+    method: str, params: MultiDict, session: Session, submission_id: int, **kwargs
+) -> Response:
     """Handle primary classification requests for a new submission."""
     submitter, client = user_and_client_from_session(session)
     submission, _ = get_submission(submission_id)
-    if method == 'GET':
-        # Prepopulate the form based on the state of the submission.
-        if submission.primary_classification and submission.primary_classification.category:
-            params['category'] = submission.primary_classification.category
+    primary = _cat(submission.primary_classification)
+    primary_cat_id = primary.id if primary else ""
 
-        # Use the user's default category as the default for the form.
-        params.setdefault('category', session.user.profile.default_category)
-
-    params['operation'] = PrimaryClassificationForm.ADD
-    form = PrimaryClassificationForm(params)
-    form.filter_choices(submission, submitter)
+    form = ClassificationFormV2(params)
+    form.fitler_primary_choices(submitter)
     response_data = {
-        'submission_id': submission_id,
-        'submission': submission,
-        'submitter': submitter,
-        'client': client,
-        'form': form
+        "submission_id": submission_id,
+        "submission": submission,
+        "submitter": submitter,
+        "client": client,
+        "form": form,
+        "primary": primary,
     }
 
     if method == "GET":
-        return response_data, status.OK, {}
-    if method != 'POST':
-        return response_data, status.METHOD_NOT_ALLOWED, {}
-
-    validated = form.validate()
-    command = SetPrimaryClassification(category=form.category.data, creator=submitter, client=client)
-    if validated and validate_command(form, command, submission, 'category'):
-        submission, _ = current_app.api.save(command, submission_id=submission_id)
-        response_data['submission'] = submission
-        return ready_for_next((response_data, status.OK, {}))
-    else:                                  
-        return response_data, status.BAD_REQUEST, {}
-
-
-def cross_list(method: str, params: MultiDict, session: Session,
-               submission_id: int, **kwargs) -> Response:
-    """Handle secondary classification requests for a new submission."""
-    submitter, client = user_and_client_from_session(session)
-    submission, _ = get_submission(submission_id)
-
-    form = ClassificationForm(params)
-    form.operation._value = lambda: form.operation.data
-    form.filter_choices(submission, submitter)
-
-    # Create a formset to render removal option.
-    #
-    # We need forms for existing secondaries, to generate removal requests.
-    # When the forms in the formset are submitted, they are handled as the
-    # primary form in the POST request to this controller.
-    formset = ClassificationForm.formset(submission)
-    _primary = taxonomy.definitions.CATEGORIES[submission.primary_classification.category]
-
-    response_data = {
-        'submission_id': submission_id,
-        'submission': submission,
-        'submitter': submitter,
-        'client': client,
-        'form': form,
-        'formset': formset,
-        'primary': {
-            'id': submission.primary_classification.category,
-            'name': _primary.full_name,
-        },
-    }
-
-    if method == "GET":
+        form.primary.default = session.user.profile.default_category
+        form.primary.data = primary_cat_id
         return response_data, status.OK, {}
     if method != "POST":
         return response_data, status.METHOD_NOT_ALLOWED, {}
+    match request.form.get("action","") or request.form.get("operation", "").split(":"):
+        case ["STAGE_ADD"]:  # "Add" button on cross-list category drop down
+            cat = request.form.get("add_secondary", "")
+            form.add_secondary.data = None  # blank field to reused on redisplay
+            # todo validate request.form.secondary_category is a category
+            if not cat or cat == primary_cat_id:
+                return stay_on_this_stage((response_data, status.BAD_REQUEST, {}))
+            else:
+                form.mutate_stage_secondary_add(cat, submission)
+                return stay_on_this_stage((response_data, status.OK, {}))
+        case ["STAGE_REMOVE", cat]:   # "Trashcan" button on a secondary
+            if not cat:
+                return stay_on_this_stage((response_data, status.BAD_REQUEST, {}))
+            form.mutate_stage_secondary_remove(cat, submission)
+            return stay_on_this_stage((response_data, status.OK, {}))
+        case "next":  # green "save&continue" button
+            commands = []
+            for sec_rm in form.secondaries_staged_remove.data:
+                commands.append(RemoveSecondaryClassification(
+                    category=sec_rm,
+                    creator=submitter,
+                    client=client,
+                ))
 
-    # check if is attempting to move to a different step.
-    if "operation" not in request.form:
-        ready_for_next((response_data, status.OK, {}))
+            for sec_add in form.secondaries_staged_add.data:
+                commands.append(AddSecondaryClassification(
+                    category=sec_add,
+                    creator=submitter,
+                    client=client,
+                ))
 
-    if form.operation.data == form.REMOVE:
-        command_type = RemoveSecondaryClassification
-    elif form.operation.data == form.ADD:
-        command_type = AddSecondaryClassification
-    else:
-        return response_data, status.OK, {}  # user may be changing step?
+            if form.primary.data != primary_cat_id:
+                commands.append(SetPrimaryClassification(
+                    category=form.primary.data,
+                    creator=submitter,
+                    client=client
+                ))
 
-    validated_form = form.validate()
-    command = command_type(category=form.category.data, creator=submitter, client=client)
-    validated_command = validate_command(form, command, submission, 'category')
-    if not (validated_form and validated_command):
-        return response_data, status.BAD_REQUEST, {}
+            if not commands:
+                return ready_for_next((response_data, status.OK, {}))
 
-    submission, _ = current_app.api.save(command, submission_id=submission_id)
-    response_data['submission'] = submission
+            if not validate_commands(form, commands, submission, "primary"):
+                # should not really happen?
+                return stay_on_this_stage((response_data, status.BAD_REQUEST, {}))
 
-    # Re-build the formset to reflect changes that we just made, and
-    # generate a fresh form for adding another secondary. The POSTed
-    # data should now be reflected in the formset.
-    response_data['formset'] = ClassificationForm.formset(submission)
-    form = ClassificationForm()
-    form.operation._value = lambda: form.operation.data
-    form.filter_choices(submission, submitter)
-    response_data['form'] = form
+            submission, _ = current_app.api.save(*commands, submission_id=submission_id)
+            response_data["submission"] = submission
+            return ready_for_next((response_data, status.OK, {}))
+        case _:  # Primary selection change
+            form.mutate_primary_change(submission)
+            return stay_on_this_stage((response_data, status.BAD_REQUEST, {}))
 
-    # do not go to next yet, re-show cross form
-    return stay_on_this_stage((response_data, status.OK, {}))
 
+def cross_list(
+    method: str, params: MultiDict, session: Session, submission_id: int, **kwargs
+) -> Response:
+    """No longer used, merged to single classification page."""
+    pass

@@ -598,3 +598,57 @@ div.top-level-tex-container:only-child button.cancel-file {
 #add-tex-button {
     display: inline-block;
 }
+
+
+.layout-container {
+        display: flex;
+        flex-direction: row-reverse;
+        height: calc(100% - 130px);   /*NEW*/
+        /* justify-content: space-between;  REMOVE */
+}
+.info-container {
+        display: flex;
+        /* flex-grow: 1; REMOVE */
+        flex-direction: column;
+        justify-content: flex-start; /*CHANGE*/
+        flex-wrap: nowrap;
+        align-items: center;
+        width: var(--sidebar-width); /*it doesn't look like this css variable got copied over. It is also used to calculate the main content column width. Should fix the weird width issues on all pages.*/
+        border: 1px solid #ddd;
+        padding: 0.75rem;
+        box-sizing: border-box;
+        background: #f9f9f9;
+        color: #333;
+}
+
+.main-content {
+        width: calc(100% - var(--sidebar-width));  /*uses width variable here too*/
+        padding-right: 3rem;  /*CHANGE*/
+}
+
+.info-container-top,
+.info-container-bottom {   /*CHANGE, combine two classes into one line, fewer rules*/
+        display: flex;
+        justify-content: flex-end;
+        width: 100%;
+}
+
+/*ADD NEW CLASS:*/
+.info-container-middle {
+        flex-grow: 1;
+}
+
+.button.is-success {
+        font-size: 1.25rem; /*ADD*/
+}
+.submit-nav {
+        /* margin-top: 1.75rem; REMOVE */
+        margin-bottom: 2em !important;
+}
+.buttons {
+        /* align-items: center;REMOVE */
+        display: flex;
+        flex-wrap: wrap;
+        /* flex-shrink: 1;REMOVE */
+        /* justify-content: flex-start;REMOVE */
+}

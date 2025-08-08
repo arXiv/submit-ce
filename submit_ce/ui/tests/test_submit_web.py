@@ -104,30 +104,13 @@ def test_create_submission(app, authorized_client, mocker):
         and response.status_code == status.OK
 
     # POST the primary category page.
-    response = client.post(next_page.path,data={'category': 'astro-ph.GA',
+    response = client.post(next_page.path,data={'primary': 'astro-ph.GA',
                                                 'action': 'next',
                                                 'csrf_token': _parse_csrf_token(response)})
     assert response.status_code in [ status.FOUND, status.SEE_OTHER ] \
         and response.status_code != status.BAD_REQUEST
 
     assert _sub().primary_category == 'astro-ph.GA'
-    # GET the next page in the process. This is the cross list stage.
-    next_page = urlparse(response.headers['Location'])
-    assert 'cross' in next_page.path
-
-    response = client.get(next_page.path)
-    assert response.status_code == 200 # if 302 or 303 likely primary form didn't work
-    assert b'Choose Cross-List Classifications' in response.data
-
-    # Submit the cross-list category page.
-    response = client.post(next_page.path,
-                                data={'category': 'astro-ph.CO',
-                                      'csrf_token': _parse_csrf_token(response)})
-    assert response.status_code ==  status.OK
-
-    # cross is a little different in that after a successful post it will stay on the page
-    response = client.post(next_page.path, data={'action': 'next'})
-    assert response.status_code ==  status.SEE_OTHER
 
     # Get the next page in the process. This is the file upload stage.
     next_page = urlparse(response.headers['Location'])

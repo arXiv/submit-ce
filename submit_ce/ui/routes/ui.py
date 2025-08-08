@@ -341,18 +341,6 @@ def classification(submission_id: int) -> Response:
                   flow_controlled=True)
 
 
-@UI.route('/<int:submission_id>/cross_list', methods=['GET', 'POST'])
-@scoped(scopes.EDIT_SUBMISSION, authorizer=is_owner,
-                        unauthorized=redirect_to_login)
-@flow_control()
-def cross_list(submission_id: int) -> Response:
-    """Render step 6, secondary classes."""
-    return handle(cntrls.cross_list,
-                  'submit/cross_list.html',
-                  'Choose Cross-List Classifications', submission_id,
-                  flow_controlled=True)
-
-
 @UI.route('/<int:submission_id>/file_upload', methods=['GET', 'POST'])
 @scoped(scopes.EDIT_SUBMISSION, authorizer=is_owner,
                         unauthorized=redirect_to_login)

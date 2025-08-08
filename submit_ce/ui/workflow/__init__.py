@@ -122,9 +122,6 @@ NewSubmissionWorkflow = WorkflowDefinition(
      stages.License(),
      stages.Policy(),
      stages.Classification(),
-     stages.CrossList(required=False,
-                      #must_see=True
-                      ),
      stages.FileUpload(),
      stages.Process(),
      stages.Metadata(),
