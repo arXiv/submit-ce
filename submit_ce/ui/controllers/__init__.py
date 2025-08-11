@@ -11,7 +11,7 @@ from . import cross, delete, jref, util, withdraw
 from .manage_submissions import manage_submissions
 from .new import process, upload
 from .new.authorship import authorship
-from .new.classification import classification, cross_list
+from .new.classification import classification
 from .new.create import create
 from .new.final import finalize
 from .new.license import license

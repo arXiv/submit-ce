@@ -262,7 +262,7 @@ def flow_decision(method: str,
             return 'REDIRECT_EXIT'
         if user_action == PREVIOUS:
             return 'REDIRECT_PREVIOUS'
-        if user_action is None:  # like cross_list with action ADD?
+        if user_action is None:  # like classification with operation ADD
             return 'SHOW_CONTROLLER_RESULT'
 
     if controller_action == STAGE_RESHOW or code == 400:

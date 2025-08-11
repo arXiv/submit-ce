@@ -93,16 +93,6 @@ class Classification(Stage):
     completed = [conditions.has_primary]
 
 
-class CrossList(Stage):
-    """The user is given the option of selecting cross-list categories."""
-
-    endpoint = 'cross_list'
-    label = 'add cross-list categories'
-    title = "Add cross-list"
-    display = "Cross-list"
-    completed = [conditions.has_secondary]  # TODO Might be a problem, should be "has_see"
-
-
 class FileUpload(Stage):
     """The user is asked to upload files for their submission."""
 

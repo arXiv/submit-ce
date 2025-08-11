@@ -10,9 +10,27 @@ Creates an events of type:
 The forms on this are a bit tricky since it will stage added or removed
 secondaries and only save those and the primary on "save & continue".
 
-General idea is to have the state rendered on the form, and submitted back
-to controller. The state has the existing saved categories and staged changes.
-The staged are only saved on "save & continue".
+General idea is to have the state rendered in the form fields, and submitted
+back to controller. The state includes secondary staged adds secondary staged
+removes and staged primary. The staged are only saved on "save &
+continue".
+
+TODO allow new primary and secondary of old primary
+TODO multi command validation
+
+DONE filter primaries by endorsed (allow it to be set to staged and saved secondary)
+DONE add continue & save that does `api.save()`
+DONE Handle case of primary changed to a staged secondary
+DONE filter primary from secondaries select list
+DONE primary change event causes POST to filter secondaries
+DONE filter secondaries add form by have only endorsed saved and staged
+DONE display primary field with saved populated
+DONE display both saved and starged secondaries with trash cans
+DONE secondary add form with button
+DONE Remove should remove a staged_add
+DONE remove RemoveSeocndaryForm
+DONE add should remove a staged_remove
+
 """
 
 from __future__ import annotations
@@ -55,9 +73,6 @@ from submit_ce.ui.backend import get_submission
 
 Response = Tuple[Dict[str, Any], int, Dict[str, Any]]  # pylint: disable=C0103
 
-STAGE_ADD = "STAGE_ADD"
-STAGE_REMOVE = "STAGE_REMOVE"
-SAVE = "SAVE"
 
 CATEGORIES = [
     (
@@ -103,12 +118,16 @@ class ClassificationFormV2(csrf.CSRFForm):
 
     # user_id = IntegerField(widget=HiddenInput())
     primary = OptGroupSelectField("Primary Category", choices=CATEGORIES, default="")
-    """On get primary is loaded from saved, or user default primary.
-    On POST operation other than SAVE, it should keep whatever is in the form."""
+    """On GET `primary` is set from saved or user default primary.
+    On POST operation other than SAVE, it should keep what was in the form."""
+
     add_secondary = OptGroupSelectField(choices=CATEGORIES, default="")
 
     secondaries_staged_add = HiddenCatetorySet()
+    """Hiddent set of secondaries to add on real save."""
+
     secondaries_staged_remove = HiddenCatetorySet()
+    """Hiddent set of secondaries to remove on real save."""
 
     def fitler_primary_choices(self, user: User)->None:
         p_options = []
@@ -163,10 +182,7 @@ class ClassificationFormV2(csrf.CSRFForm):
         return sorted(staged_add | (saved - staged_remove))
 
     def mutate_stage_secondary_add(self, category:str, submission:Submission):
-        in_staged_add = (
-                self.secondaries_staged_add.data is not None
-                and category in self.secondaries_staged_add.data
-            )
+        """Change the form to shove a new `secondaries_staged_add`."""
         in_staged_remove = (
                 self.secondaries_staged_remove.data is not None
                 and category in self.secondaries_staged_remove.data
@@ -179,6 +195,7 @@ class ClassificationFormV2(csrf.CSRFForm):
             self.secondaries_staged_add.data.add(category)
 
     def mutate_stage_secondary_remove(self, category:str, submission:Submission):
+        """Change the form to shove a new `secondaries_staged_remove`."""
         in_saved_sec = category in submission.secondary_categories
         in_staged_add = (
             self.secondaries_staged_add.data is not None
@@ -195,14 +212,18 @@ class ClassificationFormV2(csrf.CSRFForm):
             self.secondaries_staged_remove.data.add(category)
 
     def mutate_primary_change(self, submission:Submission):
-        # Does same as mutate_primary_change, alias just make it explicitly stated
+        """Change the form to stage a different `primary`.
+
+        Does same as mutate_primary_change, alias just make it explicitly
+        stated
+        """
         self.mutate_stage_secondary_remove(self.primary.data, submission)
 
 # ############################## CONTROLLER ############################## #
 def classification(
     method: str, params: MultiDict, session: Session, submission_id: int, **kwargs
 ) -> Response:
-    """Handle primary classification requests for a new submission."""
+    """Handle classification requests for a new submission."""
     submitter, client = user_and_client_from_session(session)
     submission, _ = get_submission(submission_id)
     primary = _cat(submission.primary_classification)
@@ -225,11 +246,11 @@ def classification(
         return response_data, status.OK, {}
     if method != "POST":
         return response_data, status.METHOD_NOT_ALLOWED, {}
+
     match request.form.get("action","") or request.form.get("operation", "").split(":"):
         case ["STAGE_ADD"]:  # "Add" button on cross-list category drop down
             cat = request.form.get("add_secondary", "")
             form.add_secondary.data = None  # blank field to reused on redisplay
-            # todo validate request.form.secondary_category is a category
             if not cat or cat == primary_cat_id:
                 return stay_on_this_stage((response_data, status.BAD_REQUEST, {}))
             else:
@@ -267,7 +288,7 @@ def classification(
                 return ready_for_next((response_data, status.OK, {}))
 
             if not validate_commands(form, commands, submission, "primary"):
-                # should not really happen?
+                # should not really happen? All errors will be on the `primary` field.
                 return stay_on_this_stage((response_data, status.BAD_REQUEST, {}))
 
             submission, _ = current_app.api.save(*commands, submission_id=submission_id)
@@ -276,10 +297,3 @@ def classification(
         case _:  # Primary selection change
             form.mutate_primary_change(submission)
             return stay_on_this_stage((response_data, status.BAD_REQUEST, {}))
-
-
-def cross_list(
-    method: str, params: MultiDict, session: Session, submission_id: int, **kwargs
-) -> Response:
-    """No longer used, merged to single classification page."""
-    pass

@@ -1,46 +1,18 @@
 {% extends "submit/base_edit.html" %}
 
 {% block title -%}Suggest Category{%- endblock title %}
-
-{% macro field_macro( field, class, help_url, help_text, required=True ) -%}
-{% if required %}
-  {% set input_attributes = {"aria-required":"True"} %}
-  {% set opt_class = "" %}
-{% else %}
-  {% set input_attributes = {} %}
-  {% set opt_class = "optional" %}
-{% endif %}
-
-  <div class="field">
-      <label class="label {{opt_class}}" for="{{field.name}}">{{ field.label.text }}
-        {% if not required %}<span>- Optional</span>{% endif %}
-        <a href="{{help_url}}" class="help-bubble">{{svg.question()}}
-          <div class="bubble-text">{{help_text}}</div>
-        </a>
-      </label>
-      {% if field.errors %}
-      <div class="help is-danger field-error">
-        {% for error in field.errors %}
-        {{ error }}
-        {% endfor %}
-      </div>
-      {% endif %}
-      {% if field.description %}
-      <p class="help has-text-grey is-marginless">{{ field.description|safe }}</p>
-      {% endif %}
-      {% if field.errors %}
-      {{ field(class=[class, "is-danger"]|join, **input_attributes)|safe }}
-      {% else %}
-      {{ field(class=class, **input_attributes)|safe}}
-      {% endif %}
-  </div>
-  {%- endmacro %}
-
   
 {% block info_container_middle -%}
 <!-- TODO: add link to categories with descriptions -->
-<p>Select the primary category that is most specific for your article. If there is interest in more than one category for your article, you may choose cross-lists as secondary categories on the next step.</p>
-<p>Category selection is subject to moderation which may cause a delay in announcement in some cases. Click here to view a <a href="#" target="_blank">complete list of categories and descriptions</a>.</p>
+<p>Select the primary category that is most specific for your article. If there
+is interest in more than one category for your article, you may choose
+cross-lists as secondary categories on the next step.
+</p>
+
+<p>Category selection is subject to moderation which may cause a delay in
+announcement in some cases. Click here to view a <a href="#"
+target="_blank">complete list of categories and descriptions</a>.
+</p>
 
 {% if submitter.endorsements|endorsetype == 'None' %}
   <div class="message is-danger">
@@ -57,46 +29,30 @@
     <div class="message is-link">
       <div class="message-body">
         <p class="has-text-weight-bold">{{svg.info(klass="icon filter-blue")}}Endorsements</p>
-        <!-- TODO: is this how we want to filter categories? Jim prefers showing all of them. Jake prefers the method below or showing endorsed categories at the top. -->
-        <p>This list shows only the categories for which you are endorsed. If you wish to submit to a category not shown here, you will need to <a href="{{ url_for('help_endorse') }}">seek endorsement</a> prior to submission.</p>
+        <p>This list shows only the categories for which you are endorsed. If
+        you wish to submit to a category not shown here, you will need
+        to <a href="{{ url_for('help_endorse') }}">seek endorsement</a> prior to
+        submission.</p>
       </div>
     </div>
   {% endif %}
 
-  <div>You may cross-list your article to another relevant category.
-  If accepted your article will appear in the regular listing for that category (in the cross-list section).
-  Cross-lists should be of direct interest to the professionals studying that field, not simply use techniques of, or derived from, that field.
+  <div>You may cross-list your article to another relevant category.  If
+  accepted your article will appear in the regular listing for that category (in
+  the cross-list section).  Cross-lists should be of direct interest to the
+  professionals studying that field, not simply use techniques of, or derived
+  from, that field.
 </div>
 {%- endblock info_container_middle %}
 
-{% block within_content %} 
-  <pre>
-    TODO allow new primary and secondary of old primary
-    TODO multi command validation
-    
-    DONE filter primaries by endorsed (allow it to be set to staged and saved secondary)    
-    DONE add continue & save
-    DONE Handle case of primary changed to a staged secondary
-    DONE filter secondaries for primary
-    DONE Handle case of primary changed to a saved secondary    
-    DONE primary change event causes POST to filter secondaries
-    DONE filter secondaries add form by have only endorsed saved and staged
-    DONE display primary field with saved populated
-    DONE display both saved and starged secondaries with trash cans
-    DONE secondary add form with button
-    DONE Remove should remove a staged_add
-    DONE remove RemoveSeocndaryForm
-    DONE add should remove a staged_remove
-    staged_add:{{ form.secondaries_staged_add }}
-    staged_remove:{{ form.secondaries_staged_remove }}
-  </pre>
+{% block within_content %}
   <div class="action-container">
   <form id="form" method="POST" action="{{ url_for('ui.classification', submission_id=submission_id) }}">
     {{ form.csrf_token }}    
-    <div style="display: none">
+    <div style="display: none">{# remove this div for debugging to see what the form is donig #}
       staged_add:{{ form.secondaries_staged_add }}
-      staged_remove:{{ form.secondaries_staged_remove }}
-    </div>
+      staged_remove:{{ form.secondaries_staged_remove }} 
+  </div>
 
     {% with field = form.primary %} {# ############################## PRIMARY ############################## #}
     <div class="field">
@@ -124,8 +80,38 @@
     </div>
     {% endwith %}
 
+    {% set secondaries_save_and_staged = form.secondaries_save_and_staged(submission,submitter) %}    
+    {% with field = form.add_secondary %} {# ########## ADD CROSS LIST CATEGORY ########## #}
+      <label class="label" id="crosslist" for="category">Add a cross-list category
+        <a href="{{ url_for('help_cross') }}" class="help-bubble">
+          {{svg.question()}}
+          <span class="is-sr-only">Learn more about cross-list suggestions</span>
+          <div class="bubble-text">Cross-list suggestions indicate areas of overlapping interest for the submission. Click here to learn more.</div>
+        </a>
+      </label>
+      <div class="field has-addons" style="margin-bottom: 3em">
+        <div class="select">
+          {{ field(onchange="document.getElementById('classification-stage-add').click()") }}
+        </div>
+        {% if field.errors %}
+          <div class="help is-danger field-error">
+            {% for error in field.errors %}
+              {{ error }}
+            {% endfor %}
+          </div>
+        {% endif %}
+        {% if field.description %}
+          <p class="help has-text-grey">
+            {{ field.description|safe }}
+          </p>
+        {% endif %}
+        <button type="submit" class="button is-link" id="classification-stage-add"
+                style="display: none"
+                name="operation" value="STAGE_ADD">Add</button>
+      </div>
+    {% endwith %}
+    
     {# #################### REMOVE SECONDARIES ROWS ############################## #}
-    {% set secondaries_save_and_staged = form.secondaries_save_and_staged(submission,submitter) %}
     {% if secondaries_save_and_staged %}
       <div class="label">Cross-list Categor{{ secondaries_save_and_staged|length|pluralize("y","ies")}}</div>
       <ol class="file-tree">
@@ -143,34 +129,6 @@
       </ol>
     {% endif %}
 
-     {% with field = form.add_secondary %} {# ########## ADD CROSS LIST CATEGORY ########## #}
-      <label class="label" id="crosslist" for="category">Add a cross-list category
-        <a href="{{ url_for('help_cross') }}" class="help-bubble">
-          {{svg.question()}}
-          <span class="is-sr-only">Learn more about cross-list suggestions</span>
-          <div class="bubble-text">Cross-list suggestions indicate areas of overlapping interest for the submission. Click here to learn more.</div>
-        </a>
-      </label>
-      <div class="field has-addons" style="margin-bottom: 3em">
-          <div class="select">
-            {{ field() }}
-          </div>
-          {% if field.errors %}
-            <div class="help is-danger field-error">
-              {% for error in field.errors %}
-                  {{ error }}
-              {% endfor %}
-            </div>
-          {% endif %}
-          {% if field.description %}
-          <p class="help has-text-grey">
-            {{ field.description|safe }}
-          </p>
-          {% endif %}
-        <button type="submit" class="button is-link"
-                name="operation" value="STAGE_ADD">Add</button>
-      </div>
-      {% endwith %}
   </form>
 
 {% endblock within_content %}
