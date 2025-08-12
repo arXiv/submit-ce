@@ -82,7 +82,7 @@ target="_blank">complete list of categories and descriptions</a>.
 
     {% set secondaries_save_and_staged = form.secondaries_save_and_staged(submission,submitter) %}    
     {% with field = form.add_secondary %} {# ########## ADD CROSS LIST CATEGORY ########## #}
-      <label class="label" id="crosslist" for="category">Add a cross-list category
+      <label class="label" id="crosslist" for="{{field.name}}">Add a cross-list category
         <a href="{{ url_for('help_cross') }}" class="help-bubble">
           {{svg.question()}}
           <span class="is-sr-only">Learn more about cross-list suggestions</span>
