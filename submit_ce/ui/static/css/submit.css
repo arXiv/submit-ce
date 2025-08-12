@@ -1,3 +1,7 @@
+:root {
+  --sidebar-width: 22em;
+}
+
 /* Cuts down on unnecessary whitespace at top. Consider move to base. */
 main {
   padding: 1rem 1.5rem; }
