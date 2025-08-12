@@ -10,8 +10,8 @@ Suggestions from Jonathan:
     2.5 Maybe the History should be made of different types than the
        Command/Change?
     
-    3. If save() has submission_id as optional just to support start_submission
-       maybe split that out to different function?
+    3. If save() has submission_id as `Optional` just to support
+       start_submission. Maybe split that out to different function?
     
     4. NOT_AN_ACTION_ITEM: JY was expecting Submission to be an active object
        like SqlAlchemy but this much more like a simple data structure.
@@ -21,7 +21,7 @@ Suggestions from Jonathan:
        file store while uploading files. FileStore is a separate object and the
        SubmitAPI has a FileStore.
 
-    6. compare-and-set feature to avoid race conditions
+    6. Add a compare-and-set feature to avoid race conditions.
 
 Ideas after talking with Jonathan:
     
@@ -30,9 +30,9 @@ Ideas after talking with Jonathan:
     
     2. There are events that just change the metadata data and that is what the
     NG is designed around. And also events that do additional things: upload
-    files, delete files, compile pdf, extract text, qa checks. The SubmitAPI
+    files, delete files, compile PDF, extract text, QA checks. The SubmitAPI
     needs to handle many of these since the metadata and file changes need to be
-    cordinated. File upload is an exampel: the SubmitAPI has a FileManager and
+    coordinated. File upload is an example: the SubmitAPI has a FileManager and
     it should have an Upload event. The Upload event should have a BytesIO on it and
     the SubmitAPI should handle the whole "upload and record metadata"
     
@@ -45,18 +45,17 @@ Ideas after talking with Jonathan:
     4. High on the list of priorities are testability and simplicity. 
 
     5. Testability of the design. Can we mock things? Can we do pytest fixtures?
-    Response: Makinig pytest fixtures has been easy and makes test writing
+    Response: Making pytest fixtures has been easy and makes test writing
     productive. Mocks have not yet been explored.
     
     6. What is evidence the design is going well?
    
     a. The `PubsubEventSubmitImplementation` was very easy to write and
-    test. Auth will be done simliar with a composed object. That will be good
-    becasue all the auth logic will be in one file instead of spread across the
+    test. Auth will be done similar with a composed object. That will be good
+    because all the auth logic will be in one file instead of spread across the
     app.
 
-    7. Need a way for files to be retreived via a bytestream or as just a gs URL.
-
+    7. Need a way for files to be retrieved via a bytestream or as just a gs URL.
 
 """
 
@@ -243,7 +242,7 @@ class SubmitApi(ABC):
         client : :class:`.Client`
             Client tool making the upload.
         """
-        # TODO Should this just be an Event+save()?
+        # TODO Make this just an Event+save()
         ...
 
     def licenses(self, active_only=True) -> List[License]:

@@ -13,6 +13,8 @@
         <p>Your submission time stamp is: {{ submission.submitted }} (UTC).</p>
         <p>All submissions are subject to moderation which may cause a delay in announcement in some cases.</p>
         <p>If you need to make further changes click on "Manage my submission" below. To make changes you must first unsubmit your paper. Unsubmitting will remove your paper from the queue. Resubmitting will assign a new timestamp.</p>
+        <p>Your submission id is: <tt>submit/{{ submission.submission_id }}</tt></p>
+        <p>You will receive a confirmation email at <tt>{{submitter.email}}</tt></p>
       </div>
     </div>
   </div>
