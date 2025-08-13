@@ -125,41 +125,7 @@ fieldset#addfiles .error_div {
 }
 /* All larger devices use a sidebar */
 @media (min-width: 767.98px) {
-    .layout-container {
-        display: flex;
-        flex-direction: row-reverse;
-    }
-    .info-container {
-        display: flex;
-        flex-grow: 1;
-        flex-direction: column;
-        justify-content: space-between;
-        flex-wrap: nowrap;
-        align-items: center;
-        width: var(--sidebar-width);
-        border: 1px solid #ddd;
-        padding: 0.75rem;
-        box-sizing: border-box; /* Include padding in the width/height */
-        background: #f9f9f9;
-        color: #333;
-    }
-    .main-content {
-    /* Note: needed if we take the messages outside of .main-content again
-      fieldset#addfiles .message,
-      fieldset#addfiles .error_div { */
-        width: calc(100% - var(--sidebar-width));
-        padding-right: 4rem;
-    }
-    .info-container-top {
-        align-self: flex-start;
-        width: 100%;
-        position: sticky;
-        top: 2rem;
-    }
-    .info-container-bottom {
-        align-self: flex-end;
-        width: 100%;
-    }
+    /* ...existing code... */
 }
 
 .info-container .sub-process-button {
