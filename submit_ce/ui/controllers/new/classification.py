@@ -35,7 +35,6 @@ DONE add should remove a staged_remove
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 from http import HTTPStatus as status
 from typing import Optional, Tuple, Dict, Any
 
@@ -51,13 +50,7 @@ from submit_ce.ui.backend import endorsed_for
 from submit_ce.ui.auth import user_and_client_from_session
 from werkzeug.datastructures import MultiDict
 from wtforms import (
-    Field,
-    SelectField,
-    SelectMultipleField,
     TextAreaField,
-    widgets,
-    HiddenField,
-    validators,
 )
 from flask import current_app, request
 
@@ -67,7 +60,7 @@ from submit_ce.api.domain.event import (
     AddSecondaryClassification,
     SetPrimaryClassification,
 )
-from submit_ce.ui.controllers.util import OptGroupSelectField, validate_command, validate_commands
+from submit_ce.ui.controllers.util import OptGroupSelectField, validate_commands
 from submit_ce.ui.routes.flow_control import ready_for_next, stay_on_this_stage
 from submit_ce.ui.backend import get_submission
 
@@ -141,8 +134,7 @@ class ClassificationFormV2(csrf.CSRFForm):
         self.primary.choices = [(archive, _choices) for archive, _choices in p_options if _choices]
 
     def filter_choices(self, submission: Submission, user: User) -> None:
-        """Remove redundant choices, and limit to endorsed categories."""
-
+        """Remove redundant secondary choices, and limit to endorsed categories."""
         primary = (self.primary.data) or (
             submission.primary_classification.category
             if submission.primary_classification
@@ -191,7 +183,7 @@ class ClassificationFormV2(csrf.CSRFForm):
         if in_staged_remove:
             self.secondaries_staged_remove.data.remove(category)
 
-        if not category in submission.secondary_categories:
+        if category not in submission.secondary_categories:
             self.secondaries_staged_add.data.add(category)
 
     def mutate_stage_secondary_remove(self, category:str, submission:Submission):
@@ -212,12 +204,24 @@ class ClassificationFormV2(csrf.CSRFForm):
             self.secondaries_staged_remove.data.add(category)
 
     def mutate_primary_change(self, submission:Submission):
-        """Change the form to stage a different `primary`.
+        """Change the form to stage a different `primary`."""
+        primary_new = self.primary.data
 
-        Does same as mutate_primary_change, alias just make it explicitly
-        stated
-        """
-        self.mutate_stage_secondary_remove(self.primary.data, submission)
+        in_saved_sec = primary_new in submission.secondary_categories
+        in_staged_add = (
+            self.secondaries_staged_add.data is not None
+            and primary_new in self.secondaries_staged_add.data
+        )
+        in_staged_remove = (
+            self.secondaries_staged_remove.data is not None
+            and primary_new in self.secondaries_staged_remove.data
+        )
+
+        if in_staged_add:
+            self.secondaries_staged_add.data.remove(primary_new)
+        if in_saved_sec and not in_staged_remove:
+            self.secondaries_staged_remove.data.add(primary_new)
+
 
 # ############################## CONTROLLER ############################## #
 def classification(
