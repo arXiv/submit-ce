@@ -56,10 +56,10 @@ class StartCompileSource(EventWithSideEffect):
     def execute(self, api: 'SubmitApi', submission: Submission) -> None:
         """Do the actual compile."""
         result = api.get_compiler().start_compile(submission,
-                                                           self.creator,
-                                                           self.client,
-                                                           api,
-                                                           submission.source_content.identifier)
+                                                  self.creator,
+                                                  self.client,
+                                                  api,
+                                                  submission.source_content.identifier)
         self.source_content_id = submission.source_content.identifier
         # TODO add process info to Event?
         #self.process = process

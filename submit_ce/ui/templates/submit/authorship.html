@@ -32,6 +32,7 @@
         </div>
       {% endfor %}
 
+      {% if may_proxy %}
         <div class="field">
           <div class="control" style="margin-left: 2.5em; margin-top: -1em">
             <div class="checkbox">
@@ -48,9 +49,11 @@
             {% endif %}
           </div>
         </div>
+        {% endif %}
+
         {% if form.authorship.errors %}
           {% for error in form.authorship.errors %}
-            <p class="help is-danger">{{ error }}</p>
+          <p class="help is-danger">{{ error }}</p>
           {% endfor %}
         {% endif %}
         {% if form.authorship.errors %}</div>{% endif %}

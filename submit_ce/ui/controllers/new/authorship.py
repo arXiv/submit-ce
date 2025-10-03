@@ -7,30 +7,22 @@ Creates an event of type `core.events.event.ConfirmAuthorship`
 from http import HTTPStatus as status
 from typing import Tuple, Dict, Any
 
+from arxiv.auth.auth import scopes
 from arxiv.auth.domain import Session
 
-from arxiv.base import logging
 from arxiv.forms import csrf
-
 
 from flask import current_app
 from werkzeug.datastructures import MultiDict
-from werkzeug.exceptions import InternalServerError
 from wtforms import BooleanField, RadioField
 from wtforms.validators import InputRequired, ValidationError, optional
 
 from submit_ce.api.domain.event import ConfirmAuthorship
-from submit_ce.api.exceptions import SaveError
-
 
 from submit_ce.ui.auth import user_and_client_from_session
 from submit_ce.ui.controllers.util import validate_command
 from submit_ce.ui.routes.flow_control import ready_for_next
 from submit_ce.ui.backend import get_submission
-
-# from arxiv-submission-core.events.event import ConfirmContactInformation
-
-logger = logging.getLogger(__name__)  # pylint: disable=C0103
 
 Response = Tuple[Dict[str, Any], int, Dict[str, Any]]  # pylint: disable=C0103
 
@@ -40,26 +32,33 @@ def authorship(method: str, params: MultiDict, session: Session,
     """Handle the authorship assertion view."""
     submitter, client = user_and_client_from_session(session)
     submission, _ = get_submission(submission_id)
+    may_proxy = scopes.PROXY_SUBMISSION in submitter.scopes
 
-    # The form should be prepopulated based on the current state of the
-    # submission.
+    # The form should be prepopulated based on the current state of the submission.
     if method == 'GET':
-        # Update form data based on the current state of the submission.
-        if submission.submitter_is_author is not None:
-            if submission.submitter_is_author:
+        match submission.submitter_is_author, may_proxy:
+            case True, False:  # already did form, is author
                 params['authorship'] = AuthorshipForm.YES
-            else:
+            case True, True:  # already did form
+                params['authorship'] = AuthorshipForm.YES
+                params['proxy'] = False
+            case False, True:  # already did form and set False while being a proxy
                 params['authorship'] = AuthorshipForm.NO
-            if submission.submitter_is_author is False:
                 params['proxy'] = True
+            case False, False:  # bad state: not proxy and marked not author
+                params['authorship'] = False
+            case _, _:
+                pass # default values from form
 
-    form = AuthorshipForm(params)
+    form = AuthorshipProxyForm(params) if may_proxy else  AuthorshipForm(params)
+
     response_data = {
         'submission_id': submission_id,
         'form': form,
         'submission': submission,
         'submitter': submitter,
         'client': client,
+        'may_proxy': may_proxy,
     }
 
     if method == "GET":            
@@ -89,7 +88,26 @@ class AuthorshipForm(csrf.CSRFForm):
 
     authorship = RadioField(choices=[(YES, 'I am an author of this paper'),
                                      (NO, 'I am not an author of this paper')],
-                            validators=[InputRequired('Please choose one')])
+                            validators=[InputRequired('Please choose one')],
+                            default=None)
+
+    def validate_authorship(self, field: RadioField) -> None:
+        """Require proxy field if submitter is not author."""
+        if field.data == self.NO:
+            # TODO could use better not author message
+            raise ValidationError('You must be the author of the paper you want to submit.')
+
+
+class AuthorshipProxyForm(csrf.CSRFForm):
+    """Generate form with radio button to confirm authorship information."""
+
+    YES = 'y'
+    NO = 'n'
+
+    authorship = RadioField(choices=[(YES, 'I am an author of this paper'),
+                                     (NO, 'I am not an author of this paper')],
+                            validators=[InputRequired('Please choose one')],
+                            default=YES)
     proxy = BooleanField('By checking this box, I certify that I have '
                          'received authorization from arXiv to submit papers '
                          'on behalf of the author(s).',

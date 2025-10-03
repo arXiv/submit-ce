@@ -1,11 +1,4 @@
-"""
-Controllers for process-related requests.
-
-The controllers in this module leverage
-:mod:`arxiv.submission.core.process.process_source`, which provides an
-high-level API for orchestrating source processing for all supported source
-types.
-"""
+"""Controllers for process-related requests, ex. compile PDF."""
 
 import io
 from http import HTTPStatus as status
@@ -18,6 +11,8 @@ from markupsafe import Markup
 
 from submit_ce.api.domain.event.process import StartCompileSource
 from submit_ce.api.exceptions import SaveError
+from submit_ce.api.file_store import SubmissionFileStore
+from submit_ce.ui import SUPPORT
 
 from ...auth import user_and_client_from_session
 from submit_ce.api.domain.event import ConfirmSourceProcessed
@@ -33,12 +28,6 @@ from submit_ce.ui.backend import get_submission
 logger = logging.getLogger(__name__)
 
 Response = Tuple[Dict[str, Any], int, Dict[str, Any]]  # pylint: disable=C0103
-
-
-SUPPORT = Markup(
-    'If you continue to experience problems, please contact'
-    ' <a href="mailto:help@arxiv.org"> arXiv support</a>.'
-)
 
 
 def file_process(method: str, params: MultiDict, session: Session,
@@ -82,7 +71,7 @@ def file_process(method: str, params: MultiDict, session: Session,
 
 
 def _check_status(params: MultiDict, session: Session,  submission_id: int,
-                  token: str, **kwargs: Any) -> None:
+                  token: str, **kwargs: Any) -> Response:
     """
     Check for cases in which the preview already exists.
 
@@ -150,6 +139,12 @@ def compile_status(params: MultiDict, session: Session, submission_id: int,
         'form': form,
         'status': None,
     }
+
+    file_store: SubmissionFileStore = current_app.api.get_file_store()
+    file = file_store.get_preview(submission_id)
+    if file:
+        response_data['status']="succeeded"
+
     # Determine whether the current state of the uploaded source content has been compiled.
     #
     # result: Optional[process_source.CheckResult] = None

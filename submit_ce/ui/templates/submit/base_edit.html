@@ -9,8 +9,6 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/base_edit.css')}}" />
 {% endblock addl_head %}
 
-{% block alerts %}{# don't show alerts in the place the base templates show them #}{% endblock alerts %}
-
 {% block content %}
  {{ submit_macros.progress_bar(submission_id, workflow, this_stage) }}
 
@@ -21,48 +19,19 @@
       {% block title %}{% endblock title %}
   </h1>
 
-  {# alerts instead of from arxiv-base #}
-  {% set messages = get_alerts() %}
-  {% if messages -%}
-  <div class="notifications" role="alert" aria-atomic="true">
-    {% for category, message in messages -%}
-    <div class="notification is-{{ category }}">
-        {% if message.dismissable %}<button class="delete notification-dismiss"></button>{% endif %}
-        {% if message.title %}<h2 class="is-size-5 is-marginless">{{ message.title }}</h2>{%- endif %}
-        <p>{{ message.message }}</p>
-    </div>
-    {%- endfor %}
-  </div>
-  {%- endif %}
-  {# Sometimes we need to show an alert immediately, without a redirect. #}
-  {% block immediate_alerts %}
-    {% if immediate_alerts -%}
-      <div class="notifications">
-        {% for category, message in immediate_alerts -%}
-          <div class="notification is-{{ category }}">
-            {% if message.dismissable %}<button class="delete notification-dismiss"></button>{% endif %}
-            {% if message.title %}<h2 class="is-size-5 is-marginless">{{ message.title }}</h2>{%- endif %}
-            <p>{{ message.message }}</p>
-          </div>
-        {%- endfor %}
-      </div>
-    {%- endif %}
-    {% block more_notifications %}{% endblock more_notifications %}
-  {% endblock %}
-
 
   {% if submission and submission.version > 1 %}
     {# TODO: change this when we have better semantics on Submission domain class (e.g. last announced version) #}
     <h2 class="replacement is-size-5 subtitle">Replacing arXiv:{{ submission.arxiv_id }}v{{ submission.version - 1 }} {{ submission.metadata.title }}</h2>
   {% endif %}
-    {% if form and form.errors %}
-      {% if form.errors.events %}
+  {% if form and form.errors %}
+    {% if form.errors.events %}
       <div class="notification is-danger">
         {% for error in form.errors.events -%}
-        <li>{{ error }}</li>
+          <li>{{ error }}</li>
         {%- endfor %}
       </div>
-      {% endif %}
+    {% endif %}
   {% endif %}
 
   <div class="layout-container">
@@ -77,12 +46,47 @@
       <div class="info-container-bottom">
         {{ submit_macros.submit_nav(submission_id) }}
       </div>
-  </div>
+    </div>
 
-    <div id="main-page-content" class="main-content">
+    <div id="main-page-content" class="main-content">     
+      {% block submit_alerts%}
+        {# alerts instead of from arxiv-base #}
+        {% set messages = get_alerts() %}
+        {% if messages -%}
+          <div class="notifications" role="alert" aria-atomic="true">
+            {% for category, message in messages -%}
+              <div class="notification is-{{ category }}">
+                {% if message.dismissable %}<button class="delete notification-dismiss"></button>{% endif %}
+                {% if message.title %}<h2 class="is-size-5 is-marginless">{{ message.title }}</h2>{%- endif %}
+                <p>{{ message.message }}</p>
+              </div>
+            {%- endfor %}
+          </div>
+        {%- endif %}
+        {# Sometimes we need to show an alert immediately, without a redirect. #}
+        {% block immediate_alerts %}
+          {% if immediate_alerts -%}
+            <div class="notifications">
+              {% for category, message in immediate_alerts -%}
+                <div class="notification is-{{ category }}">
+                  {% if message.dismissable %}<button class="delete notification-dismiss"></button>{% endif %}
+                  {% if message.title %}<h2 class="is-size-5 is-marginless">{{ message.title }}</h2>{%- endif %}
+                  <p>{{ message.message }}</p>
+                </div>
+              {%- endfor %}
+            </div>
+          {%- endif %}
+          {% block more_notifications %}{% endblock more_notifications %}
+        {% endblock immediate_alerts %}
+      {% endblock submit_alerts %}
+
       {%block within_content %}
-      Specific content here.
+        Specific content here.
       {%endblock within_content %}
     </div>
   </div>
 {% endblock content %}
+
+{% block alerts %}
+  {# don't show alerts in the place the base templates show them #}
+{% endblock alerts %}

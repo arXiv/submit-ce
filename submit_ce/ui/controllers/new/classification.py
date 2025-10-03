@@ -267,7 +267,7 @@ def classification(
             return stay_on_this_stage((response_data, status.OK, {}))
         case "next":  # green "save&continue" button
             commands = []
-            for sec_rm in form.secondaries_staged_remove.data:
+            for sec_rm in form.secondaries_staged_remove.data or []:
                 commands.append(RemoveSecondaryClassification(
                     category=sec_rm,
                     creator=submitter,

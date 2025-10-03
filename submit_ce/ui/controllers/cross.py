@@ -15,6 +15,7 @@ from wtforms.validators import ValidationError, optional
 from arxiv.base import logging, alerts
 from arxiv.forms import csrf
 from submit_ce.ui.backend import get_submission
+from submit_ce.ui import SUPPORT
 from ..auth import user_and_client_from_session
 from submit_ce.api.domain.event import RequestCrossList
 from submit_ce.api.exceptions import SaveError
@@ -27,12 +28,6 @@ from ...api import Submission
 logger = logging.getLogger(__name__)  # pylint: disable=C0103
 
 Response = Tuple[Dict[str, Any], int, Dict[str, Any]]  # pylint: disable=C0103
-
-
-CONTACT_SUPPORT = Markup(
-    'If you continue to experience problems, please contact'
-    ' <a href="mailto:help@arxiv.org"> arXiv support</a>.'
-)
 
 
 class HiddenListField(HiddenField):
@@ -171,7 +166,7 @@ def request_cross(method: str, params: MultiDict, session: Session,
             if not validate_command(form, command, submission, 'category'):
                 alerts.flash_failure(Markup(
                     "There was a problem with your request. Please try again."
-                    f" {CONTACT_SUPPORT}"
+                    f" {SUPPORT}"
                 ))
                 raise BadRequest(response_data)
 
@@ -183,7 +178,7 @@ def request_cross(method: str, params: MultiDict, session: Session,
                 logger.error('Could not save cross list request event')
                 alerts.flash_failure(Markup(
                     "There was a problem processing your request. Please try"
-                    f" again. {CONTACT_SUPPORT}"
+                    f" again. {SUPPORT}"
                 ))
                 raise InternalServerError(response_data) from e
 

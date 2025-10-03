@@ -41,15 +41,11 @@ from submit_ce.ui.auth import user_and_client_from_session
 from submit_ce.ui.controllers.util import add_immediate_alert, validate_command
 from submit_ce.ui.routes.flow_control import stay_on_this_stage
 from submit_ce.ui.backend import get_submission
+from submit_ce.ui import SUPPORT
 
 logger = logging.getLogger(__name__)
 
 Response = Tuple[Dict[str, Any], int, Dict[str, Any]]  # pylint: disable=C0103
-
-PLEASE_CONTACT_SUPPORT = Markup(
-    'If you continue to experience problems, please contact'
-    ' <a href="mailto:help@arxiv.org"> arXiv support</a>.'
-)
 
 
 def tidy_filesize(size: int) -> str:
@@ -155,10 +151,10 @@ def upload_files(method: str, params: MultiDict, session: Session,
         except RequestEntityTooLarge as ex:
             logger.warning('POSTed upload was too large', ex)
             alerts.flash_failure(Markup('There was a problem uploading your file because it exceeds '
-                                        'our maximum size limit. ' + PLEASE_CONTACT_SUPPORT))
+                                        'our maximum size limit. ' + SUPPORT))
         except Exception:
             logger.exception('Problem POSTing upload')
-            alerts.flash_failure(Markup('There was a problem uploading your file. ' + PLEASE_CONTACT_SUPPORT))
+            alerts.flash_failure(Markup('There was a problem uploading your file. ' + SUPPORT))
 
         return stay_on_this_stage(_get_upload(params, session, submission, rdata, token))
 
@@ -208,7 +204,7 @@ def _update_submission(form: UploadForm, submission: Submission, stat: Upload,
         submission, _ = current_app.api.save(command, submission_id=submission.submission_id)
     except SaveError:
         alerts.flash_failure(Markup('There was a problem carrying out your request. Please try'
-                    f' again. {PLEASE_CONTACT_SUPPORT}'))
+                    f' again. {SUPPORT}'))
     return submission
 
 
@@ -380,12 +376,12 @@ def _new_file(params: MultiDict, pointer: FileStorage, session: Session,
     #     if ex_data is not None and 'reason' in ex_data:
     #         alerts.flash_failure(Markup(
     #             'There was a problem carrying out your request:'
-    #             f' {ex_data["reason"]}. {PLEASE_CONTACT_SUPPORT}'
+    #             f' {ex_data["reason"]}. {SUPPORT}'
     #         ))
     #         return stay_on_this_stage((rdata, status.OK, {}))
     #     alerts.flash_failure(Markup(
     #         'There was a problem carrying out your request. Please try'
-    #         f' again. {PLEASE_CONTACT_SUPPORT}'
+    #         f' again. {SUPPORT}'
     #     ))
     #     logger.debug('Failed to add file: %s', )
     #     logger.error(traceback.format_exc())

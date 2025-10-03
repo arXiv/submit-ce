@@ -26,15 +26,11 @@ from submit_ce.ui.backend import get_submission
 from submit_ce.ui.routes.flow_control import ready_for_next, \
     stay_on_this_stage, return_to_parent_stage
 from submit_ce.ui.controllers.util import add_immediate_alert, validate_command
+from submit_ce.ui import SUPPORT
 
 logger = logging.getLogger(__name__)
 
 Response = Tuple[Dict[str, Any], int, Dict[str, Any]]  # pylint: disable=C0103
-
-PLEASE_CONTACT_SUPPORT = Markup(
-    'If you continue to experience problems, please contact'
-    ' <a href="mailto:help@arxiv.org"> arXiv support</a>.'
-)
 
 
 def delete_all(method: str, params: MultiDict, session: Session,
@@ -101,19 +97,19 @@ def delete_all(method: str, params: MultiDict, session: Session,
         # except exceptions.RequestForbidden as e:
         #     alerts.flash_failure(Markup(
         #         'There was a problem authorizing your request. Please try'
-        #         f' again. {PLEASE_CONTACT_SUPPORT}'
+        #         f' again. {SUPPORT}'
         #     ))
         #     logger.error('Encountered RequestForbidden: %s', e)
         # except exceptions.BadRequest as e:
         #     alerts.flash_warning(Markup(
         #         'Something odd happened when processing your request.'
-        #         f'{PLEASE_CONTACT_SUPPORT}'
+        #         f'{SUPPORT}'
         #     ))
         #     logger.error('Encountered BadRequest: %s', e)
         # except exceptions.RequestFailed as e:
         #     alerts.flash_failure(Markup(
         #         'There was a problem carrying out your request. Please try'
-        #         f' again. {PLEASE_CONTACT_SUPPORT}'
+        #         f' again. {SUPPORT}'
         #     ))
         #     logger.error('Encountered RequestFailed: %s', e)
         #
@@ -130,7 +126,7 @@ def delete_all(method: str, params: MultiDict, session: Session,
         # except SaveError:
         #     alerts.flash_failure(Markup(
         #         'There was a problem carrying out your request. Please try'
-        #         f' again. {PLEASE_CONTACT_SUPPORT}'
+        #         f' again. {SUPPORT}'
         #     ))
 
         return return_to_parent_stage((rdata, status.OK, {}))
@@ -220,7 +216,7 @@ def delete_file(method: str, params: MultiDict, session: Session,
         # except (exceptions.RequestForbidden, exceptions.BadRequest, exceptions.RequestFailed):
         #     alerts.flash_failure(Markup(
         #         'There was a problem carrying out your request. Please try'
-        #         f' again. {PLEASE_CONTACT_SUPPORT}'
+        #         f' again. {SUPPORT}'
         #     ))
 
         if stat is not None:
@@ -236,7 +232,7 @@ def delete_file(method: str, params: MultiDict, session: Session,
             except SaveError:
                 alerts.flash_failure(Markup(
                     'There was a problem carrying out your request. Please try'
-                    f' again. {PLEASE_CONTACT_SUPPORT}'
+                    f' again. {SUPPORT}'
                 ))
         return return_to_parent_stage(({}, status.OK, {}))
     return stay_on_this_stage((rdata, status.OK, {}))

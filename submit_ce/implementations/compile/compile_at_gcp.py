@@ -624,10 +624,13 @@ def compile_submission(
                 except httpx.RequestError as exc:
                     # Handle request errors (e.g., connection errors)
                     logger.error(f"Request error occurred: {exc}")
+            if response is None:
+                raise RuntimeError("response is unexpectedly None")
 
             if response.status_code == 500:
                 raise requests.HTTPError(f"HTTP error {response.status_code}")
 
+            # TODO propigate messsages from errors useful message in body
             response.raise_for_status()
 
             # Call the function to save the response output

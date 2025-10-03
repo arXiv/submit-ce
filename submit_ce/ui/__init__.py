@@ -1,6 +1,12 @@
 import re
 
 from arxiv.auth.domain import Session
+from markupsafe import Markup
+
+SUPPORT = Markup(
+    'If you continue to experience problems, please contact'
+    ' <a href="mailto:help@arxiv.org">arXiv support</a>.'
+)
 
 def get_device_type(user_agent):
     """

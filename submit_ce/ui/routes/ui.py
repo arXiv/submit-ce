@@ -26,10 +26,6 @@ logger = logging.getLogger(__name__)
 
 UI = Blueprint('ui', __name__, url_prefix='/')
 
-SUPPORT = Markup(
-    'If you continue to experience problems, please contact'
-    ' <a href="mailto:help@arxiv.org"> arXiv support</a>.'
-)
 
 Response = Union[FResponse, WResponse]
 
