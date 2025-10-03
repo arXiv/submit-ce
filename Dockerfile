@@ -21,6 +21,7 @@ RUN apt-get -q update && apt-get -y -q upgrade && \
 RUN useradd --create-home e-prints
 USER e-prints
 WORKDIR /home/e-prints
+RUN echo $git_commit > git_commit.txt
 COPY pyproject.toml uv.lock ./
 
 RUN uv venv && \
