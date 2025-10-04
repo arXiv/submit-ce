@@ -1,19 +1,23 @@
 steps:
+
+  - name: 'gcr.io/cloud-builders/git'
+    id: 'get-git-version'
+    args: ['describe', '--tags', '--long', '--dirty']
+    env: ['_GIT_VERSION=${_GIT_VERSION}']
+
   - name: gcr.io/cloud-builders/docker
     args:
       - build
       - '--no-cache'
       - '--build-arg'
-      - 'GIT_COMMIT=${GIT_COMMIT}'
+      - 'GIT_COMMIT=$${_GIT_VERSION}'
       - '-t'
       - >-
         $_AR_HOSTNAME/$_AR_PROJECT_ID/$_AR_REPOSITORY/$REPO_NAME/$_SERVICE_NAME:$COMMIT_SHA
       - .
       - '-f'
       - Dockerfile
-    env:
-      - 'GIT_COMMIT=${GIT_COMMIT}'
-    waitFor: ['get-git-sha']
+    waitFor: ['get-git-version']
     id: Build
 
   - name: gcr.io/cloud-builders/docker
