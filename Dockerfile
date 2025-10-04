@@ -9,7 +9,7 @@ ENV UV_PYTHON_INSTALL_DIR=/python
 
 ENV UV_PYTHON_DOWNLOADS=0
 
-ARG git_commit
+ARG GIT_COMMIT
 ENV PYTHONFAULTHANDLER=1 \
     PYTHONUNBUFFERED=1 \
     PYTHONHASHSEED=random \
@@ -21,7 +21,7 @@ RUN apt-get -q update && apt-get -y -q upgrade && \
 RUN useradd --create-home e-prints
 USER e-prints
 WORKDIR /home/e-prints
-RUN echo $git_commit > git_commit.txt
+RUN echo $GIT_COMMIT > git_commit.txt
 COPY pyproject.toml uv.lock ./
 
 RUN uv venv && \
