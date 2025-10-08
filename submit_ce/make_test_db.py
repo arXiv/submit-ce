@@ -260,8 +260,9 @@ def create_all_legacy_db(test_db_file: str=DEV_SQLITE_FILE, echo: bool=False, ur
     return engine, url, test_db_file
 
 
+DEFAULT_DB_URI = f"sqlite:///{DEV_SQLITE_FILE}"
 def bootstrap_db(
-    db_uri=f"sqlite:///{DEV_SQLITE_FILE}", jwt_secret: str = settings.JWT_SECRET
+    db_uri=DEFAULT_DB_URI, jwt_secret: str = settings.JWT_SECRET
 ):
     """Creates db if it does not exist, load standard data to tables, create
     fake users.
@@ -388,9 +389,34 @@ def bootstrap_db(
             jwt = user_to_jwt(created_users[0][0], created_users[0][1])
             return str(jwt)
 
+def jwt_for_user(user_id:int|None, dburi:str|None, jwt_secret:str|None ) -> str:
+    """Make a jwt for a `user_id`."""
+    logger.setLevel(logging.DEBUG)
+
+    from arxiv.config import settings as base_settings
+    base_settings.CLASSIC_DB_URI = dburi or DEFAULT_DB_URI
+    base_settings.SECRET_KEY = jwt_secret or settings.SECRET_KEY
+    app = Flask("bootstrap")
+    app.url_map.strict_slashes = False
+    app.config["JWT_SECRET"] = base_settings.SECRET_KEY
+    logger.debug(f"JWT_SECRET: {app.config['JWT_SECRET']}")
+    app.config.from_object(settings)
+    Base(app)
+    Auth(app)
+    from arxiv.db import init as db_init
+    db_init(settings)  # only setups connection, does not make tables
+
+    with app.app_context():
+        app.config["SESSION_DURATION"] = (30758400)  # a year, make this as long as you want.
+        user = accounts.get_user_by_id(str(user_id))
+        session = create(DEFAULT_AUTHS, "127.0.0.1", "localhost", "", user)
+        return tokens.encode(session, app.config["JWT_SECRET"])
+
+
 
 if __name__ == "__main__":
     fire.Fire({
         "create_tables":create_all_legacy_db,
         "bootstrap_db": bootstrap_db,
+        "jwt_for_user": jwt_for_user,
     })

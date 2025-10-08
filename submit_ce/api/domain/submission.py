@@ -292,13 +292,6 @@ class Submission:
       them!
     - We use `arxiv_id` instead of `paper_id` to refer to the canonical arXiv
       identifier for the e-print (once it is announced).
-    - Instead of having a separate "submission" record for every change to an
-      e-print (e.g. replacement, jref, etc), we represent the entire history
-      as a single submission. Announced versions can be found in
-      :attr:`.versions`. Withdrawal and cross-list requests can be found in
-      :attr:`.user_requests`. JREFs are treated like they "just happen",
-      reflecting the forthcoming move away from storing journal ref information
-      in the core metadata record.
 
     """
 
@@ -463,45 +456,6 @@ class Submission:
     def applied_user_requests(self) -> List[UserRequest]:
         return sorted(filter(lambda r: r.is_applied(), self.iter_requests),
                       key=lambda r: r.created)
-
-    # def __post_init__(self) -> None:
-    #     if isinstance(self.creator, dict):
-    #         self.creator = agent_factory(**self.creator)
-    #     if isinstance(self.owner, dict):
-    #         self.owner = agent_factory(**self.owner)
-    #     if self.proxy and isinstance(self.proxy, dict):
-    #         self.proxy = agent_factory(**self.proxy)
-    #     if self.client and isinstance(self.client, dict):
-    #         self.client = agent_factory(**self.client)
-    #     if isinstance(self.created, str):
-    #         self.created = parse_date(self.created)
-    #     if isinstance(self.updated, str):
-    #         self.updated = parse_date(self.updated)
-    #     if isinstance(self.submitted, str):
-    #         self.submitted = parse_date(self.submitted)
-    #     if isinstance(self.source_content, dict):
-    #         self.source_content = SubmissionContent(**self.source_content)
-    #     if isinstance(self.preview, dict):
-    #         self.preview = Preview(**self.preview)
-    #     if isinstance(self.primary_classification, dict):
-    #         self.primary_classification = \
-    #             Classification(**self.primary_classification)
-    #     if isinstance(self.metadata, dict):
-    #         self.metadata = SubmissionMetadata(**self.metadata)
-    #     # self.delegations = dict_coerce(Delegation, self.delegations)
-    #     self.secondary_classification = \
-    #         list_coerce(Classification, self.secondary_classification)
-    #     if isinstance(self.license, dict):
-    #         self.license = License(**self.license)
-    #     self.versions = list_coerce(Submission, self.versions)
-    #     self.user_requests = dict_coerce(request_factory, self.user_requests)
-    #     self.proposals = dict_coerce(Proposal, self.proposals)
-    #     self.processes = list_coerce(ProcessStatus, self.processes)
-    #     self.annotations = dict_coerce(annotation_factory, self.annotations)
-    #     self.flags = dict_coerce(flag_factory, self.flags)
-    #     self.comments = dict_coerce(Comment, self.comments)
-    #     self.holds = dict_coerce(Hold, self.holds)
-    #     self.waivers = dict_coerce(Waiver, self.waivers)
 
 
 def request_factory(**data: Any) -> UserRequest:

@@ -51,7 +51,7 @@ from submit_ce.api.domain.agent import HttpClient
 
 from . import models, interpolate, log
 from .models import DBEvent
-from .patch import patch_hold, patch_withdrawal, patch_cross, patch_jref
+from .patch import patch_hold
 from ...api import domain
 from ...api.domain import Event, Submission, User, User, WithdrawalRequest, CrossListClassificationRequest, Client
 from ...api.domain import License
@@ -654,10 +654,7 @@ def to_submission(row: models.Submission,
     )
     if row.sticky_status == row.ON_HOLD or row.status == row.ON_HOLD:
         submission = patch_hold(submission, row)
-    elif row.is_withdrawal():
-        submission = patch_withdrawal(submission, row)
-    elif row.is_crosslist():
-        submission = patch_cross(submission, row)
+
     return submission
 
 
