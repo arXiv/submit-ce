@@ -26,7 +26,7 @@ from . import db
 logger = logging.getLogger(__name__)
 
 
-def check_user_authorized(session: Session, user: api.User, client: api.Client, submision_id: str) -> None:
+def check_user_authorized(session: Session, user: api.User, client: api.Client, submission_id: str) -> None:
     # TODO implement authorized check, use scopes from arxiv.auth?
     # TODO implement is_locked on submission
     pass
@@ -164,10 +164,11 @@ class LegacySubmitImplementation(SubmitApi):
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
                                 detail="Must have file, it must have a filename, content-type and steam")
 
-        acceptable_types = ["application/gzip", "application/tar", "application/x-tar", "application/tar+gzip"]
+        acceptable_types = ["application/x-gzip", "application/gzip", "application/tar", "application/x-tar", "application/tar+gzip"]
+        logger.debug(f"Uploaded archive MIME type: {file.content_type}.")
         if file.content_type not in acceptable_types:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-                                detail=f"File content type must be one of {acceptable_types}")
+                                detail=f"File content type must be one of {acceptable_types}: {file.content_type}")
 
         session = self.get_session()
         check_user_authorized(session, user, client, submission_id)
