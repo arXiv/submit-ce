@@ -200,7 +200,6 @@ def compilation_log_display(autotex_log: str, submission_id: int,
 
         # These should be abort level errors but we are not set up to support
         # multiple errors of this type at the moment.
-        ['fatal', '\*\*\* AutoTeX ABORTING \*\*\*', ''],
         ['fatal', '.*AutoTeX returned error: missfont.log present.', ''],
         ['fatal', 'dvips: Font .* not found; characters will be left blank.', ''],
         ['fatal', '.*missfont.log present.', ''],
@@ -220,7 +219,6 @@ def compilation_log_display(autotex_log: str, submission_id: int,
         # TODO: avoid having to worry about order of filters in this list.
         # Must run before warning regexes run
         ['danger', 'Package rerunfilecheck Warning:.*', 'last'],
-        ['danger', '.*\(rerunfilecheck\).*', 'last'],
         ['danger', 'rerun', 'last'],
 
         # Warnings
@@ -440,7 +438,7 @@ def compilation_log_display(autotex_log: str, submission_id: int,
                         "\t<span class=\"tex-help\">\\typeout{get arXiv "
                         "to do 4 passes: Label(s) may have changed. Rerun}</span>"
                         "\n\n\tAdd the above line just before <span "
-                        "class=\"tex-help\">\end{document}</span> directive."
+                        "class=\"tex-help\">Fix THIS</span> directive."
                         "/li>")
 
                     # Significant enough that we should turn on warning
