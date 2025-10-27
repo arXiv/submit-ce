@@ -37,6 +37,13 @@ docker push gcr.io/arxiv-development/submit-ce/submit-ce-ui
 
 ## Tests
 
+Test setup for Ubuntu:
+```
+sudo apt-get install google-cloud-cli-pubsub-emulator
+```
+
+See [emulator instructions](https://cloud.google.com/pubsub/docs/emulator) for other operating systems.
+
 To run the tests:
 
 ```bash
