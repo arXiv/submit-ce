@@ -104,6 +104,18 @@ class FileUpload(Stage):
     completed = [conditions.has_valid_content]
 
 
+class ReviewFiles(Stage):
+    """The user is asked to review files for their submission with input
+       from preflight analysis.
+    """
+    #endpoint = 'review_files'
+    endpoint = 'review_files'
+    label = 'review your submission files'
+    title = "Review Files"
+    display = "Review Files"
+    always_check = True
+    completed = [conditions.has_primary]
+
 class Process(Stage):
     """Uploaded files are processed; this is primarily to compile LaTeX."""
 
