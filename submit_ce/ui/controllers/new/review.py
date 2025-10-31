@@ -146,6 +146,9 @@ def review_files(method: str, params: MultiDict, session: Session,
             # Add call to preflight and directives IN THIS AREA
             # The files have already been uploaded and installed during Add Files step.
             if submission.source_content is None:
+                # is this possible?
+                pass
+            else:
                 # Call preflight
                 # Call directives
                 pass
