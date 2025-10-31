@@ -18,6 +18,7 @@ from typing import Tuple, Dict, Any, Optional, List, Union
 from flask import current_app
 from arxiv.auth.domain import Session
 from arxiv.base import alerts
+from arxiv.base.filters import tidy_filesize
 from arxiv.forms import csrf
 from markupsafe import Markup
 from werkzeug.datastructures import FileStorage
@@ -44,31 +45,6 @@ from submit_ce.ui import SUPPORT
 logger = logging.getLogger(__name__)
 
 Response = Tuple[Dict[str, Any], int, Dict[str, Any]]  # pylint: disable=C0103
-
-
-def tidy_filesize(size: int) -> str:
-    """
-    Convert upload size to human readable form.
-
-    Decision to use powers of 10 rather than powers of 2 to stay compatible
-    with Jinja filesizeformat filter with binary=false setting that we are
-    using in file_upload template.
-
-    Parameter: size in bytes
-    Returns: formatted string of size in units up through GB
-
-    """
-    units = ["B", "KB", "MB", "GB"]
-    if size == 0:
-        return "0B"
-    if size > 1000000000:
-        return '{} {}'.format(size, units[3])
-    units_index = 0
-    while size > 1000:
-        units_index += 1
-        size = round(size / 1000, 3)
-    return '{} {}'.format(size, units[units_index])
-
 
 class UploadForm(csrf.CSRFForm):
     """Form for uploading files."""
