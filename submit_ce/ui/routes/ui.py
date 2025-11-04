@@ -15,6 +15,7 @@ from werkzeug.datastructures import MultiDict
 from submit_ce.ui import controllers as cntrls
 #from submit_ce.ui import util
 from submit_ce.ui.controllers.new import upload
+from submit_ce.ui.controllers.new import review
 from submit_ce.ui.controllers.new import upload_delete
 from ..auth import is_owner
 from submit_ce.ui.workflow.processor import WorkflowProcessor
@@ -347,6 +348,15 @@ def file_upload(submission_id: int) -> Response:
                   'Upload Files', submission_id, files=request.files,
                   token=request.environ['token'], flow_controlled=True)
 
+@UI.route('/<int:submission_id>/review_files', methods=['GET', 'POST'])
+@scoped(scopes.EDIT_SUBMISSION, authorizer=is_owner,
+                        unauthorized=redirect_to_login)
+@flow_control()
+def review_files(submission_id: int) -> Response:
+    """Render step 7b, review files placeholder."""
+    return handle(review.review_files, 'submit/review_files.html',
+                  'Review Files', submission_id, files=request.files,
+                  token=request.environ['token'], flow_controlled=True)
 
 @UI.route('/<int:submission_id>/file_delete', methods=["GET", "POST"])
 @scoped(scopes.EDIT_SUBMISSION, authorizer=is_owner,

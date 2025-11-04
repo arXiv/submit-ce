@@ -23,28 +23,14 @@ import urllib.parse
 from typing import List, Optional
 from enum import Enum
 
-GCP_COMPILE_URL = "https://tex-to-pdf-default-1090350072932.us-central1.run.app"
+from common import (GCP_LOG_NAME, GCP_RESULTS_NAME, GCP_PREFLIGHT_NAME,
+                                   DEFAULT_SUBMISSION_LOG_NAME, DEFAULT_SYSTEM_LOG_NAME,
+                                   DEFAULT_COMPILATION_TIMEOUT, DEFAULT_MAX_APPEND_FILES,
+                                   DEFAULT_MAX_TEX_FILES, MAX_RETRIES, RETRY_DELAY)
 
-# The output of (La)TeX compilation
-GCP_LOG_NAME = "gcp_compile.log"
-# The genpdf response metadata
-GCP_RESULTS_NAME = "gcp_compile.json"
-# The preflight v2 JSON response
-GCP_PREFLIGHT_NAME = "gcp_preflight.json"
-
-DEFAULT_SUBMISSION_LOG_NAME = 'gcp_request.log'
 DEFAULT_SYSTEM_LOGS_DIR = '/users/e-prints/httpd/logs'
-DEFAULT_SYSTEM_LOG_NAME = 'compile_at_gcp.log'
 
-# Retry compilation request settings
-MAX_RETRIES = 3
-RETRY_DELAY = 5
-
-# Timeout for GCP compilation request
-DEFAULT_COMPILATION_TIMEOUT = 290
-DEFAULT_MAX_APPEND_FILES = 0
-DEFAULT_MAX_TEX_FILES = 1
-
+ENABLE_HTML_MARKUP = 0
 
 # Enum for preflight options
 class PreflightOption(str, Enum):
@@ -208,8 +194,10 @@ def process_file_lists(list_of_listfiles: List, output_files_dir: str):
 
 def add_html_class(css_class: str, content: str) -> str:
     """Return HTML markup for display."""
-    return f"<span class=\"{css_class}\">{content}</span>"
-
+    output = content
+    if ENABLE_HTML_MARKUP:
+        output = f"<span class=\"{css_class}\">{content}</span>"
+    return output
 
 def process_metadata_and_log(submission_dir, json_log_run_data, output_files_dir,
                              json_data=None, json_file_path: Optional[str] = None):
@@ -240,18 +228,34 @@ def process_metadata_and_log(submission_dir, json_log_run_data, output_files_dir
         os.chmod(new_log_path, 0o664)
         logger.debug("Creating compilation log file from supplied log data.")
     elif json_data:
-        status = json_data.get("status", "Status not available")
+        converter_full = json_data.get("converter", "")
+        converter_name = converter_full.split(":")[0] if ":" in converter_full else converter_full
+        converter_phrase = f" using {converter_name}." if converter_name else "."
+
         final_pdf_file = json_data.get("pdf_file", None)
         logger.debug("Creating compilation log file from last run log in json "
                      "metadata: %s", new_log_path)
-
+            
         with open(new_log_path, "w") as f:
-            if status == 'success':
+            f.write(f"Compilation Summary")
+            converters = json_data.get("converters", [])
+            num_conversions = len(converters)
+            num_failed = sum(1 for c in converters if isinstance(c, dict) and c.get("status") == "fail")
+            num_succeeded = num_conversions - num_failed
+
+            if num_failed == 0:
                 display_status = add_html_class('tex-success', "[SUCCEEDED]")
-                f.write(f"\nWe successfully processed your submission. Status: {display_status}\n\n")
+                f.write(f"\nWe successfully processed your submission{converter_phrase} Status: {display_status}\n\n")
             else:
+                error_details = ''
+                if num_conversions > 1:
+                    error_details =f"({num_failed} out of {num_conversions} conversions failed). "
                 display_status = add_html_class('tex-fatal', "[FAILED]")
-                f.write(f"\nWe failed to process your submission. Status: {display_status}\n\n")
+                f.write(f"\nOur system failed to process your submission"
+                f"{converter_phrase} {error_details} "
+                f"Status: {display_status}\n\n")
+
+
 
             f.write("\nFiles that were processed as part of this submission:\n\n")
             for converter in json_data.get("converters", []):
@@ -262,8 +266,14 @@ def process_metadata_and_log(submission_dir, json_log_run_data, output_files_dir
                     display_status = add_html_class('tex-success', "[SUCCEEDED]")
                     if converter_status == 'fail':
                         display_status = add_html_class('tex-fatal', "[FAILED]")
-
+                        
                     f.write(f"    {tex_file} => {pdf_file}  {display_status}\n")
+                    if converter_status == 'fail':
+                        step = converter.get("step", "N/A")
+                        reason = converter.get("reason", "No reason provided")
+                        f.write(f"...at step \"{step}\"\n...reason for failure: \"{reason}\"\n")
+
+
                 elif isinstance(converter, str):
                     # TeX2PDF returns strings when run in preflight mode.
                     # TODO: The set of converters will be used to populate the
@@ -272,7 +282,7 @@ def process_metadata_and_log(submission_dir, json_log_run_data, output_files_dir
 
             f.write('\n')
 
-            if status == 'success':
+            if num_failed == 0:
                 if len(json_data.get("converters", [])) > 1:
                     f.write(f"\nOur system has compiled the above LaTeX files into "
                             f"individual PDFs and merged them into a single "
@@ -283,26 +293,32 @@ def process_metadata_and_log(submission_dir, json_log_run_data, output_files_dir
             else:
                 f.write(f"\nOur system failed to generate a PDF.\n\n")
 
-            f.write("\nLogs for each file processed (last run)\n\n")
+            # f.write(f"Selected Errors and Warnings\n")
+
+            f.write("Logs for the last run of each file processed\n\n")
 
             for converter in json_data.get("converters", []):
                 if isinstance(converter, dict):
                     tex_file = converter.get("tex_file", "N/A")
                     step = converter.get("step", "N/A")
+                    converter_status = converter.get("status", "N/A")
 
-                    space = ' '
-                    if converter_status == 'success':
-                        markup = add_html_class('tex-success', "[SUCCEEDED]")
-                        f.write(f"\n{space}<b>Processing file {tex_file}</b> {markup}\n\n")
-                    else:
-                        markup = add_html_class('tex-fatal', "[FAILED]")
-                        f.write(f"\n{space}<b>Processing file {tex_file}</b> {markup}.\n\n")
-                    f.write(f"Log for {tex_file} at step '{step}':\n\n")
+                    display_status = add_html_class('tex-success', "[SUCCEEDED]")
+                    if converter_status == 'fail':
+                        display_status = add_html_class('tex-fatal', "[FAILED]")
 
-                    # Get last log in series
-                    last_run = converter["runs"][-1]
+                    # Get the latest log in the series
+                    latest_log = None
+                    latest_step = "N/A"
+                    for run in reversed(converter["runs"]):
+                        if "log" in run:
+                            latest_log = run["log"]
+                            latest_step = run["step"]
+                            break
 
-                    log = last_run.get("log", "N/A")
+                    log = latest_log if latest_log else "Log not available"
+                    step = latest_step if latest_log else "Step not available"
+                    f.write(f"Log for {tex_file} at step '{step}': {display_status}\n\n")
                     f.write(f"--\n{log}\n--\n")
 
                     logger.debug("\nCompilation: status: %s step: %s PDF file: %s TeX file: %s",
@@ -396,12 +412,13 @@ def find_pdf_file(output_files_dir, pdf_file):
             return pdf_file_path
     return None
 
+
 def _compile_submission(args: argparse.Namespace):
     """Compile (La)TeX source at GCP.
 
     Make a request to compile a submission at GCP, then install resulting
     pdf, log, and json files into the submission's home directory.
-
+ 
     In standard production environment we only need the identifier to determine all
     paths.
     :param identifier: The submission identifier.
@@ -416,68 +433,37 @@ def _compile_submission(args: argparse.Namespace):
     :param: watermark_text : Text to use for watermark.
     """
     identifier = args.identifier
+    source_file = args.source if args.source is not None else None
+    output_file = args.output if args.output is not None else None
+    # options
+    preflight = parse_preflight_option(args.preflight)
+    # thresholds
+    base_submissions_dir = args.base if args.base is not None else '/data/new'
     max_append_files = args.max_append_files if args.max_append_files is not None else DEFAULT_MAX_APPEND_FILES
     max_tex_files = args.max_tex_files if args.max_tex_files is not None else DEFAULT_MAX_TEX_FILES
-    output_file = args.output if args.output is not None else None
-    preflight = parse_preflight_option(args.preflight)
-    source_file = args.source if args.source is not None else None
+    tex2pdf_url = args.tex2pdf_url
     timeout = args.timeout if args.timeout is not None else DEFAULT_COMPILATION_TIMEOUT
-    base_submissions_dir = args.base if args.base is not None else '/data/new'
-    tex2pdf_url = args.tex2pdf_url if args.tex2pdf_url is not None else GCP_COMPILE_URL
     watermark_text = args.watermark_text if args.watermark_text is not None else None
 
-    return _compile_submission(args)
+    return compile_submission(identifier, source_file, output_file, tex2pdf_url,
+                              base_submissions_dir, preflight, watermark_text,
+                              max_append_files, max_tex_files,  timeout)
 
-# def compile_submission(
-#         identifier: str,
-#         output_file: str, #TODO is this str?
-#         source_file: str,
-#         base_submissions_dir: str,
-#         tex2pdf_url: str = GCP_COMPILE_URL
-#         max_append_files: int = DEFAULT_MAX_APPEND_FILES,
-#         max_tex_files: int = DEFAULT_MAX_TEX_FILES,
-#         timeout: int = DEFAULT_COMPILATION_TIMEOUT,
-#         watermark_text: Optional[str] = None,
-#         preflight = parse_preflight_option(args.preflight)
-#     )
-#     args =
-#     return _compile_submission(args)
 def compile_submission(
-        identifier: str,
+    identifier: str,
+    source_file: str,
+    output_file: str,
+    tex2pdf_url: str,
+    base_submissions_dir: str = "/data/new",
 
-        output_file: str,
-        source_file: str,
-        base_submissions_dir: str = "/data/new",
+    preflight: Optional[PreflightOption] = None,
+    watermark_text: Optional[str] = None,
+    max_append_files: int = DEFAULT_MAX_APPEND_FILES,
+    max_tex_files: int = DEFAULT_MAX_TEX_FILES,
+    timeout: int = DEFAULT_COMPILATION_TIMEOUT,
+):
 
-        tex2pdf_url: str = GCP_COMPILE_URL,
-        preflight: Optional[PreflightOption] = None,
-        watermark_text: Optional[str] = None,
-        max_append_files: int = DEFAULT_MAX_APPEND_FILES,
-        max_tex_files: int = DEFAULT_MAX_TEX_FILES,
-        timeout: int = DEFAULT_COMPILATION_TIMEOUT,
-    ):
-    """Compile (La)TeX source at GCP.
 
-    Make a request to compile a submission at GCP, then install resulting
-    pdf, log, and json files into the submission's home directory.
-
-    In standard production environment we only need the identifier to determine all
-    paths.
-    :param identifier: The submission identifier.
-    :param base_submissions_dir: Base directory to look for submissions and other related files. (Default is /data/new)
-    :param: max_append_files : Limit on extra files apended to final PDF. Default is 0.
-    :param: max_tex_files : Maximum number of (La)TeX source files to compile. Default is 1.
-    :param output_file: Name of file to store gzipped response from tex2pdf service. If not passed
-        the result will be saved in a temp directory and then unpacked to the submission directory.
-    :param preflight: Execute light-weight preflight check instead of compiling document.
-    :param source_file: A gzipped tarball containing the source to be compiled.
-         If not passed, the submission src directory will be used.
-    :param tex2pdf_url: The URL to the tex2pdf service.
-    :param timeout: A user specified timeout for tex2pdf service. (Default is 290 seconds)
-    :param: watermark_text : Text to use for watermark.
-    :param: max_tex_files : Max number of tex files.
-    :param: max_append_files : Max append files
-    """
     if preflight:
         logger.info("Processing preflight request for '%s' at GCP", identifier)
     else:
@@ -493,21 +479,29 @@ def compile_submission(
         query_params['watermark_text'] = watermark_text
 
     if preflight:
-        query_params['preflight'] = preflight
+        query_params['preflight'] = args.preflight
 
-    # url = f'{tex2pdf_url}/convert/?timeout={timeout}'
+    if not tex2pdf_url:
+        raise FileNotFoundError(f"The tex2pdf_url is required. ")
+
     url = f'{tex2pdf_url}/convert/?{urllib.parse.urlencode(query_params)}'
     logger.info("TeX2PDF request url '%s'", url)
-    headers = {'accept': 'application/json'}
+    headers = {
+        'accept': 'application/json',
+    }
 
     # Create a unique temporary directory that only exists during the
     # execution of the script.
     #
     # Note: newer versions of Python support delete=False option to
     # preserve temporary directory for debugging purposes
-    with tempfile.TemporaryDirectory(prefix=f"temp_compile_{identifier}_", suffix='_dir') as temp_dir:
+    temp_dir_prefix = f"temp_compile_{identifier}_"
+    with tempfile.TemporaryDirectory(prefix=temp_dir_prefix, suffix='_dir') as temp_dir:
+
+        # Create the output file path within the temp_dir
         if output_file.startswith(os.path.sep):
-            output_file_path = output_file  # Support this for debugging purposes
+            # Support this for debugging purposes
+            output_file_path = output_file
         else:
             output_file_path = os.path.join(temp_dir, output_file)
         response = None
@@ -581,7 +575,7 @@ def compile_submission(
                 os.remove(new_log_path)
             if os.path.exists(new_json_path):
                 os.remove(new_json_path)
-            if os.path.exists(new_preflight_path):
+            if preflight and os.path.exists(new_preflight_path):
                 os.remove(new_preflight_path)
 
         except PermissionError as e:
@@ -597,7 +591,7 @@ def compile_submission(
                       f"'{identifier}'\n\n" \
                       "This may take a few minutes. Please be patient.\n\n" \
                       "If the results are not displayed after several minutes, " \
-                      "please try again or contact the arXiv editorial team."
+                      "please try again or contact the arXiv user support team at https://arxiv.org/support/submission_tex."
             if preflight:
                 log_msg = f"The system will now run a 'preflight' process to check " \
                           f"your (La)TeX source files for document '{identifier}'\n\n" \
@@ -619,18 +613,18 @@ def compile_submission(
                             break  # Exit the loop if the request succeeds
                 except httpx.HTTPStatusError as exc:
                     # Handle HTTP status errors
-                    logger.error(f"HTTPX error occurred: {exc}")
+                    logger.error(f"HTTPX error occurred: {exc.response.text}")
                     raise exc
                 except httpx.RequestError as exc:
                     # Handle request errors (e.g., connection errors)
                     logger.error(f"Request error occurred: {exc}")
+
             if response is None:
                 raise RuntimeError("response is unexpectedly None")
 
             if response.status_code == 500:
-                raise requests.HTTPError(f"HTTP error {response.status_code}")
+                raise httpx.HTTPStatusError(f"HTTP error {response.status_code}", request=response.request, response=response)
 
-            # TODO propigate messsages from errors useful message in body
             response.raise_for_status()
 
             # Call the function to save the response output
@@ -653,7 +647,18 @@ def compile_submission(
                         logger.info("Preflight check completed successfully for submission 'submit/%s'.", identifier)
                         # Copy new preflight data into submission directory
                         try:
-                            shutil.copy2(output_file_path, new_preflight_path)
+                            # Read the JSON data from the request output file
+                            with open(output_file_path, 'r') as json_file:
+                                summary_data = json.load(json_file)
+
+                            # Format JSON data with indentation
+                            formatted_json = json.dumps(summary_data, indent=2)
+
+                            # Save the formatted JSON data directly to the new preflight file
+                            with open(new_preflight_path, 'w') as json_file:
+                                json_file.write(formatted_json)
+
+                            # Update file permissions
                             os.chmod(new_preflight_path, 0o664)
                         except OSError as e:
                             logger.critical("ERROR: copying preflight data "
@@ -700,11 +705,15 @@ def compile_submission(
                             if pdf_file is not None:
                                 pdf_file_path = find_pdf_file(temp_dir, pdf_file)
                                 if pdf_file_path and os.path.exists(pdf_file_path):
-                                    try:
-                                        shutil.copy2(pdf_file_path, new_pdf_path)
-                                        os.chmod(new_pdf_path, 0o664)
-                                    except OSError as e:
-                                        logger.error("There was an error copying PDF file: %s", e)
+                                    if os.path.getsize(pdf_file_path) == 0:
+                                        logger.error("The PDF file exists but is 0 bytes in size: %s",
+                                                     pdf_file_path)
+                                    else:
+                                        try:
+                                            shutil.copy2(pdf_file_path, new_pdf_path)
+                                            os.chmod(new_pdf_path, 0o664)
+                                        except OSError as e:
+                                            logger.error("There was an error copying PDF file: %s", e)
 
                                 elif pdf_file_path:
                                     # This is acceptable when compilation fails
@@ -744,9 +753,16 @@ def compile_submission(
             else:
                 logger.error(f"{operation} of document %s failed at GCP", identifier)
 
-        except requests.exceptions.RequestException as e:
+        except httpx.HTTPStatusError as e:
+            
+            error_details = (
+                f"HTTP error {response.status_code}\n"
+                f"Response headers: {response.headers}\n"
+                f"Response content: {response.text}\n"
+            )
+
             logger.critical("The request to process document %s at GCP "
-                            "failed: %s", identifier, e)
+                            "failed: %s", identifier, error_details)
             error_msg = "There was fatal error during our attempt to process your " \
                         f"document's source files(s).\n\nERROR: {e}\n\nPlease try " \
                         "again or contact the arXiv editorial team."
@@ -785,7 +801,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Process LaTeX to PDF conversion request")
 
     # Define command-line options
-    parser.add_argument("-a", "--max-append-files", type=int, default=0,
+    parser.add_argument("-a", "--max-append-files", type=int, default=4,
                         help="Maximum number of extra files to append to PDF (default=0)")
     parser.add_argument("-i", "--identifier", required=True, help="Identifier for the request")
     parser.add_argument("-m", "--max-tex-files", type=int, default=1,
@@ -807,8 +823,8 @@ if __name__ == "__main__":
                         help="Write log output to console.")
     parser.add_argument("-l", "--logs-dir", default="/users/e-prints/httpd/logs",
                         help="Directory to store system level compilation log.")
-    parser.add_argument("-u", '--tex2pdf-url', default=GCP_COMPILE_URL,
-                        help="URL for tex2pdf service. Defaults to production service.")
+    parser.add_argument("-u", '--tex2pdf-url',
+                        help="URL for tex2pdf service.")
 
     # Parse command-line arguments
     args = parser.parse_args()

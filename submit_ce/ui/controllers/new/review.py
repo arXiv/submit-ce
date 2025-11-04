@@ -1,12 +1,10 @@
 """
-Controllers for upload-related requests.
+Placeholder Controllers for review files requests. (COMING SOON)
 
-Things that still need to be done:
-
-- Display error alerts from the file management service.
-- Show warnings/errors for individual files in the table. We may need to
-  extend the flashing mechanism to "flash" data to the next page (without
-  displaying it as a notification to the user).
+I will be using this placeholder to assist in setting up preflight and
+directives backend routines. After files are uploaded we call preflight,
+generate directives file. Then we present the Review Files page using the
+directives data.
 
 """
 import logging
@@ -55,7 +53,7 @@ class UploadForm(csrf.CSRFForm):
     ancillary = BooleanField('Ancillary')
 
 
-def upload_files(method: str, params: MultiDict, session: Session,
+def review_files(method: str, params: MultiDict, session: Session,
                  submission_id: int, files: Optional[MultiDict] = None,
                  token: Optional[str] = None, **kwargs) -> Response:
     """Controller function to handle a file upload request.
@@ -109,6 +107,7 @@ def upload_files(method: str, params: MultiDict, session: Session,
     if method not in ['GET', 'POST']:
         raise MethodNotAllowed()
     elif method == 'GET':
+        # We should not need to refresh preflight or regenerate directive file here.
         return _get_upload(params, session, submission, rdata, token)
     elif method == 'POST':
         if not files or 'file' not in files or not files['file']:
@@ -120,10 +119,15 @@ def upload_files(method: str, params: MultiDict, session: Session,
 
         pointer = files['file']
         try:
+            # Add call to preflight and directives IN THIS AREA
+            # The files have already been uploaded and installed during Add Files step.
             if submission.source_content is None:
-                return _new_upload(params, pointer, session, submission, rdata, token)
+                # is this possible?
+                pass
             else:
-                return _new_file(params, pointer, session, submission, rdata, token)
+                # Call preflight
+                # Call directives
+                pass
         except RequestEntityTooLarge as ex:
             logger.warning('POSTed upload was too large', ex)
             alerts.flash_failure(Markup('There was a problem uploading your file because it exceeds '
@@ -225,169 +229,6 @@ def _get_upload(params: MultiDict, session: Session, submission: Submission,
     if workspace:
         rdata.update({'immediate_notifications': _get_notifications(workspace)})
     return rdata, status.OK, {}
-
-
-def _new_upload(params: MultiDict, pointer: FileStorage, session: Session,
-                submission: Submission, rdata: Dict[str, Any], token: str) \
-        -> Response:
-    """
-    Handle a POST request with a new upload package.
-
-    This occurs in the case that there is not already an upload workspace
-    associated with the submission. See the :attr:`Submission.source_content`
-    attribute, which is set using :class:`SetUploadPackage`.
-
-    Parameters
-    ----------
-    params : :class:`MultiDict`
-        The form data from the request.
-    pointer : :class:`FileStorage`
-        The file upload stream.
-    session : :class:`Session`
-        The authenticated session for the request.
-    submission : :class:`Submission`
-        The submission for which the upload is being made.
-
-    Returns
-    -------
-    dict
-        Response data, to render in template.
-    int
-        HTTP status code. This should be ``303``, unless something goes wrong.
-    dict
-        Extra headers to add/update on the response. Should include the `Location` header for use in a 303 redirect.
-
-    """
-
-    logger.debug('New upload package')
-    submitter, client = user_and_client_from_session(session)
-    params['file'] = pointer
-    form = UploadForm(params)
-    rdata.update({'form': form})
-
-    if not form.validate():
-        logger.debug('Invalid form data')
-        return stay_on_this_stage((rdata, status.OK, {}))
-
-    stat = current_app.api.upload(form.data['file'], submission.submission_id, submitter, client)
-    converted_size = tidy_filesize(stat.size)
-    if stat.status is UploadStatus.READY:
-        alerts.flash_success(
-            f'Unpacked {stat.file_count} files. Total submission'
-            f' package size is {converted_size}',
-            title='Upload successful'
-        )
-    elif stat.status is UploadStatus.READY_WITH_WARNINGS:
-        alerts.flash_warning(
-            f'Unpacked {stat.file_count} files. Total submission'
-            f' package size is {converted_size}. See below for warnings.',
-            title='Upload complete, with warnings'
-        )
-    elif stat.status is UploadStatus.ERRORS:
-        alerts.flash_warning(
-            f'Unpacked {stat.file_count} files. Total submission'
-            f' package size is {converted_size}. See below for errors.',
-            title='Upload complete, with errors'
-        )
-    alerts.flash_hidden(stat.to_dict(), '_status')
-
-    rdata.update({'status': stat})
-    return stay_on_this_stage((rdata, status.OK, {}))
-
-
-def _new_file(params: MultiDict, pointer: FileStorage, session: Session,
-              submission: Submission, rdata: Dict[str, Any], token: str) \
-        -> Response:
-    """
-    Handle a POST request with a new file to add to an existing upload package.
-
-    This occurs in the case that there is already an upload workspace
-    associated with the submission. See the :attr:`Submission.source_content`
-    attribute, which is set using :class:`SetUploadPackage`.
-
-    Parameters
-    ----------
-    params : :class:`MultiDict`
-        The form data from the request.
-    pointer : :class:`FileStorage`
-        The file upload stream.
-    session : :class:`Session`
-        The authenticated session for the request.
-    submission : :class:`Submission`
-        The submission for which the upload is being made.
-
-    Returns
-    -------
-    dict
-        Response data, to render in template.
-    int
-        HTTP status code. This should be ``303``, unless something goes wrong.
-    dict
-        Extra headers to add/update on the response. This should include
-        the `Location` header for use in the 303 redirect response.
-
-    """
-    logger.debug('Adding additional files')
-    submitter, client = user_and_client_from_session(session)
-    upload_id = submission.source_content.identifier
-
-    # Using a form object provides some extra assurance that this is a legit request; provides CSRF protection.
-    params['file'] = pointer
-    form = UploadForm(params)
-    rdata.update({'form': form, 'submission': submission})
-
-    if not form.validate():
-        logger.error('Invalid upload form: %s', form.errors)
-        alerts.flash_failure("No file was uploaded; please try again.",
-            title="Something went wrong")
-        return stay_on_this_stage((rdata, status.OK, {}))
-    #try:
-    stat = current_app.api.get_file_store().add_file(upload_id, pointer, token,
-                                         ancillary=form.ancillary.data)
-    # except  as ex:
-    #     try:
-    #         ex_data = ex.response.json()
-    #     except Exception:
-    #         ex_data = None
-    #     if ex_data is not None and 'reason' in ex_data:
-    #         alerts.flash_failure(Markup(
-    #             'There was a problem carrying out your request:'
-    #             f' {ex_data["reason"]}. {SUPPORT}'
-    #         ))
-    #         return stay_on_this_stage((rdata, status.OK, {}))
-    #     alerts.flash_failure(Markup(
-    #         'There was a problem carrying out your request. Please try'
-    #         f' again. {SUPPORT}'
-    #     ))
-    #     logger.debug('Failed to add file: %s', )
-    #     logger.error(traceback.format_exc())
-    #     raise InternalServerError(rdata) from ex
-
-    submission = _update_submission(form, submission, stat, submitter, client)
-    converted_size = tidy_filesize(stat.size)
-    if stat.status is UploadStatus.READY:
-        alerts.flash_success(
-            f'Uploaded {pointer.filename} successfully. Total submission'
-            f' package size is {converted_size}',
-            title='Upload successful'
-        )
-    elif stat.status is UploadStatus.READY_WITH_WARNINGS:
-        alerts.flash_warning(
-            f'Uploaded {pointer.filename} successfully. Total submission'
-            f' package size is {converted_size}. See below for warnings.',
-            title='Upload complete, with warnings'
-        )
-    elif stat.status is UploadStatus.ERRORS:
-        alerts.flash_warning(
-            f'Uploaded {pointer.filename} successfully. Total submission'
-            f' package size is {converted_size}. See below for errors.',
-            title='Upload complete, with errors'
-        )
-    status_data = stat.to_dict()
-    alerts.flash_hidden(status_data, '_status')
-    rdata.update({'status': stat})
-    return stay_on_this_stage((rdata, status.OK, {}))
-
 
 def _get_notifications(stat: Upload) -> List[Dict[str, str]]:
     notifications = []

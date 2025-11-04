@@ -11,9 +11,12 @@ from submit_ce.api import User, Client, Submission
 from submit_ce.api.CompileService import CompileService
 from submit_ce.api.domain.event.process import Result
 from submit_ce.api.domain.process import ProcessStatus
+import sys
+sys.path.append('submit_ce/implementations/compile')
 from submit_ce.implementations.compile.compile_at_gcp import PreflightOption, DEFAULT_MAX_APPEND_FILES, DEFAULT_MAX_TEX_FILES, \
-    DEFAULT_COMPILATION_TIMEOUT, compile_submission, GCP_COMPILE_URL
+    DEFAULT_COMPILATION_TIMEOUT, compile_submission
 
+GCP_COMPILE_URL = "https://tex-to-pdf-default-1090350072932.us-central1.run.app"
 
 class GcpCompileAtLegacy(CompileService):
     """GCP Compile at legacy /data/new file store."""
@@ -48,11 +51,12 @@ class GcpCompileAtLegacy(CompileService):
         utc_start_time = datetime.now(tz=timezone.utc)
         status, json_data = compile_submission(
             submission.submission_id,
-            output_file="gcp_compile_output.tar.gz",
             source_file="",  # falsy causes src dir to be used
-            preflight=False,
-            watermark_text=watermark,
+            output_file="gcp_compile_output.tar.gz",
+            tex2pdf_url=GCP_COMPILE_URL,
             base_submissions_dir=self.base_submissions_dir,
+            preflight = self.preflight,
+            watermark_text = watermark,
             )
 
         status = ProcessStatus.Status.PENDING
