@@ -160,6 +160,18 @@ h1.title.title-submit {
 .content-container {
   border-bottom: 0px; }
 
+
+.verify-user-box {
+    border-bottom: 1px solid #d3e1e6;
+}
+
+.verify-user-checkbox {
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 1rem 0 !important; /* optional spacing */
+}
+
 .action-container {
   box-shadow: 0 0 9px 0 rgba(210, 210, 210, 0.5); }
   .action-container .upload-notes {
