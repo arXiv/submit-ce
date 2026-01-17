@@ -78,6 +78,6 @@ class VerifyUserForm(csrf.CSRFForm):
     """Generates form with single checkbox to confirm user information."""
 
     verify_user = BooleanField(
-        'By checking this box, I verify that my user information is correct.',
+        'I confirm that my contact information is correct',
         [InputRequired('Please confirm your user information')],
     )
