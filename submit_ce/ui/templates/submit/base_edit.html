@@ -13,9 +13,11 @@
  {{ submit_macros.progress_bar(submission_id, workflow, this_stage) }}
 
   <h1 class="title title-submit">
+    <!--
     {% block title_preamble %}
       <span class="preamble">{% if submission and submission.version > 1 %}Replace:{% else %}Submit:{% endif %}</span>
       {% endblock %}
+      -->
       {% block title %}{% endblock title %}
   </h1>
 
