@@ -34,7 +34,8 @@ def test_create_submission(app, authorized_client, mocker):
     
     assert 'verify_user' in next_page.path
     response = client.get(next_page.path)
-    assert b'By checking this box, I verify that my user information is correct.' in response.data
+    assert b'I confirm that my contact information is correct' in response.data
+
     sub_id, _ = next_page.path.lstrip('/').split('/verify_user', 1)
     def _sub():
         with app.app_context():
