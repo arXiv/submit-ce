@@ -5,8 +5,8 @@ from submit_ce.ui.tests import gets
 from submit_ce.ui.tests.csrf_util import parse_csrf_token
 
 
-def test_license(app, authorized_client, sub_authorship):
-    sub: Submission = sub_authorship
+def test_license(app, authorized_client, sub_policy):
+    sub: Submission = sub_policy
     assert sub and not sub.license
 
     url = "/93489292/classification"

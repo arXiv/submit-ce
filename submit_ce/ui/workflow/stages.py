@@ -83,16 +83,6 @@ class License(Stage):
     completed = [conditions.has_license]
 
 
-class Policy(Stage):
-    """The user is required to agree to arXiv policies."""
-
-    endpoint = 'policy'
-    label = 'accept arXiv submission policies'
-    title = "Acknowledge policy"
-    display = "Policy"
-    completed = [conditions.is_policy_accepted]
-
-
 class Classification(Stage):
     """The user is asked to select a primary category."""
 
