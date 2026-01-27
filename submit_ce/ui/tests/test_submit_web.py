@@ -69,6 +69,19 @@ def test_create_submission(app, authorized_client, mocker):
                                                  'csrf_token': _parse_csrf_token(response)})
     assert response.status_code == status.SEE_OTHER
 
+    # Get the next page in the process. This is the policy stage.
+    next_page = urlparse(response.headers['Location'])
+    assert 'policy' in next_page.path
+    response = client.get(next_page.path)
+    assert b'By checking this box, I agree to the policies listed on this page' in response.data
+
+    # Submit the policy page.
+    response = client.post(next_page.path, data={'policy': 'y',
+                                                 'policy_id': 3,
+                                                 'action': 'next',
+                                                 'csrf_token': _parse_csrf_token(response)})
+    assert response.status_code in [status.FOUND, status.SEE_OTHER]
+
     # Get the next page in the process. This is the license stage.
     next_page = urlparse(response.headers['Location'])
     assert 'license' in next_page.path
@@ -82,18 +95,6 @@ def test_create_submission(app, authorized_client, mocker):
                                                  'csrf_token': _parse_csrf_token(response)})
     assert response.status_code ==  status.SEE_OTHER
 
-    # Get the next page in the process. This is the policy stage.
-    next_page = urlparse(response.headers['Location'])
-    assert 'policy' in next_page.path
-    response = client.get(next_page.path)
-    assert b'By checking this box, I agree to the policies listed on this page'  in response.data
-
-    # Submit the policy page.
-    response = client.post(next_page.path, data={'policy': 'y',
-                                                 'policy_id': 3,
-                                                 'action': 'next',
-                                                 'csrf_token': _parse_csrf_token(response)})
-    assert response.status_code in [ status.FOUND, status.SEE_OTHER ]
 
     # Get the next page in the process. This is the primary category stage.
     next_page = urlparse(response.headers['Location'])
