@@ -63,6 +63,16 @@ class Authorship(Stage):
     completed = [conditions.is_authorship_indicated]
 
 
+class Policy(Stage):
+    """The user is required to agree to arXiv policies."""
+
+    endpoint = 'policy'
+    label = 'accept arXiv submission policies'
+    title = "Acknowledge policy"
+    display = "Policy"
+    completed = [conditions.is_policy_accepted]
+
+
 class License(Stage):
     """The user is asked to select a license."""
 

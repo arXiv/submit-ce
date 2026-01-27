@@ -39,11 +39,11 @@ class TestSubmissionIntegration(unittest.TestCase):
             "create_submission",
             "verify_user_page",
             "authorship_page",
-            "license_page",
             "policy_page",
+            "license_page",
             "primary_page",
             "cross_page",
-            "upload_page",
+            "upload_page", # Note: Eventually need to replace with Add Files and Review Files
             "process_page",
             "metadata_page",
             "optional_metadata_page",
@@ -134,7 +134,7 @@ class TestSubmissionIntegration(unittest.TestCase):
         self.assertIn('policy', self.next_page, "URL should be to policy")
         res = self.session.get(self.next_page)
         self.assertEqual(res.status_code, 200)
-        self.assertIn('By checking this box, I agree to the policies', res.text)
+        self.assertIn('I confirm that my contact information is correct', res.text)
         res = self.session.post(self.next_page,
                             data={'policy': 'y',
                                   'action': 'next',
