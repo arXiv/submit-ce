@@ -61,7 +61,7 @@ def test_create_submission(app, authorized_client, mocker):
     assert 'authorship' in  next_page.path
     response = client.get(next_page.path)
     assert response.status_code == status.OK
-    assert 'I am an author of this paper' in response.text
+    assert 'I am submitting as an author of this article' in response.text
 
     # Submit the authorship page.
     response = client.post(next_page.path, data={'authorship': 'y',

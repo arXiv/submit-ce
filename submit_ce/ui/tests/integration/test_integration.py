@@ -108,7 +108,7 @@ class TestSubmissionIntegration(unittest.TestCase):
         self.assertIn('authorship', self.next_page, "next page should be to authorship")
         res = self.session.get(self.next_page)
         self.assertEqual(res.status_code, 200)
-        self.assertIn('I am an author of this paper', res.text)
+        self.assertIn('I am submitting as an author of this article', res.text)
         res = self.session.post(self.next_page,
                             data={'authorship': 'y',
                                   'action': 'next',
