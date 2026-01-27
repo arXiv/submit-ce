@@ -172,11 +172,36 @@ h1.title.title-submit {
     margin: 1rem 0 !important; /* optional spacing */
 }
 
+.authorship-options {
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  margin: 1rem 0 1.25rem 0 !important;
+}
+
 .action-container {
   box-shadow: 0 0 9px 0 rgba(210, 210, 210, 0.5); }
   .action-container .upload-notes {
     border-bottom: 1px solid #d3e1e6;
     padding-bottom: 1em; }
+
+
+.authorship-indent {
+  padding-left: 2.5em;   /* adjust to taste: 2em–3em matches your screenshot */
+}
+
+
+.authorship-options .field {
+  margin-bottom: 0.75rem; /* was ~1.25rem default; tweak as needed */
+}
+
+
+.authorship-footnote {
+  margin-top: 1rem;
+  font-size: 0.95rem;     /* or .875rem if you prefer smaller */
+  line-height: 1.4;
+}
+
 
 /* abs preview styles */
 .content-container #abs {
