@@ -31,7 +31,7 @@ def test_authorship_form(app, authorized_client, sub_verified_user):
     assert not get(app, sub).submitter_is_author
 
     resp = authorized_client.post(url, data={'action':'next','csrf_token':parse_csrf_token(resp), 'authorship': 'y'})
-    assert resp.status_code == 303 and resp.headers["Location"] == f"/{sub.submission_id}/license"
+    assert resp.status_code == 303 and resp.headers["Location"] == f"/{sub.submission_id}/policy"
     assert get(app, sub).submitter_is_author
 
 
