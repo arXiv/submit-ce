@@ -29,7 +29,7 @@ def test_license(app, authorized_client, sub_policy):
         'csrf_token':parse_csrf_token(resp),
         'license': license,
         'action': 'next'})
-    assert resp.status_code == 303 and resp.headers["Location"] == f"/{sub.submission_id}/category"
+    assert resp.status_code == 303 and resp.headers["Location"] == f"/{sub.submission_id}/classification"
     gets(app,sub).license == license
 
     resp = authorized_client.get(url)
