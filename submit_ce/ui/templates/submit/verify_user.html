@@ -4,7 +4,7 @@
 
 {% block important_text_box -%}
 <div class="message-body">
-  <p>A current email address is required to complete submission. Your email address is viewable to  <a href="{{ url_for('help_email') }}">registered arXiv users</a>.</p>
+  <p><span class="is-danger">*</span>A current email address is required to complete submission. Your email address is viewable to  <a href="{{ url_for('help_email') }}">registered arXiv users</a>.</p>
 </div>
 
 {%- endblock important_text_box %}
@@ -57,7 +57,7 @@
     <div class="field-label">
       <span class="has-text-weight-semibold">E-mail:</span>
     </div>
-    <div class="field-body">{{ user.email }} <span class="field-note"> (A current email address is required)</span></div>
+    <div class="field-body">{{ user.email }} <span class="is-danger">*</span></div>
   </div>
   <!--
   <div class="field is-horizontal">
