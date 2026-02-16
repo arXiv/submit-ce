@@ -27,7 +27,7 @@ dependencies = [
     "email-validator==2.2.0",
     "fastapi==0.114.2",
     "fastapi-cli==0.0.5",
-    "fire==0.5.0",
+    "fire>=0.5",
     "flask==3.0.3",
     "google-cloud-pubsub>=2.29.0",
     "greenlet==3.1.0",
@@ -59,10 +59,10 @@ dependencies = [
     "pluggy==1.5.0",
     "py==1.11.0",
     "pycparser==2.22",
-    "pydantic==2.9.2",
-    "pydantic-core==2.23.4",
-    "pydantic-extra-types==2.9.0",
-    "pydantic-settings==2.5.2",
+    "pydantic>=2.9",
+    "pydantic-core>=2.23.4",
+    "pydantic-extra-types>=2.9.0",
+    "pydantic-settings>=2.5.2",
     "pydocstyle==3.0.0",
     "pygments==2.18.0",
     "pyjwt==2.9.0",
@@ -132,7 +132,7 @@ skip = [
 skip_gitignore = true
 
 [tool.uv.sources]
-arxiv-base = { git = "https://github.com/arXiv/arxiv-base.git", rev = "11e1c636f1db900a279d48f28f3a7a37ab6765a7" }
+arxiv-base = { git = "https://github.com/arXiv/arxiv-base.git", branch = "master" }
 
 [dependency-groups]
 dev = [

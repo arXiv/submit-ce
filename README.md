@@ -10,6 +10,10 @@ To run the server, please execute the following from the root directory:
 python --version
 # 3.11
 
+# Install gcld3 needed by arxiv-base metadata checks
+sudo apt-get install cmake libprotobuf-dev protobuf-compiler
+uv pip install gcld3
+
 # this uses uv instead of pipenv or poetry
 # see https://docs.astral.sh/uv/
 uv venv

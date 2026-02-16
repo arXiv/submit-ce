@@ -54,6 +54,7 @@ from datetime import datetime
 from typing import Optional, List, Union, ClassVar
 
 from arxiv.license import LICENSES
+from arxiv.metadata import metacheck
 import bleach
 from arxiv.taxonomy.definitions import CATEGORIES
 from pytz import UTC
@@ -384,11 +385,11 @@ class SetTitle(Event):
     def validate(self, submission: Submission) -> None:
         """Validate the title value."""
         validators.submission_is_not_finalized(self, submission)
+        check = metacheck.check_title(self.title)
+        if check and check.disposition != metacheck.OK:
+            raise InvalidEvent(self, "", check)
         self._does_not_contain_html_escapes(submission)
-        self._acceptable_length(submission)
         validators.no_trailing_period(self, submission, self.title)
-        if self.title.isupper():
-            raise InvalidEvent(self, "Title must not be all-caps")
         self._check_for_html(submission)
 
     def project(self, submission: Submission) -> Submission:
