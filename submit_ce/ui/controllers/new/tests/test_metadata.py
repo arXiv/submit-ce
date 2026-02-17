@@ -26,37 +26,38 @@ def test_metadata(app, authorized_client, sub_processed):
 
     # test a short abstract to check that validation works
     resp = authorized_client.post(url, data={"csrf_token":parse_csrf_token(resp),
-                                             "title": "titleX",
+                                             "title": "TitleX bla bla bla bla",
                                              "abstract": "too short abs",
-                                             "authors_display": "Smith, Bob"})
+                                             "authors_display": "Bob Smith"})
     assert resp.status_code == 400 \
         and b"<title>Add or Edit Metadata" in resp.data and b"<form " in resp.data
 
     # test successfully setting the metadata
     resp = authorized_client.post(url, data={"csrf_token":parse_csrf_token(resp),
-                                             "title": "titleX",
-                                             "abstract": "abstractX...........",
-                                             "authors_display": "Smith, Bob",
+                                             "title": "TitleX bla bla bla",
+                                             "abstract": "Cheese onion cat table backpack plywood x.",
+                                             "authors_display": "Bob Smith",
                                              'action': 'next'})
-    assert resp.status_code == 303        
+    assert resp.status_code == 303
     sub_db = gets(app, sub)
-    assert sub_db.metadata.title == "titleX" \
-        and sub_db.metadata.abstract == "abstractX..........." \
-        and sub_db.metadata.authors_display == "Smith, Bob"
+    assert sub_db.metadata.title == "TitleX bla bla bla" \
+        and sub_db.metadata.abstract == "Cheese onion cat table backpack plywood x." \
+        and sub_db.metadata.authors_display == "Bob Smith"
 
     # post with uncahnged data
     resp = authorized_client.get(url)
     assert resp.status_code == 200 \
-        and b"<title>Add or Edit Metadata" in resp.data and b"<form " in resp.data    
-    resp = authorized_client.post(url, data={"csrf_token":parse_csrf_token(resp),
-                                             "title": "titleX",
-                                             "abstract": "abstractX...........",
-                                             "authors_display": "Smith, Bob",
-                                             'action': 'next'})
+        and b"<title>Add or Edit Metadata" in resp.data and b"<form " in resp.data
+    data = {"csrf_token":parse_csrf_token(resp),
+            "title": "TitleX bla bla bla",
+            "abstract": "Cheese onion cat table backpack plywood x.",
+            "authors_display": "Bob Smith",
+            'action': 'next'}
+    resp = authorized_client.post(url, data=data)
     assert resp.status_code == 303
-    assert sub_db.metadata.title == "titleX" \
-        and sub_db.metadata.abstract == "abstractX..........." \
-        and sub_db.metadata.authors_display == "Smith, Bob"
+    assert sub_db.metadata.title == data["title"] \
+        and sub_db.metadata.abstract == data["abstract"] \
+        and sub_db.metadata.authors_display == data["authors_display"]
 
     
 #     @mock.patch(f'{metadata.__name__}.OptionalMetadataForm.Meta.csrf', False)

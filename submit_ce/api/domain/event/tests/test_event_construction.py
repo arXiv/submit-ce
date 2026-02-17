@@ -1,10 +1,7 @@
 """Test that all event classes are well-formed."""
 import inspect
-import json
-from unittest import TestCase
 
 from polyfactory.factories.pydantic_factory import ModelFactory
-from pydantic import TypeAdapter
 
 # from hypothesis import given, settings
 # from hypothesis_jsonschema import from_schema

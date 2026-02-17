@@ -3,7 +3,7 @@ name = "submit-ce"
 version = "0.1.0"
 description = "Paper submission system."
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.11,<3.12"
 dependencies = [
     "annotated-types==0.7.0",
     "anyio==4.5.0",
@@ -29,6 +29,7 @@ dependencies = [
     "fastapi-cli==0.0.5",
     "fire>=0.5",
     "flask==3.0.3",
+    "gcld3>=3.0.13",
     "google-cloud-pubsub>=2.29.0",
     "greenlet==3.1.0",
     "gunicorn>=23.0.0",
@@ -132,7 +133,7 @@ skip = [
 skip_gitignore = true
 
 [tool.uv.sources]
-arxiv-base = { git = "https://github.com/arXiv/arxiv-base.git", branch = "master" }
+arxiv-base = { git = "https://github.com/arXiv/arxiv-base.git", branch = "develop" }
 
 [dependency-groups]
 dev = [
