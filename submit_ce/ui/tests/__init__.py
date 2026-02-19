@@ -15,7 +15,7 @@ from submit_ce.ui import backend
 
 
 
-class TestClientArxivAuth(testing.FlaskClient):
+class ClientArxivAuth(testing.FlaskClient):
     """Use to make a Flask client with auth.
 
     ```python
@@ -27,7 +27,7 @@ class TestClientArxivAuth(testing.FlaskClient):
     """
     def __init__(self, *args, **kwargs):
         self._jwt = kwargs.pop('jwt')
-        super(TestClientArxivAuth, self).__init__( *args, **kwargs)
+        super(ClientArxivAuth, self).__init__( *args, **kwargs)
 
     def open(self, *args, **kwargs):
         api_key_headers = Headers({
