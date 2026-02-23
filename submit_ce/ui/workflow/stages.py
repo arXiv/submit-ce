@@ -63,16 +63,6 @@ class Authorship(Stage):
     completed = [conditions.is_authorship_indicated]
 
 
-class License(Stage):
-    """The user is asked to select a license."""
-
-    endpoint = 'license'
-    label = 'choose a license'
-    title = "Choose license"
-    display = "License"
-    completed = [conditions.has_license]
-
-
 class Policy(Stage):
     """The user is required to agree to arXiv policies."""
 
@@ -81,6 +71,16 @@ class Policy(Stage):
     title = "Acknowledge policy"
     display = "Policy"
     completed = [conditions.is_policy_accepted]
+
+
+class License(Stage):
+    """The user is asked to select a license."""
+
+    endpoint = 'license'
+    label = 'choose a license'
+    title = "Choose license"
+    display = "License"
+    completed = [conditions.has_license]
 
 
 class Classification(Stage):
@@ -103,6 +103,18 @@ class FileUpload(Stage):
     always_check = True
     completed = [conditions.has_valid_content]
 
+
+class ReviewFiles(Stage):
+    """The user is asked to review files for their submission with input
+       from preflight analysis.
+    """
+    #endpoint = 'review_files'
+    endpoint = 'review_files'
+    label = 'review your submission files'
+    title = "Review Files"
+    display = "Review Files"
+    always_check = True
+    completed = [conditions.has_primary]
 
 class Process(Stage):
     """Uploaded files are processed; this is primarily to compile LaTeX."""

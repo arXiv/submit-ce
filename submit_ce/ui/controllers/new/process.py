@@ -66,7 +66,8 @@ def file_process(method: str, params: MultiDict, session: Session,
         if params.get('action') in ['previous', 'next', 'save_exit']:
             return _check_status(params, session, submission_id, token)
         else:
-            return start_compilation(params, session, submission_id, token)
+            start_compilation(params, session, submission_id, token)
+            return compile_status(params, session, submission_id, token)
     raise MethodNotAllowed('Unsupported request')
 
 
@@ -142,7 +143,7 @@ def compile_status(params: MultiDict, session: Session, submission_id: int,
 
     file_store: SubmissionFileStore = current_app.api.get_file_store()
     file = file_store.get_preview(submission_id)
-    if file:
+    if file and file.exists():
         response_data['status']="succeeded"
 
     # Determine whether the current state of the uploaded source content has been compiled.
@@ -183,7 +184,6 @@ def start_compilation(params: MultiDict, session: Session, submission_id: int,
     if validate_command(form, command, submission):
         try:
             current_app.api.save(command, submission_id=submission.submission_id)  # The api implementation will call CompileSource.execute()
-            return stay_on_this_stage((response_data, status.OK, {}))
         except SaveError as e:
             alerts.flash_failure(f"We couldn't process your submission. {SUPPORT}", title="Processing failed")
             raise InternalServerError(response_data) from e

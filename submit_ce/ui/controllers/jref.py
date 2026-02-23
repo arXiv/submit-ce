@@ -94,7 +94,6 @@ def jref(method: str, params: MultiDict, session: Session,
         # the proposed change. They can either make further changes, or
         # confirm and submit_ce.
         if not form.validate():
-            logger.debug('Invalid form data; return bad request')
             raise BadRequest(response_data)
 
         if not form.confirmed.data:

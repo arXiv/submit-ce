@@ -1,0 +1,124 @@
+{% extends "submit/base_edit.html" %}
+
+{% block addl_head %}
+{{super()}}
+ <script src="{{ url_for('static', filename='js/filewidget.js') }}"></script>
+{% endblock addl_head %}
+
+{% macro display_tree(key, item, even) %}
+  {% if key %}
+  <li class="{% if item.errors %}is-warning{% elif item.modified and item|just_updated %}is-success{% endif %} {% if even %}even{% endif %}">
+  {% endif %}
+    {% if item.name %}
+    <div class="columns">
+      <div class="column">
+        {{ item.name }}
+      </div>
+      <div class="column is-one-third-tablet">
+          <div class="columns is-mobile">
+            <div class="column">{{ item.size|filesizeformat }}</div>
+            <div class="column">{{ item.modified|timesince }}</div>
+            <div class="column has-text-centered is-narrow">
+             <a href="{{ url_for('ui.file_delete', submission_id=submission_id) }}?path={{ item.path }}" aria-label="Delete {{ item.name }}">
+               {{svg.trashcan()}}
+               <span class="is-sr-only">Delete file</span>
+             </a>
+            </div>
+          </div>
+      </div>
+    </div>
+    {% else %}
+    {% if key %}
+    {{svg.exclamation(klass="icon filter-blue")}}
+    {{ key }}/{% endif %}
+    <ol class="{% if not key %}file-tree{% endif %}" style="list-style-type: none;">
+      {% for k, subitem in item.items() %}
+      {{ display_tree(k, subitem, loop.cycle('', 'even')) }}
+      {% endfor %}
+    </ol>
+    {% endif %}
+    {% if item.errors %}
+        {% for error in item.errors %}
+        <p class="help has-text-weight-bold is-marginless {% if error.error_type == FileErrorLevels.ERROR %}is-danger{% else %}is-warning{% endif %}">
+          {{ error.message }}
+        </p>
+        {% endfor %}
+      {% endif %}
+  {% if key %}
+  </li>
+  {% endif %}
+{% endmacro %}
+
+{% block title -%}Review Files (COMING SOON){%- endblock title %}
+
+
+{% if immediate_notifications %}
+  {% for notification in immediate_notifications %}
+  <div class="notification is-{{ notification.severity }}" role="alert" aria-atomic="true">
+    {% if notification.title %}<h2 class="is-size-5 is-marginless">{{ notification.title }}</h2>{% endif %}
+    <p>
+      {{ notification.body}}
+    </p>
+  </div>
+  {% endfor %}
+{% endif %}
+
+{% block important_text_box %}
+
+  <p>Review Files sidebar information goes here</p>
+
+   {% endblock important_text_box %}
+
+{% block within_content %}
+<form id="form" class="form" action="{{ url_for('ui.review_files', submission_id=submission_id) }}" method="POST" enctype="multipart/form-data">
+  <div class="columns action-container">
+
+    <div class="column is-one-half-desktop is-one-half-tablet">
+      {{ form.csrf_token }}
+      <div class="field is-grouped is-grouped-multiline">
+        <div class="control is-expanded">
+
+        </div>
+        <div class="control" style="margin-top: .35em">
+
+        </div>
+        <div class="control">
+
+        </div>
+      </div>
+      {% if form.file.errors %}
+        {% for error in form.file.errors %}
+          <p class="help is-danger field-error">{{ error }}</p>
+        {% endfor %}
+      {% endif %}
+
+      {% if status and status.errors %}
+        {% for error in status.errors %}
+        <p class="help has-text-weight-bold is-marginless {% if error.error_type == FileErrorLevels.ERROR %}is-danger{% else %}is-warning{% endif %}">
+          {{ error.message }}
+        </p>
+        {% endfor %}
+      {% endif %}
+
+      {% if status and status.files %}
+      <h3>Files currently attached to this submission ({{ status.size|filesizeformat }})</h3>
+
+      {{ display_tree(None, status.files|group_files) }}
+
+      <p class="help has-text-right" style="margin-right: .5rem">
+
+      </p>
+      {% elif error %}
+      <p class="title is-4 breathe-vertical has-text-centered has-text-danger">
+        Something isn't working right now. Please try again.
+      </p>
+      {% else %}
+      <p class="title is-4 breathe-vertical has-text-centered">
+        No files have been uploaded yet.
+      </p>
+      {% endif %}
+    </div>
+  </div>
+</form>
+
+{% endblock within_content %}

@@ -6,13 +6,10 @@ arXiv paper submission system
 To run the server, please execute the following from the root directory:
 
 ```bash
-# setup venv in your preferred way
-python --version
-# 3.11
+# Install gcld3 dependencies needed by arxiv-base metadata checks
+sudo apt-get install cmake libprotobuf-dev protobuf-compiler
 
 # this uses uv instead of pipenv or poetry
-# see https://docs.astral.sh/uv/
-uv venv
 uv sync
 
 # make sqlite dev db
@@ -36,6 +33,13 @@ docker push gcr.io/arxiv-development/submit-ce/submit-ce-ui
 ```
 
 ## Tests
+
+Test setup for Ubuntu:
+```
+sudo apt-get install google-cloud-cli-pubsub-emulator
+```
+
+See [emulator instructions](https://cloud.google.com/pubsub/docs/emulator) for other operating systems.
 
 To run the tests:
 

@@ -160,11 +160,48 @@ h1.title.title-submit {
 .content-container {
   border-bottom: 0px; }
 
+
+.verify-user-box {
+    border-bottom: 1px solid #d3e1e6;
+}
+
+.verify-user-checkbox {
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 1rem 0 !important; /* optional spacing */
+}
+
+.authorship-options {
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  margin: 1rem 0 1.25rem 0 !important;
+}
+
 .action-container {
   box-shadow: 0 0 9px 0 rgba(210, 210, 210, 0.5); }
   .action-container .upload-notes {
     border-bottom: 1px solid #d3e1e6;
     padding-bottom: 1em; }
+
+
+.authorship-indent {
+  padding-left: 2.5em;   /* adjust to taste: 2em–3em matches your screenshot */
+}
+
+
+.authorship-options .field {
+  margin-bottom: 0.75rem; /* was ~1.25rem default; tweak as needed */
+}
+
+
+.authorship-footnote {
+  margin-top: 1rem;
+  font-size: 0.95rem;     /* or .875rem if you prefer smaller */
+  line-height: 1.4;
+}
+
 
 /* abs preview styles */
 .content-container #abs {
@@ -446,3 +483,34 @@ column {
 
 .control-cross-list {
   max-width: 80%; }
+
+# New CSS for Submission Agreement and License updates.
+
+/* Headings & brand hierarchy */
+h1.title.title-submit { color: black !important; }  /* keep H1 black */
+
+/* Info container structure */
+.info-container { border: 0; background: transparent; border-left: 2px solid #a5d6fe; padding: 0 1em; box-shadow: -18px 0 15px -25px rgba(0,0,0,.75); }
+.info-container-middle .message-body { border: none; border-top: 1px solid #d7d7d7; border-radius: 0; margin: .5em 0; padding: .75em !important; color: #767676; }
+.info-container-bottom { border-top: 1px solid #d7d7d7; padding-top: .5em; }
+
+/* Primary/secondary buttons + spacing */
+.info-container .buttons.submit-nav { margin: 0 !important; gap: 3px; justify-content: space-between; width: 100%; }
+.info-container .buttons.submit-nav .button { margin: 0; padding: .35em !important; height: auto; line-height: 1em; background-color: #E6E6E6; }
+.info-container .buttons.submit-nav .button.is-success { background-color: #1e8bc3; font-weight: 600; } /* primary blue */
+
+/* Progress bar deemphasis */
+.progressbar li { background: transparent; border: 1px solid #a5d6fe; }
+.progressbar li a { color: #1e8bc3; }
+.progressbar li.is-complete.is-active { background-color: #a5d6fe; }
+.progressbar li.is-complete.is-active a { color: black; }
+
+/* Flex 'table' */
+.user-info.content-container { border-color: #d7d7d7; padding: 0 !important; }
+.user-info .field { gap: 6px; margin: 0 !important; }
+.user-info .field .field-label { text-align: left; flex-grow: 1; border-right: 1px solid #d7d7d7; margin: 0 !important; }
+.user-info .field .field-body { display: inline; flex-grow: 2; }
+.field-label, .field-body { padding: .5em !important; }
+
+/* Asterisks/errors */
+.is-danger { color: red; }

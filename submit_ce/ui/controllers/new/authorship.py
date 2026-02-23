@@ -86,8 +86,9 @@ class AuthorshipForm(csrf.CSRFForm):
     YES = 'y'
     NO = 'n'
 
-    authorship = RadioField(choices=[(YES, 'I am an author of this paper'),
-                                     (NO, 'I am not an author of this paper')],
+    authorship = RadioField(choices=[(YES, 'I am submitting as an author of this article'),
+                                     (NO, 'I am not an author but have obtained pre-authorization'
+                                          'from arXiv to submit as a third-party submitter')],
                             validators=[InputRequired('Please choose one')],
                             default=None)
 
@@ -104,8 +105,9 @@ class AuthorshipProxyForm(csrf.CSRFForm):
     YES = 'y'
     NO = 'n'
 
-    authorship = RadioField(choices=[(YES, 'I am an author of this paper'),
-                                     (NO, 'I am not an author of this paper')],
+    authorship = RadioField(choices=[(YES, 'I am submitting as an author of this article'),
+                                     (NO, 'I am not an author but have obtained pre-authorization'
+                                          'from arXiv to submit as a third-party submitter')],
                             validators=[InputRequired('Please choose one')],
                             default=YES)
     proxy = BooleanField('By checking this box, I certify that I have '

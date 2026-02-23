@@ -2,62 +2,79 @@
 
 {% block addl_head %}
 {{super()}}
-  <script src="{{ url_for('static', filename='js/authorship.js') }}"></script>
+<script src="{{ url_for('static', filename='js/authorship.js') }}"></script>
 {% endblock addl_head %}
 
-{% block title -%}Confirm Authorship{%- endblock title %}
+{% block title -%}Authorship{%- endblock title %}
 
 {% block important_text_box %}
-  <p class="has-text-weight-semibold">{{svg.info(klass="icon filter-dark_grey")}}Authorship guidelines</p>
-  <p>Complete and accurate authorship is required and will be <a href="{{ url_for('help_author') }}">displayed in the public metadata</a>.</p>
-  <p>Third party submissions may have additional requirements, learn more on the <a href="{{ url_for('help_third_party_submission') }}" target="_blank">detailed help page</a>.</p>
+<p class="has-text-weight-semibold">{{svg.info(klass="icon filter-dark_grey")}}Authorship guidelines</p>
+<p>Complete and accurate authorship is required and will be <a href="{{ url_for('help_author') }}">displayed in the
+    public metadata</a>.</p>
+<p>Third party submissions may have additional requirements, learn more on the <a
+        href="{{ url_for('help_third_party_submission') }}" target="_blank">detailed help page</a>.</p>
 {% endblock important_text_box %}
 
 {% block within_content %}
+<p class="subtitle is-6">Verify your authorship role before proceeding</p>
 <form id="form" method="POST" action="{{ url_for('ui.authorship',submission_id=submission_id) }}">
-{{ form.csrf_token }}
-<div class="action-container" role="group" aria-labelledby="authorship_options">
-  <div class="columns">
-    <div class="column is-one-half-desktop is-one-half-tablet">
-      <span id="authorship_options" class="is-sr-only">Confirm the authorship of this submission</span>
-      {% if form.authorship.errors %}<div class="notification is-danger">{% endif %}
-      {% for field in form.authorship %}
-        <div class="field">
-          <div class="control">
-            <div class="radio">
-              {{ field|safe }}
-              {{ field.label }}
-            </div>
-          </div>
-        </div>
-      {% endfor %}
+    {{ form.csrf_token }}
+    <div class="action-container authorship-options" role="group" aria-labelledby="authorship_options">
+        <div class="authorship-indent">
+            <div class="columns">
+                <div class="column is-one-half-desktop is-one-half-tablet">
+                    <span id="authorship_options" class="is-sr-only">Confirm the authorship of this submission</span>
+                    {% if form.authorship.errors %}
+                    <div class="notification is-danger">{% endif %}
+                        {% for field in form.authorship %}
+                        <div class="field">
+                            <div class="control">
+                                <div class="radio">
+                                    {{ field|safe }}
+                                    {{ field.label }}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
 
-      {% if may_proxy %}
-        <div class="field">
-          <div class="control" style="margin-left: 2.5em; margin-top: -1em">
-            <div class="checkbox">
-              {{ form.proxy }}
-              {{ form.proxy.label }}
-              <a href="{{ url_for('help_third_party_submission') }}" class="help-bubble">
-                {{svg.question()}}
-                <div class="bubble-text">Third party submissions may have additional requirements. Click for detailed help page.</div></a>
-            </div>
-            {% if form.proxy.errors %}
-              {% for error in form.proxy.errors %}
-                <p class="help is-danger">{{ error }}</p>
-              {% endfor %}
-            {% endif %}
-          </div>
-        </div>
-        {% endif %}
+                        {% if may_proxy %}
+                        <div class="field">
+                            <div class="control" style="margin-left: 2.5em; margin-top: -1em">
+                                <div class="checkbox">
+                                    {{ form.proxy }}
+                                    {{ form.proxy.label }}
+                                    <a href="{{ url_for('help_third_party_submission') }}" class="help-bubble">
+                                        {{svg.question()}}
+                                        <div class="bubble-text">Third party submissions may have additional
+                                            requirements. Click for detailed help page.
+                                        </div>
+                                    </a>
+                                </div>
+                                {% if form.proxy.errors %}
+                                {% for error in form.proxy.errors %}
+                                <p class="help is-danger">{{ error }}</p>
+                                {% endfor %}
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endif %}
 
-        {% if form.authorship.errors %}
-          {% for error in form.authorship.errors %}
-          <p class="help is-danger">{{ error }}</p>
-          {% endfor %}
-        {% endif %}
-        {% if form.authorship.errors %}</div>{% endif %}
-    </div>
-</div>
+                        {% if form.authorship.errors %}
+                        {% for error in form.authorship.errors %}
+                        <p class="help is-danger">{{ error }}</p>
+                        {% endfor %}
+                        {% endif %}
+                        {% if form.authorship.errors %}
+                    </div>
+                    {% endif %}
+
+                </div> <!-- /.authorship-indent -->
+            </div>
+        </div>
+        <p class="authorship-footnote">
+            If you are under 18 years of age (minor) you must complete the
+            guardian consent form
+            before proceeding to submit your Work.
+        </p>
 </form>
 {% endblock within_content %}
