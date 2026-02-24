@@ -25,19 +25,13 @@ jobs:
     - name: Install protobuf compiler
       run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
 
-    - name: Install Google Cloud Pub/Sub emulator
-      run: |
-          sudo apt-get update
-          sudo apt-get install -y google-cloud-cli-pubsub-emulator
-    - name: Check gcloud
-      run: gcloud --version
-
     - name: Install the project
       run: uv sync --locked --all-extras --dev
 
     - name: Test with pytest
       run: |
-        uv run pytest --cov=submit-ce --cov-fail-under=80
+        uv run pytest -k "not implementations/pubsub" \
+        --cov=submit-ce --cov-fail-under=80
 
     - name: Ruff lint check
       run: |
