@@ -1,31 +1,30 @@
 """Bootstraps users and other DB entities for testing/dev."""
 
-from atexit import register
+import logging
+import random
+import time
+from typing import Any, Dict, List, Optional, Tuple
+
+from arxiv.auth.auth import Auth, tokens
+from arxiv.db import models
+from arxiv.auth import domain as auth_domain
 from arxiv.auth.legacy import accounts
 from arxiv.auth.legacy.sessions import create
 from arxiv.base import Base
 from arxiv.taxonomy.category import Category
 from arxiv.taxonomy.definitions import CATEGORIES, CATEGORIES_ACTIVE, GROUPS
+
 from flask import Flask
-from sqlalchemy.orm import Session
 
 if __name__ == '__main__':
     import sys
     from pathlib import Path
     sys.path.append(str(Path(__file__).resolve().parent.parent))
 
-import logging
-import random
-import time
-from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
-
 import fire
-from arxiv.auth import domain
-from arxiv.auth.auth import Auth, tokens
-from arxiv.db import models
 from mimesis import Internet, Person
 from mimesis.locales import Locale
+from sqlalchemy.orm import Session
 from sqlalchemy import create_engine, text
 
 from submit_ce.ui.config import DEV_SQLITE_FILE, settings
@@ -39,7 +38,7 @@ logger = logging.getLogger(__file__)
 
 LOCALES = list(Locale)
 
-DEFAULT_AUTHS = domain.Authorizations(
+DEFAULT_AUTHS = auth_domain.Authorizations(
     classic=0,
     scopes=[
         "public:read",
@@ -185,37 +184,125 @@ def get_endorsements() -> Tuple[List[Category], Category, str]:
     return categories, random.choice(categories), group
 
 
-def users_v2(count: int = 500) -> List[Tuple[domain.User, str, str, str, List[Category]]]:
-    """Generate a bunch of random users for use with `accounts.register()`."""
+# def users_v2(count: int = 500) -> List[Tuple[domain.User, str, str, str, List[Category]]]:
+#     """Generate a bunch of random users for use with `accounts.register()`."""
+#     _users=[]
+#     for ii in range(count):
+#         locale = random.choice(LOCALES)
+#         person = Person(locale)
+#         net = Internet()
+#         endorsed, default_category, group = get_endorsements()
+#         _users.append(
+#             (
+#             domain.User(
+#                 user_id=str(ii),
+#                 email=person.email(),
+#                 username=person.username(),
+#                 name=domain.UserFullName(
+#                     forename=person.name(),
+#                     surname=person.surname(),
+#                     suffix=person.title()),
+#                 profile=domain.UserProfile(
+#                     affiliation=person.university(),
+#                     rank=3,
+#                     country=str(locale)[:2],
+#                     default_archive=default_category,
+#                     submission_groups=[group]
+#             )),
+#             person.password(),
+#             net.ip_v4(),
+#             net.hostname(),
+#             endorsed
+#             )
+#         )
+#     return _users
+
+def users_v3(count: int = 500) -> list[tuple[models.TapirUser, str, str, str, list[Category]]]:
     _users=[]
     for ii in range(count):
         locale = random.choice(LOCALES)
         person = Person(locale)
         net = Internet()
         endorsed, default_category, group = get_endorsements()
-        _users.append(
-            (
-            domain.User(
-                user_id=str(ii),
-                email=person.email(),
-                username=person.username(),
-                name=domain.UserFullName(
-                    forename=person.name(),
-                    surname=person.surname(),
-                    suffix=person.title()),
-                profile=domain.UserProfile(
-                    affiliation=person.university(),
-                    rank=3,
-                    country=str(locale)[:2],
-                    default_archive=default_category,
-                    submission_groups=[group]
-            )),
-            person.password(),
-            net.ip_v4(),
-            net.hostname(),
-            endorsed
+        default_subject = ''
+        if '.' in default_category.id:
+            default_subject = default_category.id.split('.', 1)[1]
+        else:
+            default_subject = default_category.id
+        tapir_user=models.TapirUser(
+            user_id=str(ii),
+            email=person.email(),
+            first_name=person.name(),
+            last_name=person.surname(),
+            suffix_name=person.title(),
+            policy_class=2,
+            flag_email_verified=1,
+            flag_approved=1,
+            demographics=models.Demographic(
+                country=str(locale)[:2],
+                affiliation=person.university(),
+                type=3,
+                url="https://example.com/"+person.username(),
+                archive=default_category.in_archive,
+                subject_class=default_subject,
+                original_subject_classes='',
+                flag_group_physics=group == "physics",
+                flag_group_math=group == "math",
+                flag_group_cs=group == "cs",
+                flag_group_nlin=group == "nlin",
+                flag_group_test=group == "test",
+                flag_group_q_bio=group == "q_bio",
+                flag_group_q_fin=group == "q_fin",
+                flag_group_stat=group == "stat",
+                flag_group_eess=group == "eess",
+                flag_group_econ=group == "econ",
+
+                flag_proxy=random.choice([1,0]),
+                flag_xml=random.choice([1,0]),
+            ),
+
+            tapir_nicknames=models.TapirNickname(
+                nickname=person.username(),
+                flag_valid=1,
+                flag_primary=1,
             )
         )
+
+        _users.append(
+            (
+                tapir_user,
+                person.password(),
+                net.ip_v4(),
+                net.hostname(),
+                endorsed
+            )
+        )
+
+        for cat in endorsed:
+            if cat.in_archive == cat.id:  # it's an archive, ex nucl-th
+                tapir_user.endorsee_of.append(
+                    models.Endorsement(
+                        archive=cat.in_archive,
+                        subject_class="",
+                        flag_valid=1,
+                        type="auto",
+                        point_value=10,
+                        issued_when=11074371513,
+                    )
+                )
+            else:
+                sc = cat.id.split(".")[1] if "." in cat.id else cat.id
+                tapir_user.endorsee_of.append(
+                    models.Endorsement(
+                        archive=cat.in_archive,
+                        subject_class=sc,
+                        flag_valid=1,
+                        type="auto",
+                        point_value=10,
+                        issued_when=11074371513,
+                    )
+                )
+
     return _users
 
 
@@ -312,8 +399,9 @@ def bootstrap_db(
             30758400  # a year, make this as long as you want.
         )
 
-        def user_to_jwt(user, auths):
-            session = create(auths, "127.0.0.1", "localhost", "", user)
+        def user_to_jwt(tapir_user_id, auths=DEFAULT_AUTHS):
+            auth_user = accounts.get_user_by_id(str(tapir_user_id))
+            session = create(auths, "127.0.0.1", "localhost", "", auth_user)
             return tokens.encode(session, app.config["JWT_SECRET"])
 
         with Session(engine) as session:
@@ -322,11 +410,7 @@ def bootstrap_db(
                 logger.info(
                     "arXiv_submissions table already exists, DB bootstraped. No new users created."
                 )
-                tu= session.query(models.TapirUser).first()
-                if not tu:
-                    raise RuntimeError("No users in already existing db")
-                return user_to_jwt(accounts.get_user_by_id(str(tu.user_id)), DEFAULT_AUTHS)
-
+                return user_to_jwt(accounts.get_user_by_id(session.query(models.TapirUser).first().user_id))
 
             logger.info("Database for classic not yet initialized; creating all tables")
             models.metadata.create_all(engine)
@@ -345,48 +429,48 @@ def bootstrap_db(
             session.commit()
             logger.debug("Added %i categories", len(categories()))
 
-            users_to_add = users_v2(10)
+            #users_to_add = users_v2(10)
+            users_to_add = users_v3(10)
             created_users = []
             for user, pw, ip, host, endos in users_to_add:
-                new_user, auths = accounts.register(user, pw, ip, host)
-                if auths != DEFAULT_AUTHS:
-                    raise (
-                        "Authorizatoins created with accounts.register() differ from DEFAULT_AUTHS"
-                        "They should be the same. Either update the DEFAULT_AUTHS or figure "
-                        "out why the auths are different."
-                    )
+                session.add(user)
+                #new_user, auths = accounts.register(user, pw, ip, host)
+                # if auths != DEFAULT_AUTHS:
+                #     raise (
+                #         "Authorizatoins created with accounts.register() differ from DEFAULT_AUTHS"
+                #         "They should be the same. Either update the DEFAULT_AUTHS or figure "
+                #         "out why the auths are different."
+                #     )
 
-                for cat in endos:
-                    if cat.in_archive == cat.id:  # it's an archive, ex nucl-th
-                        session.add(
-                            models.Endorsement(
-                                endorsee_id=new_user.user_id,
-                                archive=cat.in_archive,
-                                subject_class="",
-                                flag_valid=1,
-                                type="auto",
-                                point_value=10,
-                                issued_when=11074371513,
-                            )
-                        )
-                    else:
-                        sc = cat.id.split(".")[1] if "." in cat.id else cat.id
-                        session.add(
-                            models.Endorsement(
-                                endorsee_id=new_user.user_id,
-                                archive=cat.in_archive,
-                                subject_class=sc,
-                                flag_valid=1,
-                                type="auto",
-                                point_value=10,
-                                issued_when=11074371513,
-                            )
-                        )
-                created_users.append((new_user, auths))
-            logger.info("Added %i users for testing", len(users_to_add))
+                created_users.append((user, []))
+            logger.info("Added %i users for testing", len(created_users))
             session.commit()
+            query = session.query(models.TapirUser, models.TapirNickname) \
+                                      .filter(models.TapirUser.user_id == 0) \
+                                      .filter(models.TapirUser.flag_approved == 1) \
+                                      .filter(models.TapirUser.flag_deleted == 0) \
+                                      .filter(models.TapirUser.flag_banned == 0) \
+                                      .filter(models.TapirNickname.flag_primary == 1) \
+                                      .filter(models.TapirNickname.flag_valid == 1) \
+                                      .filter(models.TapirNickname.user_id == models.TapirUser.user_id)
 
-            jwt = user_to_jwt(created_users[0][0], created_users[0][1])
+            res = query.first()
+
+            def user_to_jwt(db_user, auths=DEFAULT_AUTHS):
+                auth_user =  auth_domain.User(
+                        user_id=str(db_user.user_id),
+                        username=db_user.tapir_nicknames.nickname,
+                        email=db_user.email,
+                        name=auth_domain.UserFullName(
+                            forename=db_user.first_name,
+                            surname=db_user.last_name,
+                            suffix=db_user.suffix_name
+                        ),
+                        profile=None)
+                session = create(auths, "127.0.0.1", "localhost", "", auth_user)
+                return tokens.encode(session, app.config["JWT_SECRET"])
+
+            jwt = user_to_jwt(created_users[0][0])
             return str(jwt)
 
 def jwt_for_user(user_id:int|None, dburi:str|None, jwt_secret:str|None ) -> str:

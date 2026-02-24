@@ -4,22 +4,13 @@ TODO This whole file is not good. This is all code from NG.
 
 What is the goal of this? Not clear. It seems like this was intended to support non-human "agent" type of auth.
 When it was written arxiv-ng already had a auth setup that was intend to be used, so why does this have such
-a different structure? This was written by the same person who wrote the arxiv-ng auth code. Why did they us
-ambiguous terminology? Why did they use such a different structure than what was in arixv-ng auth?
+a different structure? This was written by the same person who wrote the arxiv-ng auth code. Why did they use
+ambiguous terminology? Why did they use such a different structure than what was in arxiv-ng auth?
 
-TODO arxiv-base Client and submit-ng Client are very different
-TODO There is no simple mapping from arxiv-base auth Session and these classes
-TODO native_id is a mess
-TODO Class names are a ambiguous and overlap with arxiv-base class names
-
-Plan:
- 1. Throw all this out, (this is generally a good plan with tangled NG code)
- 2. make a submit-ce User a subset of arxiv-base User
- 3. Don't interact with the session
- 3. It should be format that has less info than a full arxiv-base Session
- 4. Have a api call to get more info about a user when needed
- 3. refactor to use these
-
+Problem: arxiv-base Client and submit-ng Client are very different
+Problem: There is no simple mapping from arxiv-base auth Session and these classes
+Problem: native_id is a mess
+Problem: Class names are a ambiguous and overlap with arxiv-base class names
 """
 
 from typing import Union, Literal, Annotated, Optional
@@ -46,6 +37,10 @@ class PublicUser(BaseModel):
     def identifier(self):
         return self.user_id
 
+    @property
+    def is_proxy(self):
+        return auth.scopes.PROXY_SUBMISSION in self.scopes
+
 
 class StaffUser(BaseModel):
     """A staff user.
@@ -63,6 +58,10 @@ class StaffUser(BaseModel):
     @property
     def identifier(self):
         return self.user_id
+
+    @property
+    def is_proxy(self):
+        return auth.scopes.PROXY_SUBMISSION in self.scopes
 
 
 
@@ -128,56 +127,6 @@ Client = Annotated[
 def agent_factory(**data: dict) -> User:
     """Instantiate a subclass of :class:`.Agent`."""
     return User.model_validate(data)
-
-
-# @deprecated
-# @dataclass
-# class Agent:
-#     """
-#     Base class for human and digital agents in the submission system.
-#
-#     An agent is an actor/system that generates/is responsible for events.
-#     """
-#
-#     native_id: str
-#     """Type-specific identifier for the agent. This might be a URI, UUID, or user_id."""
-#
-#     name: str = field(default_factory=str)
-#
-#     authorizations: Optional[Authorizations] = None
-#     """Authorizations for the Agent."""
-#
-#     class Config:
-#         orm_model = True
-#
-#     @property
-#     def agent_type(self):
-#         return self.__class__.__name__
-#
-#     @property
-#     def agent_identifier(self):
-#         """
-#         Get the unique identifier for this agent instance.
-#
-#         Based on both the agent type and native ID.
-#         """
-#         h = hashlib.new('sha1')
-#         h.update(b'%s:%s' % (self.agent_type.encode('utf-8'),
-#                              str(self.native_id).encode('utf-8')))
-#         return h.hexdigest()
-#
-#     @classmethod
-#     def get_agent_type(cls):
-#         return cls.__name__
-
-
-
-
-# def __eq__(self, other: Any) -> bool:
-#     """Equality comparison for agents based on type and identifier."""
-#     if not isinstance(other, self.__class__):
-#         return False
-#     return self.agent_identifier == other.agent_identifier
 
 
 def user_from_session(session: auth.domain.Session, include_name=False) -> User:
