@@ -30,8 +30,8 @@ jobs:
 
     - name: Test with pytest
       run: |
-        uv run pytest -k "not implementations/pubsub" \
-        --cov=submit-ce --cov-fail-under=80
+        uv run pytest --ignore=submit_ce/implementations/pubsub/tests \
+        --cov=submit_ce --cov-report=term-missing --cov-fail-under=80
 
     - name: Ruff lint check
       run: |
