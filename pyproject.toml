@@ -189,7 +189,15 @@ dev = [
 [tool.coverage.run]
 branch = true
 source = ["submit_ce"]
-omit = [ "*/tests/*" ]
+omit = [
+    "*/tests/*",
+    "submit_ce/fastapi/test_*.py",
+    "submit_ce/implementations/compile/compile_at_gcp.py",
+    "submit_ce/implementations/file_store/gs_file_store.py",
+    "submit_ce/implementations/legacy_implementation/**",
+    "submit_ce/implementations/pubsub/**",  # disabled - omit until feature is enabled
+    "submit_ce/ui/compile_sass.py",
+]
 
 [tool.coverage.report]
 # Regexes for lines to exclude from consideration
