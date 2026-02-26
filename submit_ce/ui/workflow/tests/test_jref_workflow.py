@@ -14,7 +14,7 @@ from submit_ce.api.domain.event import SetPrimaryClassification, CreateSubmissio
     ConfirmAuthorship, SetLicense, ConfirmPolicy, SetUploadPackage, SetTitle, SetAbstract, SetComments, SetReportNumber, \
     SetAuthors, FinalizeSubmission
 
-from submit_ce.ui.tests import CtrlBase, TestClientArxivAuth
+from submit_ce.ui.tests import CtrlBase, ClientArxivAuth
 from submit_ce.ui.tests.csrf_util import parse_csrf_token
 
 from arxiv.db import Session

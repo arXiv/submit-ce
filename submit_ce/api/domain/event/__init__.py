@@ -54,6 +54,7 @@ from datetime import datetime
 from typing import Optional, List, Union, ClassVar
 
 from arxiv.license import LICENSES
+from arxiv.metadata import metacheck
 import bleach
 from arxiv.taxonomy.definitions import CATEGORIES
 from pytz import UTC
@@ -89,6 +90,7 @@ ActiveCategory = str
 #Category = Annotated[str, AfterValidator(is_category)]
 Category = str
 """Type for a category active or inactive."""
+
 
 
 class CreateSubmission(Event):
@@ -385,11 +387,11 @@ class SetTitle(Event):
     def validate(self, submission: Submission) -> None:
         """Validate the title value."""
         validators.submission_is_not_finalized(self, submission)
+        check = metacheck.check_title(self.title)
+        if check and check.disposition != metacheck.OK:
+            raise InvalidEvent(self, "", check)
         self._does_not_contain_html_escapes(submission)
-        self._acceptable_length(submission)
         validators.no_trailing_period(self, submission, self.title)
-        if self.title.isupper():
-            raise InvalidEvent(self, "Title must not be all-caps")
         self._check_for_html(submission)
 
     def project(self, submission: Submission) -> Submission:
@@ -444,7 +446,9 @@ class SetAbstract(Event):
     def validate(self, submission: Submission) -> None:
         """Validate the abstract value."""
         validators.submission_is_not_finalized(self, submission)
-        self._acceptable_length()
+        check = metacheck.check_abstract(self.abstract)
+        if check and check.disposition != metacheck.OK:
+            raise InvalidEvent(self, "", check)
 
     def project(self, submission: Submission) -> Submission:
         """Update the abstract on a :class:`.domain.submission.Submission`."""
@@ -498,9 +502,9 @@ class SetDOI(Event):
             raise InvalidEvent(self, 'Cannot edit a finalized submission')
         if not self.doi:    # Can be blank.
             return
-        for value in re.split('[;,]', self.doi):
-            if not self._valid_doi(value.strip()):
-                raise InvalidEvent(self, f"Invalid DOI: {value}")
+        check = metacheck.check_doi(self.doi)
+        if check and check.disposition != metacheck.OK:
+            raise InvalidEvent(self, "", check)
 
     def project(self, submission: Submission) -> Submission:
         """Update the doi on a :class:`.domain.submission.Submission`."""
@@ -538,6 +542,9 @@ class SetMSCClassification(Event):
         validators.submission_is_not_finalized(self, submission)
         if not self.msc_class:    # Blank values are OK.
             return
+        check = metacheck.check_msc_class(self.msc_class)
+        if check and check.disposition != metacheck.OK:
+            raise InvalidEvent(self, "", check)
 
     def project(self, submission: Submission) -> Submission:
         """Update the MSC classification on a :class:`.domain.submission.Submission`."""
@@ -577,7 +584,9 @@ class SetACMClassification(Event):
         validators.submission_is_not_finalized(self, submission)
         if not self.acm_class:    # Blank values are OK.
             return
-        self._valid_acm_class(submission)
+        check = metacheck.check_acm_class(self.acm_class)
+        if check and check.disposition != metacheck.OK:
+            raise InvalidEvent(self, "", check)
 
     def project(self, submission: Submission) -> Submission:
         """Update the ACM classification on a :class:`.domain.submission.Submission`."""
@@ -624,8 +633,9 @@ class SetJournalReference(Event):
         """Validate the journal reference value."""
         if not self.journal_ref:    # Blank values are OK.
             return
-        self._no_disallowed_words(submission)
-        self._contains_valid_year(submission)
+        check = metacheck.check_journal_ref(self.journal_ref)
+        if check and check.disposition != metacheck.OK:
+            raise InvalidEvent(self, "", check)
 
     def project(self, submission: Submission) -> Submission:
         """Update the journal reference on a :class:`.domain.submission.Submission`."""
@@ -671,9 +681,9 @@ class SetReportNumber(Event):
         """Validate the report number value."""
         if not self.report_num:    # Blank values are OK.
             return
-        if not re.search(r"\d\d", self.report_num):
-            raise InvalidEvent(self, "Report number must contain two"
-                                     " consecutive digits")
+        check = metacheck.check_report_num(self.report_num)
+        if check and check.disposition != metacheck.OK:
+            raise InvalidEvent(self, "", check)
 
     def project(self, submission: Submission) -> Submission:
         """Set report number on a :class:`.domain.submission.Submission`."""
@@ -707,9 +717,9 @@ class SetComments(Event):
         validators.submission_is_not_finalized(self, submission)
         if not self.comments:    # Blank values are OK.
             return
-        if len(self.comments) > self.MAX_LENGTH:
-            raise InvalidEvent(self, f"Comments must be no more than"
-                                     f" {self.MAX_LENGTH} characters long")
+        check = metacheck.check_comments(self.comments)
+        if check and check.disposition != metacheck.OK:
+            raise InvalidEvent(self, "", check)
 
     def project(self, submission: Submission) -> Submission:
         """Update the comments on a :class:`.domain.submission.Submission`."""
@@ -747,7 +757,9 @@ class SetAuthors(Event):
     def validate(self, submission: Submission) -> None:
         """May not apply to a finalized submission."""
         validators.submission_is_not_finalized(self, submission)
-        self._does_not_contain_et_al()
+        check = metacheck.check_authors(self.authors_display)
+        if check and check.disposition != metacheck.OK:
+            raise InvalidEvent(self, "", check)
 
     def _canonical_author_string(self) -> str:
         """Canonical representation of authors, using display names."""
@@ -766,12 +778,6 @@ class SetAuthors(Event):
         # Change capitalized or uppercase `And` to `and`.
         s = re.sub(r"\bA(?i:ND)\b", "and", s)
         return s.strip()   # Removing leading and trailing whitespace.
-
-    def _does_not_contain_et_al(self) -> None:
-        """The authors display value should not contain `et al`."""
-        if self.authors_display and \
-                re.search(r"et al\.?($|\s*\()", self.authors_display):
-            raise InvalidEvent(self, "Authors should not contain et al.")
 
     def project(self, submission: Submission) -> Submission:
         """Replace :attr:`.Submission.metadata.authors`."""

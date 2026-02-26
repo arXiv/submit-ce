@@ -46,7 +46,7 @@ from submit_ce.api.domain.submission import Author
 from submit_ce.make_test_db import bootstrap_db, create_all_legacy_db
 from submit_ce.ui import backend
 
-from submit_ce.ui.tests import TestClientArxivAuth
+from submit_ce.ui.tests import ClientArxivAuth
 
 def pytest_configure(config):
     """Run before all tests"""
@@ -162,7 +162,7 @@ def authorized_user(authorized_user_session, mocker):
 def authorized_client(app, authorized_user_session):
     """Authorized client with db and jwt setup. """
     _, jwt = authorized_user_session
-    app.test_client_class = TestClientArxivAuth
+    app.test_client_class = ClientArxivAuth
     yield app.test_client(jwt=jwt)
 
 
@@ -200,7 +200,19 @@ def sub_authorship(app, authorized_user, sub_verified_user):
 
 
 @pytest.fixture(scope="function")
-def sub_license(app, authorized_user, sub_authorship):
+def sub_policy(app, authorized_user, sub_authorship):
+    """A submission with policy done."""
+    with app.app_context():
+        user = authorized_user
+        ua = InternalClient(name=f"test_client_{__file__}")
+        submission, _ = current_app.api.save(
+            ConfirmPolicy(creator=user, client=ua),
+            submission_id=sub_authorship.submission_id)
+        return submission
+
+
+@pytest.fixture(scope="function")
+def sub_license(app, authorized_user, sub_policy):
     """A submission with license set."""
     with app.app_context():
         user = authorized_user
@@ -208,30 +220,19 @@ def sub_license(app, authorized_user, sub_authorship):
         cc0 = "http://creativecommons.org/publicdomain/zero/1.0/"
         submission, _ = current_app.api.save(
             SetLicense(creator=user, client=ua, license_uri=cc0, license_name="CC0 1.0"),
-            submission_id=sub_authorship.submission_id)
+            submission_id=sub_policy.submission_id)
         return submission
 
 
 @pytest.fixture(scope="function")
-def sub_policy(app, authorized_user, sub_license):
-    """A submission with policy done."""
-    with app.app_context():
-        user = authorized_user
-        ua = InternalClient(name=f"test_client_{__file__}")
-        submission, _ = current_app.api.save(
-            ConfirmPolicy(creator=user, client=ua), submission_id=sub_license.submission_id)
-        return submission
-
-
-@pytest.fixture(scope="function")
-def sub_primary(app, authorized_user, sub_policy):
+def sub_primary(app, authorized_user, sub_license):
     """A submission with primary set."""
     with app.app_context():
         user = authorized_user
         ua = InternalClient(name=f"test_client_{__file__}")
         submission, _ = current_app.api.save(
             SetPrimaryClassification(creator=user, client=ua, category="astro-ph.GA"),
-            submission_id=sub_policy.submission_id)
+            submission_id=sub_license.submission_id)
         return submission
 
 
@@ -289,8 +290,8 @@ def sub_metadata(app, authorized_user, sub_processed):
         user = authorized_user
         ua = InternalClient(name=f"test_client_{__file__}")
         submission, _ = current_app.api.save(
-            SetTitle(creator=user, client=ua, title="foo title, submitted submission"),
-            SetAbstract(creator=user, client=ua, abstract="foo abstract {__file__}"),
+            SetTitle(creator=user, client=ua, title="Foo title, submitted submission"),
+            SetAbstract(creator=user, client=ua, abstract="Foo abstract {__file__}"),
             SetComments(creator=user, client=ua, comments="pickels"),
             SetReportNumber(creator=user, client=ua, report_num="the number 13"),
             SetAuthors(creator=user, client=ua,
@@ -345,10 +346,10 @@ def submitted_submission(app, authorized_user):
                 uncompressed_size=593992,
                 compressed_size=59392,
             ),
-            SetTitle(creator=user, client=ua, title="foo title, submitted submission"),
-            SetAbstract(creator=user, client=ua, abstract="foo abstract {__file__}"),
+            SetTitle(creator=user, client=ua, title="Foo title, submitted submission"),
+            SetAbstract(creator=user, client=ua, abstract="Foo abstract {__file__} and the reasons for why the place feels like original equipment."),
             SetComments(creator=user, client=ua, comments="pickels"),
-            SetReportNumber(creator=user, client=ua, report_num="the number 13"),
+            SetReportNumber(creator=user, client=ua, report_num="CERN-PH-EP/2999-018"),
             SetAuthors(creator=user, client=ua,
                 authors=[
                     Author(
@@ -392,10 +393,10 @@ def published_submission(app, authorized_user):
                 uncompressed_size=593992,
                 compressed_size=59392,
             ),
-            SetTitle(creator=user, client=ua, title="foo title"),
-            SetAbstract(creator=user, client=ua, abstract="ab stract" * 20),
+            SetTitle(creator=user, client=ua, title="Foo bar and the right data"),
+            SetAbstract(creator=user, client=ua, abstract="The correct foo bar and the right data is exactly what is needed for this test." * 20),
             SetComments(creator=user, client=ua, comments="indeed"),
-            SetReportNumber(creator=user, client=ua, report_num="the number 12"),
+            SetReportNumber(creator=user, client=ua, report_num="CERN-PH-EP/2999-018"),
             SetAuthors(
                 creator=user,
                 client=ua,

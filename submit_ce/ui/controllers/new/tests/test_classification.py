@@ -5,8 +5,8 @@ from submit_ce.ui.tests import gets
 from submit_ce.ui.tests.csrf_util import parse_csrf_token
  
 primary_page_title=b"Suggest Category"
-def test_primary_classification(app, authorized_client, sub_policy):
-    sub: Submission = sub_policy
+def test_primary_classification(app, authorized_client, sub_license):
+    sub: Submission = sub_license
     assert sub and not sub.primary_classification
 
     url = "/9929929292/classification"
