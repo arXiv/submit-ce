@@ -36,4 +36,4 @@ jobs:
     - name: Ruff lint check
       run: |
         uv pip install ruff
-        uv run ruff check --output-format=github browse
+        uv run ruff check --output-format=github submit-ce
