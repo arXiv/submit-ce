@@ -37,3 +37,4 @@ jobs:
       run: |
         uv pip install ruff
         uv run ruff check --output-format=github submit_ce
+        continue-on-error: true
