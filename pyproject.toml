@@ -196,18 +196,28 @@ omit = [
     "**/tests/**",
     "**/test_*.py",
     "**/*_test.py",
+
+    # Ignore questionable code or code in the process of reimplementation
+    # Fastly code not currently used
     "submit_ce/fastapi/test_*.py",
+    "submit_ce/fastapi/auth.py",
+    "submit_ce/fastapi/routes.py",
+    #
     "submit_ce/implementations/compile/common.py",
     "submit_ce/implementations/compile/compile_at_gcp.py", # migrate existing tests or eliminate script
     "submit_ce/implementations/file_store/gs_file_store.py",
+    "submit_ce/implementations/file_store/legacy_file_store.py",
     "submit_ce/implementations/legacy_implementation/**",
     "submit_ce/implementations/pubsub/**",  # disabled - omit until feature is enabled
     "submit_ce/ui/filters/**", # need rewrite
     "submit_ce/ui/compile_sass.py",
+    "submit_ce/ui/controllers/new/create.py",
     "submit_ce/ui/controllers/cross.py", # add later
     "submit_ce/ui/controllers/delete.py", # add tests after reimplementation
+    "submit_ce/ui/controllers/new/process.py",
     'submit_ce/ui/controllers/new/review.py', # placeholder
-    "submit_ce/ui/controllers/new/upload.py" # add tests after reimplementation
+    "submit_ce/ui/controllers/new/upload.py", # add tests after reimplementation
+    "submit_ce/ui/controllers/new/upload_delete.py"
 
 ]
 
@@ -218,18 +228,28 @@ omit = [
     "**/tests/**",
     "**/test_*.py",
     "**/*_test.py",
+
+
+    # Ignore questionable code or code in the process of reimplementation
+    # Fastly code not currently used
     "submit_ce/fastapi/test_*.py",
-    "submit_ce/implementations/compile/common.py",
+    "submit_ce/fastapi/auth.py",
+    "submit_ce/fastapi/routes.py",
+    "submit_ce/implementations/compile/common.py", # migrate existing tests or eliminate script
     "submit_ce/implementations/compile/compile_at_gcp.py", # migrate existing tests or eliminate script
-    "submit_ce/implementations/file_store/gs_file_store.py",
+    "submit_ce/implementations/file_store/legacy_file_store.py", # add tests
+    "submit_ce/implementations/file_store/gs_file_store.py", # add tests
     "submit_ce/implementations/legacy_implementation/**",
     "submit_ce/implementations/pubsub/**",  # disabled - omit until feature is enabled
     "submit_ce/ui/filters/**", # need rewrite
     "submit_ce/ui/compile_sass.py",
+    "submit_ce/ui/controllers/new/create.py",
     "submit_ce/ui/controllers/cross.py",
     "submit_ce/ui/controllers/delete.py",  # add tests after reimplementation
+    "submit_ce/ui/controllers/new/process.py",
     "submit_ce/ui/controllers/new/review.py", # placeholder
-    "submit_ce/ui/controllers/new/upload.py" # add tests after reimplementation
+    "submit_ce/ui/controllers/new/upload.py", # add tests after reimplementation
+    "submit_ce/ui/controllers/new/upload_delete.py"
 ]
 
 exclude_lines = [
