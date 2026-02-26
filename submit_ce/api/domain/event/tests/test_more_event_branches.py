@@ -109,7 +109,8 @@ def test_set_abstract_length_bounds_both_paths():
         e_short.validate(s)
 
     # Reasonable: 25 chars satisfies the minimum.
-    e_ok = SetAbstract(creator=s.creator, abstract="x" * 25)
+    ok_text = "This abstract is valid length."
+    e_ok = SetAbstract(creator=s.creator, abstract=ok_text)
     e_ok.validate(s)  # no exception means the branch was accepted
 
 
@@ -122,6 +123,30 @@ def test_set_license_rejects_invalid_uri():
     """
     s = _blank_submission()
     e = SetLicense(creator=s.creator, license_uri="http://not-on-our-list")
+    with pytest.raises(InvalidEvent):
+        e.validate(s)
+
+
+def test_abstract_rejects_when_not_capitalized():
+    """
+    Abstracts must start with a capital letter.
+    Expect InvalidEvent when the first character is lowercase.
+    """
+    s = _blank_submission()
+    e = SetAbstract(creator=s.creator, abstract="not capitalized first sentence.")
+    with pytest.raises(InvalidEvent):
+        e.validate(s)
+
+
+def test_abstract_rejects_when_too_long():
+    """
+    Abstracts longer than MAX_LENGTH should be rejected.
+    Your existing SetAbstract enforces MAX_LENGTH=1920.
+    """
+    s = _blank_submission()
+    # Start with a capital letter to isolate the length failure.
+    too_long = "A" + ("x" * 2000)
+    e = SetAbstract(creator=s.creator, abstract=too_long)
     with pytest.raises(InvalidEvent):
         e.validate(s)
 
