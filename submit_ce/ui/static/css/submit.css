@@ -515,11 +515,6 @@ h1.title.title-submit { color: black !important; }  /* keep H1 black */
 /* Asterisks/errors */
 .is-danger { color: red; }
 
-/* Legal / scrollable agreement & license text areas */
-.content-container {
-  background-color: #f9f7f7;  /* light paper tone behind legal copy */
-}
-
 .content-container .policy-scroll {
   font-family: 'Times New Roman', Times, serif; /* legalese serif */
 }
@@ -536,11 +531,21 @@ h1.title.title-submit { color: black !important; }  /* keep H1 black */
   pointer-events: none;
 }
 
-
+/* Legal / scrollable agreement & license text areas */
+/*
+.content-container {
+  background-color: #f9f7f7;  /* light paper tone behind legal copy */
+}
+*/
 /* Optional: license option groups look like cards */
+/*
 .action-container {
   background-color: #f9f7f7; /* subtle card background */
 }
+*/
 
+/* Only legal pages */
+.legal-page .content-container,
+.legal-page .action-container { background-color: #f9f7f7; }
 
 
