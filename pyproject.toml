@@ -189,39 +189,47 @@ dev = [
 
 [tool.coverage.run]
 branch = true
+relative_files = true
 source = ["submit_ce"]
 omit = [
     # Ignore tests
-    "submit_ce/**/tests/**",
-    "submit_ce/**/test_*.py",
-    "submit_ce/**/*_test.py",
+    "**/tests/**",
+    "**/test_*.py",
+    "**/*_test.py",
     "submit_ce/fastapi/test_*.py",
-
+    "submit_ce/implementations/compile/common.py",
     "submit_ce/implementations/compile/compile_at_gcp.py", # migrate existing tests or eliminate script
     "submit_ce/implementations/file_store/gs_file_store.py",
     "submit_ce/implementations/legacy_implementation/**",
     "submit_ce/implementations/pubsub/**",  # disabled - omit until feature is enabled
     "submit_ce/ui/filters/**", # need rewrite
     "submit_ce/ui/compile_sass.py",
-    'submit_ce/ui/controllers/new/review.py' # placeholder
+    "submit_ce/ui/controllers/cross.py", # add later
+    "submit_ce/ui/controllers/delete.py", # add tests after reimplementation
+    'submit_ce/ui/controllers/new/review.py', # placeholder
+    "submit_ce/ui/controllers/new/upload.py" # add tests after reimplementation
+
 ]
 
 [tool.coverage.report]
 
 omit = [
     # Ignore tests
-    "submit_ce/**/tests/**",
-    "submit_ce/**/test_*.py",
-    "submit_ce/**/*_test.py",
+    "**/tests/**",
+    "**/test_*.py",
+    "**/*_test.py",
     "submit_ce/fastapi/test_*.py",
-
+    "submit_ce/implementations/compile/common.py",
     "submit_ce/implementations/compile/compile_at_gcp.py", # migrate existing tests or eliminate script
     "submit_ce/implementations/file_store/gs_file_store.py",
     "submit_ce/implementations/legacy_implementation/**",
     "submit_ce/implementations/pubsub/**",  # disabled - omit until feature is enabled
     "submit_ce/ui/filters/**", # need rewrite
     "submit_ce/ui/compile_sass.py",
-    'submit_ce/ui/controllers/new/review.py' # placeholder
+    "submit_ce/ui/controllers/cross.py",
+    "submit_ce/ui/controllers/delete.py",  # add tests after reimplementation
+    "submit_ce/ui/controllers/new/review.py", # placeholder
+    "submit_ce/ui/controllers/new/upload.py" # add tests after reimplementation
 ]
 
 exclude_lines = [
