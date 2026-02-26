@@ -14,7 +14,7 @@ class InvalidEvent(ValueError):
         self.message = message
         self.report = report
         if not self.message and self.report is not None:
-            self.message = ", ".join([complaint2str(com) for com in report.complaints])
+            self.message = " ".join([complaint2str(com) for com in report.complaints])
 
         r = f"Invalid {event.event_type}: {self.message}"
         super(InvalidEvent, self).__init__(r)

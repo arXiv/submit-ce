@@ -16,7 +16,8 @@ ENV PYTHONFAULTHANDLER=1 \
     PATH="/usr/sbin:/usr/local/bin:/usr/bin:/bin"
 
 RUN apt-get -q update && apt-get -y -q upgrade && \
-    apt-get -y install default-libmysqlclient-dev
+    apt-get -y install default-libmysqlclient-dev && \
+    apt-get -y install cmake libprotobuf-dev protobuf-compiler
 
 RUN useradd --create-home e-prints
 USER e-prints
