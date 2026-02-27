@@ -9,7 +9,6 @@ from werkzeug.exceptions import BadRequest, NotFound
 from submit_ce.api import SubmitApi, Submission, Event
 from submit_ce.api.domain import User
 from submit_ce.api.exceptions import NoSuchSubmission
-from submit_ce.implementations import NullImplementation
 from submit_ce.implementations.compile.compile_at_gcp_service import GcpCompileAtLegacy
 from submit_ce.implementations.file_store.gs_file_store import GsFileStore
 from submit_ce.implementations.file_store.legacy_file_store import LegacyFileStore
@@ -62,7 +61,7 @@ def get_submission(submission_id: int) -> Tuple[Submission, List[Event]]:
         g.events = history        
         return submission, history
 
-    except NoSuchSubmission as nss:
+    except NoSuchSubmission:
         raise NotFound()
 
 

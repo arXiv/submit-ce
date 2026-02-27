@@ -1,13 +1,13 @@
 from datetime import datetime, timezone
 import logging
-from typing import Callable, Tuple, Optional
+from typing import Tuple, Optional
 
 import jwt
 
 from arxiv.auth.legacy import util
 from arxiv.db.models import Demographic, TapirNickname, TapirUser
 from arxiv.db import Session as DB  # renamed due to too many session
-from flask import has_app_context, has_request_context, request
+from flask import has_request_context, request
 from pydantic_core import ValidationError
 from werkzeug.datastructures import MultiDict
 from werkzeug.exceptions import Unauthorized, NotFound

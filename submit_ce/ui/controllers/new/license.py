@@ -14,9 +14,7 @@ from arxiv.license import LICENSES
 
 from flask import current_app
 from submit_ce.ui.auth import user_and_client_from_session
-from submit_ce.api.exceptions import SaveError
 from werkzeug.datastructures import MultiDict
-from werkzeug.exceptions import InternalServerError
 from wtforms.fields import RadioField
 from wtforms.validators import InputRequired
 

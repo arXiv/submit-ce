@@ -8,7 +8,6 @@ directives data.
 
 """
 import logging
-import traceback
 from collections import OrderedDict
 from http import HTTPStatus as status
 from locale import strxfrm
@@ -18,13 +17,10 @@ from typing import Tuple, Dict, Any, Optional, List, Union
 from flask import current_app
 from arxiv.auth.domain import Session
 from arxiv.base import alerts
-from arxiv.base.filters import tidy_filesize
 from arxiv.forms import csrf
 from markupsafe import Markup
-from werkzeug.datastructures import FileStorage
 from werkzeug.datastructures import MultiDict
 from werkzeug.exceptions import (
-    InternalServerError,
     MethodNotAllowed,
     RequestEntityTooLarge
 )
@@ -36,7 +32,6 @@ from submit_ce.api.domain.submission import SubmissionContent, Submission
 from submit_ce.api.domain.uploads import Upload, FileStatus, UploadStatus
 from submit_ce.api.exceptions import SaveError
 
-from submit_ce.ui.auth import user_and_client_from_session
 from submit_ce.ui.controllers.util import add_immediate_alert, validate_command
 from submit_ce.ui.routes.flow_control import stay_on_this_stage
 from submit_ce.ui.backend import get_submission

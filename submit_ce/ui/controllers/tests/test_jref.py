@@ -1,14 +1,12 @@
 """Tests for :mod:`submit_ce.controllers.jref`."""
 import pytest
-from unittest import TestCase, mock
+from unittest import mock
 from werkzeug.datastructures import MultiDict
 from http import HTTPStatus as status
 
 from pytz import timezone
 from datetime import timedelta, datetime
-from arxiv.auth import auth, domain
 from submit_ce.ui.tests import CtrlBase
-import submit_ce.api.domain
 from submit_ce.ui.controllers import jref
 
 

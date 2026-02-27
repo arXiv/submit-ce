@@ -1,24 +1,12 @@
 """Tests for the submission application as a whole."""
-import pytest
-import os
 from http import HTTPStatus as status
 
-from arxiv.auth.auth import scopes
-from arxiv.auth.helpers import generate_token
 from arxiv.db import models as classic
 
-from submit_ce.api.domain import Author, SubmissionContent
-from submit_ce.api.domain import User, Client
-from submit_ce.api.domain.agent import PublicUser
-from submit_ce.api.domain.event import SetPrimaryClassification, CreateSubmission, ConfirmContactInformation, \
-    ConfirmAuthorship, SetLicense, ConfirmPolicy, SetUploadPackage, SetTitle, SetAbstract, SetComments, SetReportNumber, \
-    SetAuthors, FinalizeSubmission
 
-from submit_ce.ui.tests import CtrlBase, ClientArxivAuth
 from submit_ce.ui.tests.csrf_util import parse_csrf_token
 
 from arxiv.db import Session
-from arxiv.db import models
 
 
 # @pytest.fixture

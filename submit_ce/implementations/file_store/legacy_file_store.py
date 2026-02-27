@@ -1,9 +1,8 @@
 import os
 import shutil
 from datetime import datetime, timezone
-from io import BytesIO
 from pathlib import Path
-from typing import IO, Optional, List
+from typing import IO, List
 from subprocess import Popen
 from hashlib import md5
 from base64 import urlsafe_b64encode

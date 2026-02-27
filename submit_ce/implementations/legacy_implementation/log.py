@@ -1,6 +1,6 @@
 """Interface to the classic admin log."""
 
-from typing import Optional, Dict, Callable, List
+from typing import Optional, Callable
 
 from sqlalchemy.orm import Session as SQLAlchemySession
 
@@ -10,7 +10,7 @@ from submit_ce.api.domain.event import Event, UnFinalizeSubmission, AcceptPropos
     AddClassifierResults
 from submit_ce.api.domain.flag import ContentFlag
 from submit_ce.api.domain.submission import Submission
-from . import models, util
+from . import models
 
 
 def log_unfinalize(session: SQLAlchemySession, event: Event, before: Optional[Submission],

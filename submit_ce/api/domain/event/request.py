@@ -2,9 +2,7 @@
 
 from typing import Optional, List, ClassVar
 from dataclasses import field
-from .util import dataclass
 
-from arxiv import taxonomy
 
 from . import validators
 from .base import Event

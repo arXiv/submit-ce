@@ -3,7 +3,6 @@
 import copy
 import hashlib
 from datetime import datetime
-from logging import root
 from typing import Optional, Callable, Tuple, Iterable, List, ClassVar, \
     Type, Any
 

@@ -44,7 +44,6 @@ from submit_ce.api.domain.submission import Author
 # to ensure we can import this due to confusing errors if deps are missing.
 #import submit_ce.api.implementations.legacy_implementation
 from submit_ce.make_test_db import bootstrap_db, create_all_legacy_db
-from submit_ce.ui import backend
 
 from submit_ce.ui.tests import ClientArxivAuth
 

@@ -1,4 +1,3 @@
-import multiprocessing
 import pytest
 from xprocess import ProcessStarter
 import socket

@@ -23,7 +23,6 @@ of uncovered lines in this module without requiring any external services.
 # -----------------------------
 
 from datetime import datetime, timezone
-import pytest
 
 from submit_ce.api.domain.uploads import (
     FileErrorLevels,

@@ -18,13 +18,12 @@ from submit_ce.api.exceptions import SaveError
 #from arxiv.submission.services import Filemanager
 from arxiv.auth.domain import Session
 from werkzeug.datastructures import MultiDict
-from werkzeug.exceptions import BadRequest, MethodNotAllowed
+from werkzeug.exceptions import MethodNotAllowed
 from wtforms import BooleanField, HiddenField
 from wtforms.validators import DataRequired
 
 from submit_ce.ui.backend import get_submission
-from submit_ce.ui.routes.flow_control import ready_for_next, \
-    stay_on_this_stage, return_to_parent_stage
+from submit_ce.ui.routes.flow_control import stay_on_this_stage, return_to_parent_stage
 from submit_ce.ui.controllers.util import add_immediate_alert, validate_command
 from submit_ce.ui import SUPPORT
 

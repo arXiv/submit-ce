@@ -18,7 +18,7 @@ import copy
 import pytest
 
 # Domain models and helpers
-from submit_ce.api.domain import submission as submod, meta, agent
+from submit_ce.api.domain import submission as submod, agent
 from submit_ce.api.domain.preview import Preview
 from submit_ce.api.domain.submission import Submission
 

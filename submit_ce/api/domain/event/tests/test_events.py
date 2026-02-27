@@ -7,7 +7,6 @@ from arxiv.taxonomy.definitions import CATEGORIES, CATEGORIES_ACTIVE
 from pytz import UTC
 from mimesis import Text
 
-from arxiv.metadata import metacheck
 from submit_ce.api.domain import event, agent, submission, meta
 from submit_ce.api.exceptions import InvalidEvent
 

@@ -10,7 +10,6 @@ Things that still need to be done:
 
 """
 import logging
-import traceback
 from collections import OrderedDict
 from http import HTTPStatus as status
 from locale import strxfrm
@@ -26,7 +25,6 @@ from markupsafe import Markup
 from werkzeug.datastructures import FileStorage
 from werkzeug.datastructures import MultiDict
 from werkzeug.exceptions import (
-    InternalServerError,
     MethodNotAllowed,
     RequestEntityTooLarge
 )

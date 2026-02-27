@@ -5,7 +5,7 @@ from http import HTTPStatus as status
 from flask import url_for, current_app
 from wtforms import BooleanField, validators
 from werkzeug.datastructures import MultiDict
-from werkzeug.exceptions import BadRequest, InternalServerError
+from werkzeug.exceptions import BadRequest
 
 from arxiv.base import alerts
 from arxiv.forms import csrf

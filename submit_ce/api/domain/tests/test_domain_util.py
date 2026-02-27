@@ -1,6 +1,5 @@
 """Test util.py under api/domain"""
 import datetime as _dt
-from pytz import UTC
 
 from submit_ce.api.domain.util import (
     get_tzaware_utc_now,

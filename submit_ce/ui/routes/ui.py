@@ -6,7 +6,7 @@ from arxiv.auth.auth import scopes
 from arxiv.auth.auth.decorators import scoped
 from arxiv.base import logging, alerts
 from flask import Blueprint, make_response, redirect, request, \
-    render_template, url_for, send_file, g
+    render_template, url_for, send_file
 from flask import Response as FResponse
 from markupsafe import Markup
 from werkzeug import Response as WResponse

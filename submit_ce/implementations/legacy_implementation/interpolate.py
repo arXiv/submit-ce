@@ -27,7 +27,7 @@ from submit_ce.api.domain.event import Event, SetDOI, SetJournalReference, \
     SetTitle, SetAbstract, SetComments, SetMSCClassification, \
     SetACMClassification, SetAuthors, ConfirmSourceProcessed, Reclassify
 
-from submit_ce.api.domain.agent import System, User
+from submit_ce.api.domain.agent import System
 
 logger = logging.getLogger(__name__)
 logger.propagate = False
