@@ -2,7 +2,6 @@
 
 from http import HTTPStatus as status
 
-from flask import current_app
 
 from submit_ce.ui.tests import gets
 from submit_ce.ui.tests.csrf_util import parse_csrf_token

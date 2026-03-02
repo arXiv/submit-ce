@@ -6,7 +6,6 @@ the event history.
 """
 
 import datetime
-from typing import Any
 
 from arxiv.db import models
 

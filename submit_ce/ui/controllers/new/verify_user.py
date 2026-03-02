@@ -4,18 +4,16 @@ Controller for verify_user action.
 Creates an event of type `core.events.event.ConfirmContactInformation`
 """
 from http import HTTPStatus as status
-from typing import Tuple, Dict, Any, Optional
+from typing import Tuple, Dict, Any
 
-from flask import url_for, current_app
+from flask import current_app
 from werkzeug.datastructures import MultiDict
-from werkzeug.exceptions import InternalServerError, NotFound, BadRequest
 from wtforms import BooleanField
 from wtforms.validators import InputRequired
 import logging
 
 from arxiv.forms import csrf
 from arxiv.auth.domain import Session
-from submit_ce.api.exceptions import SaveError
 
 from submit_ce.ui.auth import user_and_client_from_session
 from submit_ce.api.domain.event import ConfirmContactInformation

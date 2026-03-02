@@ -3,18 +3,16 @@
 import hashlib
 from enum import Enum
 from datetime import datetime
-from dateutil.parser import parse as parse_date
 from typing import Optional, Dict, List, Iterable, Set, Any
 
 from dataclasses import dataclass, field
 
 from .agent import Client, User, agent_factory
-from .annotation import Comment, Feature, Annotation, annotation_factory
-from .flag import Flag, flag_factory
+from .annotation import Comment, Feature, Annotation
+from .flag import Flag
 from .meta import License, Classification
 from .preview import Preview
 from .process import ProcessStatus
-from .proposal import Proposal
 from .util import get_tzaware_utc_now
 
 

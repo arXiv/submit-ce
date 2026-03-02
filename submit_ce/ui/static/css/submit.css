@@ -499,7 +499,7 @@ h1.title.title-submit { color: black !important; }  /* keep H1 black */
 .info-container .buttons.submit-nav .button { margin: 0; padding: .35em !important; height: auto; line-height: 1em; background-color: #E6E6E6; }
 .info-container .buttons.submit-nav .button.is-success { background-color: #1e8bc3; font-weight: 600; } /* primary blue */
 
-/* Progress bar deemphasis */
+/* Progress bar deemphasis */  /* merge with progressbar settings above */
 .progressbar li { background: transparent; border: 1px solid #a5d6fe; }
 .progressbar li a { color: #1e8bc3; }
 .progressbar li.is-complete.is-active { background-color: #a5d6fe; }
@@ -514,3 +514,38 @@ h1.title.title-submit { color: black !important; }  /* keep H1 black */
 
 /* Asterisks/errors */
 .is-danger { color: red; }
+
+.content-container .policy-scroll {
+  font-family: 'Times New Roman', Times, serif; /* legalese serif */
+}
+
+.content-container .policy-scroll h3 {
+  font-family: 'Times New Roman', Times, serif;
+  text-align: center;
+}
+
+/* Disabled primary button state used on Agreement */
+.info-container .buttons.submit-nav .button.is-success.is-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Legal / scrollable agreement & license text areas */
+/*
+.content-container {
+  background-color: #f9f7f7;  /* light paper tone behind legal copy */
+}
+*/
+/* Optional: license option groups look like cards */
+/*
+.action-container {
+  background-color: #f9f7f7; /* subtle card background */
+}
+*/
+
+/* Only legal pages */
+.legal-page .content-container,
+.legal-page .action-container { background-color: #f9f7f7; }
+
+

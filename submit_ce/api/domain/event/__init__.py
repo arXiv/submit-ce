@@ -61,6 +61,7 @@ from pytz import UTC
 
 from . import validators
 from .base import Event
+from .base import event_factory as make_event
 from .flag import AddMetadataFlag, AddUserFlag, AddContentFlag, RemoveFlag, \
     AddHold, RemoveHold
 from .proposal import AddProposal, RejectProposal, AcceptProposal

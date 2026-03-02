@@ -17,7 +17,6 @@ import argparse
 import time
 import logging
 import stat
-import requests
 import httpx
 import urllib.parse
 from typing import List, Optional
@@ -237,7 +236,7 @@ def process_metadata_and_log(submission_dir, json_log_run_data, output_files_dir
                      "metadata: %s", new_log_path)
             
         with open(new_log_path, "w") as f:
-            f.write(f"Compilation Summary")
+            f.write("Compilation Summary")
             converters = json_data.get("converters", [])
             num_conversions = len(converters)
             num_failed = sum(1 for c in converters if isinstance(c, dict) and c.get("status") == "fail")
@@ -291,7 +290,7 @@ def process_metadata_and_log(submission_dir, json_log_run_data, output_files_dir
                     f.write(f"\nOur system has compiled the above LaTeX file "
                             f"into a single PDF document: {final_pdf_file}.\n\n")
             else:
-                f.write(f"\nOur system failed to generate a PDF.\n\n")
+                f.write("\nOur system failed to generate a PDF.\n\n")
 
             # f.write(f"Selected Errors and Warnings\n")
 
@@ -482,7 +481,7 @@ def compile_submission(
         query_params['preflight'] = args.preflight
 
     if not tex2pdf_url:
-        raise FileNotFoundError(f"The tex2pdf_url is required. ")
+        raise FileNotFoundError("The tex2pdf_url is required. ")
 
     url = f'{tex2pdf_url}/convert/?{urllib.parse.urlencode(query_params)}'
     logger.info("TeX2PDF request url '%s'", url)

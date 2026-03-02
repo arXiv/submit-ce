@@ -71,7 +71,7 @@ def test_submission_id_accept_policy_post(client: TestClient):
 
     response = client.request(
         "POST",
-        f"/v1/submission/888888/acceptPolicy",
+        "/v1/submission/888888/acceptPolicy",
         headers=headers,
         json={"accepted_policy_id": 3})
     assert response.status_code == 404
@@ -228,7 +228,7 @@ def test_basic_submission(client: TestClient):
 
     assert response.status_code == 200 or response.text == ""
 
-    response = client.request("GET", f"/v1/user_submissions",)
+    response = client.request("GET", "/v1/user_submissions",)
     assert response.status_code == 200 or response.content == ""
     json = response.json()
     assert isinstance(json, list) and json

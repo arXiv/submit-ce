@@ -21,8 +21,8 @@ no announcements Friday or Saturday.
 
 from typing import Optional
 from datetime import datetime, timedelta
-from enum import IntEnum, Enum
-from pytz import timezone, UTC
+from enum import IntEnum
+from pytz import timezone
 
 ET = timezone('US/Eastern')
 

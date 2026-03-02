@@ -2,7 +2,6 @@
 
 from http import HTTPStatus as status
 from urllib.parse import urlparse
-from submit_ce.ui import backend
 from submit_ce.ui.tests.csrf_util import parse_csrf_token
 
 

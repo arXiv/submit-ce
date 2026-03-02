@@ -1,4 +1,3 @@
-import pytest
 
 """
 Are there tests in the graveyard?

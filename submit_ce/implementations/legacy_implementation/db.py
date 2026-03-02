@@ -53,7 +53,7 @@ from . import models, interpolate, log
 from .models import DBEvent
 from .patch import patch_hold
 from ...api import domain
-from ...api.domain import Event, Submission, User, User, WithdrawalRequest, CrossListClassificationRequest, Client
+from ...api.domain import Event, Submission, User, WithdrawalRequest, CrossListClassificationRequest
 from ...api.domain import License
 from ...api.domain.event import SetJournalReference, SetDOI, SetReportNumber, CreateSubmission, Rollback, \
     RequestWithdrawal, RequestCrossList, CancelRequest

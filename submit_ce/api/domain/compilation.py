@@ -1,6 +1,5 @@
 """Data structs related to compilation."""
 
-import io
 from datetime import datetime
 from enum import Enum
 from typing import Optional

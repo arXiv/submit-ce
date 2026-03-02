@@ -1,12 +1,12 @@
 """Helpers for controllers."""
 
-from typing import Any, Dict, Iterable, Tuple, Optional, List, Union
+from typing import Any, Dict, Iterable, Tuple, Optional, Union
 
 from markupsafe import Markup
 from wtforms.validators import StopValidation
 from wtforms.widgets import Select, html_params
 from wtforms import SelectField, \
-    SelectMultipleField, Form
+    Form
 from wtforms.fields.core import UnboundField
 
 from submit_ce.api.domain import Event, Submission

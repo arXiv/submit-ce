@@ -1,12 +1,9 @@
 """Commands for working with :class:`.Proposal` instances on submissions."""
 
-import copy
-from typing import Optional, Iterable
+from typing import Optional
 from dataclasses import field
-from .util import dataclass
 import logging
 
-from ..agent import User
 from ..submission import Submission
 from ..proposal import Proposal
 from ..annotation import Comment

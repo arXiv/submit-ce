@@ -121,7 +121,7 @@ class LegacySubmitImplementation(SubmitApi):
             event.created = datetime.now(UTC)
             if isinstance(event, EventWithSideEffect):
                 if event.executed:
-                    raise RuntimeError(f"Must not save and execute an already executed event. "
+                    raise RuntimeError("Must not save and execute an already executed event. "
                                        "{event.event_id} {event.NAME} executed {event.executed}")
                 logger.debug('Execute event %s: %s', event.event_id, event.NAME)
                 event.execute(self, submission)

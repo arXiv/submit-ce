@@ -7,7 +7,6 @@ from enum import Enum
 from typing import Optional, Union, List, Dict, Type, Any
 
 from dataclasses import field
-from mypy_extensions import TypedDict
 
 from .agent import User, agent_factory
 

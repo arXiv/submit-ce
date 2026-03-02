@@ -1,15 +1,12 @@
 import os
-import tempfile
 import time
 import subprocess
 import random
-from typing import Optional
 
 import fire
 
 def gen_openapi_json(file:str = "openapi.json"):
     """Generate an openapi.yaml file for the current server code."""
-    import uvicorn
     import requests
     port = random.randint(9000, 12000)
     command = f"uvicorn submit_ce.api.app:app --host 127.0.0.1 --port {port}".split()
@@ -34,7 +31,7 @@ def gen_client(gen_spec:bool = True):
     """
 
     if gen_spec:
-        print(f"* Generating to openapi.json for current code")
+        print("* Generating to openapi.json for current code")
         gen_openapi_json()
 
     command = f"""
