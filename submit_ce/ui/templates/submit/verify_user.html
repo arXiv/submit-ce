@@ -7,9 +7,11 @@
 <div class="message-body">
     <p><span class="is-danger">*</span>A current email address is required to complete submission. Your email address is
         viewable to <a href="{{ url_for('help_email') }}">registered arXiv users</a>.</p>
+    <p>Complete and accurate authorship is required and will be
+        <a href="{{ url_for('help_author') }}">displayed in the public metadata</a>.</p>
 </div>
 
-{%- endblock important_text_box %}
+{%- endblock info_container_middle %}
 
 {% block within_content %}
 <p>Review your contact information for accuracy or <a href="{{ url_for('account') }}">edit your contact information</a>
@@ -40,7 +42,7 @@
         {% endif %}
     </div>
     {% if form.verify_user.errors %}</div>{% endif %}
-    </div>
+
     <article class="user-info content-container verify-user-box">
         <div class="field is-horizontal">
             <div class="field-label">
