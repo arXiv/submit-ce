@@ -118,8 +118,7 @@ NewSubmissionWorkflow = WorkflowDefinition(
     'NewSubmissionWorkflow',
     [
      stages.VerifyUser(),
-     stages.Authorship(),
-     stages.Policy(),
+     stages.Agreement(),
      stages.License(),
      stages.Classification(),
      stages.FileUpload(),
@@ -135,8 +134,7 @@ NewSubmissionWorkflow = WorkflowDefinition(
 ReplacementWorkflow = WorkflowDefinition(
     'ReplacementWorkflow',
     [stages.VerifyUser(must_see=True),
-     stages.Authorship(must_see=True),
-     stages.Policy(must_see=True),
+     stages.Agreement(must_see=True),
      stages.License(must_see=True),
      stages.FileUpload(must_see=True),
      stages.ReviewFiles(must_see=True),
