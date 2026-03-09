@@ -53,23 +53,13 @@ class VerifyUser(Stage):
     completed = [conditions.is_contact_verified]
 
 
-class Authorship(Stage):
-    """The user is asked to verify their authorship status."""
-
-    endpoint = 'authorship'
-    label = 'confirm authorship'
-    title = "Confirm authorship"
-    display = "Authorship"
-    completed = [conditions.is_authorship_indicated]
-
-
-class Policy(Stage):
+class Agreement(Stage):
     """The user is required to agree to arXiv policies."""
 
     endpoint = 'policy'
     label = 'accept arXiv submission policies'
-    title = "Acknowledge policy"
-    display = "Policy"
+    title = "Submission Agreement"
+    display = "Agreement"
     completed = [conditions.is_policy_accepted]
 
 
@@ -78,7 +68,7 @@ class License(Stage):
 
     endpoint = 'license'
     label = 'choose a license'
-    title = "Choose license"
+    title = "Use of Author's Work"
     display = "License"
     completed = [conditions.has_license]
 
