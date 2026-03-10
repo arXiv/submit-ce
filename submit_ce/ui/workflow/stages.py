@@ -56,7 +56,7 @@ class VerifyUser(Stage):
 class Agreement(Stage):
     """The user is required to agree to arXiv policies."""
 
-    endpoint = 'agreement'
+    endpoint = 'policy'
     label = 'accept arXiv submission policies'
     title = "Submission Agreement"
     display = "Agreement"

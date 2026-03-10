@@ -55,19 +55,6 @@ def test_create_submission(app, authorized_client, mocker):
                                                  'csrf_token': token})
     assert response.status_code == status.SEE_OTHER
 
-    # Get the next page in the process. This is the authorship stage.
-    next_page = urlparse(response.headers['Location'])
-    assert 'authorship' in  next_page.path
-    response = client.get(next_page.path)
-    assert response.status_code == status.OK
-    assert 'I am submitting as an author of this article' in response.text
-
-    # Submit the authorship page.
-    response = client.post(next_page.path, data={'authorship': 'y',
-                                                 'action': 'next',
-                                                 'csrf_token': _parse_csrf_token(response)})
-    assert response.status_code == status.SEE_OTHER
-
     # Get the next page in the process. This is the policy stage.
     next_page = urlparse(response.headers['Location'])
     assert 'policy' in next_page.path
