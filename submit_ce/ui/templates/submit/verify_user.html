@@ -2,141 +2,64 @@
 
 {% block title -%}Verify Your Contact Information{%- endblock title %}
 
-{% block info_container_middle -%}
-
+{% block important_text_box -%}
 <div class="message-body">
-    <p><span class="is-danger">*</span>A current email address is required to complete submission. Your email address is
-        viewable to <a href="{{ url_for('help_email') }}">registered arXiv users</a>.</p>
+  <p><span class="is-danger">*</span>A current email address is required to complete submission. Your email address is viewable to  <a href="{{ url_for('help_email') }}">registered arXiv users</a>.</p>
 </div>
 
 {%- endblock important_text_box %}
 
 {% block within_content %}
-<p>Review your contact information for accuracy or <a href="{{ url_for('account') }}">edit your contact information</a>
-    before proceeding.
-    If you are under 18 years of age (minor) you must complete the
-    <a href="https://arxiv.org/help/arXivGuardianConsentSubmissionForm.pdf" target="_blank" rel="noopener">
-        arXiv parent/guardian consent form
-    </a>
-    before proceeding to submit your Work.
-</p>
-<form id="form" method="POST"
-      action="{% if submission_id %}{{ url_for('ui.verify_user', submission_id=submission_id) }}{% else %}{{ url_for('ui.verify_user') }}{% endif %}">
-    {{ form.csrf_token }}
-    <div class="field action-container verify-user-checkbox">
-        {% if form.verify_user.errors %}
-        <div class="notification is-danger">{% endif %}
-            <div class="control">
-                <div class="checkbox">
-                    {{ form.verify_user }}
-                    {{ form.verify_user.label }}
-                </div>
-                {% for error in form.verify_user.errors %}
-                <p class="help is-danger field-error">{{ error }}</p>
-                {% endfor %}
-            </div>
-            {% if form.verify_user.errors %}
-        </div>
-        {% endif %}
+<p>Review your contact information for accuracy or <a href="{{ url_for('account') }}">edit your contact information</a> before proceeding</p>
+<form id="form" method="POST" action="{% if submission_id %}{{ url_for('ui.verify_user', submission_id=submission_id) }}{% else %}{{ url_for('ui.verify_user') }}{% endif %}">
+  {{ form.csrf_token }}
+  <div class="field action-container verify-user-checkbox">
+    {% if form.verify_user.errors %}<div class="notification is-danger">{% endif %}
+    <div class="control">
+      <div class="checkbox">
+        {{ form.verify_user }}
+        {{ form.verify_user.label }}
+      </div>
+      {% for error in form.verify_user.errors %}
+        <p class="help is-danger field-error">{{ error }}</p>
+      {% endfor %}
     </div>
     {% if form.verify_user.errors %}</div>{% endif %}
-    </div>
-    <article class="user-info content-container verify-user-box">
-        <div class="field is-horizontal">
-            <div class="field-label">
-                <span class="has-text-weight-semibold">First or given name(s)</span>
-            </div>
-            <div class="field-body"><span class="is-expanded" id="submitter_firstname">{{ user.name.forename }}</span>
-            </div>
-        </div>
-        <div class="field is-horizontal">
-            <div class="field-label">
-                <span class="has-text-weight-semibold">Last or family name(s)</span>
-            </div>
-            <div class="field-body" id="submitter_lastname">{{ user.name.surname }}</div>
-        </div>
-        <div class="field is-horizontal">
-            <div class="field-label">
-                <span class="has-text-weight-semibold">Suffix</span>
-            </div>
-            <div class="field-body">{{ user.name.suffix }}</div>
-        </div>
-        <div class="field is-horizontal">
-            <div class="field-label">
-                <span class="has-text-weight-semibold">Affiliation</span>
-            </div>
-            <div class="field-body">{{ user.profile.affiliation }}</div>
-        </div>
-        <div class="field is-horizontal">
-            <div class="field-label">
-                <span class="has-text-weight-semibold">E-mail</span>
-            </div>
-            <div class="field-body" id="submitter_email" data-email="{{ user.email }}">{{ user.email }}
-                <span class="is-danger" aria-hidden="true">*</span></div>
-        </div>
-    </article>
+  </div>
 
-    {% if may_proxy %}
-    <div class="content-container">
-
-        <h2>Proxy submitters only</h2>
-
-        <div class="field">
-            <div class="control">
-                <label class="checkbox">
-                    <input type="checkbox" id="autofill_proxy">Check to fill in your own contact information (when
-                    submitting as yourself).
-                </label>
-            </div>
-        </div>
-
-        <div class="field">
-            <label class="label" for="proxy_name">Proxy for name</label>
-            {{ form.proxy_name(class_="input", id="proxy_name", autocomplete="name",
-            aria_describedby="proxy_name_help") }}
-
-            {% for error in form.proxy_name.errors %}
-            <p class="help is-danger field-error">{{ error }}</p>
-            {% endfor %}
-            <p class="help" id="proxy_name_help">Enter the full name of the primary
-                author you are proxying for.</p>
-        </div>
-
-        <div class="field">
-            <label class="label" for="proxy_email">Proxy for e‑mail</label>
-            {{ form.proxy_email(class_="input", id="proxy_email", inputmode="email", autocomplete="email") }}
-            {% for error in form.proxy_email.errors %}
-            <p class="help is-danger field-error">{{ error }}</p>
-            {% endfor %}
-        </div>
-    </div>
-    {% endif %}
 </form>
+<article class="user-info content-container verify-user-box">
+  <div class="field is-horizontal">
+      <div class="field-label">
+        <span class="has-text-weight-semibold">First or given name(s):</span>
+      </div>
+      <div class="field-body"><span class="is-expanded">{{ user.name.forename }}</span></div>
+  </div>
+  <div class="field is-horizontal">
+    <div class="field-label">
+      <span class="has-text-weight-semibold">Last or family name(s):</span>
+    </div>
+     <div class="field-body">{{ user.name.surname }}</div>
+  </div>
+  <div class="field is-horizontal">
+    <div class="field-label">
+      <span class="has-text-weight-semibold">Suffix:</span>
+    </div>
+    <div class="field-body">{{ user.name.suffix }}</div>
+  </div>
+  <div class="field is-horizontal">
+    <div class="field-label">
+      <span class="has-text-weight-semibold">Affiliation:</span>
+    </div>
+    <div class="field-body">{{ user.profile.affiliation }}</div>
+  </div>
+  <div class="field is-horizontal">
+    <div class="field-label">
+      <span class="has-text-weight-semibold">E-mail:</span>
+    </div>
+    <div class="field-body">{{ user.email }} <span class="is-danger">*</span></div>
+  </div>
+</article>
 
-<script>
-    document.addEventListener("DOMContentLoaded", () => {
-      const box = document.getElementById("autofill_proxy");
-      if (!box) return;
-
-      const fnSpan = document.getElementById("submitter_firstname");
-      const lnSpan = document.getElementById("submitter_lastname");
-      const emailContainer = document.getElementById("submitter_email");
-
-      const proxyName = document.getElementById("proxy_name");
-      const proxyEmail = document.getElementById("proxy_email");
-
-      box.addEventListener("change", () => {
-        if (box.checked) {
-          const fullName = fnSpan.textContent.trim() + " " +
-    lnSpan.textContent.trim();
-          proxyName.value = fullName;
-          proxyEmail.value = (emailContainer.dataset.email || "").trim();
-        } else {
-          proxyName.value = "";
-          proxyEmail.value = "";
-        }
-      });
-    });
-</script>
 
 {% endblock within_content %}
