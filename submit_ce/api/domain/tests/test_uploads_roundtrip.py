@@ -30,7 +30,7 @@ from submit_ce.api.domain.uploads import (
     FileStatus,
     UploadStatus,
     UploadLifecycleStates,
-    Upload,
+    Workspace,
 )
 from submit_ce.api.domain.submission import SubmissionContent
 
@@ -49,21 +49,14 @@ def _now():
 # ------------------------------------------------------------
 
 def test_file_error_roundtrip_dict():
-    # build an error
     err = FileError(
         error_type=FileErrorLevels.ERROR,
         message="bad file",
         more_info="explanation",
     )
-
-    # Convert to dict, then back to object using the module's helpers.
-    as_dict = err.to_dict()
-    restored = FileError.from_dict(as_dict)
-
-    # Equality semantics: NamedTuple compares field-by-field.
+    restored = FileError.model_validate(err.model_dump())
     assert restored == err
-    # And .to_dict preserves the enum instance (module uses enum, not .value)
-    assert as_dict["error_type"] == FileErrorLevels.ERROR
+
 
 
 # -------------------------------------------------------------------------
@@ -77,9 +70,12 @@ def test_file_status_roundtrip_with_string_modified_and_errors():
     input_dict = {
         "path": "/workspace/paper",
         "name": "paper.tex",
-        "file_type": "text/x-tex",
-        "size": 1234,
+        "content_type": "text/x-tex",
+        "bytes": 1234,
         "modified": _now().isoformat(),
+        "crc32c": "fakecrc",
+        "url": "https://example.com/fake#234324",
+        "is_versioned": True,
         "ancillary": False,
         "errors": [
             {
@@ -89,23 +85,22 @@ def test_file_status_roundtrip_with_string_modified_and_errors():
             }
         ],
     }
-
-    # from_dict should parse the string datetime and map dicts → FileError objects.
-    status = FileStatus.from_dict(input_dict)
-
+    status = FileStatus.model_validate(input_dict)
     # Now go the other direction; to_dict should:
     # - emit modified as ISO string
     # - convert FileError objects back to dicts
-    roundtrip_dict = status.to_dict()
+    roundtrip_dict = status.model_dump()
 
     # Check essential fields survived the roundtrip.
-    assert roundtrip_dict["path"] == input_dict["path"]
-    assert roundtrip_dict["name"] == input_dict["name"]
-    assert roundtrip_dict["file_type"] == input_dict["file_type"]
-    assert roundtrip_dict["size"] == input_dict["size"]
-    assert isinstance(status.modified, datetime)
-    assert isinstance(status.errors[0], FileError)
-    assert roundtrip_dict["errors"][0]["message"] == "suspicious macro"
+    assert status == FileStatus(**status.model_dump())
+
+    # assert roundtrip_dict["path"] == input_dict["path"]
+    # assert roundtrip_dict["name"] == input_dict["name"]
+    # assert roundtrip_dict["file_type"] == input_dict["file_type"]
+    # assert roundtrip_dict["size"] == input_dict["size"]
+    # assert isinstance(status.modified, datetime)
+    # assert isinstance(status.errors[0], FileError)
+    # assert roundtrip_dict["errors"][0]["message"] == "suspicious macro"
 
 
 # ---------------------------------------------------------------------
@@ -117,17 +112,20 @@ def test_upload_roundtrip_with_nested_status_and_errors_and_conversions():
     nested_status = FileStatus(
         path="/workspace/paper",
         name="paper.tex",
-        file_type="text/x-tex",
-        size=2048,
+        content_type="text/x-tex",
+        bytes=2048,
+        crc32c="fakecrc",
+        url="https://example.com/x#23432433",
+        is_versioned=True,
         modified=_now(),
         ancillary=False,
         errors=[
-            FileError(FileErrorLevels.WARNING, "minor", "ok to proceed")
+            FileError(error_type=FileErrorLevels.WARNING, message="minor", more_info="ok to proceed")
         ],
     )
 
     # Construct an Upload object with enums and datetimes.
-    up = Upload(
+    up = Workspace(
         started=_now(),
         completed=_now(),
         created=_now(),
@@ -142,7 +140,7 @@ def test_upload_roundtrip_with_nested_status_and_errors_and_conversions():
         compressed_size=1024,
         files=[nested_status],
         errors=[
-            FileError(FileErrorLevels.ERROR, "fatal", "stop here")
+            FileError(error_type=FileErrorLevels.ERROR, message="fatal", more_info="stop here")
         ],
     )
 
@@ -151,7 +149,7 @@ def test_upload_roundtrip_with_nested_status_and_errors_and_conversions():
 
     # Convert to dict; enums become .value, timestamps become ISO strings, and
     # nested objects are converted to dicts.
-    up_dict = up.to_dict()
+    up_dict = up.model_dump()
 
     # Now modify dict to resemble typical JSON inbound payload where:
     # - timestamps are strings (already true)
@@ -162,13 +160,14 @@ def test_upload_roundtrip_with_nested_status_and_errors_and_conversions():
     # - parse all four timestamp strings → datetime
     # - convert source_format string → SubmissionContent.Format enum
     # - map nested file/error dicts back to objects
-    restored = Upload.from_dict(up_dict)
+    restored = Workspace.model_validate(up_dict)
 
-    # Verify key properties and nested structures survived the round-trip.
-    assert restored.status == UploadStatus.READY.value
-    assert restored.lifecycle == UploadLifecycleStates.ACTIVE.value
-    assert restored.source_format == SubmissionContent.Format.PDF
-    assert isinstance(restored.started, datetime)
-    assert isinstance(restored.files[0], FileStatus)
-    assert isinstance(restored.errors[0], FileError)
+    assert up == restored
 
+    # # Verify key properties and nested structures survived the round-trip.
+    # assert restored.status == UploadStatus.READY.value
+    # assert restored.lifecycle == UploadLifecycleStates.ACTIVE.value
+    # assert restored.source_format == SubmissionContent.Format.PDF
+    # assert isinstance(restored.started, datetime)
+    # assert isinstance(restored.files[0], FileStatus)
+    # assert isinstance(restored.errors[0], FileError)

@@ -142,7 +142,7 @@ def compile_status(params: MultiDict, session: Session, submission_id: int,
     }
 
     file_store: SubmissionFileStore = current_app.api.get_file_store()
-    file = file_store.get_preview(submission_id)
+    file = file_store.get_preview(str(submission_id))
     if file and file.exists():
         response_data['status']="succeeded"
 

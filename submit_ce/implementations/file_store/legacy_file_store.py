@@ -1,4 +1,5 @@
 import os
+import re
 import shutil
 from datetime import datetime, timezone
 from pathlib import Path
@@ -9,8 +10,9 @@ from base64 import urlsafe_b64encode
 
 from arxiv.files import FileObj, LocalFileObj, FileDoesNotExist
 
-from submit_ce.api import Upload, SubmissionFileStore
+from submit_ce.api import Workspace, SubmissionFileStore
 from submit_ce.api.domain.uploads import UploadLifecycleStates, UploadStatus, FileStatus
+from submit_ce.api.file_store import SubmitFile
 
 
 class SecurityError(RuntimeError):
@@ -81,6 +83,12 @@ class LegacyFileStore(SubmissionFileStore):
     def get_source_file(self, submission_id: str):
         pass
 
+    def get_source_file_info(self, submission_id: str, path: Path | str) -> FileStatus:
+        pass
+
+    def store_source_file(self, submission_id: str, content: SubmitFile, chunk_size: int) -> FileStatus:
+        return super().store_source_file(submission_id, content, chunk_size)
+
     def get_source_pacakge_checksum(self, submission_id: str) -> str:
         pass
 
@@ -96,7 +104,7 @@ class LegacyFileStore(SubmissionFileStore):
         """Determine whether the filesystem is available."""
         return os.path.exists(self.root_dir)
 
-    def get_workspace(self, submission_id: str, upload_id: str) -> Upload:
+    def get_workspace(self, submission_id: str, upload_id: str) -> Workspace:
         src_dir = self._source_path(submission_id)
         anc_dir = (src_dir / "anc")
         files: List[FileStatus] = []
@@ -110,10 +118,10 @@ class LegacyFileStore(SubmissionFileStore):
                                     anc_dir in path.parent.parents,
                                     []))
 
-        return Upload(
+        return Workspace(
             identifier=submission_id,
             checksum='fake-checksum-asdf1234',
-            size=sum([file.size for file in files]),
+            size=sum([file.bytes for file in files]),
             started=datetime.now(),
             completed=datetime.now(),
             created=datetime.now(),
@@ -130,9 +138,9 @@ class LegacyFileStore(SubmissionFileStore):
         shutil.rmtree(src_dir.absolute())
 
     def store_source_package(self,
-                     submission_id: int,
-                     content: IO[bytes],
-                     chunk_size: int = 4096) -> str:
+                     submission_id: str,
+                     content: SubmitFile,
+                     chunk_size = 4096) -> str:
         """Store a source package for a submission."""
         # Make sure that we have a place to put the source files.
         package_path = self._source_package_path(submission_id)
@@ -142,6 +150,8 @@ class LegacyFileStore(SubmissionFileStore):
         if not os.path.exists(source_path):
             os.makedirs(source_path)
 
+        ["application/x-gzip", "application/gzip", "application/tar",
+                    "application/x-tar", "application/tar+gzip",]
         with open(package_path, 'wb') as f:
             while True:
                 chunk = content.read(chunk_size)
@@ -154,7 +164,7 @@ class LegacyFileStore(SubmissionFileStore):
         self._set_modes(source_path)
         return self.get_source_checksum(submission_id)
 
-    def store_preview(self, submission_id: int, content: IO[bytes],
+    def store_preview(self, submission_id: str, content: IO[bytes],
                       chunk_size: int = 4096) -> str:
         """Store a preview PDF for a submission."""
         preview_path = self._preview_path(submission_id)
@@ -169,44 +179,41 @@ class LegacyFileStore(SubmissionFileStore):
         self._set_modes(preview_path)
         return self.get_preview_checksum(submission_id)
 
-    def get_source_checksum(self, submission_id: int) -> str:
+    def get_source_checksum(self, submission_id: str) -> str:
         """Get the checksum of the source package for a submission."""
         return self._get_checksum(self._source_package_path(submission_id))
 
-    def does_source_exist(self, submission_id: int) -> bool:
+    def does_source_exist(self, submission_id: str) -> bool:
         """Determine whether source has been deposited for a submission."""
         return os.path.exists(self._source_package_path(submission_id))
 
-    def get_preview_checksum(self, submission_id: int) -> str:
+    def get_preview_checksum(self, submission_id: str) -> str:
         """Get the checksum of the preview PDF for a submission."""
         return self._get_checksum(self._preview_path(submission_id))
 
-    def does_preview_exist(self, submission_id: int) -> bool:
+    def does_preview_exist(self, submission_id: str) -> bool:
         """Determine whether a preview has been deposited for a submission."""
         return self._preview_path(submission_id).exists()
 
-    def _validate_submission_id(self, submission_id: int) -> None:
-        """Just because we have a type check here does not mean that it is impossible
-        for `submission_id` to be something other than an `int`. Since I'm
-        paranoid, we'll do a final check here to eliminate the possibility that a
-        (potentially dangerous) ``str``-like value sneaks by."""
-        if not isinstance(submission_id, int):
+    def _well_formed_submission_id(self, submission_id: str) -> None:
+        """Checkt that submission_id is okay."""
+        if len(submission_id) > 32 or not re.match(r'^\d+', submission_id):
             raise SecurityError('Submission ID is improperly typed. This is a security concern.')
 
-    def _submission_path(self, submission_id: int) -> Path:
+    def _submission_path(self, submission_id: str) -> Path:
         """Gets classic filesystem structure is such as /{rootdir}/{first 4 digits of submission id}/{submission id}"""
-        self._validate_submission_id(submission_id)
+        self._well_formed_submission_id(submission_id)
         shard_dir = self.root_dir / Path(str(submission_id)[:4])
         return shard_dir / Path(str(submission_id))
 
-    def _source_path(self, submission_id: int) -> Path:
+    def _source_path(self, submission_id: str) -> Path:
         """Get the source path for the submission_id"""
         return self._submission_path(submission_id) / self.source_prefix
 
-    def _source_package_path(self, submission_id: int) -> Path:
+    def _source_package_path(self, submission_id: str) -> Path:
         return self._submission_path(submission_id) / f'{submission_id}.tar.gz'
 
-    def _preview_path(self, submission_id: int) -> Path:
+    def _preview_path(self, submission_id: str) -> Path:
         return self._submission_path(submission_id) / f'{submission_id}.pdf'
 
     def _get_checksum(self, path: str) -> str:

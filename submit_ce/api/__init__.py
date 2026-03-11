@@ -5,6 +5,6 @@ from .domain import (Event,
                      License,
                      User, Client, PublicUser, StaffUser, System, ServiceAgent, agent_factory,
                      HttpClient, InternalClient, user_from_session,
-                     Upload)
+                     Workspace)
 from .file_store import SubmissionFileStore, SubmitFile
 from .submit import SubmitApi, SubmitFile
