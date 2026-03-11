@@ -15,11 +15,12 @@ ENV PYTHONFAULTHANDLER=1 \
     PYTHONHASHSEED=random \
     PATH="/usr/sbin:/usr/local/bin:/usr/bin:/bin"
 
-cmake libprotobuf-dev protobuf-compiler
-appended to:
-
 RUN apt-get -q update && apt-get -y -q upgrade && \
-    apt-get -y install default-libmysqlclient-dev
+    apt-get -y install default-libmysqlclient-dev \
+                       cmake \
+                       libprotobuf-dev \
+                       protobuf-compiler
+
 
 RUN useradd --create-home e-prints
 USER e-prints
