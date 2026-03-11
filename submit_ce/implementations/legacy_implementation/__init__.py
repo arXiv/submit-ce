@@ -9,7 +9,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session as SqlalchemySession, Session
 
-from submit_ce.api import domain as api, Event, License, SubmitFile, User, Client, Upload, \
+from submit_ce.api import domain as api, Event, License, SubmitFile, User, Client, Workspace, \
     SubmissionFileStore
 from ..schedule import next_announcement_time, next_freeze_time
 from ...api.CompileService import CompileService
@@ -26,7 +26,13 @@ from . import db
 logger = logging.getLogger(__name__)
 
 
-def check_user_authorized(session: Session, user: api.User, client: api.Client, submission_id: str) -> None:
+acceptable_types = ["application/x-gzip", "application/gzip", "application/tar",
+                    "application/x-tar", "application/tar+gzip", "application/pdf"]
+
+
+def check_user_authorized(
+    session: Session, user: api.User, client: api.Client, submission_id: str
+) -> None:
     # TODO implement authorized check, use scopes from arxiv.auth?
     # TODO implement is_locked on submission
     pass
@@ -158,17 +164,15 @@ class LegacySubmitImplementation(SubmitApi):
         return get_endorsements(uzr)
 
     @override
-    def upload(self, file: SubmitFile, submission_id: int, user: User, client: Client) -> Upload:
+    def upload(self, file: SubmitFile, submission_id: int, user: User, client: Client) -> Workspace:
         """Saves file to legacy FS and sets the upload package on the submission."""
-        if not file or not file.filename or not file.content_type or not hasattr(file, "stream"):
+        if not isinstance(file, SubmitFile):
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-                                detail="Must have file, it must have a filename, content-type and steam")
-
-        acceptable_types = ["application/x-gzip", "application/gzip", "application/tar", "application/x-tar", "application/tar+gzip"]
+                                detail="SubmitFile Must have file, it must have a filename, content-type and steam")
         logger.debug(f"Uploaded archive MIME type: {file.content_type}.")
         if file.content_type not in acceptable_types:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-                                detail=f"File content type must be one of {acceptable_types}: {file.content_type}")
+                                detail=f"File content type must be one of {acceptable_types} but it was {file.content_type}")
 
         session = self.get_session()
         check_user_authorized(session, user, client, submission_id)

@@ -21,13 +21,16 @@ Maybe just have an opitonal workspace_id on each call? If not set, it goes to th
 """
 from abc import ABCMeta, abstractmethod
 from io import BytesIO
-from typing import Protocol, Optional, IO
+from pathlib import Path
+from typing import Protocol, Optional, IO, runtime_checkable
+
 
 from arxiv.files import FileObj
 
-from submit_ce.api.domain import Upload
+from submit_ce.api.domain import Workspace
+from submit_ce.api.domain.uploads import FileStatus
 
-
+@runtime_checkable
 class SubmitFile(Protocol):
     """Represents a file for a submission."""
     filename: str
@@ -40,7 +43,7 @@ class SubmitFile(Protocol):
 
 class SubmissionFileStore(metaclass=ABCMeta):
     @abstractmethod
-    def get_workspace(self, submission_id: str) -> Optional[Upload]:
+    def get_workspace(self, submission_id: str) -> Optional[Workspace]:
         """Returns information about the source package."""
         pass
 
@@ -57,6 +60,24 @@ class SubmissionFileStore(metaclass=ABCMeta):
          - a pathless file: main.tex
          - a file inside src: figures/fig1.jpg
          """
+        pass
+
+    @abstractmethod
+    def get_source_file_info(self, submission_id: str, path: Path|str) -> FileStatus:
+        """Gets `FileInformation` about a file."""
+        pass
+
+    @abstractmethod
+    def store_source_file(self, submission_id: str,
+                          content: SubmitFile,
+                          chunk_size: int) -> FileStatus:
+        """Store a source package for a submission.
+
+        If this is a single file, just save it. If it is a tgz of zip, unzip it.
+
+        Overwrites any existing files with the same name.
+
+        Returns information about the file."""
         pass
 
     @abstractmethod

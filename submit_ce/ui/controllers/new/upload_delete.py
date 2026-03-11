@@ -13,7 +13,7 @@ from flask import current_app
 
 from submit_ce.ui.auth import user_and_client_from_session
 from submit_ce.api.domain.event import UpdateUploadPackage
-from submit_ce.api.domain.uploads import Upload
+from submit_ce.api.domain.uploads import Workspace
 from submit_ce.api.exceptions import SaveError
 #from arxiv.submission.services import Filemanager
 from arxiv.auth.domain import Session
@@ -201,7 +201,7 @@ def delete_file(method: str, params: MultiDict, session: Session,
             logger.debug('Invalid form data')
             return stay_on_this_stage((rdata, status.OK, {}))
 
-        stat: Optional[Upload] = None
+        stat: Optional[Workspace] = None
         raise NotImplementedError()
         # try:
         #     fm = Filemanager.current_session()

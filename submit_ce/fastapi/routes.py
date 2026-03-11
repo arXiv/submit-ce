@@ -22,7 +22,7 @@ from fastapi import (  # noqa: F401
 )
 from submit_ce.fastapi.auth import get_user, get_client
 
-from submit_ce.api.domain import Submission, Event, Upload
+from submit_ce.api.domain import Submission, Event, Workspace
 from submit_ce.api.domain.process import ProcessStatus
 
 # if not isinstance(config.submission_api_implementation, ImplementationConfig):
@@ -64,7 +64,7 @@ async def save_changes(submission_id: str, events: AllEventTypes) -> Submission:
 
 
 @router.get("/submission/{submission_id}/workspace",
-            response_model=Upload|None,
+            response_model=Workspace|None,
             tags=["workspace"],
             )
 async def workspace_get(submission_id: str):
