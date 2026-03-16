@@ -14,22 +14,30 @@ sudo apt-get install cmake libprotobuf-dev protobuf-compiler
 
 # this uses uv instead of pipenv or poetry
 uv sync
-
-# make sqlite dev db
-python submit_ce/make_test_db.py bootstrap_db
-
+uv run python submit_ce/make_test_db.py bootstrap_db
 # this will give you an Authorization token, save that and use a browser extension
 # like modheader to add Authorization=eyJhb...
 
-flask --app submit_ce.ui.factory:create_web_app run
+uv run flask --app submit_ce.ui.factory:create_web_app run -p 8000
+open http://localhost:8000
 # mac notes: pick another port if 5000 used for music:
-#   flask --app submit_ce.ui.factory:create_web_app run -p 5000
-
-google-chrome localhost:5000
-open localhost:8001
+#   uv run flask --app submit_ce.ui.factory:create_web_app run -p 5000
 
 ```
 
+On the mac:
+```
+```bash
+# mac notes: don't use a version of protobuf greater than 21:
+brew search protobuf
+brew install protobuf@21
+uv sync
+uv run python submit_ce/make_test_db.py bootstrap_db
+# this will give you an Authorization token, save that and use a browser extension
+# like modheader to add Authorization=eyJhb...
+uv run flask --app submit_ce.ui.factory:create_web_app run -p 8000
+open http://localhost:8000
+```
 
 ## Build Docker Image
 
