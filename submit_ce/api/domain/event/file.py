@@ -1,6 +1,7 @@
 from __future__ import annotations
-from pydantic import Field
-from typing import List
+from io import BytesIO
+from pydantic import ConfigDict, Field, WithJsonSchema
+from typing import List, Annotated
 
 from . import validators
 from .base import Event, EventWithSideEffect
@@ -19,10 +20,10 @@ class SetUploadPackage(Event):
     NAME = "set the upload package"
     NAMED = "upload package set"
 
-    identifier: str = Field(default_factory=str)
-    checksum: str = Field(default_factory=str)
-    uncompressed_size: int = Field(default=0)
-    compressed_size: int = Field(default=0)
+    identifier: str = ''
+    checksum: str = ''
+    uncompressed_size: int = 0
+    compressed_size: int = 0
     source_format: SubmissionContent.Format = \
         Field(default=SubmissionContent.Format.UNKNOWN)
 
@@ -57,9 +58,9 @@ class UpdateUploadPackage(Event):
     NAME = "update the upload package"
     NAMED = "upload package updated"
 
-    checksum: str = Field(default_factory=str)
-    uncompressed_size: int = Field(default=0)
-    compressed_size: int = Field(default=0)
+    checksum: str = ''
+    uncompressed_size: int = 0
+    compressed_size: int = 0
     source_format: SubmissionContent.Format = \
         Field(default=SubmissionContent.Format.UNKNOWN)
 
@@ -104,16 +105,17 @@ class UnsetUploadPackage(Event):
         return submission
 
 
-class AddFiles(EventWithSideEffect):
+class AddFiles(Event):
     """Add files to the upload workspace for this submission."""
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     NAME = "add files"
     NAMED = "files added"
 
-    files: List[SubmitFile] = Field(default_factory=list)
-    checksum: str = Field(default_factory=str)
-    uncompressed_size: int = Field(default=0)
-    compressed_size: int = Field(default=0)
+    files: List[Annotated[SubmitFile, WithJsonSchema({'type': 'object'})]] = Field(default_factory=list, exclude=True)
+    checksum: str = ''
+    uncompressed_size: int = 0
+    compressed_size: int = 0
 
     def validate(self, submission: Submission) -> None:
         """Validate data for :class:`.AddFiles`."""
@@ -142,14 +144,15 @@ class AddFiles(EventWithSideEffect):
 
 class RemoveFiles(EventWithSideEffect):
     """Remove files from the upload workspace for this submission."""
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     NAME = "remove files"
     NAMED = "files removed"
 
-    files: List[SubmitFile] = Field(default_factory=list)
-    checksum: str = Field(default_factory=str)
-    uncompressed_size: int = Field(default=0)
-    compressed_size: int = Field(default=0)
+    files: List[Annotated[SubmitFile, WithJsonSchema({'type': 'object'})]] = Field(default_factory=list, exclude=True)
+    checksum: str = ''
+    uncompressed_size: int = 0
+    compressed_size: int = 0
 
     def validate(self, submission: Submission) -> None:
         """Validate data for :class:`.RemoveFiles`."""
@@ -182,9 +185,9 @@ class RemoveAllFiles(EventWithSideEffect):
     NAME = "remove all files"
     NAMED = "all files removed"
 
-    checksum: str = Field(default_factory=str)
-    uncompressed_size: int = Field(default=0)
-    compressed_size: int = Field(default=0)
+    checksum: str = ''
+    uncompressed_size: int = 0
+    compressed_size: int = 0
 
     def validate(self, submission: Submission) -> None:
         """Validate data for :class:`.RemoveAllFiles`."""
