@@ -1,10 +1,13 @@
-from dataclasses import field
-
+from __future__ import annotations
+from pydantic import Field
+from typing import List
 
 from . import validators
-from .base import Event
+from .base import Event, EventWithSideEffect
 from ..submission import Submission, SubmissionContent
 from ...exceptions import InvalidEvent
+
+from ...types import SubmitFile
 
 import logging
 logger = logging.getLogger(__name__)
@@ -16,12 +19,12 @@ class SetUploadPackage(Event):
     NAME = "set the upload package"
     NAMED = "upload package set"
 
-    identifier: str = field(default_factory=str)
-    checksum: str = field(default_factory=str)
-    uncompressed_size: int = field(default=0)
-    compressed_size: int = field(default=0)
+    identifier: str = Field(default_factory=str)
+    checksum: str = Field(default_factory=str)
+    uncompressed_size: int = Field(default=0)
+    compressed_size: int = Field(default=0)
     source_format: SubmissionContent.Format = \
-        field(default=SubmissionContent.Format.UNKNOWN)
+        Field(default=SubmissionContent.Format.UNKNOWN)
 
     def model_post_init(self, *args, **kwargs) -> None:
         """Make sure that `source_format` is an enum instance."""
@@ -54,11 +57,11 @@ class UpdateUploadPackage(Event):
     NAME = "update the upload package"
     NAMED = "upload package updated"
 
-    checksum: str = field(default_factory=str)
-    uncompressed_size: int = field(default=0)
-    compressed_size: int = field(default=0)
+    checksum: str = Field(default_factory=str)
+    uncompressed_size: int = Field(default=0)
+    compressed_size: int = Field(default=0)
     source_format: SubmissionContent.Format = \
-        field(default=SubmissionContent.Format.UNKNOWN)
+        Field(default=SubmissionContent.Format.UNKNOWN)
 
     def model_post_init(self, *args, **kwargs) -> None:
         """Make sure that `source_format` is an enum instance."""
@@ -97,5 +100,112 @@ class UnsetUploadPackage(Event):
     def project(self, submission: Submission) -> Submission:
         """Set :attr:`Submission.source_content` to None."""
         submission.source_content = None
+        submission.submitter_confirmed_preview = False
+        return submission
+
+
+class AddFiles(EventWithSideEffect):
+    """Add files to the upload workspace for this submission."""
+
+    NAME = "add files"
+    NAMED = "files added"
+
+    files: List[SubmitFile] = Field(default_factory=list)
+    checksum: str = Field(default_factory=str)
+    uncompressed_size: int = Field(default=0)
+    compressed_size: int = Field(default=0)
+
+    def validate(self, submission: Submission) -> None:
+        """Validate data for :class:`.AddFiles`."""
+        validators.submission_is_not_finalized(self, submission)
+        if submission.source_content is None:
+            raise InvalidEvent(self, 'No upload package exists for this submission')
+
+    def execute(self, api: SubmitApi, submission: Submission) -> None:
+        """Upload the new files using the file store."""
+        file_store = api.get_file_store()
+        for f in self.files:
+            file_store.store_source_file(str(submission.submission_id), f, chunk_size=4096)
+
+    def project(self, submission: Submission) -> Submission:
+        """Update :class:`.SubmissionContent` metadata on the submission."""
+        assert submission.source_content is not None
+        assert self.checksum is not None
+        assert self.uncompressed_size is not None
+        assert self.compressed_size is not None
+        submission.source_content.checksum = self.checksum
+        submission.source_content.uncompressed_size = self.uncompressed_size
+        submission.source_content.compressed_size = self.compressed_size
+        submission.submitter_confirmed_preview = False
+        return submission
+
+
+class RemoveFiles(EventWithSideEffect):
+    """Remove files from the upload workspace for this submission."""
+
+    NAME = "remove files"
+    NAMED = "files removed"
+
+    files: List[SubmitFile] = Field(default_factory=list)
+    checksum: str = Field(default_factory=str)
+    uncompressed_size: int = Field(default=0)
+    compressed_size: int = Field(default=0)
+
+    def validate(self, submission: Submission) -> None:
+        """Validate data for :class:`.RemoveFiles`."""
+        validators.submission_is_not_finalized(self, submission)
+        if submission.source_content is None:
+            raise InvalidEvent(self, 'No upload package exists for this submission')
+
+    def execute(self, api: SubmitApi, submission: Submission) -> None:
+        """Remove the specified files from the file store."""
+        file_store = api.get_file_store()
+        for f in self.files:
+            file_store.delete_source_file(str(submission.submission_id), f.filename)
+
+    def project(self, submission: Submission) -> Submission:
+        """Update :class:`.SubmissionContent` metadata on the submission."""
+        assert submission.source_content is not None
+        assert self.checksum is not None
+        assert self.uncompressed_size is not None
+        assert self.compressed_size is not None
+        submission.source_content.checksum = self.checksum
+        submission.source_content.uncompressed_size = self.uncompressed_size
+        submission.source_content.compressed_size = self.compressed_size
+        submission.submitter_confirmed_preview = False
+        return submission
+
+
+class RemoveAllFiles(EventWithSideEffect):
+    """Remove all files from the upload workspace for this submission."""
+
+    NAME = "remove all files"
+    NAMED = "all files removed"
+
+    checksum: str = Field(default_factory=str)
+    uncompressed_size: int = Field(default=0)
+    compressed_size: int = Field(default=0)
+
+    def validate(self, submission: Submission) -> None:
+        """Validate data for :class:`.RemoveAllFiles`."""
+        validators.submission_is_not_finalized(self, submission)
+        if submission.source_content is None:
+            raise InvalidEvent(self, 'No upload package exists for this submission')
+
+    def execute(self, api: SubmitApi, submission: Submission) -> None:
+        """Remove the entire upload workspace using the file store."""
+        file_store = api.get_file_store()
+        file_store.delete_all_source_files(str(submission.submission_id))
+        file_store.delete_preview(submission.submission_id)
+
+    def project(self, submission: Submission) -> Submission:
+        """Update :class:`.SubmissionContent` metadata on the submission."""
+        assert submission.source_content is not None
+        assert self.checksum is not None
+        assert self.uncompressed_size is not None
+        assert self.compressed_size is not None
+        submission.source_content.checksum = self.checksum
+        submission.source_content.uncompressed_size = self.uncompressed_size
+        submission.source_content.compressed_size = self.compressed_size
         submission.submitter_confirmed_preview = False
         return submission

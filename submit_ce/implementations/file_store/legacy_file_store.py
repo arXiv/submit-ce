@@ -80,8 +80,12 @@ class LegacyFileStore(SubmissionFileStore):
         self.source_prefix = source_prefix
         """Prefix in the {root}/{shard}/{id} directory to store the source."""
 
-    def get_source_file(self, submission_id: str):
-        pass
+    def get_source_file(self, submission_id: str, path: Path | str) -> FileObj:
+        src_path = self._source_path(submission_id) / path
+        if src_path.exists():
+            return LocalFileObj(src_path)
+        else:
+            return FileDoesNotExist(str(src_path))
 
     def get_source_file_info(self, submission_id: str, path: Path | str) -> FileStatus:
         pass
@@ -132,6 +136,9 @@ class LegacyFileStore(SubmissionFileStore):
             files=files,
             errors=[]
         )
+
+    def delete_source_file(self, submission_id: str, path: Path|str) -> None:
+        pass
 
     def delete_workspace(self, submission_id: str):
         src_dir = self._source_path(submission_id)
@@ -339,3 +346,8 @@ class LegacyFileStore(SubmissionFileStore):
         self._make_way(dest_path)
         shutil.move(src_path, dest_path)
 
+    def delete_all_source_files(self, submission_id: str) -> None:
+        pass
+
+    def delete_preview(self, submission_id: str) -> None:
+        pass
