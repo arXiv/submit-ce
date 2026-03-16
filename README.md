@@ -12,8 +12,8 @@ sudo apt-get install cmake libprotobuf-dev protobuf-compiler
 #   $ brew search protobuf
 #   protobuf@21 ✔ (deprecated)
 
-# this uses uv instead of pipenv or poetry
 uv sync
+
 uv run python submit_ce/make_test_db.py bootstrap_db
 # this will give you an Authorization token, save that and use a browser extension
 # like modheader to add Authorization=eyJhb...
