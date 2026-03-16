@@ -30,4 +30,4 @@ def test_verify(app, authorized_client, sub_created):
                                              "verify_user": "true",
                                              "action":"next"})
     assert resp.status_code == 303 and \
-        resp.headers["Location"] == f"/{sub.submission_id}/authorship"
+        resp.headers["Location"] == f"/{sub.submission_id}/policy"

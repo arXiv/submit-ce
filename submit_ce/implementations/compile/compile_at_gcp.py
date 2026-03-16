@@ -22,7 +22,7 @@ import urllib.parse
 from typing import List, Optional
 from enum import Enum
 
-from common import (GCP_LOG_NAME, GCP_RESULTS_NAME, GCP_PREFLIGHT_NAME,
+from .common import (GCP_LOG_NAME, GCP_RESULTS_NAME, GCP_PREFLIGHT_NAME,
                                    DEFAULT_SUBMISSION_LOG_NAME, DEFAULT_SYSTEM_LOG_NAME,
                                    DEFAULT_COMPILATION_TIMEOUT, DEFAULT_MAX_APPEND_FILES,
                                    DEFAULT_MAX_TEX_FILES, MAX_RETRIES, RETRY_DELAY)
@@ -478,7 +478,7 @@ def compile_submission(
         query_params['watermark_text'] = watermark_text
 
     if preflight:
-        query_params['preflight'] = args.preflight
+        query_params['preflight'] = preflight
 
     if not tex2pdf_url:
         raise FileNotFoundError("The tex2pdf_url is required. ")

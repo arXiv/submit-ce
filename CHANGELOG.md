@@ -11,7 +11,7 @@ There is a generated client in `client`. It can be built with `clitools.py`. I'm
 starting to wire up the UI to use that.
 
 I took the NG submission-core and submission-ui and put them in the same project
-and then refactored the pacakges. 
+and then refactored the packages. 
 
 # 2024-09-24 Start of UI
 Brian Caruso
@@ -73,8 +73,8 @@ without flask. This will need to be merged to arxiv-base master soon.
 ### Current state
 *WORKING*
 - creates a submission
-- uplaod and unpacks tar.gz
-- license, policy and author attestation
+- upload and unpacks tar.gz
+- submission agreement, and license acceptance
 - metadata: title abstract etc
 - docker file
 - tests

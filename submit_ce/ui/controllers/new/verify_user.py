@@ -8,10 +8,11 @@ from typing import Tuple, Dict, Any
 
 from flask import current_app
 from werkzeug.datastructures import MultiDict
-from wtforms import BooleanField
-from wtforms.validators import InputRequired
+from wtforms import BooleanField, StringField
+from wtforms.validators import InputRequired, Optional, Email, Length
 import logging
 
+from arxiv.auth.auth import scopes
 from arxiv.forms import csrf
 from arxiv.auth.domain import Session
 
@@ -39,6 +40,7 @@ def verify(method: str, params: MultiDict, session: Session,
 
     # Will raise NotFound if there is no such submission.
     submission, _ = get_submission(submission_id)
+    may_proxy = scopes.PROXY_SUBMISSION in submitter.scopes
 
     if method == 'GET' and submission.submitter_contact_verified:
         params['verify_user'] = 'true'
@@ -50,6 +52,7 @@ def verify(method: str, params: MultiDict, session: Session,
         'submission': submission,
         'submitter': submitter,
         'user': session.user,   # We want the most up-to-date representation.
+        'may_proxy': may_proxy,
     }
 
     if method == "GET":
@@ -59,7 +62,18 @@ def verify(method: str, params: MultiDict, session: Session,
 
     if not form.validate() or not form.verify_user.data:
         return stay_on_this_stage((response_data, status.BAD_REQUEST, {}))
-    
+
+    if may_proxy:
+        ok = True
+        if not (form.proxy_name.data or "").strip():
+            form.proxy_name.errors.append("Proxy for name is required.")
+            ok = False
+        if not (form.proxy_email.data or "").strip():
+            form.proxy_email.errors.append("Proxy for e‑mail is required.")
+            ok = False
+        if not ok:
+            return stay_on_this_stage((response_data, status.BAD_REQUEST, {}))
+
     if submission.submitter_contact_verified:
         return ready_for_next((response_data, status.OK,{}))
 
@@ -79,3 +93,8 @@ class VerifyUserForm(csrf.CSRFForm):
         'I confirm that my contact information is correct',
         [InputRequired('Please confirm your user information')],
     )
+
+    proxy_name = StringField('Proxy for name',
+                             validators=[Optional(), Length(max=200)])
+    proxy_email = StringField('Proxy for e-mail',
+                              validators=[Optional(), Email("Enter a valid e-mail address.")])

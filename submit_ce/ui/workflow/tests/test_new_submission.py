@@ -15,7 +15,7 @@ class TestNewSubmissionWorkflow(CtrlBase):
     def testWorkflowGetitem(self):
         wf = workflow.WorkflowDefinition(
             name='TestingWorkflow',
-            order=[VerifyUser(), Policy(), FinalPreview()])
+            order=[VerifyUser(), Agreement(), FinalPreview()])
 
         self.assertIsNotNone(wf[VerifyUser])
         self.assertEqual(wf[VerifyUser].__class__, VerifyUser)
@@ -26,7 +26,7 @@ class TestNewSubmissionWorkflow(CtrlBase):
         self.assertEqual(wf[VerifyUser], wf['verify_user'])
         self.assertEqual(wf[VerifyUser], wf[wf.order[0]])
 
-        self.assertEqual(next(wf.iter_prior(wf[Policy])), wf[VerifyUser])
+        self.assertEqual(next(wf.iter_prior(wf[Agreement])), wf[VerifyUser])
 
     def testVerifyUser(self):
         seen = {}
@@ -43,7 +43,7 @@ class TestNewSubmissionWorkflow(CtrlBase):
 
         self.assertFalse(nswfps.can_proceed_to(nswfps.workflow[Authorship]))
         self.assertFalse(nswfps.can_proceed_to(nswfps.workflow[License]))
-        self.assertFalse(nswfps.can_proceed_to(nswfps.workflow[Policy]))
+        self.assertFalse(nswfps.can_proceed_to(nswfps.workflow[Agreement]))
         self.assertFalse(nswfps.can_proceed_to(
             nswfps.workflow[Classification]))
         self.assertFalse(nswfps.can_proceed_to(nswfps.workflow[CrossList]))
@@ -64,7 +64,7 @@ class TestNewSubmissionWorkflow(CtrlBase):
         self.assertTrue(nswfps.can_proceed_to(nswfps.workflow[Authorship]))
 
         self.assertFalse(nswfps.can_proceed_to(nswfps.workflow[License]))
-        self.assertFalse(nswfps.can_proceed_to(nswfps.workflow[Policy]))
+        self.assertFalse(nswfps.can_proceed_to(nswfps.workflow[Agreement]))
         self.assertFalse(nswfps.can_proceed_to(
             nswfps.workflow[Classification]))
         self.assertFalse(nswfps.can_proceed_to(nswfps.workflow[CrossList]))
@@ -85,7 +85,7 @@ class TestNewSubmissionWorkflow(CtrlBase):
         self.assertTrue(nswfps.can_proceed_to(nswfps.workflow[Authorship]))
         self.assertTrue(nswfps.can_proceed_to(nswfps.workflow[License]))
 
-        self.assertFalse(nswfps.can_proceed_to(nswfps.workflow[Policy]))
+        self.assertFalse(nswfps.can_proceed_to(nswfps.workflow[Agreement]))
         self.assertFalse(nswfps.can_proceed_to(
             nswfps.workflow[Classification]))
         self.assertFalse(nswfps.can_proceed_to(nswfps.workflow[CrossList]))
@@ -105,7 +105,7 @@ class TestNewSubmissionWorkflow(CtrlBase):
         self.assertTrue(nswfps.can_proceed_to(nswfps.workflow[VerifyUser]))
         self.assertTrue(nswfps.can_proceed_to(nswfps.workflow[Authorship]))
         self.assertTrue(nswfps.can_proceed_to(nswfps.workflow[License]))
-        self.assertTrue(nswfps.can_proceed_to(nswfps.workflow[Policy]))
+        self.assertTrue(nswfps.can_proceed_to(nswfps.workflow[Agreement]))
 
         self.assertFalse(nswfps.can_proceed_to(
             nswfps.workflow[Classification]))
@@ -118,15 +118,15 @@ class TestNewSubmissionWorkflow(CtrlBase):
         self.assertFalse(nswfps.can_proceed_to(nswfps.workflow[FinalPreview]))
         self.assertFalse(nswfps.can_proceed_to(nswfps.workflow.confirmation))
 
-        self.assertEqual(nswfps.current_stage(), nswfps.workflow[Policy])
+        self.assertEqual(nswfps.current_stage(), nswfps.workflow[Agreement])
 
         submission.submitter_accepts_policy = True
-        nswfps.mark_seen(nswfps.workflow[Policy])
+        nswfps.mark_seen(nswfps.workflow[Agreement])
 
         self.assertTrue(nswfps.can_proceed_to(nswfps.workflow[VerifyUser]))
         self.assertTrue(nswfps.can_proceed_to(nswfps.workflow[Authorship]))
         self.assertTrue(nswfps.can_proceed_to(nswfps.workflow[License]))
-        self.assertTrue(nswfps.can_proceed_to(nswfps.workflow[Policy]))
+        self.assertTrue(nswfps.can_proceed_to(nswfps.workflow[Agreement]))
         self.assertTrue(nswfps.can_proceed_to(
             nswfps.workflow[Classification]))
 
@@ -148,7 +148,7 @@ class TestNewSubmissionWorkflow(CtrlBase):
         self.assertTrue(nswfps.can_proceed_to(nswfps.workflow[VerifyUser]))
         self.assertTrue(nswfps.can_proceed_to(nswfps.workflow[Authorship]))
         self.assertTrue(nswfps.can_proceed_to(nswfps.workflow[License]))
-        self.assertTrue(nswfps.can_proceed_to(nswfps.workflow[Policy]))
+        self.assertTrue(nswfps.can_proceed_to(nswfps.workflow[Agreement]))
         self.assertTrue(nswfps.can_proceed_to(nswfps.workflow[Classification]))
         self.assertTrue(nswfps.can_proceed_to(nswfps.workflow[CrossList]))
         # should be allowed to skip the "cross" but may be a problem with has_seen
@@ -170,7 +170,7 @@ class TestNewSubmissionWorkflow(CtrlBase):
         self.assertTrue(nswfps.can_proceed_to(nswfps.workflow[VerifyUser]))
         self.assertTrue(nswfps.can_proceed_to(nswfps.workflow[Authorship]))
         self.assertTrue(nswfps.can_proceed_to(nswfps.workflow[License]))
-        self.assertTrue(nswfps.can_proceed_to(nswfps.workflow[Policy]))
+        self.assertTrue(nswfps.can_proceed_to(nswfps.workflow[Agreement]))
         self.assertTrue(nswfps.can_proceed_to(
             nswfps.workflow[Classification]))
         self.assertTrue(nswfps.can_proceed_to(nswfps.workflow[CrossList]))
@@ -192,7 +192,7 @@ class TestNewSubmissionWorkflow(CtrlBase):
         self.assertTrue(nswfps.can_proceed_to(nswfps.workflow[VerifyUser]))
         self.assertTrue(nswfps.can_proceed_to(nswfps.workflow[Authorship]))
         self.assertTrue(nswfps.can_proceed_to(nswfps.workflow[License]))
-        self.assertTrue(nswfps.can_proceed_to(nswfps.workflow[Policy]))
+        self.assertTrue(nswfps.can_proceed_to(nswfps.workflow[Agreement]))
         self.assertTrue(nswfps.can_proceed_to(
             nswfps.workflow[Classification]))
         self.assertTrue(nswfps.can_proceed_to(nswfps.workflow[CrossList]))
@@ -227,7 +227,7 @@ class TestNewSubmissionWorkflow(CtrlBase):
         self.assertTrue(nswfps.can_proceed_to(nswfps.workflow[VerifyUser]))
         self.assertTrue(nswfps.can_proceed_to(nswfps.workflow[Authorship]))
         self.assertTrue(nswfps.can_proceed_to(nswfps.workflow[License]))
-        self.assertTrue(nswfps.can_proceed_to(nswfps.workflow[Policy]))
+        self.assertTrue(nswfps.can_proceed_to(nswfps.workflow[Agreement]))
         self.assertTrue(nswfps.can_proceed_to(nswfps.workflow[Classification]))
         self.assertTrue(nswfps.can_proceed_to(nswfps.workflow[CrossList]))
         self.assertTrue(nswfps.can_proceed_to(nswfps.workflow[FileUpload]))
@@ -253,7 +253,7 @@ class TestNewSubmissionWorkflow(CtrlBase):
         self.assertTrue(nswfps.can_proceed_to(nswfps.workflow[VerifyUser]))
         self.assertTrue(nswfps.can_proceed_to(nswfps.workflow[Authorship]))
         self.assertTrue(nswfps.can_proceed_to(nswfps.workflow[License]))
-        self.assertTrue(nswfps.can_proceed_to(nswfps.workflow[Policy]))
+        self.assertTrue(nswfps.can_proceed_to(nswfps.workflow[Agreement]))
         self.assertTrue(nswfps.can_proceed_to(
             nswfps.workflow[Classification]))
         self.assertTrue(nswfps.can_proceed_to(nswfps.workflow[CrossList]))

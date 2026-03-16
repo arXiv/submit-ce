@@ -295,14 +295,15 @@ def verify_user(submission_id: Optional[int] = None) -> Response:
                   'Verify User Information', submission_id, flow_controlled=True)
 
 
-@UI.route('/<int:submission_id>/authorship', methods=['GET', 'POST'])
+@UI.route('/<int:submission_id>/policy', methods=['GET', 'POST'])
 @scoped(scopes.EDIT_SUBMISSION, authorizer=is_owner,
                         unauthorized=redirect_to_login)
 @flow_control()
-def authorship(submission_id: int) -> Response:
-    """Render step 2, authorship."""
-    return handle(cntrls.authorship, 'submit/authorship.html',
-                  'Confirm Authorship', submission_id, flow_controlled=True)
+def policy(submission_id: int) -> Response:
+    """Render step 2, policy agreement."""
+    return handle(cntrls.policy, 'submit/policy.html',
+                  'Acknowledge Policy Statement', submission_id,
+                  flow_controlled=True)
 
 
 @UI.route('/<int:submission_id>/license', methods=['GET', 'POST'])
@@ -315,23 +316,12 @@ def license(submission_id: int) -> Response:
                   'Select a License', submission_id, flow_controlled=True)
 
 
-@UI.route('/<int:submission_id>/policy', methods=['GET', 'POST'])
-@scoped(scopes.EDIT_SUBMISSION, authorizer=is_owner,
-                        unauthorized=redirect_to_login)
-@flow_control()
-def policy(submission_id: int) -> Response:
-    """Render step 4, policy agreement."""
-    return handle(cntrls.policy, 'submit/policy.html',
-                  'Acknowledge Policy Statement', submission_id,
-                  flow_controlled=True)
-
-
 @UI.route('/<int:submission_id>/classification', methods=['GET', 'POST'])
 @scoped(scopes.EDIT_SUBMISSION, authorizer=is_owner,
                         unauthorized=redirect_to_login)
 @flow_control()
 def classification(submission_id: int) -> Response:
-    """Render step 5, choose classification."""
+    """Render step 4, choose classification."""
     return handle(cntrls.classification,
                   'submit/classification.html',
                   'Choose a Primary Classification', submission_id,
