@@ -42,7 +42,19 @@ def test_round_trip():
             assert 0, f"Cannot generate json schema for {klass} due to " + str(e)
 
         class EventFactory(ModelFactory[klass]):
-            pass
+            @classmethod
+            def get_provider_map(cls):
+                from submit_ce.api.types import SubmitFile
+                from io import BytesIO
+
+                class DummySubmitFile:
+                    filename = "test.txt"
+                    content_type = "text/plain"
+                    stream = BytesIO(b"test")
+
+                providers = super().get_provider_map()
+                providers[SubmitFile] = lambda: DummySubmitFile()
+                return providers
 
         for _ in range(10):
             first_json_str = EventFactory.build().model_dump_json()
