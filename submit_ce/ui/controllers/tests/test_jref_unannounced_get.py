@@ -1,4 +1,5 @@
 """Tests for :mod:`submit_ce.controllers.jref` - test unannounced redirect to create."""
+import pytest
 from werkzeug.datastructures import MultiDict
 from submit_ce.ui.controllers.jref import jref
 
