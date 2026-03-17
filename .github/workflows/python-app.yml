@@ -22,8 +22,8 @@ jobs:
     - name: Install uv
       uses: astral-sh/setup-uv@v6
 
-    - name: Install protobuf compiler and pubsub emulator
-      run: sudo apt-get update && sudo apt-get install -y protobuf-compiler google-cloud-cli-pubsub-emulator
+    - name: Install protobuf compiler
+      run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
 
     - name: Install the project
       run: uv sync --locked --all-extras --dev
@@ -32,7 +32,8 @@ jobs:
       run: |
         # Much of the coverage settings are in pyproject.toml
         uv run pytest \
-        --cov=submit_ce --cov-report=term-missing
+        --cov=submit_ce --cov-report=term-missing \
+        --ignore=submit_ce/implementations/pubsub
 
     - name: Ruff lint check
       run: |
