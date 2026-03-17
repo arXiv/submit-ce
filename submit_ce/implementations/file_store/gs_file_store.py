@@ -1,8 +1,5 @@
 """Implementation of `FileStore` using Google Storage (GS)."""
 from __future__ import annotations
-from io import BytesIO
-import os
-import shutil
 from datetime import datetime
 from pathlib import Path
 from typing import IO, List

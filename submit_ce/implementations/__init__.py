@@ -1,7 +1,5 @@
-import io
 from datetime import datetime
 from io import BytesIO
-from pathlib import Path
 from typing import Optional, Tuple, List, IO
 
 from arxiv.files import FileObj

@@ -106,32 +106,6 @@ dependencies = [
     "yarl>=1.23.0",
 ]
 
-[tool.black]
-line-length = 88
-exclude = '''
-(
-  /(
-      \.eggs         # exclude a few common directories in the
-    | \.git          # root of the project
-    | \.hg
-    | \.mypy_cache
-    | \.tox
-    | \.venv
-    | _build
-    | buck-out
-    | build
-    | dist
-  )/
-)
-'''
-
-[tool.isort]
-profile = "black"
-skip = [
-    '.eggs', '.git', '.hg', '.mypy_cache', '.nox', '.pants.d', '.tox',
-    '.venv', '_build', 'buck-out', 'build', 'dist', 'node_modules', 'venv',
-]
-skip_gitignore = true
 
 [tool.uv.sources]
 arxiv-base = { git = "https://github.com/arXiv/arxiv-base.git", branch = "develop" }
@@ -270,3 +244,10 @@ exclude_also = [
 
 [tool.pytest.ini_options]
 addopts = "--cov=submit_ce"
+
+[tool.ruff]
+target-version="py311"
+exclude = [
+    ".git",
+]
+

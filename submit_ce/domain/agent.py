@@ -13,6 +13,7 @@ Problem: native_id is a mess
 Problem: Class names are a ambiguous and overlap with arxiv-base class names
 """
 
+from __future__ import annotations
 from typing import Union, Literal, Annotated, Optional
 
 __all__ = ("User", "Client", "ServiceAgent", "HttpClient", "InternalClient", "user_from_session",
@@ -53,7 +54,6 @@ class StaffUser(BaseModel):
     endorsements: list[str] = []
     scopes: list[str] = []
     agent_type: Literal["StaffUser"] = "StaffUser"
-    identifier: str = "" #same as user_id
 
     @property
     def identifier(self):

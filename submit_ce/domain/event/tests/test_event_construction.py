@@ -37,7 +37,7 @@ def test_round_trip():
     """Verify that all event classes can be converted to JSON and back."""
     for klass in Event.__subclasses__():
         try:
-            schema = klass.model_json_schema()
+            klass.model_json_schema()
         except PydanticInvalidForJsonSchema as e:
             assert 0, f"Cannot generate json schema for {klass} due to " + str(e)
 

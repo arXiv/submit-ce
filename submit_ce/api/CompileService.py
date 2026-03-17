@@ -1,13 +1,13 @@
 """API for CompileService."""
+from __future__ import annotations
 from abc import ABC, abstractmethod
-from typing import Optional, TYPE_CHECKING
+from typing import Optional
 
-from submit_ce.api import Submission, User, Client
+from submit_ce.api.domain import Submission, User, Client
 from submit_ce.api.domain.event.process import Result
 from submit_ce.api.domain.process import ProcessStatus
+from submit_ce.api.submit import SubmitApi
 
-if TYPE_CHECKING:
-    from submit_ce.api import SubmitApi
 
 class CompileService(ABC):
     """
@@ -16,7 +16,7 @@ class CompileService(ABC):
 
     @abstractmethod
     def start_compile(self, submission: Submission, user: User, client: Client,
-                      api: 'SubmitApi',
+                      api: SubmitApi,
                       source_package_id: Optional[str] = None) -> Result:
         """
         Start a compile process.

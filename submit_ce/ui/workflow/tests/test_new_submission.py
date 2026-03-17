@@ -1,5 +1,5 @@
 """Tests for workflow"""
-
+# ruff: noqa: F405 F403
 from submit_ce.ui import workflow
 from submit_ce.ui.auth import user_and_client_from_session
 from submit_ce.ui.tests import CtrlBase

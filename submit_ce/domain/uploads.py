@@ -1,8 +1,7 @@
 """Upload-related data structures."""
 
-from typing import NamedTuple, List, Optional
+from typing import List, Optional
 from datetime import datetime
-import dateutil.parser
 from enum import Enum
 
 from pydantic import BaseModel

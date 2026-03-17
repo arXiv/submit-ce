@@ -8,6 +8,8 @@ from typing import Optional, Callable, Tuple, Iterable, List, ClassVar, \
 
 from pydantic import BaseModel, RootModel
 
+from submit_ce.api.submit import SubmitApi
+
 from ..agent import User, Client
 from ..submission import Submission
 
@@ -187,10 +189,11 @@ class EventWithSideEffect(Event):
     executed: Optional[datetime] = None  # timezone aware utc
     """Should only be set when `execute` is called."""
 
-    def pre_execute_validation(self, api: 'SubmitApi', submission: Submission) -> None:
+    def pre_execute_validation(self, api: SubmitApi, submission: Submission) -> None:
         """Check if is acceptable for `execute` to be called."""
+        pass
 
-    def execute(self, api: 'SubmitApi', submission: Submission) -> None:
+    def execute(self, api: SubmitApi, submission: Submission) -> None:
         """
         An :class:`.Event` that has side effects executed through use of the :class:`submit_ce.api.submit.SubmitApi`.
 
@@ -215,7 +218,7 @@ class EventWithSideEffect(Event):
             Returns nothing since it operates by side effect. It may alter the :class:`.EventWithSideEffect` to
             record details of the side effect.
         """
-        raise NotImplementedError('Must be implemented by subclass')
+        pass
 
 
 class EventList(RootModel):

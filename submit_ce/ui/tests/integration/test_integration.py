@@ -221,7 +221,7 @@ class TestSubmissionIntegration(unittest.TestCase):
         self.assertEqual(res.status_code, 200)
 
         #wait for TeX processing
-        success, timeout, start = False, False, time.time()
+        success, _, start = False, False, time.time()
         while not success and not time.time() > start + self.process_page_timeout:
             res = self.session.get(self.next_page,
                                 allow_redirects=False)

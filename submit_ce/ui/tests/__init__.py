@@ -3,16 +3,10 @@ from unittest import TestCase
 
 import pytest
 
-
-from arxiv.auth import auth
-from flask import testing, Flask
+from flask import testing
 from werkzeug.datastructures import Headers
 
-from arxiv.taxonomy.definitions import CATEGORIES
-
 from submit_ce.api.domain.submission import Submission
-from submit_ce.ui import backend
-
 
 
 class ClientArxivAuth(testing.FlaskClient):

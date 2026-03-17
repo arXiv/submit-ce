@@ -18,10 +18,6 @@ from submit_ce.api.file_store import SubmitFile
 class SecurityError(RuntimeError):
     """Something suspicious happened."""
 
-class Workspace():
-    """Not yet implemented."""
-    pass
-
 
 class UserFile:
     pass

@@ -8,7 +8,9 @@ from submit_ce.api import User, Client, Submission
 from submit_ce.api.CompileService import CompileService
 from submit_ce.api.domain.event.process import Result
 from submit_ce.api.domain.process import ProcessStatus
-
+import sys
+sys.path.append('submit_ce/implementations/compile')
+from submit_ce.api.submit import SubmitApi
 from submit_ce.implementations.compile.compile_at_gcp import PreflightOption, DEFAULT_MAX_APPEND_FILES, DEFAULT_MAX_TEX_FILES, \
     DEFAULT_COMPILATION_TIMEOUT, compile_submission
 
@@ -35,7 +37,7 @@ class GcpCompileAtLegacy(CompileService):
         self.timezone = ARXIV_BUSINESS_TZ
     def start_compile(self, submission: Submission,
                       user: User, client: Client,
-                      api: 'SubmitApi',
+                      api: SubmitApi,
                       source_package_id: Optional[str] = None) -> Result:
 
         watermark = f"arXiv:submit/{submission.submission_id}"
@@ -81,4 +83,3 @@ class GcpCompileAtLegacy(CompileService):
 
     def check(self, process_id: str, user: User, client: Client) -> ProcessStatus:
         pass
-
