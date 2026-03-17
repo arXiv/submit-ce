@@ -6,7 +6,7 @@ from arxiv.files import FileObj
 
 from submit_ce.api import SubmitApi, SubmissionFileStore
 from submit_ce.api.CompileService import CompileService
-from submit_ce.api.types import SubmitFile
+from submit_ce.domain.types import SubmitFile
 from submit_ce.domain import Event, Submission, License, User, Client, Workspace
 from submit_ce.domain.event.process import Result
 from submit_ce.domain.process import ProcessStatus

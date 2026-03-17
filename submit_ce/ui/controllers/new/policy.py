@@ -19,7 +19,7 @@ from werkzeug.datastructures import MultiDict
 from wtforms import Field, ValidationError, widgets
 from wtforms.validators import InputRequired
 
-from submit_ce.api.domain.event import ConfirmPolicy
+from submit_ce.domain.event import ConfirmPolicy
 from submit_ce.ui.controllers.util import validate_command
 from submit_ce.ui.routes.flow_control import ready_for_next, stay_on_this_stage
 from submit_ce.ui.backend import get_submission

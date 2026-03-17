@@ -5,8 +5,8 @@ from pytz import UTC
 import pytest
 
 
-from submit_ce.api.domain import submission as submod, agent
-from submit_ce.api.domain.event import (
+from submit_ce.domain import submission as submod, agent
+from submit_ce.domain.event import (
     make_event,              # <- alias to base.event_factory
     FinalizeSubmission,      # used directly to hit validation error
     Announce,                # simple project() path

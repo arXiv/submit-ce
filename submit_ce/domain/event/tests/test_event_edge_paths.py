@@ -18,12 +18,12 @@ import copy
 import pytest
 
 # Domain models and helpers
-from submit_ce.api.domain import submission as submod, agent
-from submit_ce.api.domain.preview import Preview
-from submit_ce.api.domain.submission import Submission
+from submit_ce.domain import submission as submod, agent
+from submit_ce.domain.preview import Preview
+from submit_ce.domain.submission import Submission
 
 # Event classes (and exception)
-from submit_ce.api.domain.event import (
+from submit_ce.domain.event import (
     ConfirmPreview,
     CreateSubmissionVersion,
     FinalizeSubmission,

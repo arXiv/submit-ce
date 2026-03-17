@@ -9,13 +9,13 @@ from arxiv.base import alerts
 from arxiv.forms import csrf
 from markupsafe import Markup
 
-from submit_ce.api.domain.event.process import StartCompileSource
-from submit_ce.api.exceptions import SaveError
+from submit_ce.domain.event.process import StartCompileSource
+from submit_ce.domain.exceptions import SaveError
 from submit_ce.api.file_store import SubmissionFileStore
 from submit_ce.ui import SUPPORT
 
 from ...auth import user_and_client_from_session
-from submit_ce.api.domain.event import ConfirmSourceProcessed
+from submit_ce.domain.event import ConfirmSourceProcessed
 from arxiv.auth.domain import Session
 from werkzeug.datastructures import MultiDict
 from werkzeug.exceptions import InternalServerError, MethodNotAllowed

@@ -10,7 +10,7 @@ from .base import Event, EventWithSideEffect
 from ..submission import Submission, SubmissionContent
 from ..exceptions import InvalidEvent
 
-from submit_ce.api.types import SubmitFile
+from submit_ce.domain.types import SubmitFile
 
 import logging
 logger = logging.getLogger(__name__)
@@ -107,7 +107,7 @@ class UnsetUploadPackage(Event):
         return submission
 
 
-class AddFiles(Event):
+class AddFiles(EventWithSideEffect):
     """Add files to the upload workspace for this submission."""
     model_config = ConfigDict(arbitrary_types_allowed=True)
 

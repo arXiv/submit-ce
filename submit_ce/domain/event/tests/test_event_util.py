@@ -1,7 +1,7 @@
 """Test util.py under api/domain/event"""
 import pytest
 import dataclasses
-import submit_ce.api.domain.event.util as event_util
+import submit_ce.domain.event.util as event_util
 
 #
 # 1) dataclass() with NO kwargs: should wrap base dataclass and then install __hash__/__eq__

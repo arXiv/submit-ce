@@ -1,5 +1,5 @@
 """
-Coverage-focused tests for submit_ce.api.domain.uploads
+Coverage-focused tests for submit_ce.domain.uploads
 
 What these tests cover
 ----------------------
@@ -24,7 +24,7 @@ of uncovered lines in this module without requiring any external services.
 
 from datetime import datetime, timezone
 
-from submit_ce.api.domain.uploads import (
+from submit_ce.domain.uploads import (
     FileErrorLevels,
     FileError,
     FileStatus,
@@ -32,7 +32,7 @@ from submit_ce.api.domain.uploads import (
     UploadLifecycleStates,
     Workspace,
 )
-from submit_ce.api.domain.submission import SubmissionContent
+from submit_ce.domain.submission import SubmissionContent
 
 
 # -----------------------------

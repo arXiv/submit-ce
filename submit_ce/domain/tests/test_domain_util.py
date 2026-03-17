@@ -1,7 +1,7 @@
 """Test util.py under api/domain"""
 import datetime as _dt
 
-from submit_ce.api.domain.util import (
+from submit_ce.domain.util import (
     get_tzaware_utc_now,
     dict_coerce,
     list_coerce,
