@@ -1,4 +1,4 @@
-"""Test util.py under api/domain"""
+"""Test util.py under domain"""
 import datetime as _dt
 
 from submit_ce.domain.util import (

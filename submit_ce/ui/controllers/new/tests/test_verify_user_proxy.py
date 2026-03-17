@@ -2,7 +2,7 @@
 import pytest
 from http import HTTPStatus as status
 from submit_ce.ui.tests.csrf_util import parse_csrf_token
-from submit_ce.api.domain.submission import Submission
+from submit_ce.domain.submission import Submission
 
 @pytest.mark.usefixtures("app")
 def test_verify_user_proxy_requires_fields(authorized_client, sub_created, monkeypatch):

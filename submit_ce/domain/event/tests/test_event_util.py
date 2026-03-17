@@ -1,4 +1,4 @@
-"""Test util.py under api/domain/event"""
+"""Test util.py under domain/event"""
 import pytest
 import dataclasses
 import submit_ce.domain.event.util as event_util

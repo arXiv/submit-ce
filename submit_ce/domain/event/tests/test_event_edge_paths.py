@@ -4,7 +4,7 @@ Additional edge-path coverage for the event domain.
 Focus
 -----
 Hit validation/error branches that were still untested in
-submit_ce/api/domain/event/__init__.py:
+submit_ce/domain/event/__init__.py:
 
 - ConfirmPreview: no preview / checksum mismatch / correct checksum
 - CreateSubmissionVersion: .validate requires an announced submission
