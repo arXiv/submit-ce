@@ -7,7 +7,7 @@ from polyfactory.factories.pydantic_factory import ModelFactory
 # from hypothesis_jsonschema import from_schema
 from pydantic import PydanticInvalidForJsonSchema
 
-from ..base import Event
+from ..base import Event, EventWithSideEffect
 
 
 def test_has_name():
@@ -35,7 +35,9 @@ def test_has_validate():
 
 def test_round_trip():
     """Verify that all event classes can be converted to JSON and back."""
-    for klass in Event.__subclasses__():
+    basic_event_classes = list(set(Event.__subclasses__()) - set(EventWithSideEffect.__subclasses__()))
+    breakpoint()
+    for klass in basic_event_classes:
         try:
             klass.model_json_schema()
         except PydanticInvalidForJsonSchema as e:
@@ -44,7 +46,7 @@ def test_round_trip():
         class EventFactory(ModelFactory[klass]):
             @classmethod
             def get_provider_map(cls):
-                from submit_ce.api.types import SubmitFile
+                from submit_ce.domain.types import SubmitFile
                 from io import BytesIO
 
                 class DummySubmitFile:

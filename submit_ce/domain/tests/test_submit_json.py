@@ -1,4 +1,4 @@
-from submit_ce.api.domain import Submission
+from submit_ce.domain import Submission
 from polyfactory.factories import DataclassFactory
 from pydantic import TypeAdapter
 

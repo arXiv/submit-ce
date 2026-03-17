@@ -444,7 +444,7 @@ class Submission(Base):    # type: ignore
                 )
 
     def status_from_classic(self) -> Optional[str]:
-        """Map classic status codes to `submit_ce.api.domain.Submission` status."""
+        """Map classic status codes to `submit_ce.domain.Submission` status."""
         match self.status:
             case self.WORKING:
                 return 'working'

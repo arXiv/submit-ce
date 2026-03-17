@@ -16,10 +16,10 @@ from datetime import datetime
 from pytz import UTC
 
 # Core domain models used by these tests.
-from submit_ce.api.domain import submission as submod, meta, agent
+from submit_ce.domain import submission as submod, meta, agent
 
 # Event classes (and exception) we target for branch coverage.
-from submit_ce.api.domain.event import (
+from submit_ce.domain.event import (
     SetTitle,
     SetAbstract,
     SetLicense,

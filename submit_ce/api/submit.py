@@ -64,7 +64,7 @@ from datetime import datetime
 from typing import Tuple, List, Optional
 
 from submit_ce.api.CompileService import CompileService
-from submit_ce.api.types import SubmitFile
+from submit_ce.domain.types import SubmitFile
 from submit_ce.domain import Submission, Event, User, Client, Workspace, License
 from submit_ce.api.file_store import SubmissionFileStore
 

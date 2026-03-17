@@ -186,7 +186,9 @@ def event_factory(event_type: str, created: datetime, **data: Any) -> Event:
 
 
 class EventWithSideEffect(Event):
+    """Events that get the `SubmitApi` to allow side effects. Ex. with the `FileStore`.
 
+    These cannot be serialized to JSON."""
     executed: Optional[datetime] = None  # timezone aware utc
     """Should only be set when `execute` is called."""
 

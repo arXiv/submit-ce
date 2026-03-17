@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session as SqlalchemySession, Session
 
 from submit_ce.api import SubmitApi
 from submit_ce.api.file_store import SubmissionFileStore
-from submit_ce.api.types import SubmitFile
+from submit_ce.domain.types import SubmitFile
 from submit_ce.domain.agent import Client, User
 from submit_ce.domain.meta import License
 from ...api.CompileService import CompileService

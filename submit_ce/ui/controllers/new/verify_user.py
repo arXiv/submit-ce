@@ -18,7 +18,7 @@ from arxiv.forms import csrf
 from arxiv.auth.domain import Session
 
 from submit_ce.ui.auth import user_and_client_from_session
-from submit_ce.api.domain.event import ConfirmContactInformation
+from submit_ce.domain.event import ConfirmContactInformation
 
 from submit_ce.ui.backend import get_submission
 from submit_ce.ui.controllers.util import validate_command

@@ -22,16 +22,18 @@ from fastapi import (  # noqa: F401
 )
 from submit_ce.fastapi.auth import get_user, get_client
 
-from submit_ce.api.domain import Submission, Event, Workspace
-from submit_ce.api.domain.process import ProcessStatus
+from submit_ce.domain import Submission, Event, Workspace
+from submit_ce.domain.process import ProcessStatus
 
 # if not isinstance(config.submission_api_implementation, ImplementationConfig):
 #     raise ValueError("submission_api_implementation must be of class ImplementationConfig.")
 
 
 #impl_depends: Callable = config.submission_api_implementation.depends_fn
-impl_depends: Callable = lambda x: {}
-"""A depends the implementation depends on."""
+def impl_depends(x):
+    """A depends the implementation depends on."""
+    pass
+
 
 userDep = Depends(get_user)
 clentDep = Depends(get_client)
@@ -80,7 +82,7 @@ async def workspace_del(submission_id: str):
 @router.get("/submission/{submission_id}/workspace/source",
             tags=["workspace"]
             )
-async def source_pacakage_post(submission_id: str):
+async def source_pacakage_get(submission_id: str):
     raise HTTPException()
 
 
