@@ -175,11 +175,7 @@ omit = [
 
     # Ignore questionable code or code in the process of reimplementation
     # Fastly code not currently used
-    "submit_ce/fastapi/test_*.py",
-    "submit_ce/fastapi/auth.py",
-    "submit_ce/fastapi/routes.py",
-    "submit_ce/fastapi/*",
-    "submit_ce/fastapi/**/*",
+    "submit_ce/fastapi",
     #
     "submit_ce/implementations/compile/common.py",
     "submit_ce/implementations/compile/compile_at_gcp.py", # migrate existing tests or eliminate script
@@ -242,8 +238,6 @@ exclude_also = [
     "@(abc\\.)?abstractmethod",
     ]
 
-[tool.pytest.ini_options]
-addopts = "--cov=submit_ce"
 
 [tool.ruff]
 target-version="py311"
