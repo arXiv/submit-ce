@@ -62,7 +62,7 @@ class WorkflowDefinition:
             raise ValueError(f"{stage} not In workflow")
 
         if isinstance(stage, str):  # it could be classname, stage label
-            for idx, wstg in self.order:
+            for idx, wstg in enumerate(self.order):
                 if(wstg.label == stage
                    or wstg.__class__.__name__ == stage):
                     return idx
