@@ -1,4 +1,5 @@
 """Tests for the submission application as a whole."""
+
 from http import HTTPStatus as status
 
 from arxiv.db import models as classic

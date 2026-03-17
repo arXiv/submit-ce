@@ -1,7 +1,7 @@
 """Exceptions raised during event handling."""
 
 from arxiv.metadata.metacheck import MetadataCheckReport, complaint2str
-from submit_ce.api.domain.event.base import Event
+from submit_ce.domain.event.base import Event
 
 
 

@@ -5,6 +5,7 @@ from submit_ce.ui.tests import gets
 from submit_ce.ui.tests.csrf_util import parse_csrf_token
 from http import HTTPStatus as status
 
+
 def test_verify_no_sub(app, authorized_client):
     url = "/93489292/policy"
     resp = authorized_client.get(url)

@@ -29,9 +29,9 @@ is defined in :mod:`.classic.event`.
 See also :ref:`legacy-integration`.
 
 """
+
 import copy
 import traceback
-from _operator import attrgetter
 from datetime import datetime
 from functools import wraps
 from itertools import groupby
@@ -47,17 +47,17 @@ from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session as SQLAlchemySession
 from sqlalchemy.orm.exc import NoResultFound
 
-from submit_ce.api.domain.agent import HttpClient
+from submit_ce.domain.agent import HttpClient
+from submit_ce.domain.event.request import CancelRequest, RequestCrossList, RequestWithdrawal
 
 from . import models, interpolate, log
 from .models import DBEvent
-from .patch import patch_hold
-from ...api import domain
-from ...api.domain import Event, Submission, User, WithdrawalRequest, CrossListClassificationRequest
-from ...api.domain import License
-from ...api.domain.event import SetJournalReference, SetDOI, SetReportNumber, CreateSubmission, Rollback, \
-    RequestWithdrawal, RequestCrossList, CancelRequest
-from ...api.exceptions import NoSuchSubmission
+from .patch import patch_cross, patch_hold, patch_jref, patch_withdrawal
+from submit_ce import domain
+from submit_ce.domain import Event, Submission, User, WithdrawalRequest, CrossListClassificationRequest,  License
+from submit_ce.domain.event import SetJournalReference, SetDOI, SetReportNumber, CreateSubmission, Rollback
+from submit_ce.domain.exceptions import NoSuchSubmission
+
 
 logger = logging.getLogger(__name__)
 logger.propagate = False
@@ -218,6 +218,7 @@ def get_submission(session: SQLAlchemySession, submission_id: int, for_update: b
         _events
     )
     return interpolator.get_submission_state()
+
 
 
 # @retry(ClassicBaseException, tries=3, delay=1)
@@ -738,7 +739,7 @@ def load(rows: Iterable[models.Submission]) -> Optional[domain.Submission]:
 
             # We want hold information represented as a Hold on the submission
             # object, not just the status.
-            if version_submission.is_on_hold:
+            if version_submission and version_submission.is_on_hold:
                 version_submission = patch_hold(version_submission, row)
         versions.append(version_submission)
 
@@ -825,4 +826,3 @@ def reject_withdrawal(session: SQLAlchemySession, submission_id: int) -> None:
             dbs.status = Submission.REMOVED
             session.add(dbs)
             session.commit()
-

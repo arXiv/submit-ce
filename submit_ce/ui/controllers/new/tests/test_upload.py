@@ -1,4 +1,5 @@
 """Tests for :mod:`submit_ce.controllers.upload`."""
+
 import pytest
 
 from datetime import timedelta, datetime
@@ -10,16 +11,18 @@ from werkzeug.datastructures import MultiDict
 from werkzeug.exceptions import BadRequest
 
 from arxiv.auth import auth, domain
-from submit_ce.api.domain import SubmissionContent
 
+from submit_ce.domain.uploads import FileStatus, UploadLifecycleStates, UploadStatus, Workspace
 from submit_ce.ui.controllers.new import upload
 
-import submit_ce.api.domain
+
+from submit_ce.domain import SubmissionContent
+import submit_ce.domain
+
 from submit_ce.ui.controllers.new import upload_delete
 from submit_ce.ui.tests import CtrlBase
 
-from submit_ce.ui.routes.flow_control import STAGE_SUCCESS, \
-    get_controllers_desire, STAGE_RESHOW
+from submit_ce.ui.routes.flow_control import STAGE_SUCCESS, get_controllers_desire, STAGE_RESHOW
 
 
 def test_upload(app, authorized_client, sub_cross):
@@ -75,7 +78,7 @@ class TestUpload(CtrlBase):
         )
         mock_filemanager = mock.MagicMock()
         mock_filemanager.get_upload_status.return_value = (
-            Upload(
+            Workspace(
                 identifier=25,
                 checksum='a1s2d3f4',
                 size=593920,
@@ -135,7 +138,7 @@ class TestUpload(CtrlBase):
         mock_load.return_value = (mock_submission, [])
         mock_save.return_value = (mock_submission, [])
         mock_fm = mock.MagicMock()
-        mock_fm.add_file.return_value = Upload(
+        mock_fm.add_file.return_value = Workspace(
             identifier=25,
             checksum='a1s2d3f4',
             size=593920,
@@ -193,7 +196,7 @@ class TestDelete(TestCase):
                     affiliation='FSU',
                     rank=3,
                     country='de',
-                    default_category=submit_ce.api.domain.Category('astro-ph.GA'),
+                    default_category=domain.Category('astro-ph.GA'),
                     submission_groups=['grp_physics']
                 )
             ),
@@ -201,8 +204,8 @@ class TestDelete(TestCase):
                 scopes=[auth.scopes.CREATE_SUBMISSION,
                         auth.scopes.EDIT_SUBMISSION,
                         auth.scopes.VIEW_SUBMISSION],
-                endorsements=[submit_ce.api.domain.Category('astro-ph.CO'),
-                              submit_ce.api.domain.Category('astro-ph.GA')]
+                endorsements=[submit_ce.domain.Category('astro-ph.CO'),
+                              submit_ce.domain.Category('astro-ph.GA')]
             )
         )
 

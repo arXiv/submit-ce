@@ -14,20 +14,46 @@ current purview. The logic in this module will need to change as the scope
 of the NG submission data architecture expands.
 """
 
-from typing import List, Optional, Tuple, Any, Type
+import logging
+from typing import Any, List, Optional, Tuple, Type
 
-from arxiv.base import logging
 from arxiv import taxonomy
-from . import models
-from submit_ce.api.domain.submission import Submission, UserRequest, WithdrawalRequest, \
-    CrossListClassificationRequest, Hold
-from submit_ce.api.domain.event import Event, SetDOI, SetJournalReference, \
-    SetReportNumber, ApplyRequest, RejectRequest, Announce, AddHold, \
-    CancelRequest, AddSecondaryClassification, \
-    SetTitle, SetAbstract, SetComments, SetMSCClassification, \
-    SetACMClassification, SetAuthors, ConfirmSourceProcessed, Reclassify
 
-from submit_ce.api.domain.agent import System
+from submit_ce.domain.agent import System
+from submit_ce.domain.event import (
+    AddSecondaryClassification,
+    Announce,
+    ConfirmSourceProcessed,
+    Event,
+    Reclassify,
+    SetACMClassification,
+    SetAbstract,
+    SetAuthors,
+    SetComments,
+    SetDOI,
+    SetJournalReference,
+    SetMSCClassification,
+    SetReportNumber,
+    SetTitle,
+)
+from submit_ce.domain.event.flag import AddHold
+from submit_ce.domain.event.request import ApplyRequest, CancelRequest, RejectRequest
+from submit_ce.domain.submission import (
+    CrossListClassificationRequest,
+    Hold,
+    Submission,
+    UserRequest,
+    WithdrawalRequest,
+)
+from . import models
+
+
+# , CrossListClassificationRequest, Hold \
+#     SetReportNumber, ApplyRequest, RejectRequest, Announce, AddHold, \
+#     CancelRequest, AddSecondaryClassification, \
+#     SetTitle, SetAbstract, SetComments, SetMSCClassification, \
+#     SetACMClassification, SetAuthors, ConfirmSourceProcessed, Reclassify
+
 
 logger = logging.getLogger(__name__)
 logger.propagate = False

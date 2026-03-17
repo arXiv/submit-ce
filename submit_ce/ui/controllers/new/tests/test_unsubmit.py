@@ -3,6 +3,7 @@
 from submit_ce.api.domain.submission import Submission
 from submit_ce.ui.tests.csrf_util import parse_csrf_token
 
+
 def test_unsubmit_no_sub(authorized_client):
     url = "/93489292/unsubmit"
     resp = authorized_client.get(url)

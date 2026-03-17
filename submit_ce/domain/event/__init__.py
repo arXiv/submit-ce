@@ -46,7 +46,6 @@ are performed on several event types (instead of just private instance
 methods).
 """
 
-#ruff: noqa: F401
 
 import copy
 import re
@@ -75,8 +74,25 @@ from ..annotation import Feature, ClassifierResults, \
 from ..preview import Preview
 from ..submission import Submission, Author, \
     Classification, License
-from ...exceptions import InvalidEvent
+from ..exceptions import InvalidEvent
 
+__all__ = [
+    make_event,
+    validators,
+    Event,
+    SetUploadPackage, UpdateUploadPackage, AddFiles, RemoveFiles, RemoveAllFiles,
+    AddMetadataFlag, AddUserFlag, AddContentFlag, RemoveFlag,
+    AddHold, RemoveHold,
+    AddProposal, RejectProposal, AcceptProposal,
+    RequestCrossList, RequestWithdrawal, ApplyRequest,
+    RejectRequest, ApproveRequest, CancelRequest,
+    System,
+    Feature, ClassifierResults,
+    ClassifierResult,
+    Preview,
+    Submission, Author,
+    Classification, License
+]
 
 import logging
 logger = logging.getLogger(__name__)

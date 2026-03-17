@@ -1,4 +1,5 @@
 """Implementation of `FileStore` using Google Storage (GS)."""
+
 from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
@@ -10,13 +11,15 @@ from arxiv.files import FileObj, FileDoesNotExist
 from arxiv.files.object_store import GsObjectStore
 from yarl import URL
 
-from submit_ce.api import Workspace, SubmissionFileStore
-from submit_ce.api.domain.uploads import UploadLifecycleStates, UploadStatus, FileStatus
-from submit_ce.api.file_store import SubmitFile
+from submit_ce.api import SubmissionFileStore
+from submit_ce.domain import Workspace
+from submit_ce.domain.uploads import UploadLifecycleStates, UploadStatus, FileStatus
+from submit_ce.api.types import SubmitFile
 
 from google.cloud import storage
 
 from submit_ce.implementations.file_store.file_store_mixin import FileStoreMixin
+
 
 logger = logging.getLogger(__file__)
 

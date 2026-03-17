@@ -64,6 +64,7 @@ from submit_ce.ui.controllers.util import OptGroupSelectField, validate_commands
 from submit_ce.ui.routes.flow_control import ready_for_next, stay_on_this_stage
 from submit_ce.ui.backend import get_submission
 
+
 Response = Tuple[Dict[str, Any], int, Dict[str, Any]]  # pylint: disable=C0103
 
 

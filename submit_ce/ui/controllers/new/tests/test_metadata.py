@@ -4,6 +4,7 @@ from submit_ce.api.domain.submission import Submission
 from submit_ce.ui.tests import gets
 from submit_ce.ui.tests.csrf_util import parse_csrf_token
 
+
 def test_no_sub(app, authorized_client):
     url = "/93489292/classification"
     resp = authorized_client.get(url)

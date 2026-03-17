@@ -1,5 +1,6 @@
 import re
 
+
 CSRF_PATTERN = (r'\<input id="csrf_token" name="csrf_token" type="hidden"'
                 r' value="([^\"]+)">')
 

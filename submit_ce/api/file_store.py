@@ -19,18 +19,18 @@ Maybe just have an opitonal workspace_id on each call? If not set, it goes to th
 
 
 """
+from __future__ import annotations
 from abc import ABCMeta, abstractmethod
 from pathlib import Path
-from typing import Optional, IO
+from typing import TYPE_CHECKING, Optional, IO
 
 
 from arxiv.files import FileObj
 
-from submit_ce.api.domain import Workspace
-from submit_ce.api.domain.uploads import FileStatus
-from submit_ce.api.types import SubmitFile
-
-
+if TYPE_CHECKING:
+    from submit_ce.domain import Workspace
+    from submit_ce.domain.uploads import FileStatus
+    from submit_ce.api.types import SubmitFile
 
 
 class SubmissionFileStore(metaclass=ABCMeta):

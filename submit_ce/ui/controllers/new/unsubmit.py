@@ -19,6 +19,7 @@ from submit_ce.ui.controllers.util import validate_command
 
 from submit_ce.ui.backend import get_submission
 
+
 class UnsubmitForm(csrf.CSRFForm):
     """Form for unsubmitting a submission."""
 

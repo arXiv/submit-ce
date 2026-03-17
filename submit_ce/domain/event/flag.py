@@ -7,7 +7,7 @@ from dataclasses import field
 from .base import Event
 from ..flag import ContentFlag, MetadataFlag, UserFlag
 from ..submission import Submission, SubmissionMetadata, Hold, Waiver
-from ...exceptions import InvalidEvent
+from ..exceptions import InvalidEvent
 
 
 class AddFlag(Event):

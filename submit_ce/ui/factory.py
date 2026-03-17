@@ -14,6 +14,7 @@ from .config import settings
 from . import backend, filters
 from .routes.ui import UI
 
+
 base_settings.CLASSIC_DB_URI = settings.CLASSIC_DB_URI
 
 root = logging.getLogger()

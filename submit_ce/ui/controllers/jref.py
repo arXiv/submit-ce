@@ -14,14 +14,14 @@ from wtforms.validators import optional
 
 from arxiv.base import logging, alerts
 from arxiv.forms import csrf
-from submit_ce.api.domain import  Event, User, Client, Submission
-from submit_ce.api.domain.event import SetDOI, SetJournalReference, \
-    SetReportNumber
-from submit_ce.api.exceptions import SaveError
-
+from submit_ce.domain import  Event, User, Client, Submission
+from submit_ce.domain.event import SetDOI, SetJournalReference
+from submit_ce.domain.exceptions import SaveError
+from submit_ce.domain.event import SetReportNumber
 from submit_ce.ui.backend import get_submission
 from ..auth import user_and_client_from_session
 from .util import FieldMixin, validate_command
+
 
 logger = logging.getLogger(__name__)  # pylint: disable=C0103
 

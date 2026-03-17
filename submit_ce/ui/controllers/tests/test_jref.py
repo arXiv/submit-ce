@@ -1,11 +1,10 @@
 """Tests for :mod:`submit_ce.controllers.jref`."""
+
 import pytest
 from unittest import mock
 from werkzeug.datastructures import MultiDict
 from http import HTTPStatus as status
 
-from pytz import timezone
-from datetime import timedelta, datetime
 from submit_ce.ui.tests import CtrlBase
 from submit_ce.ui.controllers import jref
 
@@ -18,13 +17,6 @@ def mock_save(*events, submission_id=None):
 
 class TestJREFSubmission(CtrlBase):
     """Test behavior of :func:`.jref` controller."""
-
-    def setUp(self):
-        """Create an authenticated session."""
-
-        # Specify the validity period for the session.
-        start = datetime.now(tz=timezone('US/Eastern'))
-        end = start + timedelta(seconds=36000)
 
     @pytest.mark.skip
     @mock.patch(f'{jref.__name__}.JREFForm.Meta.csrf', False)

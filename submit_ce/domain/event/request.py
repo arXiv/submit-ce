@@ -8,7 +8,7 @@ from . import validators
 from .base import Event
 from ..submission import Submission, Classification, WithdrawalRequest, \
     CrossListClassificationRequest, UserRequest
-from ...exceptions import InvalidEvent
+from ..exceptions import InvalidEvent
 
 
 class ApproveRequest(Event):

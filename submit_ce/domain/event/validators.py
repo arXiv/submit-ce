@@ -6,7 +6,7 @@ from arxiv.taxonomy.definitions import CATEGORIES
 
 from .base import Event
 from ..submission import Submission
-from ...exceptions import InvalidEvent
+from ..exceptions import InvalidEvent
 
 
 def submission_is_not_finalized(event: Event, submission: Submission) -> None:

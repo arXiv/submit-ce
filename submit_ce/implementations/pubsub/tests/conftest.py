@@ -5,6 +5,7 @@ import tempfile
 
 from google.cloud import pubsub_v1
 
+
 def get_unused_port():
     """Returns an unused local TCP port."""
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:

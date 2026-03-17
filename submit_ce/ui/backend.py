@@ -1,4 +1,5 @@
 """Core persistence methods for submissions and submission events."""
+
 from typing import Tuple, List, cast
 
 from arxiv.config import Settings
@@ -6,9 +7,9 @@ from arxiv.db import session_factory, configure_db
 from flask import g, has_app_context, current_app
 from werkzeug.exceptions import BadRequest, NotFound
 
-from submit_ce.api import SubmitApi, Submission, Event
-from submit_ce.api.domain import User
-from submit_ce.api.exceptions import NoSuchSubmission
+from submit_ce.api import SubmitApi
+from submit_ce.domain import User, Submission, Event
+from submit_ce.domain.exceptions import NoSuchSubmission
 from submit_ce.implementations.compile.compile_at_gcp_service import GcpCompileAtLegacy
 from submit_ce.implementations.file_store.gs_file_store import GsFileStore
 from submit_ce.implementations.file_store.legacy_file_store import LegacyFileStore
@@ -95,6 +96,3 @@ def endorsed_for(user: User, category: str) -> bool:
     return category in endorsements \
         or f"{archive}.*" in endorsements \
         or "*.*" in endorsements
-
-
-

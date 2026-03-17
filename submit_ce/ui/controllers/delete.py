@@ -11,7 +11,7 @@ from werkzeug.exceptions import BadRequest, InternalServerError, NotFound
 from arxiv.base import alerts
 from submit_ce.ui.backend import get_submission
 from submit_ce.ui.auth import user_and_client_from_session
-from submit_ce.api.domain.event import Rollback, CancelRequest
+from submit_ce.domain.event import Rollback, CancelRequest
 from arxiv.forms import csrf
 from submit_ce.ui.controllers.util import Response, validate_command
 

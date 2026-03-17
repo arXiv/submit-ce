@@ -25,6 +25,7 @@ from ..util import validate_command
 from submit_ce.ui.routes.flow_control import ready_for_next, stay_on_this_stage
 from submit_ce.ui.backend import get_submission
 
+
 logger = logging.getLogger(__name__)
 
 Response = Tuple[Dict[str, Any], int, Dict[str, Any]]  # pylint: disable=C0103
@@ -228,7 +229,7 @@ def compilation_log(params, session: Session, submission_id: int, token: str,
                     **kwargs: Any) -> Response:
     submitter, client = user_and_client_from_session(session)
     submission, submission_events = get_submission(submission_id)
-    checksum = params.get('checksum', submission.source_content.checksum)
+
     NotImplementedError()
     # try:
     #     log = Compiler.get_log(submission.source_content.identifier, checksum,

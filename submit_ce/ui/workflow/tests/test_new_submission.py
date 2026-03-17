@@ -1,5 +1,5 @@
 """Tests for workflow"""
-# ruff: noqa: F405 F403
+
 from submit_ce.ui import workflow
 from submit_ce.ui.auth import user_and_client_from_session
 from submit_ce.ui.tests import CtrlBase
@@ -8,6 +8,9 @@ from submit_ce.api.domain.event import CreateSubmission
 from submit_ce.ui.workflow.stages import *
 from submit_ce.api.domain import SubmissionContent, SubmissionMetadata
 import pytest
+
+
+# ruff: noqa: F405 F403
 
 @pytest.mark.skip
 class TestNewSubmissionWorkflow(CtrlBase):

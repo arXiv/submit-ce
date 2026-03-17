@@ -4,11 +4,14 @@ from typing import Optional, Tuple, List, IO
 
 from arxiv.files import FileObj
 
-from submit_ce.api import SubmitApi, Event, Submission, License, SubmitFile, User, Client, Workspace, SubmissionFileStore
+from submit_ce.api import SubmitApi, SubmissionFileStore
 from submit_ce.api.CompileService import CompileService
-from submit_ce.api.domain.event.process import Result
-from submit_ce.api.domain.process import ProcessStatus
+from submit_ce.api.types import SubmitFile
+from submit_ce.domain import Event, Submission, License, User, Client, Workspace
+from submit_ce.domain.event.process import Result
+from submit_ce.domain.process import ProcessStatus
 from submit_ce.implementations.schedule import next_announcement_time, next_freeze_time
+
 
 class NullCompilerService(CompileService):
 

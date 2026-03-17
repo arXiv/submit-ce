@@ -1,4 +1,5 @@
 """Tests for the application as a whole."""
+
 from unittest import TestCase
 
 import pytest
@@ -6,7 +7,7 @@ import pytest
 from flask import testing
 from werkzeug.datastructures import Headers
 
-from submit_ce.api.domain.submission import Submission
+from submit_ce.domain.submission import Submission
 
 
 class ClientArxivAuth(testing.FlaskClient):

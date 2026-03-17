@@ -6,7 +6,7 @@ from dataclasses import field
 
 from pydantic import BaseModel
 
-from ...exceptions import InvalidEvent
+from ..exceptions import InvalidEvent
 from ..submission import Submission
 from ..process import ProcessStatus
 from .base import Event, EventWithSideEffect

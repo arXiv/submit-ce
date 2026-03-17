@@ -6,6 +6,7 @@ and the GCP compilation system. It makes a request to compile a submission
 at GCP and then installs the resulting PDF and log in the submission
 directory.
 """
+
 import os
 import sys
 import json
@@ -26,6 +27,7 @@ from .common import (GCP_LOG_NAME, GCP_RESULTS_NAME, GCP_PREFLIGHT_NAME,
                                    DEFAULT_SUBMISSION_LOG_NAME, DEFAULT_SYSTEM_LOG_NAME,
                                    DEFAULT_COMPILATION_TIMEOUT, DEFAULT_MAX_APPEND_FILES,
                                    DEFAULT_MAX_TEX_FILES, MAX_RETRIES, RETRY_DELAY)
+
 
 DEFAULT_SYSTEM_LOGS_DIR = '/users/e-prints/httpd/logs'
 

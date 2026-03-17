@@ -12,20 +12,22 @@ from markupsafe import Markup
 from flask import current_app
 
 from submit_ce.ui.auth import user_and_client_from_session
-from submit_ce.api.domain.event import UpdateUploadPackage
-from submit_ce.api.domain.uploads import Workspace
-from submit_ce.api.exceptions import SaveError
-#from arxiv.submission.services import Filemanager
+from submit_ce.domain.event import UpdateUploadPackage
+from submit_ce.domain.uploads import Workspace
+from submit_ce.domain.exceptions import SaveError
 from arxiv.auth.domain import Session
 from werkzeug.datastructures import MultiDict
 from werkzeug.exceptions import MethodNotAllowed
 from wtforms import BooleanField, HiddenField
 from wtforms.validators import DataRequired
-
 from submit_ce.ui.backend import get_submission
 from submit_ce.ui.routes.flow_control import stay_on_this_stage, return_to_parent_stage
 from submit_ce.ui.controllers.util import add_immediate_alert, validate_command
 from submit_ce.ui import SUPPORT
+
+
+#from arxiv.submission.services import Filemanager
+
 
 logger = logging.getLogger(__name__)
 
@@ -71,7 +73,6 @@ def delete_all(method: str, params: MultiDict, session: Session,
         return stay_on_this_stage((rdata, status.OK, {}))
 
     submission, submission_events = get_submission(submission_id)
-    upload_id = submission.source_content.identifier
     submitter, client = user_and_client_from_session(session)
     rdata.update({'submission': submission, 'submission_id': submission_id})
 
@@ -181,7 +182,6 @@ def delete_file(method: str, params: MultiDict, session: Session,
         return stay_on_this_stage((rdata, status.OK, {}))
 
     submission, submission_events = get_submission(submission_id)
-    upload_id = submission.source_content.identifier
     submitter, client = user_and_client_from_session(session)
 
     rdata = {'submission': submission, 'submission_id': submission_id}

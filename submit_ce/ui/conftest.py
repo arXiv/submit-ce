@@ -19,9 +19,9 @@ from sqlalchemy import desc, select
 
 import submit_ce
 import submit_ce.ui.auth
-from submit_ce.api.domain import Author, SubmissionContent
-from submit_ce.api.domain.agent import InternalClient
-from submit_ce.api.domain.event import (
+from submit_ce.domain import Author, SubmissionContent
+from submit_ce.domain.agent import InternalClient
+from submit_ce.domain.event import (
     AddSecondaryClassification,
     ConfirmAuthorship,
     ConfirmContactInformation,
@@ -38,14 +38,18 @@ from submit_ce.api.domain.event import (
     SetTitle,
     SetUploadPackage,
 )
-from submit_ce.api.domain.submission import Author
+
+
+from submit_ce.make_test_db import bootstrap_db, create_all_legacy_db
+from submit_ce.ui.tests import ClientArxivAuth
+from submit_ce.ui.config import settings as sce_settings
+from submit_ce.ui.factory import create_web_app
+
 
 # to ensure we can import this due to confusing errors if it is missing.
 # to ensure we can import this due to confusing errors if deps are missing.
 #import submit_ce.api.implementations.legacy_implementation
-from submit_ce.make_test_db import bootstrap_db, create_all_legacy_db
 
-from submit_ce.ui.tests import ClientArxivAuth
 
 def pytest_configure(config):
     """Run before all tests"""
@@ -94,11 +98,9 @@ def legacy_db(legacy_db_w_bootstrap):
 def app(legacy_db, jwt_secret) -> Flask:
     engine, uri, _, user_jwt = legacy_db
 
-    from submit_ce.ui.config import settings as sce_settings
     sce_settings.JWT_SECRET = jwt_secret
     sce_settings.CLASSIC_DB_URI = uri
 
-    from submit_ce.ui.factory import create_web_app
     app = create_web_app()
     app.config["CLASSIC_DB_URI"] = uri
     app.config["JWT_SECRET"] = jwt_secret
