@@ -46,6 +46,8 @@ are performed on several event types (instead of just private instance
 methods).
 """
 
+#ruff: noqa: F401
+
 import copy
 import re
 from dataclasses import field
@@ -72,8 +74,9 @@ from ..annotation import Feature, ClassifierResults, \
     ClassifierResult
 from ..preview import Preview
 from ..submission import Submission, Author, \
-    Classification, License, SubmissionContent
+    Classification, License
 from ...exceptions import InvalidEvent
+
 
 import logging
 logger = logging.getLogger(__name__)

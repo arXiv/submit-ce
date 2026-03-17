@@ -17,7 +17,7 @@ from ...api.domain.event.base import EventWithSideEffect
 from ...api.domain.util import get_tzaware_utc_now
 from ...api.submit import SubmitApi
 from .db import to_submission
-from .models import Submission, Document, SubmissionCategory
+from .models import Submission
 from ..file_store.legacy_file_store import LegacyFileStore
 from ...api.domain.event import CreateSubmission, SetUploadPackage
 from ...api.exceptions import NoSuchSubmission, NothingToDo
@@ -67,7 +67,7 @@ class LegacySubmitImplementation(SubmitApi):
         return self._load(self.get_session(), submission_id)[0]
 
     @override
-    def get_with_history(self, submission_id: str) -> Tuple[Submission, List[Event]]:
+    def get_with_history(self, submission_id: int) -> Tuple[Submission, List[Event]]:
         return self._load(self.get_session(), submission_id)
 
     @override
@@ -80,7 +80,7 @@ class LegacySubmitImplementation(SubmitApi):
         return [to_submission(row) for row in
                 session.execute(stmt).unique().scalars().all()]
 
-    def _load(self, session: SqlalchemySession, submission_id: str, lock_row: bool = False) \
+    def _load(self, session: SqlalchemySession, submission_id: int, lock_row: bool = False) \
             -> Tuple[Submission, List[Event]]:
         if not submission_id:
             raise NoSuchSubmission()
@@ -156,7 +156,7 @@ class LegacySubmitImplementation(SubmitApi):
             return db.get_licenses(session, active_only=active_only)
 
     @override
-    def categories_for_user(self, user_id: str) -> Optional[str]:
+    def categories_for_user(self, user_id: int) -> Optional[str]:
         # TODO need better way to get endorsements since they are not on JWT anymore
         uzr=AuthDomainUser(user_id=user_id,
                        email="fake@fake.com",

@@ -240,7 +240,6 @@ def process_metadata_and_log(submission_dir, json_log_run_data, output_files_dir
             converters = json_data.get("converters", [])
             num_conversions = len(converters)
             num_failed = sum(1 for c in converters if isinstance(c, dict) and c.get("status") == "fail")
-            num_succeeded = num_conversions - num_failed
 
             if num_failed == 0:
                 display_status = add_html_class('tex-success', "[SUCCEEDED]")

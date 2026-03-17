@@ -20,9 +20,8 @@ Maybe just have an opitonal workspace_id on each call? If not set, it goes to th
 
 """
 from abc import ABCMeta, abstractmethod
-from io import BytesIO
 from pathlib import Path
-from typing import Protocol, Optional, IO, runtime_checkable
+from typing import Optional, IO
 
 
 from arxiv.files import FileObj

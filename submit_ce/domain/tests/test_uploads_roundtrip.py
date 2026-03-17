@@ -89,7 +89,6 @@ def test_file_status_roundtrip_with_string_modified_and_errors():
     # Now go the other direction; to_dict should:
     # - emit modified as ISO string
     # - convert FileError objects back to dicts
-    roundtrip_dict = status.model_dump()
 
     # Check essential fields survived the roundtrip.
     assert status == FileStatus(**status.model_dump())

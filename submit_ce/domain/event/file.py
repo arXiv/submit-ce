@@ -1,7 +1,8 @@
 from __future__ import annotations
-from io import BytesIO
 from pydantic import ConfigDict, Field, WithJsonSchema
 from typing import List, Annotated
+
+from submit_ce.api.submit import SubmitApi
 
 from . import validators
 from .base import Event, EventWithSideEffect

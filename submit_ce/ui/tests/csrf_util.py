@@ -17,8 +17,6 @@ def parse_csrf_token(input):
         else:
             txt = input
 
-
         return re.search(CSRF_PATTERN, txt).group(1)
     except AttributeError:
         raise Exception('Could not find CSRF token')
-    return token

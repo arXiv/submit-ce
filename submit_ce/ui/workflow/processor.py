@@ -43,7 +43,6 @@ class WorkflowProcessor:
             must_be_done = self.workflow.iter_prior(stage)
         must_be_done = list(must_be_done)
 
-        done = list([(stage, self.is_done(stage)) for stage in must_be_done])
         not_dones = [(stage.__class__.__name__, self.not_done(stage)) for stage in must_be_done]
         not_dones = [(name, prob) for name, prob in not_dones if prob]
         logger.debug("Stages not done list: %s", not_dones)
