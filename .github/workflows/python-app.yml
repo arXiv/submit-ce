@@ -22,8 +22,8 @@ jobs:
     - name: Install uv
       uses: astral-sh/setup-uv@v6
 
-    - name: Install protobuf compiler
-      run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+    - name: Install protobuf compiler and pubsub emulator
+      run: sudo apt-get update && sudo apt-get install -y protobuf-compiler google-cloud-cli-pubsub-emulator
 
     - name: Install the project
       run: uv sync --locked --all-extras --dev
