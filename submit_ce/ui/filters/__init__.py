@@ -1,17 +1,17 @@
 """Custom Jinja2 filters."""
 
 from dataclasses import asdict
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import List, Tuple, Callable
 
 from arxiv import taxonomy
 from pytz import UTC
 
-from submit_ce.api.domain.process import ProcessStatus
-from submit_ce.api.domain.uploads import FileStatus
+from submit_ce.domain.process import ProcessStatus
+from submit_ce.domain.uploads import FileStatus
 from submit_ce.ui.controllers.new.upload import group_files, tidy_filesize
 from .tex_filters import compilation_log_display
-from ...api.domain.compilation import Compilation
+from submit_ce.domain.compilation import Compilation
 
 
 # additions for compilation log markup
@@ -136,6 +136,3 @@ def get_filters() -> List[Tuple[str, Callable]]:
         ('compilation_log_display', compilation_log_display),
         ('pluralize', pluralize),
     ]
-
-
-

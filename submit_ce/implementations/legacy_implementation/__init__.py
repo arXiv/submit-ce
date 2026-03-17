@@ -9,19 +9,28 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session as SqlalchemySession, Session
 
-from submit_ce.api import domain as api, Event, License, SubmitFile, User, Client, Workspace, \
-    SubmissionFileStore
-from ..schedule import next_announcement_time, next_freeze_time
+from submit_ce.api import SubmitApi
+from submit_ce.api.file_store import SubmissionFileStore
+from submit_ce.api.types import SubmitFile
+from submit_ce.domain.agent import Client, User
+from submit_ce.domain.meta import License
 from ...api.CompileService import CompileService
-from ...api.domain.event.base import EventWithSideEffect
-from ...api.domain.util import get_tzaware_utc_now
-from ...api.submit import SubmitApi
+
+from ..schedule import next_announcement_time, next_freeze_time
+
 from .db import to_submission
 from .models import Submission
+from . import models
 from ..file_store.legacy_file_store import LegacyFileStore
-from ...api.domain.event import CreateSubmission, SetUploadPackage
-from ...api.exceptions import NoSuchSubmission, NothingToDo
+
+from ...domain.uploads import Workspace
+from ...domain.event.base import Event, EventWithSideEffect
+from ...domain.util import get_tzaware_utc_now
+
+from ...domain.event import CreateSubmission, SetUploadPackage
+from ...domain.exceptions import NoSuchSubmission, NothingToDo
 from . import db
+
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +40,7 @@ acceptable_types = ["application/x-gzip", "application/gzip", "application/tar",
 
 
 def check_user_authorized(
-    session: Session, user: api.User, client: api.Client, submission_id: str
+    session: Session, user: User, client: Client, submission_id: str
 ) -> None:
     # TODO implement authorized check, use scopes from arxiv.auth?
     # TODO implement is_locked on submission
@@ -207,7 +216,7 @@ class LegacySubmitImplementation(SubmitApi):
 
         submission, event_list = self._load(session, submission_id, lock_row=self.serialize_file_operations)
 
-        checksum = self.store.store_source_package(submission.submission_id, file, 4098)
+        self.store.store_source_package(submission.submission_id, file, 4098)
         workspace = self.store.get_workspace(submission.submission_id, "fakeuploadid")
 
         command = SetUploadPackage(creator=user, client=client,
@@ -238,5 +247,3 @@ class LegacySubmitImplementation(SubmitApi):
     @override
     def next_freeze_time(self, reference: Optional[datetime] = None) -> datetime:
         return next_freeze_time(reference)
-
-

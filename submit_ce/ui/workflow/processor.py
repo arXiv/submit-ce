@@ -1,11 +1,12 @@
 """Defines submission stages and workflows supported by this UI."""
 
 from typing import List, Optional, Dict, Tuple
+import logging
 
-from arxiv.base import logging
-from submit_ce.api.domain import Submission
+from submit_ce.domain import Submission
 from dataclasses import field, dataclass
 from . import WorkflowDefinition, Stage
+
 
 logger = logging.getLogger(__name__)
 
@@ -101,4 +102,3 @@ class WorkflowProcessor:
 
     def index(self, stage):
         return self.workflow.index(stage)
-

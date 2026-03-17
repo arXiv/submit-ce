@@ -3,6 +3,7 @@
 import re
 import html
 
+
 TEX = 'tex'
 LATEX = 'latex'
 PDFLATEX = 'pdflatex'
@@ -141,7 +142,7 @@ def compilation_log_display(autotex_log: str, submission_id: int,
     current_engine = ''
     current_run = ''
 
-    last_run = False
+    # last_run = False
 
     # Filters  [css class, regex, run spec]
     #
@@ -296,10 +297,10 @@ def compilation_log_display(autotex_log: str, submission_id: int,
                     current_run = found.group(2)
                     # new_log = new_log + f"Set engine:{current_engine} Run:{current_run}\n"
 
-                if current_engine and current_run:
-                    if last_run_for_engine[current_engine] == current_run:
-                        # new_log = new_log + f"LAST RUN:{current_engine} Run:{current_run}\n"
-                        last_run = True
+                # if current_engine and current_run:
+                #     if last_run_for_engine[current_engine] == current_run:
+                #         # new_log = new_log + f"LAST RUN:{current_engine} Run:{current_run}\n"
+                #         last_run = True
                 break
 
         # In the event we are not disabling/enabling markup
@@ -309,8 +310,8 @@ def compilation_log_display(autotex_log: str, submission_id: int,
                 current_engine = found.group(1)
                 current_run = found.group(2)
                 if last_run_for_engine[current_engine] == current_run:
-                    # new_log = new_log + f"LAST RUN:{current_engine} Run:{current_run}\n"
-                    last_run = True
+                    new_log = new_log + f"LAST RUN:{current_engine} Run:{current_run}\n"
+                    # TODO the above might not be right
 
         # Disable markup for TeX runs that we are not interested in.
         if not markup_enabled:

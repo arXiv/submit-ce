@@ -7,6 +7,7 @@ generate directives file. Then we present the Review Files page using the
 directives data.
 
 """
+
 import logging
 from collections import OrderedDict
 from http import HTTPStatus as status
@@ -26,16 +27,17 @@ from werkzeug.exceptions import (
 )
 from wtforms import BooleanField, FileField
 
-from submit_ce.api.domain import Client, User, Event
-from submit_ce.api.domain.event import SetUploadPackage, UpdateUploadPackage
-from submit_ce.api.domain.submission import SubmissionContent, Submission
-from submit_ce.api.domain.uploads import Workspace, FileStatus, UploadStatus
-from submit_ce.api.exceptions import SaveError
+from submit_ce.domain import Client, User, Event
+from submit_ce.domain.event import SetUploadPackage, UpdateUploadPackage
+from submit_ce.domain.submission import SubmissionContent, Submission
+from submit_ce.domain.uploads import Workspace, FileStatus, UploadStatus
+from submit_ce.domain.exceptions import SaveError
 
 from submit_ce.ui.controllers.util import add_immediate_alert, validate_command
 from submit_ce.ui.routes.flow_control import stay_on_this_stage
 from submit_ce.ui.backend import get_submission
 from submit_ce.ui import SUPPORT
+
 
 logger = logging.getLogger(__name__)
 
@@ -112,7 +114,6 @@ def review_files(method: str, params: MultiDict, session: Session,
             else:
                 return stay_on_this_stage(_get_upload(params, session, submission, rdata, token))
 
-        pointer = files['file']
         try:
             # Add call to preflight and directives IN THIS AREA
             # The files have already been uploaded and installed during Add Files step.

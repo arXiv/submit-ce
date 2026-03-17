@@ -3,6 +3,7 @@ from typing import Literal, Tuple, List
 
 from arxiv.config import settings as arxivbase_settings, Settings as ArxivBaseSettings
 
+
 DEV_SQLITE_FILE="legacy.db"
 
 SUBMIT_API_CONFIG_PREFIX="SUBMIT_API_"
@@ -108,5 +109,3 @@ class Settings(ArxivBaseSettings):
 
 settings = Settings()
 arxivbase_settings.CLASSIC_DB_URI = settings.CLASSIC_DB_URI
-
-

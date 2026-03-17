@@ -5,6 +5,7 @@ import re
 
 from submit_ce.ui.filters import compilation_log_display
 
+
 class Test_TeX_Autotex_Log_Markup(TestCase):
     """
     Test compilation_log_display routine directly.

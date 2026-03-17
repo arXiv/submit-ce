@@ -1,13 +1,15 @@
 """submit-ce API implementation that sends pubsub events."""
+
 from typing import Optional, Tuple, List
 import logging
 
 from google.cloud import pubsub_v1
-from pydantic import BaseModel
 
-from submit_ce.api import SubmitApi, Event, Submission, SubmissionFileStore
+from submit_ce.api import SubmitApi, SubmissionFileStore
+from submit_ce.domain import Event, Submission
 from submit_ce.api.CompileService import CompileService
-from submit_ce.api.domain.event.base import EventList
+from submit_ce.domain.event.base import EventList
+
 
 logger = logging.getLogger(__name__)
 

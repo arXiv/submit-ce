@@ -2,6 +2,7 @@
 
 from http import HTTPStatus as status
 from typing import Tuple, Dict, Any
+import logging
 
 from arxiv.auth.domain import Session
 from flask import url_for, current_app
@@ -11,14 +12,15 @@ from werkzeug.exceptions import InternalServerError
 from wtforms.fields import TextAreaField, BooleanField
 from wtforms.validators import DataRequired
 
-from arxiv.base import logging, alerts
+from arxiv.base import alerts
 from arxiv.forms import csrf
-from submit_ce.api.domain.event import RequestWithdrawal
+from submit_ce.domain.event import RequestWithdrawal
 
 from .util import FieldMixin, validate_command
 from submit_ce.ui.backend import get_submission
 from ..auth import user_and_client_from_session
-from submit_ce.api.exceptions import SaveError
+from submit_ce.domain.exceptions import SaveError
+
 
 logger = logging.getLogger(__name__)  # pylint: disable=C0103
 

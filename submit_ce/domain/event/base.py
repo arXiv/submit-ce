@@ -1,14 +1,15 @@
 """Provides the base event class."""
-
+from __future__ import annotations
 import copy
 import hashlib
 from datetime import datetime
-from typing import Optional, Callable, Tuple, Iterable, List, ClassVar, \
+from typing import TYPE_CHECKING, Optional, Callable, Tuple, Iterable, List, ClassVar, \
     Type, Any
 
 from pydantic import BaseModel, RootModel
 
-from submit_ce.api.submit import SubmitApi
+if TYPE_CHECKING:
+    from submit_ce.api.submit import SubmitApi
 
 from ..agent import User, Client
 from ..submission import Submission

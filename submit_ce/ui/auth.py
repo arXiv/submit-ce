@@ -18,10 +18,11 @@ from arxiv.auth.auth.exceptions import ExpiredToken, InvalidToken, MissingToken,
 from arxiv.auth import domain as auth_domian
 from arxiv.auth.legacy.endorsements import explicit_endorsements
 
-from submit_ce.api import User, PublicUser, HttpClient, Client
-from submit_ce.api.domain.agent import StaffUser
+from submit_ce.domain import User, PublicUser, HttpClient, Client
+from submit_ce.domain.agent import StaffUser
 from submit_ce.ui import backend, get_device_type, is_admin, is_dev
 from submit_ce.ui.config import settings
+
 
 logger = logging.getLogger(__name__)
 

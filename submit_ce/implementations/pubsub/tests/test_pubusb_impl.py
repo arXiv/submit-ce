@@ -7,7 +7,7 @@ from google.cloud import pubsub_v1
 from polyfactory.factories.pydantic_factory import ModelFactory
 from pydantic import TypeAdapter
 
-from submit_ce.api.domain.event.base import EventList
+from submit_ce.domain.event.base import EventList
 from .. import PubsubEventSubmitImplementation, Event
 
 
@@ -49,8 +49,6 @@ def test_pubsub_impl(submission_topic, project_id, event_factory):
         sub_future.cancel()  # shut down subscription listener
 
 
-def _class_methods(klass):
-    methods = inspect.getmembers(klass)
 
 def test_call_to_inner(submission_topic, project_id):
     """Test that PubSubEventSubmitImplementation calls inner instance."""

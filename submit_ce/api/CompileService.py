@@ -1,12 +1,15 @@
 """API for CompileService."""
+
 from __future__ import annotations
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
-from submit_ce.api.domain import Submission, User, Client
-from submit_ce.api.domain.event.process import Result
-from submit_ce.api.domain.process import ProcessStatus
-from submit_ce.api.submit import SubmitApi
+
+if TYPE_CHECKING:
+    from submit_ce.api.submit import SubmitApi
+    from submit_ce.domain import Submission, User, Client
+    from submit_ce.domain.event.process import Result
+    from submit_ce.domain.process import ProcessStatus
 
 
 class CompileService(ABC):

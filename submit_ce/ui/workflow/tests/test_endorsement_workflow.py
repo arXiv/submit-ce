@@ -3,7 +3,6 @@
 
 
 
-
 # SKIP: endorsement doesn't currently work correct due to
 # TODO fix submit_ci/ui/auth.py for auth, auth use to be on JWT but will not be in the future
 # class TestEndorsementMessaging(CtrlBase):

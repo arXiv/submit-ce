@@ -1,13 +1,6 @@
-from datetime import datetime, timezone, timedelta
 from unittest import TestCase
-from zoneinfo import ZoneInfo
 
 import pytest
-from arxiv.auth.auth import scopes
-from arxiv.auth import domain
-from arxiv.taxonomy.definitions import CATEGORIES
-
-import submit_ce
 
 
 class CtrlBase(TestCase):

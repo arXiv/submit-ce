@@ -9,6 +9,7 @@ import arxiv.db.models as classic
 
 from submit_ce.ui.tests.csrf_util import parse_csrf_token
 
+
 def test_withdrawl_workflow(app, authorized_client, published_submission):
     """Tests that progress through the withdrawal request workflow."""
     client = authorized_client

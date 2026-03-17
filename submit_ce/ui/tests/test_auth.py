@@ -1,6 +1,7 @@
 from submit_ce.ui.auth import _modern_auth, _ng_dict_jwt_auth
 from jwt import encode
 
+
 def test_modern_auth(app, authorized_user_session, jwt_secret):
     session, jwt = authorized_user_session
     with app.test_request_context("/"):

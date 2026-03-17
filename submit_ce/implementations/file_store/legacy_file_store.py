@@ -10,9 +10,10 @@ from base64 import urlsafe_b64encode
 
 from arxiv.files import FileObj, LocalFileObj, FileDoesNotExist
 
-from submit_ce.api import Workspace, SubmissionFileStore
-from submit_ce.api.domain.uploads import UploadLifecycleStates, UploadStatus, FileStatus
-from submit_ce.api.file_store import SubmitFile
+from submit_ce.api import SubmissionFileStore
+from submit_ce.domain import  Workspace
+from submit_ce.domain.uploads import UploadLifecycleStates, UploadStatus, FileStatus
+from submit_ce.api.types import SubmitFile
 
 
 class SecurityError(RuntimeError):

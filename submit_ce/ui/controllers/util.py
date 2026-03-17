@@ -5,12 +5,10 @@ from typing import Any, Dict, Iterable, Tuple, Optional, Union
 from markupsafe import Markup
 from wtforms.validators import StopValidation
 from wtforms.widgets import Select, html_params
-from wtforms import SelectField, \
-    Form
+from wtforms import SelectField, Form
 from wtforms.fields.core import UnboundField
-
-from submit_ce.api.domain import Event, Submission
-from submit_ce.api.exceptions import InvalidEvent
+from submit_ce.domain import Event, Submission
+from submit_ce.domain.exceptions import InvalidEvent
 
 Response = Tuple[Dict[str, Any], int, Dict[str, Any]]   # pylint: disable=C0103
 

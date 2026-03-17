@@ -4,12 +4,10 @@ from typing import Optional, Callable
 
 from sqlalchemy.orm import Session as SQLAlchemySession
 
-from submit_ce.api.domain.agent import System
-from submit_ce.api.domain.event import Event, UnFinalizeSubmission, AcceptProposal, \
-    AddSecondaryClassification, AddContentFlag, \
-    AddClassifierResults
-from submit_ce.api.domain.flag import ContentFlag
-from submit_ce.api.domain.submission import Submission
+from submit_ce.domain.agent import System
+from submit_ce.domain.event import Event, UnFinalizeSubmission, AcceptProposal, AddSecondaryClassification, AddContentFlag, AddClassifierResults
+from submit_ce.domain.flag import ContentFlag
+from submit_ce.domain.submission import Submission
 from . import models
 
 

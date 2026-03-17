@@ -1,5 +1,6 @@
 """Tests for the submission UI domain classes."""
 
+
 # Commenting out for now - there is nothing that runs below - everything
 # is commented out - dlf2
 #from .. import domain

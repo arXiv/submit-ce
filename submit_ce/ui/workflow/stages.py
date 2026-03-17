@@ -2,7 +2,7 @@
 
 from typing import Callable, List
 from . import conditions
-from submit_ce.api.domain import Submission
+from submit_ce.domain import Submission
 
 
 SubmissionCheck = Callable[[Submission], (bool)]
@@ -155,4 +155,3 @@ class Confirm(Stage):
     title = "Submission confirmed"
     display = "Confirmed"
     completed = [lambda _:False]
-

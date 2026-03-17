@@ -17,13 +17,14 @@ from arxiv.forms import csrf
 from submit_ce.ui.backend import get_submission
 from submit_ce.ui import SUPPORT
 from ..auth import user_and_client_from_session
-from submit_ce.api.domain.event import RequestCrossList
-from submit_ce.api.exceptions import SaveError
+from submit_ce.domain.event import RequestCrossList
+from submit_ce.domain.exceptions import SaveError
 from arxiv.taxonomy.definitions import CATEGORIES_ACTIVE as CATEGORIES
 from arxiv.taxonomy.definitions import ARCHIVES_ACTIVE as ARCHIVES
-from .util import OptGroupSelectField, \
-    validate_command
-from ...api import Submission
+from .util import OptGroupSelectField, validate_command
+from submit_ce.domain import Submission
+
+
 
 logger = logging.getLogger(__name__)  # pylint: disable=C0103
 

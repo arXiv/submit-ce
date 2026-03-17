@@ -12,7 +12,7 @@ from werkzeug import Response as WResponse
 from werkzeug.exceptions import BadRequest
 
 from arxiv.base import alerts
-from submit_ce.api.domain import Submission
+from submit_ce.domain import Submission
 
 from submit_ce.ui.workflow import NewSubmissionWorkflow, ReplacementWorkflow
 from submit_ce.ui.workflow.stages import Stage

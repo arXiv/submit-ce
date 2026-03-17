@@ -9,14 +9,14 @@ from flask import url_for, current_app
 from werkzeug.datastructures import MultiDict
 from werkzeug.exceptions import InternalServerError, BadRequest
 
-from submit_ce.api.domain.event import CreateSubmission, \
-    CreateSubmissionVersion
-from submit_ce.api.exceptions import SaveError
-
+from submit_ce.domain.event import CreateSubmission, CreateSubmissionVersion
+from submit_ce.domain.exceptions import SaveError
 from submit_ce.ui.auth import user_and_client_from_session
 from submit_ce.ui.controllers.util import validate_command
 from submit_ce.ui.routes.flow_control import advance_to_current, Response
 from submit_ce.ui.backend import get_submission
+
+
 
 logger = logging.getLogger(__name__)    # pylint: disable=C0103
 
@@ -91,4 +91,3 @@ def replace(method: str, params: MultiDict, session: Session,
         loc = url_for('ui.verify_user', submission_id=submission.submission_id)
         return {}, status.SEE_OTHER, {'Location': loc}
     return response_data, status.OK, {}
-

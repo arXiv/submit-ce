@@ -8,7 +8,7 @@ from ..submission import Submission
 from ..proposal import Proposal
 from ..annotation import Comment
 
-from ...exceptions import InvalidEvent
+from ..exceptions import InvalidEvent
 from .base import Event
 
 logger = logging.getLogger(__name__)

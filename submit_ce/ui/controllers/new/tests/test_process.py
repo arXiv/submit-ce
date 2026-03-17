@@ -1,7 +1,7 @@
 """Tests for :mod:`submit_ce.controllers.process`."""
 
-
 from http import HTTPStatus as status
+
 
 def test_no_sub(app, authorized_client):
     resp = authorized_client.get("/93489292/file_process")
