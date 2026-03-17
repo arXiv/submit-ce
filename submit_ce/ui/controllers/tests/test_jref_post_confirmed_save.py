@@ -7,14 +7,16 @@ from http import HTTPStatus as status
 
 from flask import current_app
 from submit_ce.ui.controllers.jref import jref
-from submit_ce.api.domain.agent import InternalClient
+from submit_ce.domain.agent import InternalClient
 
 
 @pytest.mark.usefixtures("app")
 def test_jref_post_confirmed_changed_saves_and_redirects(monkeypatch, authorized_user, app):
     # Build a submission that is announced with old metadata
     class Meta:
-        doi = "10.1/old"; journal_ref = "Old JR"; report_num = "RN-1"
+        doi = "10.1/old"
+        journal_ref = "Old JR"
+        report_num = "RN-1"
     class Sub:
         is_announced = True
         metadata = Meta()

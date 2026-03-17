@@ -10,8 +10,8 @@ from submit_ce.ui.workflow.stages import (
     OptionalMetadata, FinalPreview, Confirm
 )
 
-from submit_ce.api.domain.agent import InternalClient
-from submit_ce.api.domain.event import FinalizeSubmission
+from submit_ce.domain.agent import InternalClient
+from submit_ce.domain.event import FinalizeSubmission
 
 
 @pytest.mark.usefixtures("app")

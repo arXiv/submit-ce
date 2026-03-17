@@ -10,7 +10,9 @@ def test_jref_post_confirmed_but_unchanged(monkeypatch):
         doi = "10.9999/existing"
         journal_ref = "Nucl.Phys.Proc.Suppl. 109 (2002) 3-9"
         report_num = "SU-4240-720"
-    class Sub: is_announced=True; metadata=Meta()
+    class Sub:
+        is_announced=True
+        metadata=Meta()
 
     # Controller-namespace patches
     monkeypatch.setattr("submit_ce.ui.controllers.jref.get_submission",
@@ -41,7 +43,8 @@ def test_jref_post_confirmed_but_unchanged(monkeypatch):
     class DummyAPI:
         def save(self, *args, **kwargs):
             raise AssertionError("save() must not be called for no-op POST")
-    class DummyApp: api = DummyAPI()
+    class DummyApp:
+        api = DummyAPI()
     monkeypatch.setattr("submit_ce.ui.controllers.jref.current_app", DummyApp())
 
     class Session: ...

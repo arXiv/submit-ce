@@ -1,6 +1,6 @@
 """Test basic workflow definition and previous/current/next functions."""
 import pytest
-from submit_ce.ui.workflow import WorkflowDefinition, NewSubmissionWorkflow
+from submit_ce.ui.workflow import WorkflowDefinition
 from submit_ce.ui.workflow.stages import Stage
 
 class A(Stage):
