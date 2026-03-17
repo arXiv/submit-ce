@@ -33,7 +33,7 @@ def policy(method: str, params: MultiDict, session: Session,
     submission, submission_events = get_submission(submission_id)
 
     if method == 'GET' and submission.submitter_accepts_policy:
-        params['policy'] = 'true'
+        params['policy'] = 'y'
 
     current_policy_id=3  # TODO !!! add to api and use that
     form = PolicyForm(params, current_policy_id)
