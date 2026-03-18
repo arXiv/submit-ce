@@ -1,73 +1,172 @@
 {% extends "submit/base_edit.html" %}
+{% import "svg.html" as svg %}
 
-{% block title -%}Select a License{%- endblock title %}
+{% block title %}
+Select a License
+{% endblock title %}
 
+<!-- SIDEBAR CONTENT (THIS IS WHAT YOU WERE MISSING) -->
 {% block important_text_box %}
-  <p class="is-size-6 is-white has-text-weight-semibold">{{svg.info(klass="icon filter-dark_grey")}}
-    Not sure which license to select?</p>
-    <p>See the <a href="{{ url_for('help_license') }}">Discussion of licenses</a> for more information.</p>
-<p>If you wish to use a different CC license, then select arXiv's non-exclusive license to distribute in the arXiv and indicate the desired Creative Commons license in the article's full text.</p>
+  <p>Trying to decide which Creative Commons license is right for you?
+     You may find these resources useful:</p>
+
+  <div class="buttons">
+    <a href="#" id="open-cc-compare"
+       class="button button-secondary"
+       aria-haspopup="dialog"
+       aria-controls="cc-compare-overlay">
+       CC License Comparison Table
+       {{ svg.question(klass="icon filter-blue") }}
+    </a>
+
+    <a href="https://creativecommons.org/share-your-work/cclicenses/"
+       class="button button-secondary"
+       target="_blank">
+       Creative Commons Licenses
+       {{ svg.question(klass="icon filter-blue") }}
+    </a>
+  </div>
 {% endblock important_text_box %}
-            
+
+
+<!-- MAIN PAGE CONTENT -->
 {% block within_content %}
-<form id="form" method="POST" action="{{ url_for('ui.license',submission_id=submission_id) }}">
+
+<h2>Use of Author's Work</h2>
+
+<h3>Additional licenses for wider sharing and reuse</h3>
+
+<p>You may elect to apply an additional license, including a Creative Commons (CC)
+license, to allow for wider sharing and reuse. You must own or control copyright
+in the Work if applying a CC license. Be aware that your chosen license cannot
+be revoked.</p>
+
+<p>As the submitter, you are fully responsible for determining the appropriate
+license for the Work. arXiv encourages you to consult with your own institution,
+funders, and journal publishers to ensure you have the right to grant arXiv
+a perpetual non‑exclusive license and to apply a CC license if you choose to do so.</p>
+
+<p>If you elect to add an additional license, please consider selecting from the
+options below. If you need a license not listed, indicate it in a prominent
+location in your work.</p>
+
+<div class="message is-info">
+  <div class="message-body">
+    {{ svg.info(klass="icon filter-blue") }}
+    <span class="has-text-weight-bold">Looking for the arXiv license?</span>
+    It is part of the Submission Agreement and does not need to be explicitly chosen.
+    You may choose an additional license below.
+  </div>
+</div>
+
+<form id="form"
+      method="POST"
+      action="{{ url_for('ui.license', submission_id=submission_id) }}">
   {{ form.csrf_token }}
-  <div class="content-container">
-    <h2>Submission license details - Scroll to read before selecting a license</h2>
-    <div class="policy-scroll" style="max-height:300px;">
-      <div class="message is-warning">
-        <div class="message-body">
-          <p>{{svg.info(klass="icon filter-orange")}} This license
-            is <a href="{{ url_for('help_license')}}#licenses-granted-are-irrevocable">
-            irrevocable and permanent</a>. If you plan to publish this article
-            in a journal, check the journal's policies before uploading to
-            arXiv.</p>
-        </div>
-      </div>
-      <p>The Submitter is an original author of the Work, or a proxy pre-approved by arXiv administrators acting on behalf of an original author.  By submitting the work to arXiv, the Submitter is:</p>
-      <ol>
-        <li>Representing and warranting that the Submitter holds the right to make the submission, without conflicting with or violating rights of other persons.</li>
-        <li>Granting a license permitting the work to be included in arXiv.</li>
-        <li>Agreeing not to sue or seek to recover damages from arXiv, Cornell University, or affiliated individuals based on arXiv's actions in connection with your submission including refusal to accept, categorization, removal, or exercise of any other rights granted under the Submittal Agreement.</li>
-        <li>Agreeing to not enter into other agreements or make other commitments that would conflict with the rights granted to arXiv.</li>
-      </ol>
-      <p>arXiv is a repository for scholarly material, and perpetual access is necessary to maintain the scholarly record.  Therefore, arXiv strives to maintain a permanent collection of submitted works, including actions taken with respect to each work.  Nevertheless, arXiv reserves the right, in its sole discretion, to take any action including to removal of a work or blocking access to it, in the event that arXiv determines that such action is required in order to comply with applicable arXiv policies and laws. Submitters should take care to submit a work to arXiv <em>only if they are certain</em> that they will not later wish to publish it in a journal or other outlet that prohibits prior distribution on an e-print server.  <em>arXiv will not remove an announced article in order to comply with such a journal policy – the license granted on submission is irrevocable</em>.</p>
-      <p>arXiv is a service of Cornell University, and all rights and obligations of arXiv are held and exercised by Cornell University.</p>
-      <p>If you have any additional questions about arXiv’s copyright and licensing policies, please contact the arXiv administrators directly.</p>
+
+  <!-- CREATIVE COMMONS LICENSES -->
+  <div class="field">
+    <h3>Creative Commons Licenses</h3>
+
+    <div class="control">
+      <label class="radio">
+        <input type="radio" name="license"
+               value="http://creativecommons.org/licenses/by/4.0/" required>
+        CC BY 4.0: Attribution 4.0 International
+        <a href="http://creativecommons.org/licenses/by/4.0/"
+           class="help-bubble" target="_blank">
+          {{ svg.question(klass="icon filter-blue") }}
+          <div class="bubble-text">Click for CC BY 4.0 license information.</div>
+        </a>
+      </label>
+      <p>This is the least restrictive license…</p>
+    </div>
+
+    <div class="control">
+      <label class="radio">
+        <input type="radio" name="license" value="cc-by-sa-40">
+        CC BY‑SA 4.0: Attribution‑ShareAlike 4.0 International
+        <a href="https://creativecommons.org/licenses/by-sa/4.0/"
+           class="help-bubble" target="_blank">
+          {{ svg.question(klass="icon filter-blue") }}
+          <div class="bubble-text">Click for CC BY-SA information.</div>
+        </a>
+      </label>
+      <p>Share, reuse, remix, adapt… under identical license terms.</p>
+    </div>
+
+    <div class="control">
+      <label class="radio">
+        <input type="radio" name="license" value="cc-by-nc-40">
+        CC BY‑NC 4.0: Attribution‑NonCommercial 4.0 International
+        <a href="https://creativecommons.org/licenses/by-nc/4.0/"
+           class="help-bubble" target="_blank">
+          {{ svg.question(klass="icon filter-blue") }}
+          <div class="bubble-text">Click for CC BY-NC information.</div>
+        </a>
+      </label>
+      <p>Reuse permitted only for non‑commercial purposes.</p>
+    </div>
+
+    <div class="control">
+      <label class="radio">
+        <input type="radio" name="license" value="cc-by-nc-nd-40">
+        CC BY‑NC‑ND 4.0: Attribution‑NonCommercial‑NoDerivatives
+        <a href="https://creativecommons.org/licenses/by-nc-nd/4.0/"
+           class="help-bubble" target="_blank">
+          {{ svg.question(klass="icon filter-blue") }}
+          <div class="bubble-text">Click for CC BY‑NC‑ND information.</div>
+        </a>
+      </label>
+      <p>Non‑commercial reuse, no derivatives permitted.</p>
     </div>
   </div>
-  <div class="action-container">
-    <div class="columns">
-      <div class="column">
-        <h3>Select Licence</h3>
-        {% if form.license.errors %}<div class="notification is-danger">{% endif %}
-        <div class="field" role="group" aria-labelledby="license_options">
-          <span id="license_options" class="is-sr-only">Select a license for your submission</span>
-          {% for subfield in form.license %}
-            <div class="control">
-              <label class="radio">
-                {{subfield}}
-                {{ subfield.label.text }}
-              {% if subfield.data %}
-                  <a href="{{subfield.data}}" title="license info" class="help-bubble" target="_blank" rel="external">
-                    {{svg.question()}}
-                    <span class="is-sr-only">Information about {{ subfield.label.text }}</span>
-                    <div class="bubble-text">Click for license information (opens in a new tab)</div>
-                  </a>
-              {% endif %}
-              </label>
-            </div>
-          {% endfor %}
-        </div>
-        {% if form.license.errors %}
-          {% for error in form.license.errors %}
-            <p class="help is-danger field-error">{{ error }}</p>
-          {% endfor %}
-        {% endif %}
-        {% if form.license.errors %}</div>{% endif %}
-      </div>
 
+  <!-- CC0 -->
+  <div class="field">
+    <h3>(Non‑Governmental) Waive Rights — CC0 / Worldwide Public Domain</h3>
+    <div class="control">
+      <label class="radio">
+        <input type="radio" name="license" value="cc0">
+        CC0 1.0 Universal — Public Domain Dedication
+        <a href="https://creativecommons.org/publicdomain/zero/1.0/"
+           class="help-bubble" target="_blank">
+          {{ svg.question(klass="icon filter-blue") }}
+          <div class="bubble-text">Click for CC0 information.</div>
+        </a>
+      </label>
+      <p>You waive all copyright and related rights…</p>
+    </div>
+  </div>
+
+  <!-- US GOV -->
+  <div class="field">
+    <h3>(U.S. Government) U.S. Public Domain</h3>
+    <div class="control">
+      <label class="radio">
+        <input type="radio" name="license" value="us-pd">
+        U.S. Public Domain
+        <a class="help-bubble" href="#" target="_blank">
+          {{ svg.question(klass="icon filter-blue") }}
+          <div class="bubble-text">Information about U.S. Public Domain</div>
+        </a>
+      </label>
+      <p>For works authored by U.S. Government employees…</p>
+    </div>
+  </div>
+
+  <!-- NONE -->
+  <div class="field">
+    <h3>No Additional License</h3>
+    <div class="control">
+      <label class="radio">
+        <input type="radio" name="license" value="none" checked>
+        I do not wish to add any of these licenses.
+      </label>
     </div>
   </div>
 </form>
+
+{% include "submit/license_comparison_modal.html" %}
+
 {% endblock within_content %}
