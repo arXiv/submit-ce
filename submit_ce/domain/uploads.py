@@ -57,6 +57,9 @@ class FileStatus(BaseModel):
     ancillary: bool = False
     errors: List[FileError] = []
 
+    @property
+    def size(self):
+        return self.bytes
 
 class UploadStatus(Enum):  # type: ignore
     """The status of the upload workspace with respect to submission."""
