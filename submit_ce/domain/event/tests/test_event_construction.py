@@ -36,7 +36,6 @@ def test_has_validate():
 def test_round_trip():
     """Verify that all event classes can be converted to JSON and back."""
     basic_event_classes = list(set(Event.__subclasses__()) - set(EventWithSideEffect.__subclasses__()))
-    breakpoint()
     for klass in basic_event_classes:
         try:
             klass.model_json_schema()
