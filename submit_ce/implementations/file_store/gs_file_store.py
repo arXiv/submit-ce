@@ -117,7 +117,7 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
                      content: SubmitFile,
                      chunk_size: int) -> FileStatus:
         """Stores a file for a submisison."""
-        blob = self.bucket.blob(self._source_path(submission_id) / content.filename)
+        blob = self.bucket.blob(str(self._source_path(submission_id) / content.filename))
         blob.upload_from_file(content.stream, content_type=content.content_type)
         return self._blob_to_file_status(submission_id, blob)
 

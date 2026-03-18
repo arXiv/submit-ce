@@ -175,9 +175,6 @@ class LegacySubmitImplementation(SubmitApi):
     @override
     def upload(self, file: SubmitFile, submission_id: int, user: User, client: Client) -> Workspace:
         """Saves file to legacy FS and sets the upload package on the submission."""
-        if not isinstance(file, SubmitFile):
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-                                detail="SubmitFile Must have file, it must have a filename, content-type and steam")
         logger.debug(f"Uploaded archive MIME type: {file.content_type}.")
         if file.content_type not in acceptable_types:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
@@ -216,8 +213,8 @@ class LegacySubmitImplementation(SubmitApi):
 
         submission, event_list = self._load(session, submission_id, lock_row=self.serialize_file_operations)
 
-        self.store.store_source_package(submission.submission_id, file, 4098)
-        workspace = self.store.get_workspace(submission.submission_id, "fakeuploadid")
+        self.store.store_source_package(str(submission.submission_id), file, 4098)
+        workspace = self.store.get_workspace(str(submission.submission_id), "fakeuploadid")
 
         command = SetUploadPackage(creator=user, client=client,
                                    submission_id=submission.submission_id,

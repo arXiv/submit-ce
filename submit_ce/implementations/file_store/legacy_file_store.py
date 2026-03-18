@@ -111,13 +111,16 @@ class LegacyFileStore(SubmissionFileStore):
         files: List[FileStatus] = []
         for path in Path(self._source_path(submission_id)).rglob("*"):
             stat = path.stat()
-            files.append(FileStatus(str(path.relative_to(src_dir)),
-                                    path.name,
-                                    "unknown",
-                                    stat.st_size,
-                                    datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc),
-                                    anc_dir in path.parent.parents,
-                                    []))
+            files.append(FileStatus(path=str(path.relative_to(src_dir)),
+                                    name=path.name,
+                                    content_type="unknown",
+                                    bytes=stat.st_size,
+                                    modified=datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc),
+                                    url="http://example.com/fakeurl",
+                                    crc32c="fakecrc32",
+                                    ancillary=anc_dir in path.parent.parents,
+                                    is_versioned=False
+                                    ))
 
         return Workspace(
             identifier=submission_id,
