@@ -5,32 +5,42 @@
 
 {% block within_content %}
 <form id="form" method="POST" action="{{ url_for('ui.policy', submission_id=submission_id) }}">
-  <div class="content-container">
-    <h2>Terms and Conditions - Scroll to read before proceeding</h2>
-    <div class="policy-scroll">
-      <p>Updated Submission Agreement</p>
-    </div>
-  </div>
-
-  {# The policy id is the id of the policy statement the user has been show. If the above policy text changes the policy
-     id should change and a new entry added to the db. #}
-  {{ form.policy_id }}
-
-  <div class="action-container">
-      {{ form.csrf_token }}
-      {% if form.policy.errors %}<div class="notification is-danger">{% endif %}
-      <div class="field">
-        <div class="control">
-          <div class="checkbox">
-            {{ form.policy }}
-            {{ form.policy.label }}
-          </div>
-          {% for error in form.policy.errors %}
-            <p class="help is-danger field-error">{{ error }}</p>
-          {% endfor %}
+    <div class="content-container">
+        <h2>Terms and Conditions - Scroll to read before proceeding</h2>
+        <div class="policy-scroll">
+            <p>Updated Submission Agreement</p>
         </div>
-      </div>
-      {% if form.policy.errors %}</div>{% endif %}
-  </div>
+    </div>
+
+    {# The policy id is the id of the policy statement the user has been show. If the above policy text changes the
+    policy
+    id should change and a new entry added to the db. #}
+    {{ form.policy_id }}
+
+    <div class="action-container">
+        {{ form.csrf_token }}
+        {% if form.policy.errors %}
+        <div class="notification is-danger">{% endif %}
+            <div class="field">
+                <div class="control">
+                    <div class="checkbox">
+                        <input
+                                type="checkbox"
+                                id="{{ form.policy.id }}"
+                                name="{{ form.policy.name }}"
+                                value="y"
+                                {% if form.policy.data %}checked{% endif %}
+                        >
+                        {{ form.policy.label }}
+                    </div>
+                    {% for error in form.policy.errors %}
+                    <p class="help is-danger field-error">{{ error }}</p>
+                    {% endfor %}
+                </div>
+            </div>
+            {% if form.policy.errors %}
+        </div>
+        {% endif %}
+    </div>
 </form>
 {% endblock within_content %}
