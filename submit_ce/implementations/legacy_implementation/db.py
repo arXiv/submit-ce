@@ -86,7 +86,9 @@ def handle_operational_errors(func: F) -> F:
             logger.error('==== OperationalError: handled traceback start ====')
             logger.error(traceback.format_exc())
             logger.error('==== OperationalError: handled traceback end ====')
-            raise OperationalError('Classic database unavailable') from e
+            raise OperationalError('Classic database unavailable',
+                                   getattr(e, 'params', None),
+                                   getattr(e, 'orig', e)) from e
     # return inner
     return cast(F, inner)
 
@@ -769,60 +771,10 @@ def _get_head_idx(session: SQLAlchemySession, rows: List[Submission]) -> int:
     """bdc34: Not sure what this is"""
     raise NotImplementedError()
 
-def place_on_hold(session: SQLAlchemySession, submission_id: int) -> None:
-    """WARNING WARNING WARNING this is for testing purposes only."""
-    dbss = _get_db_submission_rows(session, submission_id)
-    i = _get_head_idx(dbss)
-    head = dbss[i]
-    if head.is_announced() or head.is_on_hold():
-        return
-    head.status = Submission.ON_HOLD
-    session.add(head)
-    session.commit()
-
-def apply_cross(session: SQLAlchemySession, submission_id: int) -> None:
-    """WARNING WARNING WARNING this is for testing purposes only."""
-
-    dbss = _get_db_submission_rows(session, submission_id)
-    i = _get_head_idx(dbss)
-    for dbs in dbss[:i]:
-        if dbs.is_crosslist():
-            dbs.status = Submission.ANNOUNCED
-            session.add(dbs)
-            session.commit()
 
 
-def reject_cross(session: SQLAlchemySession, submission_id: int) -> None:
-    """WARNING WARNING WARNING this is for testing purposes only."""
-
-    dbss = _get_db_submission_rows(submission_id)
-    i = _get_head_idx(dbss)
-    for dbs in dbss[:i]:
-        if dbs.is_crosslist():
-            dbs.status = Submission.REMOVED
-            session.add(dbs)
-            session.commit()
 
 
-def apply_withdrawal(session: SQLAlchemySession, submission_id: int) -> None:
-    """WARNING WARNING WARNING this is for testing purposes only."""
-
-    dbss = _get_db_submission_rows(submission_id)
-    i = _get_head_idx(dbss)
-    for dbs in dbss[:i]:
-        if dbs.is_withdrawal():
-            dbs.status = Submission.ANNOUNCED
-            session.add(dbs)
-            session.commit()
 
 
-def reject_withdrawal(session: SQLAlchemySession, submission_id: int) -> None:
-    """WARNING WARNING WARNING this is for testing purposes only."""
 
-    dbss = _get_db_submission_rows(submission_id)
-    i = _get_head_idx(dbss)
-    for dbs in dbss[:i]:
-        if dbs.is_withdrawal():
-            dbs.status = Submission.REMOVED
-            session.add(dbs)
-            session.commit()

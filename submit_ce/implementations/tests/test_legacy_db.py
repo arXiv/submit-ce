@@ -5,10 +5,12 @@ from sqlalchemy.orm import sessionmaker
 from unittest.mock import MagicMock, patch
 
 from submit_ce.implementations.legacy_implementation.models import Base, License, Submission, DBEvent
+from sqlalchemy.exc import OperationalError
 from submit_ce.implementations.legacy_implementation.db import (
     get_licenses,
     get_events,
     get_submission,
+    handle_operational_errors,
 )
 from submit_ce.domain.exceptions import NoSuchSubmission
 
@@ -76,3 +78,11 @@ def test_get_submission_found_but_not_create_submission(db_session):
         assert submission is not None
         assert events == []
         mock_load.assert_called()
+
+def test_handle_operational_errors():
+    @handle_operational_errors
+    def failing_func():
+        raise OperationalError("stmt", "params", Exception("orig"))
+
+    with pytest.raises(OperationalError, match="Classic database unavailable"):
+        failing_func()
