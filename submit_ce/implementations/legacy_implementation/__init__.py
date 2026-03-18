@@ -14,7 +14,7 @@ from submit_ce.api.file_store import SubmissionFileStore
 from submit_ce.domain.types import SubmitFile
 from submit_ce.domain.agent import Client, User
 from submit_ce.domain.meta import License
-from ...api.CompileService import CompileService
+from ...api.compile_service import CompileService
 
 from ..schedule import next_announcement_time, next_freeze_time
 
