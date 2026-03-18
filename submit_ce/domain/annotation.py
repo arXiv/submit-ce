@@ -6,9 +6,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Optional, Union, List, Dict, Type, Any
 
-from dataclasses import field
-
-from .agent import User, agent_factory
+from .agent import User
 
 from pydantic import BaseModel
 
@@ -18,16 +16,8 @@ class Comment(BaseModel):
     event_id: str
     creator: User
     created: datetime
-    proxy: Optional[User] = field(default=None)
-    body: str = field(default_factory=str)
-
-    def __post_init__(self) -> None:
-        """Check our agents."""
-        if self.creator and isinstance(self.creator, dict):
-            self.creator = agent_factory(**self.creator)
-        if self.proxy and isinstance(self.proxy, dict):
-            self.proxy = agent_factory(**self.proxy)
-
+    proxy: Optional[User]
+    body: str
 
 
 class ClassifierResult(BaseModel):
@@ -39,11 +29,6 @@ class Annotation(BaseModel):
     event_id: str
     creator: User
     created: datetime
-
-    def __post_init__(self) -> None:
-        """Check our agents."""
-        if self.creator and isinstance(self.creator, dict):
-            self.creator = agent_factory(**self.creator)
 
 
 class ClassifierResults(Annotation):
@@ -57,17 +42,11 @@ class ClassifierResults(Annotation):
     # event_id: str
     # creator: Agent
     # created: datetime
-    proxy: Optional[User] = field(default=None)
-    classifier: Classifiers = field(default=Classifiers.CLASSIC)
-    results: List[ClassifierResult] = field(default_factory=list)
-    annotation_type: str = field(default='ClassifierResults')
+    proxy: Optional[User]
+    classifier: Classifiers
+    results: List[ClassifierResult]
+    annotation_type: str ='ClassifierResults'
 
-    def __post_init__(self) -> None:
-        """Check our enums."""
-        super(ClassifierResults, self).__post_init__()
-        if self.proxy and isinstance(self.proxy, dict):
-            self.proxy = agent_factory(**self.proxy)
-        self.classifier = self.Classifiers(self.classifier)
 
 
 class Feature(Annotation):
@@ -86,16 +65,9 @@ class Feature(Annotation):
     # created: datetime
     # creator: Agent
     feature_type: Type
-    proxy: Optional[User] = field(default=None)
-    feature_value: Union[int, float] = field(default=0)
-    annotation_type: str = field(default='Feature')
-
-    def __post_init__(self) -> None:
-        """Check our enums."""
-        super(Feature, self).__post_init__()
-        if self.proxy and isinstance(self.proxy, dict):
-            self.proxy = agent_factory(**self.proxy)
-        self.feature_type = self.Type(self.feature_type)
+    proxy: Optional[User]
+    feature_value: Union[int, float] = 0
+    annotation_type: str = 'Feature'
 
 
 annotation_types: Dict[str, Type[Annotation]] = {
