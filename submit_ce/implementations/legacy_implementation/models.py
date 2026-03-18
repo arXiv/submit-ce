@@ -10,7 +10,6 @@ from sqlalchemy.orm import relationship, declarative_base
 from sqlalchemy.types import Integer, LargeBinary, SmallInteger, String
 from submit_ce import domain
 from submit_ce.domain.agent import PublicUser
-from submit_ce.domain.proposal import Status as ProposalStatus
 from submit_ce.domain.agent import agent_factory
 from submit_ce.domain.event.base import event_factory
 
@@ -917,12 +916,6 @@ class CategoryProposal(Base):   # type: ignore
     ACCEPTED_AS_PRIMARY = 1
     ACCEPTED_AS_SECONDARY = 2
     REJECTED = 3
-    DOMAIN_STATUS = {
-        UNRESOLVED: ProposalStatus.PENDING,
-        ACCEPTED_AS_PRIMARY: ProposalStatus.ACCEPTED,
-        ACCEPTED_AS_SECONDARY: ProposalStatus.ACCEPTED,
-        REJECTED: ProposalStatus.REJECTED
-    }
 
     proposal_id = Column(Integer, primary_key=True)
     submission_id = Column(ForeignKey('arXiv_submissions.submission_id'))
@@ -942,18 +935,18 @@ class CategoryProposal(Base):   # type: ignore
     response_comment = relationship("AdminLogEntry",
                                     foreign_keys=[response_comment_id])
 
-    def status_from_domain(self, proposal: domain.proposal.Proposal) -> int:
-        if proposal.status == domain.proposal.Status.PENDING:
-            return self.UNRESOLVED
-        elif proposal.status == domain.proposal.Status.REJECTED:
-            return self.REJECTED
-        elif proposal.status == domain.proposal.Status.ACCEPTED:
-            if proposal.proposed_event_type \
-                    is domain.event.SetPrimaryClassification:
-                return self.ACCEPTED_AS_PRIMARY
-            else:
-                return self.ACCEPTED_AS_SECONDARY
-        raise RuntimeError(f'Could not determine status: {proposal.status}')
+    # def status_from_domain(self, proposal: domain.proposal.Proposal) -> int:
+    #     if proposal.status == domain.proposal.Status.PENDING:
+    #         return self.UNRESOLVED
+    #     elif proposal.status == domain.proposal.Status.REJECTED:
+    #         return self.REJECTED
+    #     elif proposal.status == domain.proposal.Status.ACCEPTED:
+    #         if proposal.proposed_event_type \
+    #                 is domain.event.SetPrimaryClassification:
+    #             return self.ACCEPTED_AS_PRIMARY
+    #         else:
+    #             return self.ACCEPTED_AS_SECONDARY
+    #     raise RuntimeError(f'Could not determine status: {proposal.status}')
 
 
 

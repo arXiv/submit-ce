@@ -5,7 +5,7 @@ from typing import Optional, Callable
 from sqlalchemy.orm import Session as SQLAlchemySession
 
 from submit_ce.domain.agent import System
-from submit_ce.domain.event import Event, UnFinalizeSubmission, AcceptProposal, AddSecondaryClassification, AddContentFlag, AddClassifierResults
+from submit_ce.domain.event import Event, UnFinalizeSubmission, AddSecondaryClassification, AddContentFlag, AddClassifierResults
 from submit_ce.domain.flag import ContentFlag
 from submit_ce.domain.submission import Submission
 from . import models
@@ -22,22 +22,6 @@ def log_unfinalize(session: SQLAlchemySession, event: Event, before: Optional[Su
               hostname=event.client.remote_host,
               submission_id=after.submission_id,
               paper_id=after.arxiv_id)
-
-
-def log_accept_system_cross(session: SQLAlchemySession, event: Event, before: Optional[Submission],
-                            after: Submission) -> None:
-    """Create a log entry when a system cross is accepted."""
-    assert isinstance(event, AcceptProposal) and event.proposal_id is not None
-    proposal = after.proposals[event.proposal_id]
-    if type(event.creator) is System:
-        if proposal.proposed_event_type is AddSecondaryClassification:
-            category = proposal.proposed_event_data["category"]
-            admin_log(session,
-                      event.creator.name, "admin comment",
-                      f"Added {category} as secondary: {event.comment}",
-                      username="system",
-                      submission_id=after.submission_id,
-                      paper_id=after.arxiv_id)
 
 
 def log_stopwords(session: SQLAlchemySession, event: Event, before: Optional[Submission],
@@ -71,7 +55,6 @@ Callback = Callable[[SQLAlchemySession, Event, Optional[Submission], Submission]
 
 ON_EVENT: dict[type, list[Callback]] = {
     UnFinalizeSubmission: [log_unfinalize],
-    AcceptProposal: [log_accept_system_cross],
     AddContentFlag: [log_stopwords]
 }
 """Logging functions to call when an event is comitted."""

@@ -5,7 +5,6 @@ from .event import Event
 from .annotation import Comment
 from .meta import License, Classification
 from .preview import Preview
-from .proposal import Proposal
 from .submission import Submission, SubmissionMetadata, Author, Hold, \
     WithdrawalRequest, UserRequest, CrossListClassificationRequest, \
     SubmissionContent
@@ -27,7 +26,6 @@ __all__ = [
     License,
     Classification,
     Preview,
-    Proposal,
     Submission,
     SubmissionMetadata,
     Author,

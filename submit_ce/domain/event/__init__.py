@@ -65,7 +65,6 @@ from .base import event_factory as make_event
 from .file import SetUploadPackage, UpdateUploadPackage, AddFiles, RemoveFiles, RemoveAllFiles
 from .flag import AddMetadataFlag, AddUserFlag, AddContentFlag, RemoveFlag, \
     AddHold, RemoveHold
-from .proposal import AddProposal, RejectProposal, AcceptProposal
 from .request import RequestCrossList, RequestWithdrawal, ApplyRequest, \
     RejectRequest, ApproveRequest, CancelRequest
 from ..agent import System
@@ -83,7 +82,6 @@ __all__ = [
     SetUploadPackage, UpdateUploadPackage, AddFiles, RemoveFiles, RemoveAllFiles,
     AddMetadataFlag, AddUserFlag, AddContentFlag, RemoveFlag,
     AddHold, RemoveHold,
-    AddProposal, RejectProposal, AcceptProposal,
     RequestCrossList, RequestWithdrawal, ApplyRequest,
     RejectRequest, ApproveRequest, CancelRequest,
     System,

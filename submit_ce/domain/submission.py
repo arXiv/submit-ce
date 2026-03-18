@@ -343,10 +343,6 @@ class Submission:
     user_requests: Dict[str, UserRequest] = field(default_factory=dict)
     """Requests from the owner for changes that require approval."""
 
-    # proposals cause a problem with the JSON schema.
-    #proposals: Dict[str, Proposal] = field(default_factory=dict)
-    # """Proposed changes to the submission, e.g. reclassification."""
-
     processes: List[ProcessStatus] = field(default_factory=list)
     """Information about automated processes."""
 
