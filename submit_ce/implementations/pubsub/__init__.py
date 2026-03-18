@@ -7,7 +7,7 @@ from google.cloud import pubsub_v1
 
 from submit_ce.api import SubmitApi, SubmissionFileStore
 from submit_ce.domain import Event, Submission
-from submit_ce.api.CompileService import CompileService
+from submit_ce.api.compile_service import CompileService
 from submit_ce.domain.event.base import EventList
 
 

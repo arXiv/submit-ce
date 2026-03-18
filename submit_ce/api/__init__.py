@@ -3,7 +3,7 @@
 
 from .file_store import SubmissionFileStore
 from .submit import SubmitApi
-from .CompileService import CompileService
+from .compile_service import CompileService
 
 __all__ = [
     SubmissionFileStore,
