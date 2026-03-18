@@ -44,8 +44,8 @@ from arxiv.forms import csrf
 from arxiv.taxonomy.category import Category
 from arxiv.taxonomy.definitions import CATEGORIES_ACTIVE, ARCHIVES_ACTIVE
 
-from submit_ce.api import User
-from submit_ce.api.domain.meta import Classification
+from submit_ce.domain import User
+from submit_ce.domain.meta import Classification
 from submit_ce.ui.backend import endorsed_for
 from submit_ce.ui.auth import user_and_client_from_session
 from werkzeug.datastructures import MultiDict
@@ -54,8 +54,8 @@ from wtforms import (
 )
 from flask import current_app, request
 
-from submit_ce.api.domain import Submission
-from submit_ce.api.domain.event import (
+from submit_ce.domain import Submission
+from submit_ce.domain.event import (
     RemoveSecondaryClassification,
     AddSecondaryClassification,
     SetPrimaryClassification,
@@ -63,6 +63,7 @@ from submit_ce.api.domain.event import (
 from submit_ce.ui.controllers.util import OptGroupSelectField, validate_commands
 from submit_ce.ui.routes.flow_control import ready_for_next, stay_on_this_stage
 from submit_ce.ui.backend import get_submission
+
 
 Response = Tuple[Dict[str, Any], int, Dict[str, Any]]  # pylint: disable=C0103
 

@@ -3,6 +3,7 @@ Controller for verify_user action.
 
 Creates an event of type `core.events.event.ConfirmContactInformation`
 """
+
 from http import HTTPStatus as status
 from typing import Tuple, Dict, Any
 
@@ -17,12 +18,13 @@ from arxiv.forms import csrf
 from arxiv.auth.domain import Session
 
 from submit_ce.ui.auth import user_and_client_from_session
-from submit_ce.api.domain.event import ConfirmContactInformation
+from submit_ce.domain.event import ConfirmContactInformation
 
 from submit_ce.ui.backend import get_submission
 from submit_ce.ui.controllers.util import validate_command
 from submit_ce.ui.routes.flow_control import ready_for_next, stay_on_this_stage
-    
+
+
 logger = logging.getLogger(__name__)    # pylint: disable=C0103
 
 Response = Tuple[Dict[str, Any], int, Dict[str, Any]]   # pylint: disable=C0103

@@ -9,7 +9,7 @@ from arxiv.forms import csrf
 from flask import url_for, current_app
 from werkzeug.datastructures import MultiDict
 
-from submit_ce.api.domain.event import CreateSubmission
+from submit_ce.domain.event import CreateSubmission
 
 from submit_ce.ui.auth import user_and_client_from_session
 from submit_ce.ui.controllers.util import validate_command

@@ -9,6 +9,7 @@ Things that still need to be done:
   displaying it as a notification to the user).
 
 """
+
 import logging
 from collections import OrderedDict
 from http import HTTPStatus as status
@@ -16,6 +17,7 @@ from locale import strxfrm
 from pathlib import Path
 from typing import Tuple, Dict, Any, Optional, List, Union
 
+from fastapi.exceptions import HTTPException
 from flask import current_app
 from arxiv.auth.domain import Session
 from arxiv.base import alerts
@@ -30,17 +32,18 @@ from werkzeug.exceptions import (
 )
 from wtforms import BooleanField, FileField
 
-from submit_ce.api.domain import Client, User, Event
-from submit_ce.api.domain.event import SetUploadPackage, UpdateUploadPackage
-from submit_ce.api.domain.submission import SubmissionContent, Submission
-from submit_ce.api.domain.uploads import Upload, FileStatus, UploadStatus
-from submit_ce.api.exceptions import SaveError
+from submit_ce.domain import Client, User, Event
+from submit_ce.domain.event import SetUploadPackage, UpdateUploadPackage
+from submit_ce.domain.submission import SubmissionContent, Submission
+from submit_ce.domain.uploads import Workspace, FileStatus, UploadStatus
+from submit_ce.domain.exceptions import SaveError
 
 from submit_ce.ui.auth import user_and_client_from_session
 from submit_ce.ui.controllers.util import add_immediate_alert, validate_command
 from submit_ce.ui.routes.flow_control import stay_on_this_stage
 from submit_ce.ui.backend import get_submission
 from submit_ce.ui import SUPPORT
+
 
 logger = logging.getLogger(__name__)
 
@@ -126,6 +129,8 @@ def upload_files(method: str, params: MultiDict, session: Session,
             logger.warning('POSTed upload was too large', ex)
             alerts.flash_failure(Markup('There was a problem uploading your file because it exceeds '
                                         'our maximum size limit. ' + SUPPORT))
+        except HTTPException as ex:
+            alerts.flash_failure(Markup(ex.detail))
         except Exception:
             logger.exception('Problem POSTing upload')
             alerts.flash_failure(Markup('There was a problem uploading your file. ' + SUPPORT))
@@ -133,7 +138,7 @@ def upload_files(method: str, params: MultiDict, session: Session,
         return stay_on_this_stage(_get_upload(params, session, submission, rdata, token))
 
 
-def _update_submission(form: UploadForm, submission: Submission, stat: Upload,
+def _update_submission(form: UploadForm, submission: Submission, stat: Workspace,
                        submitter: User, client: Optional[Client] = None) \
         -> Optional[Submission]:
     """
@@ -214,7 +219,7 @@ def _get_upload(params: MultiDict, session: Session, submission: Submission,
     upload_id = submission.source_content.identifier
     status_data = alerts.get_hidden_alerts('_status')
     if type(status_data) is dict and status_data['identifier'] == upload_id:
-        workspace = Upload.from_dict(status_data)
+        workspace = Workspace.from_dict(status_data)
     else:
         workspace = current_app.api.get_file_store().get_workspace(submission_id=submission.submission_id,
                                                        upload_id=submission.source_content.identifier)
@@ -387,7 +392,7 @@ def _new_file(params: MultiDict, pointer: FileStorage, session: Session,
     return stay_on_this_stage((rdata, status.OK, {}))
 
 
-def _get_notifications(stat: Upload) -> List[Dict[str, str]]:
+def _get_notifications(stat: Workspace) -> List[Dict[str, str]]:
     notifications = []
     if not stat.files:   # Nothing in the upload workspace.
         return notifications

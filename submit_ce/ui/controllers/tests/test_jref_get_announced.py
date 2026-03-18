@@ -1,7 +1,7 @@
 """Tests for :mod:`submit_ce.controllers.jref` - test for announced submission."""
 import pytest
 from werkzeug.datastructures import MultiDict
-from submit_ce.api.domain.agent import InternalClient
+from submit_ce.domain.agent import InternalClient
 from submit_ce.ui.controllers.jref import jref  # jref function
 
 @pytest.mark.usefixtures("app")

@@ -6,8 +6,13 @@ from submit_ce.ui.controllers.jref import jref
 
 @pytest.mark.usefixtures("app")
 def test_jref_post_valid_but_unconfirmed(monkeypatch):
-    class Meta: doi=None; journal_ref=None; report_num=None
-    class Sub: is_announced=True; metadata=Meta()
+    class Meta:
+        doi=None
+        journal_ref=None
+        report_num=None
+    class Sub:
+        is_announced=True
+        metadata=Meta()
 
     # Patch where the controller looks these up
     monkeypatch.setattr("submit_ce.ui.controllers.jref.get_submission",
@@ -38,7 +43,8 @@ def test_jref_post_valid_but_unconfirmed(monkeypatch):
     class DummyAPI:
         def save(self, *args, **kwargs):
             raise AssertionError("save() must not be called when not confirmed")
-    class DummyApp: api = DummyAPI()
+    class DummyApp:
+        api = DummyAPI()
     monkeypatch.setattr("submit_ce.ui.controllers.jref.current_app", DummyApp())
 
     class Session: ...

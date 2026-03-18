@@ -64,8 +64,10 @@ from datetime import datetime
 from typing import Tuple, List, Optional
 
 from submit_ce.api.CompileService import CompileService
-from submit_ce.api.domain import Submission, Event, User, Client, Upload, License
-from submit_ce.api.file_store import SubmissionFileStore, SubmitFile
+from submit_ce.domain.types import SubmitFile
+from submit_ce.domain import Submission, Event, User, Client, Workspace, License
+from submit_ce.api.file_store import SubmissionFileStore
+
 
 class SubmitApi(ABC):
 
@@ -227,7 +229,7 @@ class SubmitApi(ABC):
             """
             ...
 
-    def upload(self, files: SubmitFile, submission_id: int, user: User, client: Client) -> Upload:
+    def upload(self, files: SubmitFile, submission_id: int, user: User, client: Client) -> Workspace:
         """Uploads a file to an existing submission.
 
         Saves the `file` to storage and updates the state of the submission.

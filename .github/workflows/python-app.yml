@@ -30,8 +30,10 @@ jobs:
 
     - name: Test with pytest
       run: |
-        uv run pytest --ignore=submit_ce/implementations/pubsub/tests \
-        --cov=submit_ce --cov-report=term-missing --cov-fail-under=80
+        # Much of the coverage settings are in pyproject.toml
+        uv run pytest \
+        --cov=submit_ce --cov-report=term-missing \
+        --ignore=submit_ce/implementations/pubsub
 
     - name: Ruff lint check
       run: |

@@ -103,34 +103,9 @@ dependencies = [
     "werkzeug==3.0.4",
     "wrapt==1.16.0",
     "wtforms==3.1.2",
+    "yarl>=1.23.0",
 ]
 
-[tool.black]
-line-length = 88
-exclude = '''
-(
-  /(
-      \.eggs         # exclude a few common directories in the
-    | \.git          # root of the project
-    | \.hg
-    | \.mypy_cache
-    | \.tox
-    | \.venv
-    | _build
-    | buck-out
-    | build
-    | dist
-  )/
-)
-'''
-
-[tool.isort]
-profile = "black"
-skip = [
-    '.eggs', '.git', '.hg', '.mypy_cache', '.nox', '.pants.d', '.tox',
-    '.venv', '_build', 'buck-out', 'build', 'dist', 'node_modules', 'venv',
-]
-skip_gitignore = true
 
 [tool.uv.sources]
 arxiv-base = { git = "https://github.com/arXiv/arxiv-base.git", branch = "develop" }
@@ -193,22 +168,19 @@ relative_files = true
 source = ["submit_ce"]
 omit = [
     # Ignore tests
+    "**/conftest.py",
     "**/tests/**",
     "**/test_*.py",
     "**/*_test.py",
 
     # Ignore questionable code or code in the process of reimplementation
     # Fastly code not currently used
-    "submit_ce/fastapi/test_*.py",
-    "submit_ce/fastapi/auth.py",
-    "submit_ce/fastapi/routes.py",
+    "submit_ce/fastapi",
     #
     "submit_ce/implementations/compile/common.py",
     "submit_ce/implementations/compile/compile_at_gcp.py", # migrate existing tests or eliminate script
     "submit_ce/implementations/file_store/gs_file_store.py",
     "submit_ce/implementations/file_store/legacy_file_store.py",
-    "submit_ce/implementations/legacy_implementation/**",
-    "submit_ce/implementations/pubsub/**",  # disabled - omit until feature is enabled
     "submit_ce/ui/filters/**", # need rewrite
     "submit_ce/ui/compile_sass.py",
     "submit_ce/ui/controllers/new/create.py",
@@ -222,7 +194,8 @@ omit = [
 ]
 
 [tool.coverage.report]
-
+fail_under = 80
+skip_covered = false
 omit = [
     # Ignore tests
     "**/tests/**",
@@ -232,15 +205,14 @@ omit = [
 
     # Ignore questionable code or code in the process of reimplementation
     # Fastly code not currently used
-    "submit_ce/fastapi/test_*.py",
-    "submit_ce/fastapi/auth.py",
-    "submit_ce/fastapi/routes.py",
+    "submit_ce/fastapi",
     "submit_ce/implementations/compile/common.py", # migrate existing tests or eliminate script
     "submit_ce/implementations/compile/compile_at_gcp.py", # migrate existing tests or eliminate script
     "submit_ce/implementations/file_store/legacy_file_store.py", # add tests
     "submit_ce/implementations/file_store/gs_file_store.py", # add tests
-    "submit_ce/implementations/legacy_implementation/**",
-    "submit_ce/implementations/pubsub/**",  # disabled - omit until feature is enabled
+    "submit_ce/implementations/legacy_implementation/interpolate.py",
+    "submit_ce/implementations/legacy_implementation/patch.py",
+    "submit_ce/implementations/legacy_implementation/util.py",
     "submit_ce/ui/filters/**", # need rewrite
     "submit_ce/ui/compile_sass.py",
     "submit_ce/ui/controllers/new/create.py",
@@ -267,10 +239,9 @@ exclude_also = [
     ]
 
 
-# Fail threshold (tune after you see the new baseline)
-fail_under = 80
-skip_covered = true
+[tool.ruff]
+target-version="py311"
+exclude = [
+    ".git",
+]
 
-
-[tool.pytest.ini_options]
-addopts = "-q --maxfail=1 -ra --cov=submit_ce --cov-report=term-missing"

@@ -29,9 +29,9 @@ is defined in :mod:`.classic.event`.
 See also :ref:`legacy-integration`.
 
 """
+
 import copy
 import traceback
-from _operator import attrgetter
 from datetime import datetime
 from functools import wraps
 from itertools import groupby
@@ -47,17 +47,17 @@ from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session as SQLAlchemySession
 from sqlalchemy.orm.exc import NoResultFound
 
-from submit_ce.api.domain.agent import HttpClient
+from submit_ce.domain.agent import HttpClient
+from submit_ce.domain.event.request import CancelRequest, RequestCrossList, RequestWithdrawal
 
 from . import models, interpolate, log
 from .models import DBEvent
-from .patch import patch_hold
-from ...api import domain
-from ...api.domain import Event, Submission, User, WithdrawalRequest, CrossListClassificationRequest
-from ...api.domain import License
-from ...api.domain.event import SetJournalReference, SetDOI, SetReportNumber, CreateSubmission, Rollback, \
-    RequestWithdrawal, RequestCrossList, CancelRequest
-from ...api.exceptions import NoSuchSubmission
+from .patch import patch_cross, patch_hold, patch_jref, patch_withdrawal
+from submit_ce import domain
+from submit_ce.domain import Event, Submission, User, WithdrawalRequest, CrossListClassificationRequest,  License
+from submit_ce.domain.event import SetJournalReference, SetDOI, SetReportNumber, CreateSubmission, Rollback
+from submit_ce.domain.exceptions import NoSuchSubmission
+
 
 logger = logging.getLogger(__name__)
 logger.propagate = False
@@ -86,7 +86,9 @@ def handle_operational_errors(func: F) -> F:
             logger.error('==== OperationalError: handled traceback start ====')
             logger.error(traceback.format_exc())
             logger.error('==== OperationalError: handled traceback end ====')
-            raise OperationalError('Classic database unavailable') from e
+            raise OperationalError('Classic database unavailable',
+                                   getattr(e, 'params', None),
+                                   getattr(e, 'orig', e)) from e
     # return inner
     return cast(F, inner)
 
@@ -218,6 +220,7 @@ def get_submission(session: SQLAlchemySession, submission_id: int, for_update: b
         _events
     )
     return interpolator.get_submission_state()
+
 
 
 # @retry(ClassicBaseException, tries=3, delay=1)
@@ -738,7 +741,7 @@ def load(rows: Iterable[models.Submission]) -> Optional[domain.Submission]:
 
             # We want hold information represented as a Hold on the submission
             # object, not just the status.
-            if version_submission.is_on_hold:
+            if version_submission and version_submission.is_on_hold:
                 version_submission = patch_hold(version_submission, row)
         versions.append(version_submission)
 
@@ -768,61 +771,10 @@ def _get_head_idx(session: SQLAlchemySession, rows: List[Submission]) -> int:
     """bdc34: Not sure what this is"""
     raise NotImplementedError()
 
-def place_on_hold(session: SQLAlchemySession, submission_id: int) -> None:
-    """WARNING WARNING WARNING this is for testing purposes only."""
-    dbss = _get_db_submission_rows(session, submission_id)
-    i = _get_head_idx(dbss)
-    head = dbss[i]
-    if head.is_announced() or head.is_on_hold():
-        return
-    head.status = Submission.ON_HOLD
-    session.add(head)
-    session.commit()
-
-def apply_cross(session: SQLAlchemySession, submission_id: int) -> None:
-    """WARNING WARNING WARNING this is for testing purposes only."""
-
-    dbss = _get_db_submission_rows(session, submission_id)
-    i = _get_head_idx(dbss)
-    for dbs in dbss[:i]:
-        if dbs.is_crosslist():
-            dbs.status = Submission.ANNOUNCED
-            session.add(dbs)
-            session.commit()
 
 
-def reject_cross(session: SQLAlchemySession, submission_id: int) -> None:
-    """WARNING WARNING WARNING this is for testing purposes only."""
-
-    dbss = _get_db_submission_rows(submission_id)
-    i = _get_head_idx(dbss)
-    for dbs in dbss[:i]:
-        if dbs.is_crosslist():
-            dbs.status = Submission.REMOVED
-            session.add(dbs)
-            session.commit()
 
 
-def apply_withdrawal(session: SQLAlchemySession, submission_id: int) -> None:
-    """WARNING WARNING WARNING this is for testing purposes only."""
-
-    dbss = _get_db_submission_rows(submission_id)
-    i = _get_head_idx(dbss)
-    for dbs in dbss[:i]:
-        if dbs.is_withdrawal():
-            dbs.status = Submission.ANNOUNCED
-            session.add(dbs)
-            session.commit()
 
 
-def reject_withdrawal(session: SQLAlchemySession, submission_id: int) -> None:
-    """WARNING WARNING WARNING this is for testing purposes only."""
-
-    dbss = _get_db_submission_rows(submission_id)
-    i = _get_head_idx(dbss)
-    for dbs in dbss[:i]:
-        if dbs.is_withdrawal():
-            dbs.status = Submission.REMOVED
-            session.add(dbs)
-            session.commit()
 

@@ -5,7 +5,7 @@ from pydantic_settings import BaseSettings
 from starlette.requests import Request
 
 from submit_ce.api import SubmitApi
-from submit_ce.api.domain import User
+from submit_ce.domain import User
 
 
 @dataclass

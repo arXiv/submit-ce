@@ -1,7 +1,8 @@
 """Tests for :mod:`submit_ce.controllers.unsubmit`."""
 
-from submit_ce.api.domain.submission import Submission
+from submit_ce.domain.submission import Submission
 from submit_ce.ui.tests.csrf_util import parse_csrf_token
+
 
 def test_unsubmit_no_sub(authorized_client):
     url = "/93489292/unsubmit"

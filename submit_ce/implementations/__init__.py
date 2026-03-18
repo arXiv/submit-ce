@@ -1,16 +1,17 @@
-import io
 from datetime import datetime
 from io import BytesIO
-from pathlib import Path
 from typing import Optional, Tuple, List, IO
 
 from arxiv.files import FileObj
 
-from submit_ce.api import SubmitApi, Event, Submission, License, SubmitFile, User, Client, Upload, SubmissionFileStore
+from submit_ce.api import SubmitApi, SubmissionFileStore
 from submit_ce.api.CompileService import CompileService
-from submit_ce.api.domain.event.process import Result
-from submit_ce.api.domain.process import ProcessStatus
+from submit_ce.domain.types import SubmitFile
+from submit_ce.domain import Event, Submission, License, User, Client, Workspace
+from submit_ce.domain.event.process import Result
+from submit_ce.domain.process import ProcessStatus
 from submit_ce.implementations.schedule import next_announcement_time, next_freeze_time
+
 
 class NullCompilerService(CompileService):
 
@@ -24,7 +25,7 @@ class NullCompilerService(CompileService):
 
 class NullFileStore(SubmissionFileStore):
 
-    def get_workspace(self, submission_id: str) -> Optional[Upload]:
+    def get_workspace(self, submission_id: str) -> Optional[Workspace]:
         return None
 
     def get_source_file(self, submission_id: str) -> BytesIO:
@@ -67,8 +68,8 @@ class NullImplementation(SubmitApi):
     def get_file_store(self) -> SubmissionFileStore:
         return NullFileStore()
 
-    def upload(self, files: SubmitFile, submission_id: int, user: User, client: Client) -> Upload:
-        return Upload()
+    def upload(self, files: SubmitFile, submission_id: int, user: User, client: Client) -> Workspace:
+        return Workspace()
 
     def licenses(self, active_only=True) -> List[License]:
         return []

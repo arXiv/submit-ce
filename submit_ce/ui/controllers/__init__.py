@@ -1,4 +1,7 @@
 """Request controllers for the submission UI."""
+
+#ruff: noqa: F401
+
 from http import HTTPStatus as status
 
 from arxiv.auth.domain import Session
@@ -19,7 +22,6 @@ from .new.policy import policy
 from .new.unsubmit import unsubmit
 from .new.verify_user import verify
 from .util import Response
-
 
 def submission_status(method: str, params: MultiDict, session: Session,
                       submission_id: int) -> Response:

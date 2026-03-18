@@ -3,7 +3,7 @@ from typing import Callable, Annotated
 from fastapi import Request, Depends
 from fastapi.security import OAuth2PasswordBearer
 
-from submit_ce.api.domain.agent import User, Client
+from submit_ce.domain.agent import User, Client
 
 oauth2_schema = OAuth2PasswordBearer(
     tokenUrl="token" # url to OAuth2 (relative)

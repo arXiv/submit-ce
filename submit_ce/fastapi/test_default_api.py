@@ -2,7 +2,7 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from submit_ce.api.domain import Submission
+from submit_ce.domain import Submission
 from submit_ce.fastapi.app import app
 
 @pytest.skip(allow_module_level=True) #  This test was written for a different version of the fastapi
@@ -157,8 +157,6 @@ def test_invalid_license(client: TestClient, invalid_license:str):
     assert response.status_code == 200
     sid = response.text
     assert sid is not None
-
-    no_longer_valid = "http://arxiv.org/licenses/assumed-1991-2003/"
     response = client.request("POST", f"/v1/submission/{sid}/setLicense",
                               json={"license_uri": invalid_license}, headers=headers)
     assert response.status_code == 422

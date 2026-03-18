@@ -12,18 +12,20 @@ from http import HTTPStatus as status
 from arxiv.forms import csrf
 from arxiv.auth.domain import Session
 
-from submit_ce.api.domain.agent import Client, User
 from submit_ce.ui.auth import user_and_client_from_session
 
-from submit_ce.api.domain import Submission, Event
-from submit_ce.api.domain.event import SetTitle, SetAuthors, SetAbstract, \
-    SetACMClassification, SetMSCClassification, SetComments, SetReportNumber, \
-    SetJournalReference, SetDOI
+from submit_ce.domain.agent import Client, User
+from submit_ce.domain import Submission, Event
+from submit_ce.domain.event import SetTitle, SetAuthors, SetAbstract,SetACMClassification, SetMSCClassification, SetComments, SetReportNumber, SetJournalReference, SetDOI
 
 from submit_ce.ui.backend import get_submission
 from submit_ce.ui.controllers.util import validate_command, FieldMixin
-
 from submit_ce.ui.routes.flow_control import ready_for_next, stay_on_this_stage
+
+
+
+
+
 logger = logging.getLogger(__name__)  # pylint: disable=C0103
 
 Response = Tuple[Dict[str, Any], int, Dict[str, Any]]  # pylint: disable=C0103

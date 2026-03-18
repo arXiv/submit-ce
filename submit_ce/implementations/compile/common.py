@@ -8,6 +8,7 @@ import os
 import stat
 import sys
 
+
 # The output of (La)TeX compilation
 GCP_LOG_NAME = "gcp_compile.log"
 # The genpdf response metadata

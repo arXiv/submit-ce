@@ -6,6 +6,7 @@ and the GCP compilation system. It makes a request to compile a submission
 at GCP and then installs the resulting PDF and log in the submission
 directory.
 """
+
 import os
 import sys
 import json
@@ -26,6 +27,7 @@ from .common import (GCP_LOG_NAME, GCP_RESULTS_NAME, GCP_PREFLIGHT_NAME,
                                    DEFAULT_SUBMISSION_LOG_NAME, DEFAULT_SYSTEM_LOG_NAME,
                                    DEFAULT_COMPILATION_TIMEOUT, DEFAULT_MAX_APPEND_FILES,
                                    DEFAULT_MAX_TEX_FILES, MAX_RETRIES, RETRY_DELAY)
+
 
 DEFAULT_SYSTEM_LOGS_DIR = '/users/e-prints/httpd/logs'
 
@@ -240,7 +242,6 @@ def process_metadata_and_log(submission_dir, json_log_run_data, output_files_dir
             converters = json_data.get("converters", [])
             num_conversions = len(converters)
             num_failed = sum(1 for c in converters if isinstance(c, dict) and c.get("status") == "fail")
-            num_succeeded = num_conversions - num_failed
 
             if num_failed == 0:
                 display_status = add_html_class('tex-success', "[SUCCEEDED]")

@@ -445,17 +445,6 @@ def bootstrap_db(
                 created_users.append((user, []))
             logger.info("Added %i users for testing", len(created_users))
             session.commit()
-            query = session.query(models.TapirUser, models.TapirNickname) \
-                                      .filter(models.TapirUser.user_id == 0) \
-                                      .filter(models.TapirUser.flag_approved == 1) \
-                                      .filter(models.TapirUser.flag_deleted == 0) \
-                                      .filter(models.TapirUser.flag_banned == 0) \
-                                      .filter(models.TapirNickname.flag_primary == 1) \
-                                      .filter(models.TapirNickname.flag_valid == 1) \
-                                      .filter(models.TapirNickname.user_id == models.TapirUser.user_id)
-
-            res = query.first()
-
             def user_to_jwt(db_user, auths=DEFAULT_AUTHS):
                 auth_user =  auth_domain.User(
                         user_id=str(db_user.user_id),

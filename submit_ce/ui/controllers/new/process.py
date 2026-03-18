@@ -9,13 +9,13 @@ from arxiv.base import alerts
 from arxiv.forms import csrf
 from markupsafe import Markup
 
-from submit_ce.api.domain.event.process import StartCompileSource
-from submit_ce.api.exceptions import SaveError
+from submit_ce.domain.event.process import StartCompileSource
+from submit_ce.domain.exceptions import SaveError
 from submit_ce.api.file_store import SubmissionFileStore
 from submit_ce.ui import SUPPORT
 
 from ...auth import user_and_client_from_session
-from submit_ce.api.domain.event import ConfirmSourceProcessed
+from submit_ce.domain.event import ConfirmSourceProcessed
 from arxiv.auth.domain import Session
 from werkzeug.datastructures import MultiDict
 from werkzeug.exceptions import InternalServerError, MethodNotAllowed
@@ -24,6 +24,7 @@ from wtforms import SelectField
 from ..util import validate_command
 from submit_ce.ui.routes.flow_control import ready_for_next, stay_on_this_stage
 from submit_ce.ui.backend import get_submission
+
 
 logger = logging.getLogger(__name__)
 
@@ -142,7 +143,7 @@ def compile_status(params: MultiDict, session: Session, submission_id: int,
     }
 
     file_store: SubmissionFileStore = current_app.api.get_file_store()
-    file = file_store.get_preview(submission_id)
+    file = file_store.get_preview(str(submission_id))
     if file and file.exists():
         response_data['status']="succeeded"
 
@@ -228,7 +229,7 @@ def compilation_log(params, session: Session, submission_id: int, token: str,
                     **kwargs: Any) -> Response:
     submitter, client = user_and_client_from_session(session)
     submission, submission_events = get_submission(submission_id)
-    checksum = params.get('checksum', submission.source_content.checksum)
+
     NotImplementedError()
     # try:
     #     log = Compiler.get_log(submission.source_content.identifier, checksum,

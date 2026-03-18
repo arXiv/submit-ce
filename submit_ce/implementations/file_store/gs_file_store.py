@@ -1,7 +1,6 @@
 """Implementation of `FileStore` using Google Storage (GS)."""
+
 from __future__ import annotations
-import os
-import shutil
 from datetime import datetime
 from pathlib import Path
 from typing import IO, List
@@ -10,28 +9,29 @@ import tarfile
 
 from arxiv.files import FileObj, FileDoesNotExist
 from arxiv.files.object_store import GsObjectStore
+from yarl import URL
 
-from submit_ce.api import Upload, SubmissionFileStore
-from submit_ce.api.domain.uploads import UploadLifecycleStates, UploadStatus, FileStatus
-from submit_ce.api.file_store import SubmitFile
+from submit_ce.api import SubmissionFileStore
+from submit_ce.domain import Workspace
+from submit_ce.domain.uploads import UploadLifecycleStates, UploadStatus, FileStatus
+from submit_ce.domain.types import SubmitFile
 
 from google.cloud import storage
+
+from submit_ce.implementations.file_store.file_store_mixin import FileStoreMixin
+
 
 logger = logging.getLogger(__file__)
 
 class SecurityError(RuntimeError):
     """Something suspicious happened."""
 
-class Workspace():
-    """Not yet implemented."""
-    pass
-
 
 class UserFile:
     pass
 
 
-class GsFileStore(SubmissionFileStore):
+class GsFileStore(SubmissionFileStore, FileStoreMixin):
     """Functions for storing and getting source files using Google Storage (GS)."
 
     For keys this will use a simlar "shard id" used in the legacy system. The
@@ -69,24 +69,44 @@ class GsFileStore(SubmissionFileStore):
         self.bucket = self.storage_client.bucket(self.gs_bucket)
         self.obj_store = GsObjectStore(self.bucket)
 
-    def get_workspace(self, submission_id: str, upload_id="fake") -> Upload:
+
+    def _blob_to_file_status(self, submission_id, blob) -> FileStatus:
         src_dir = self._source_path(submission_id)
         anc_dir = src_dir / "anc"
-        files: List[FileStatus] = []
-        for blob in self.obj_store.list(str(self._source_path(submission_id))):
-            path = Path(blob.name)
-            files.append(FileStatus(str(path.relative_to(src_dir)),
-                                    path.name,
-                                    "unknown",
-                                    blob.size,
-                                    blob.updated,
-                                    anc_dir in path.parent.parents,
-                                    []))
+        file_path = Path(blob.name)
+        FileStatus(path=str(file_path.relative_to(src_dir)),
+                   name=file_path.name,
+                   content_type=blob.content_type,
+                   bytes=blob.size,
+                   crc32c=blob.crc32,
+                   modified=blob.updated,
+                   ancillary=anc_dir in file_path.parent.parents,
+                   url=URL(f"gs://{blob.bucket.name}/{blob.name}#{blob.generation}"),
+                   is_versioned=True,
+                   errors=[]) # TODO not sure where to get errors from
 
-        return Upload(
+
+    def get_source_file_info(self, submission_id: str, path: Path|str) -> FileStatus:
+        blob = self.bucket.get_blob(str(self._source_path(submission_id) / path))
+        if blob is None:
+            raise FileNotFoundError(f"File {path} does not exist in source for submission {submission_id}")
+        return self._blob_to_file_status(submission_id, blob)
+
+    def delete_source_file(self, submission_id: str, path: Path|str) -> None:
+        blob = self.bucket.get_blob(str(self._source_path(submission_id) / path))
+        if blob is not None:
+            blob.delete()
+
+    def get_workspace(self, submission_id: str, upload_id="fake") -> Workspace:
+        src_dir = self._source_path(submission_id)
+        files: List[FileStatus] = []
+        for blob in self.bucket.client.list_blobs(self.bucket, prefix=src_dir):
+            files.append(self._blob_to_file_status(submission_id, blob))
+
+        return Workspace(
             identifier=submission_id,
             checksum='fake-checksum-asdf1234',
-            size=sum([file.size for file in files]),
+            size=sum([file.bytes for file in files]),
             started=datetime.now(),  # TODO bogus
             completed=datetime.now(),  # TODO bogus
             created=datetime.now(),  # TODO bogus
@@ -97,7 +117,16 @@ class GsFileStore(SubmissionFileStore):
             files=files,
             errors=[]
         )
-        
+
+    def store_source_file(self,
+                     submission_id: str,
+                     content: SubmitFile,
+                     chunk_size: int) -> FileStatus:
+        """Stores a file for a submisison."""
+        blob = self.bucket.blob(self._source_path(submission_id) / content.filename)
+        blob.upload_from_file(content.stream, content_type=content.content_type)
+        return self._blob_to_file_status(submission_id, blob)
+
     def store_source_package(self,
                      submission_id: str,
                      content: SubmitFile,
@@ -117,21 +146,13 @@ class GsFileStore(SubmissionFileStore):
                     
         return files
 
-
-
-
-
-
-
-
-
-
     def get_preview(self, submission_id: str) -> FileObj:
-        preview = self.bucket.blob(self._preview_path(submission_id))           
+        preview_path = self._preview_path(submission_id)
+        preview = self.bucket.blob(str(preview_path))
         if preview.exists():
             return preview
         else:
-            return FileDoesNotExist(path.name)
+            return FileDoesNotExist(str(preview_path))
 
     def store_preview(self, submission_id: str,
                       content: IO[bytes],
@@ -143,27 +164,27 @@ class GsFileStore(SubmissionFileStore):
         blob.reload()
         return blob.crc32c
 
-    def get_source_checksum(self, submission_id: int) -> str:
+    def get_source_checksum(self, submission_id: str) -> str:
         """Get the checksum of the source package for a submission."""
         return self._get_checksum(self._source_package_path(submission_id))
 
-    def does_source_exist(self, submission_id: int) -> bool:
+    def does_source_exist(self, submission_id: str) -> bool:
         """Determine whether source has been deposited for a submission."""
-        return os.path.exists(self._source_package_path(submission_id))
+        return self.bucket.blob(str(self._source_package_path(submission_id))).exists()
 
-    def get_preview_checksum(self, submission_id: int) -> str:
+    def get_preview_checksum(self, submission_id: str) -> str:
         """Get the checksum of the preview PDF for a submission."""        
         return self._get_checksum(self._preview_path(submission_id))
 
-    def does_preview_exist(self, submission_id: int) -> bool:
+    def does_preview_exist(self, submission_id: str) -> bool:
         """Determine whether a preview has been deposited for a submission."""
-        return self._preview_path(submission_id).exists()
+        return self.bucket.blob(str(self._preview_path(submission_id))).exists()
 
     def _get_checksum(self, path: str) -> str:
         item = self.bucket.blob(path)
         return item.crc32c
                 
-    def _submission_path(self, submission_id: int|str) -> Path:
+    def _submission_path(self, submission_id: str|str) -> Path:
         """Gets GS filesystem structure ex /{rootdir}/{first 4 digits of submission id}/{submission id}"""
         shard_dir = self.gs_prefix / Path(str(submission_id)[:4])
         return shard_dir / Path(str(submission_id))
@@ -178,37 +199,26 @@ class GsFileStore(SubmissionFileStore):
     def _preview_path(self, submission_id: int|str) -> Path:
         return self._submission_path(submission_id) / f'{submission_id}.pdf'
 
-    
-    ############################## TODO ##############################
-    def get_source_file(self, submission_id: str):  # TODO implement
-        # TODO implement get_source_file
-        pass
+    def get_source_file(self, submission_id: str, path: Path|str) -> FileObj:
+        src_path = self._source_path(submission_id) / path
+        blob = self.bucket.blob(str(src_path))
+        if blob.exists():
+            return blob
+        else:
+            return FileDoesNotExist(str(src_path))
 
-    def get_source_pacakge_checksum(self, submission_id: str) -> str:  # TODO implement
-        # TODO implement get_source_pacakge_checksum
-        pass
+    def get_source_pacakge_checksum(self, submission_id: str) -> str:
+        return self.get_source_checksum(submission_id)
 
-    def delete_workspace(self, submission_id: str):  # TODO implement
-        src_dir = self._source_path(submission_id)
-        shutil.rmtree(src_dir.absolute())
+    def delete_workspace(self, submission_id: str):
+        blobs = self.bucket.list_blobs(prefix=str(self._source_path(submission_id)))
+        for blob in blobs:
+            blob.delete()
 
 
-    def remove(self, workspace: Workspace, u_file: UserFile) -> None:  # TODO implement
-        """Remove a file."""
-        src_path = self.get_path_bare(workspace.get_path(u_file), u_file.is_persisted)
-        dest_path = self.get_path_bare(workspace.get_path(u_file.path, is_removed=True),
-                                       is_persisted=u_file.is_persisted)
-        # self._check_safe(workspace, src_path, is_ancillary=u_file.is_ancillary,
-        #                  is_persisted=u_file.is_persisted)
-        # self._check_safe(workspace, dest_path, is_removed=True,
-        #                  is_persisted=u_file.is_persisted)
-        # self._make_way(dest_path)
-        # shutil.move(src_path, dest_path)
-
-    def is_available(self) -> bool:  # TODO implement
+    def is_available(self) -> bool:
         """Determine whether the filesystem is available."""
-        # TODO implement is_available
-        pass
+        return self.bucket.exists()
 
         
     # def _check_safe(self, workspace: Workspace, full_path: str,  # TODO implement
@@ -229,3 +239,9 @@ class GsFileStore(SubmissionFileStore):
     #                                            is_persisted=is_persisted)
     #     if wks_full_path not in full_path:
     #         raise ValueError(f'Not a valid path for workspace: {full_path}')
+
+    def delete_all_source_files(self, submission_id: str) -> None:
+        pass
+
+    def delete_preview(self, submission_id: str) -> None:
+        pass

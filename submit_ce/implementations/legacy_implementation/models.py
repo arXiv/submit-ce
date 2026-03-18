@@ -4,14 +4,15 @@ from datetime import datetime
 from typing import Optional, List
 
 from pytz import UTC
-from sqlalchemy import Column, DateTime, Enum, ForeignKey, Text, text, \
-    Integer, SmallInteger, String, LargeBinary
+from sqlalchemy import Column, DateTime, Enum, ForeignKey, Text, text
 from sqlalchemy.ext.indexable import index_property
 from sqlalchemy.orm import relationship, declarative_base
+from sqlalchemy.types import Integer, LargeBinary, SmallInteger, String
+from submit_ce import domain
+from submit_ce.domain.agent import PublicUser
+from submit_ce.domain.agent import agent_factory
+from submit_ce.domain.event.base import event_factory
 
-from submit_ce.api import domain
-from submit_ce.api.domain.agent import PublicUser
-from submit_ce.api.domain.proposal import Status as ProposalStatus
 
 Base = declarative_base()
 
@@ -276,9 +277,9 @@ class Submission(Base):    # type: ignore
         # of the legacy data model. NG made a decision to change the meaning of "submission" to the
         # place that in legacy is "document". In legacy a submission is a new/wdr/cross of a document.
         if self.doc_paper_id and not self.document_id:
+            # doc = _load_document(paper_id=self.doc_paper_id)
+            # self.document_id = doc.document_id
             raise NotImplementedError()
-            doc = _load_document(paper_id=self.doc_paper_id)
-            self.document_id = doc.document_id
 
         if submission.license:
             self.license = submission.license.uri
@@ -442,7 +443,7 @@ class Submission(Base):    # type: ignore
                 )
 
     def status_from_classic(self) -> Optional[str]:
-        """Map classic status codes to `submit_ce.api.domain.Submission` status."""
+        """Map classic status codes to `submit_ce.domain.Submission` status."""
         match self.status:
             case self.WORKING:
                 return 'working'
@@ -915,12 +916,6 @@ class CategoryProposal(Base):   # type: ignore
     ACCEPTED_AS_PRIMARY = 1
     ACCEPTED_AS_SECONDARY = 2
     REJECTED = 3
-    DOMAIN_STATUS = {
-        UNRESOLVED: ProposalStatus.PENDING,
-        ACCEPTED_AS_PRIMARY: ProposalStatus.ACCEPTED,
-        ACCEPTED_AS_SECONDARY: ProposalStatus.ACCEPTED,
-        REJECTED: ProposalStatus.REJECTED
-    }
 
     proposal_id = Column(Integer, primary_key=True)
     submission_id = Column(ForeignKey('arXiv_submissions.submission_id'))
@@ -940,29 +935,21 @@ class CategoryProposal(Base):   # type: ignore
     response_comment = relationship("AdminLogEntry",
                                     foreign_keys=[response_comment_id])
 
-    def status_from_domain(self, proposal: domain.proposal.Proposal) -> int:
-        if proposal.status == domain.proposal.Status.PENDING:
-            return self.UNRESOLVED
-        elif proposal.status == domain.proposal.Status.REJECTED:
-            return self.REJECTED
-        elif proposal.status == domain.proposal.Status.ACCEPTED:
-            if proposal.proposed_event_type \
-                    is domain.event.SetPrimaryClassification:
-                return self.ACCEPTED_AS_PRIMARY
-            else:
-                return self.ACCEPTED_AS_SECONDARY
-        raise RuntimeError(f'Could not determine status: {proposal.status}')
+    # def status_from_domain(self, proposal: domain.proposal.Proposal) -> int:
+    #     if proposal.status == domain.proposal.Status.PENDING:
+    #         return self.UNRESOLVED
+    #     elif proposal.status == domain.proposal.Status.REJECTED:
+    #         return self.REJECTED
+    #     elif proposal.status == domain.proposal.Status.ACCEPTED:
+    #         if proposal.proposed_event_type \
+    #                 is domain.event.SetPrimaryClassification:
+    #             return self.ACCEPTED_AS_PRIMARY
+    #         else:
+    #             return self.ACCEPTED_AS_SECONDARY
+    #     raise RuntimeError(f'Could not determine status: {proposal.status}')
 
 
 
-# def _load_document(paper_id: str) -> Document:
-#     #with transaction() as session:
-#     document: Document = session.query(Document) \
-#         .filter(Document.paper_id == paper_id) \
-#         .one()
-#     if document is None:
-#         raise RuntimeError('No such document')
-#     return document
 
 
 # def _get_user_by_username(username: str) -> User:

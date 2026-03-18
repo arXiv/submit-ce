@@ -1,11 +1,12 @@
 """Defines submission stages and workflows supported by this UI."""
 
 from typing import List, Optional, Dict, Tuple
+import logging
 
-from arxiv.base import logging
-from submit_ce.api.domain import Submission
+from submit_ce.domain import Submission
 from dataclasses import field, dataclass
 from . import WorkflowDefinition, Stage
+
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +44,6 @@ class WorkflowProcessor:
             must_be_done = self.workflow.iter_prior(stage)
         must_be_done = list(must_be_done)
 
-        done = list([(stage, self.is_done(stage)) for stage in must_be_done])
         not_dones = [(stage.__class__.__name__, self.not_done(stage)) for stage in must_be_done]
         not_dones = [(name, prob) for name, prob in not_dones if prob]
         logger.debug("Stages not done list: %s", not_dones)
@@ -102,4 +102,3 @@ class WorkflowProcessor:
 
     def index(self, stage):
         return self.workflow.index(stage)
-

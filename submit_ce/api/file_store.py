@@ -19,28 +19,23 @@ Maybe just have an opitonal workspace_id on each call? If not set, it goes to th
 
 
 """
+from __future__ import annotations
 from abc import ABCMeta, abstractmethod
-from io import BytesIO
-from typing import Protocol, Optional, IO
+from pathlib import Path
+from typing import TYPE_CHECKING, Optional, IO
+
 
 from arxiv.files import FileObj
 
-from submit_ce.api.domain import Upload
-
-
-class SubmitFile(Protocol):
-    """Represents a file for a submission."""
-    filename: str
-    """Name of the file as provided by the client."""
-    content_type: str
-    """The MIME type of the file as provided by the client."""
-    stream: BytesIO
-    """File contents as provided by the client."""
+if TYPE_CHECKING:
+    from submit_ce.domain import Workspace
+    from submit_ce.domain.uploads import FileStatus
+    from submit_ce.domain.types import SubmitFile
 
 
 class SubmissionFileStore(metaclass=ABCMeta):
     @abstractmethod
-    def get_workspace(self, submission_id: str) -> Optional[Upload]:
+    def get_workspace(self, submission_id: str) -> Optional[Workspace]:
         """Returns information about the source package."""
         pass
 
@@ -50,7 +45,7 @@ class SubmissionFileStore(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def get_source_file(self, submission_id: str) -> BytesIO:
+    def get_source_file(self, submission_id: str, path: Path|str) -> FileObj:
         """Retrieve a file from the filesystem.
 
         path should be one of:
@@ -60,8 +55,36 @@ class SubmissionFileStore(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def store_source_package(self, submission_id: str, content: SubmitFile, chunk_size: int) -> str:
+    def get_source_file_info(self, submission_id: str, path: Path|str) -> FileStatus:
+        """Gets `FileInformation` about a file."""
+        pass
+
+    @abstractmethod
+    def delete_source_file(self, submission_id: str, path: Path|str) -> None:
+        """Deletes a file from the source package."""
+        pass
+
+    @abstractmethod
+    def delete_all_source_files(self, submission_id: str) -> None:
+        """Deletes all source files for a submission."""
+        pass
+
+    @abstractmethod
+    def store_source_file(self, submission_id: str,
+                          content: SubmitFile,
+                          chunk_size: int) -> FileStatus:
         """Store a source package for a submission.
+
+        If this is a single file, just save it. If it is a tgz of zip, unzip it.
+
+        Overwrites any existing files with the same name.
+
+        Returns information about the file."""
+        pass
+
+    @abstractmethod
+    def store_source_package(self, submission_id: str, content: SubmitFile, chunk_size: int) -> str:
+        """Store a source package (tgz, tar, gzip or zip) for a submission.
 
         Returns checksum"""
         pass
@@ -86,7 +109,12 @@ class SubmissionFileStore(metaclass=ABCMeta):
     @abstractmethod
     def get_preview(self, submission_id: str) -> FileObj:
         """Retrieve a PDF preview from the filesystem."""
-        ...
+        pass
+
+    @abstractmethod
+    def delete_preview(self, submission_id: str) -> None:
+        """Deletes the preview file."""
+        pass
 
     @abstractmethod
     def get_preview_checksum(self, submission_id: str) -> str:

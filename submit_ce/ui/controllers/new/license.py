@@ -18,10 +18,11 @@ from werkzeug.datastructures import MultiDict
 from wtforms.fields import RadioField
 from wtforms.validators import InputRequired
 
-from submit_ce.api.domain.event import SetLicense
+from submit_ce.domain.event import SetLicense
 from submit_ce.ui.controllers.util import validate_command
 from submit_ce.ui.routes.flow_control import ready_for_next, stay_on_this_stage
 from submit_ce.ui.backend import get_submission
+
 
 logger = logging.getLogger(__name__)  # pylint: disable=C0103
 

@@ -1,9 +1,10 @@
 """Tests for :mod:`submit_ce.controllers.policy`."""
 
-from submit_ce.api.domain.submission import Submission
+from submit_ce.domain.submission import Submission
 from submit_ce.ui.tests import gets
 from submit_ce.ui.tests.csrf_util import parse_csrf_token
 from http import HTTPStatus as status
+
 
 def test_policy(app, authorized_client, sub_authorship):
     sub: Submission = sub_authorship
