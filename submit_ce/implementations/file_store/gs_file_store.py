@@ -23,12 +23,6 @@ from submit_ce.implementations.file_store.file_store_mixin import FileStoreMixin
 
 logger = logging.getLogger(__file__)
 
-class SecurityError(RuntimeError):
-    """Something suspicious happened."""
-
-
-class UserFile:
-    pass
 
 
 class GsFileStore(SubmissionFileStore, FileStoreMixin):
@@ -215,30 +209,9 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
         for blob in blobs:
             blob.delete()
 
-
     def is_available(self) -> bool:
         """Determine whether the filesystem is available."""
         return self.bucket.exists()
-
-        
-    # def _check_safe(self, workspace: Workspace, full_path: str,  # TODO implement
-    #                 is_ancillary: bool = False, is_removed: bool = False,
-    #                 is_persisted: bool = False, is_system: bool = False,
-    #                 strict: bool = True) -> None:
-    #     if not strict or is_system:
-    #         wks_full_path = self.get_path_bare(workspace.base_path,
-    #                                            is_persisted=is_persisted)
-    #     elif is_ancillary:
-    #         wks_full_path = self.get_path_bare(workspace.ancillary_path,
-    #                                            is_persisted=is_persisted)
-    #     elif is_removed:
-    #         wks_full_path = self.get_path_bare(workspace.removed_path,
-    #                                            is_persisted=is_persisted)
-    #     else:
-    #         wks_full_path = self.get_path_bare(workspace.source_path,
-    #                                            is_persisted=is_persisted)
-    #     if wks_full_path not in full_path:
-    #         raise ValueError(f'Not a valid path for workspace: {full_path}')
 
     def delete_all_source_files(self, submission_id: str) -> None:
         pass
