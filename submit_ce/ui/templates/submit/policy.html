@@ -4,43 +4,54 @@
 {% block page_class %}legal-page{% endblock page_class %}
 
 {% block within_content %}
-<form id="form" method="POST" action="{{ url_for('ui.policy', submission_id=submission_id) }}">
-    <div class="content-container">
-        <h2>Terms and Conditions - Scroll to read before proceeding</h2>
-        <div class="policy-scroll">
-            <p>Updated Submission Agreement</p>
-        </div>
-    </div>
 
-    {# The policy id is the id of the policy statement the user has been show. If the above policy text changes the
-    policy
-    id should change and a new entry added to the db. #}
+<h2>Read and accept the Submission Agreement before proceeding</h2>
+
+<form id="form" method="POST" action="{{ url_for('ui.policy', submission_id=submission_id) }}">
+
+    {{ form.csrf_token }}
     {{ form.policy_id }}
 
-    <div class="action-container">
-        {{ form.csrf_token }}
-        {% if form.policy.errors %}
-        <div class="notification is-danger">{% endif %}
-            <div class="field">
-                <div class="control">
-                    <div class="checkbox">
-                        <input
-                                type="checkbox"
-                                id="{{ form.policy.id }}"
-                                name="{{ form.policy.name }}"
-                                value="y"
-                                {% if form.policy.data %}checked{% endif %}
-                        >
-                        {{ form.policy.label }}
-                    </div>
-                    {% for error in form.policy.errors %}
-                    <p class="help is-danger field-error">{{ error }}</p>
-                    {% endfor %}
-                </div>
-            </div>
-            {% if form.policy.errors %}
+    <div class="content-container">
+        <div class="policy-scroll" style="max-height:300px;">
+            <h3>arXiv Submission Agreement</h3>
+
+            <p>Submission agreement content goes here. Submission agreement content goes here. Submission agreement
+                content goes here. <p>Submission agreement content goes here. Submission agreement content goes here.
+                Submission agreement content goes here. Submission agreement content goes here. Submission agreement
+                content goes here. <p>Submission agreement content goes here. Submission agreement content goes here.
+                Submission agreement content goes here. Submission agreement content goes here. Submission agreement
+                content goes here. <p>Submission agreement content goes here. Submission agreement content goes here.
+                Submission agreement content goes here. Submission agreement content goes here. Submission agreement
+                content goes here. <p>Submission agreement content goes here. Submission agreement content goes here.
+                Submission agreement content goes here. Submission agreement content goes here. Submission agreement
+                content goes here. <p>Submission agreement content goes here. Submission agreement content goes here.
+                Submission agreement content goes here. </p>
         </div>
-        {% endif %}
     </div>
+
+    <div class="action-container">
+        <p>
+            By submitting to arXiv I acknowledge I have read and agree to the Submission
+            Agreement. To achieve arXiv's mission of research and archiving in the public
+            interest, I further understand and agree that, if accepted by arXiv.org,
+            my Work will be permanently preserved online and can be viewed or downloaded by anyone.
+        </p>
+
+        <div class="field action-container verify-user-checkbox">
+            <div class="control">
+                <div class="checkbox">
+                    {{ form.policy(value="y") }}
+                    {{ form.policy.label }}
+                </div>
+
+                {% for error in form.policy.errors %}
+                    <p class="help is-danger field-error">{{ error }}</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
 </form>
+
 {% endblock within_content %}
