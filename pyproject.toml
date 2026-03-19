@@ -175,7 +175,7 @@ omit = [
 
     # Ignore questionable code or code in the process of reimplementation
     # Fastly code not currently used
-    "submit_ce/fastapi",
+    "submit_ce/fastapi/**",
     #
     "submit_ce/implementations/compile/common.py",
     "submit_ce/implementations/compile/compile_at_gcp.py", # migrate existing tests or eliminate script

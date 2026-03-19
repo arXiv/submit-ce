@@ -1,12 +1,13 @@
 import logging
 from datetime import datetime, UTC
 from typing import Optional, List, Tuple, Callable
+from sqlalchemy.exc import OperationalError, ProgrammingError
 from typing_extensions import override
 
 from arxiv.auth.domain import User as AuthDomainUser
 from arxiv.auth.legacy.endorsements import get_endorsements
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session as SqlalchemySession, Session
 
 from submit_ce.api import SubmitApi
@@ -65,11 +66,15 @@ class LegacySubmitImplementation(SubmitApi):
         self.get_session = get_session
         self.serialize_file_operations = serialize_file_operations
         self.compiler = compiler
+        self.store = store
 
-        if store is None:
-            self.store = LegacyFileStore(root_dir="data/new")  # for testing only
-        else:
-            self.store = store
+    def __repr__(self) -> str:
+        return (f"{self.__class__.__name__}("
+                f"store={self.store.__repr__()},"
+                f"compiler={self.compiler.__repr__()},"
+                f"serialize_file_operations={self.serialize_file_operations}"
+                ")")
+
 
     @override
     def get(self, submission_id: str) -> Submission:
@@ -244,3 +249,34 @@ class LegacySubmitImplementation(SubmitApi):
     @override
     def next_freeze_time(self, reference: Optional[datetime] = None) -> datetime:
         return next_freeze_time(reference)
+
+    @override
+    def healthy(self) -> tuple[bool, str]:
+        msgs = []
+        healthy = True
+        try:
+            session = self.get_session()
+            session.execute(text("SELECT 1")).fetchone()
+            msgs.append("main api db healthy")
+        except (OperationalError, ProgrammingError) as e:
+            logger.error(f"DB connection failed due to {e}")
+            healthy=False
+            msgs.append("Main api DB opertional error")
+        except Exception as e:
+            logger.error(f"Unexpected error while testing db connection: {e}")
+            healthy=False
+            msgs.append("Main api DB failed unexpectedly")
+
+        if not self.get_compiler().is_available():
+            healthy = False
+            msgs.append("Compiler unhealthy")
+        else:
+            msgs.append("Compiler healthy")
+
+        if not self.get_file_store().is_available():
+            healthy = False
+            msgs.append("File store unhealthy")
+        else:
+            msgs.append("File store healthy")
+
+        return healthy, ", ".join(msgs)

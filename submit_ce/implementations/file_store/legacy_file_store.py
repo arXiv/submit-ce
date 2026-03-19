@@ -77,6 +77,9 @@ class LegacyFileStore(SubmissionFileStore):
         self.source_prefix = source_prefix
         """Prefix in the {root}/{shard}/{id} directory to store the source."""
 
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}(root_dir={self.root_dir})"
+
     def get_source_file(self, submission_id: str, path: Path | str) -> FileObj:
         src_path = self._source_path(submission_id) / path
         if src_path.exists():

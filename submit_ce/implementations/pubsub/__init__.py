@@ -1,5 +1,6 @@
 """submit-ce API implementation that sends pubsub events."""
 
+from datetime import datetime
 from typing import Optional, Tuple, List
 import logging
 
@@ -8,7 +9,11 @@ from google.cloud import pubsub_v1
 from submit_ce.api import SubmitApi, SubmissionFileStore
 from submit_ce.domain import Event, Submission
 from submit_ce.api.compile_service import CompileService
+from submit_ce.domain.agent import Client, User
 from submit_ce.domain.event.base import EventList
+from submit_ce.domain.meta import License
+from submit_ce.domain.types import SubmitFile
+from submit_ce.domain.uploads import Workspace
 
 
 logger = logging.getLogger(__name__)
@@ -46,6 +51,24 @@ class PubsubEventSubmitImplementation(SubmitApi):
 
     def get_compiler(self) -> CompileService:
         return self.inner_api.get_compiler()
+
+    def categories_for_user(self, user_id: str) -> list[str]:
+        return self.inner_api.categories_for_user(user_id)
+
+    def licenses(self, active_only=True) -> List[License]:
+        return self.inner_api.licenses(active_only)
+
+    def next_announcement_time(self, reference: Optional[datetime] = None) -> datetime:
+        return self.inner_api.next_announcement_time(reference)
+
+    def next_freeze_time(self, reference: Optional[datetime] = None) -> datetime:
+        return self.inner_api.next_freeze_time(reference)
+
+    def healthy(self) -> tuple[bool,str]:
+        return self.inner_api.healthy()
+
+    def upload(self, files: SubmitFile, submission_id: int, user: User, client: Client) -> Workspace:
+        return self.inner_api.upload(files, submission_id, user, client)
 
     @staticmethod
     def serialize_msg(*events: Event) -> bytes:

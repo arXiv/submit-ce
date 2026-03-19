@@ -55,14 +55,20 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
         """Prefix in the {gs_bucket}/{shard}/{id} directory to store the source."""
         self.source_prefix = source_prefix
         """Prefix for source files"""
-        
+
         if self.gs_prefix.startswith("/"):
             self.gs_prefix = self.gs_prefix[1:]
-            
+
         self.storage_client = storage.Client()
         self.bucket = self.storage_client.bucket(self.gs_bucket)
         self.obj_store = GsObjectStore(self.bucket)
 
+    def __repr__(self) -> str:
+        return (f"{self.__class__.__name__}("
+                f"gs_bucket={self.gs_bucket},"
+                f"gs_prefix={self.gs_prefix},"
+                f"source_prefix={self.source_prefix},"
+                )
 
     def _blob_to_file_status(self, submission_id, blob) -> FileStatus:
         src_dir = self._source_path(submission_id)
@@ -128,16 +134,16 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
         """Store a source package for a submission."""
         files=[]
         src_dir = self._source_path(submission_id)
-        
+
         with tarfile.open(fileobj=content.stream, mode="r:*") as tar:
             for member in tar.getmembers():
                 if not member.isfile():
-                    continue                
+                    continue
                 with tar.extractfile(member) as file:
                     blob = self.bucket.blob(str(src_dir / member.name))
                     blob.upload_from_file(file, size=member.size)
                     files.append( {"file":member.name, "bytes": member.size})
-                    
+
         return files
 
     def get_preview(self, submission_id: str) -> FileObj:
@@ -167,7 +173,7 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
         return self.bucket.blob(str(self._source_package_path(submission_id))).exists()
 
     def get_preview_checksum(self, submission_id: str) -> str:
-        """Get the checksum of the preview PDF for a submission."""        
+        """Get the checksum of the preview PDF for a submission."""
         return self._get_checksum(self._preview_path(submission_id))
 
     def does_preview_exist(self, submission_id: str) -> bool:
@@ -177,7 +183,7 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
     def _get_checksum(self, path: str) -> str:
         item = self.bucket.blob(path)
         return item.crc32c
-                
+
     def _submission_path(self, submission_id: str|str) -> Path:
         """Gets GS filesystem structure ex /{rootdir}/{first 4 digits of submission id}/{submission id}"""
         shard_dir = self.gs_prefix / Path(str(submission_id)[:4])
@@ -211,7 +217,12 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
 
     def is_available(self) -> bool:
         """Determine whether the filesystem is available."""
-        return self.bucket.exists()
+        try:
+            return self.bucket.exists()
+        except Exception as ex:
+            logger.error(f"Could not check if bucket exists: {ex}")
+            return False
+
 
     def delete_all_source_files(self, submission_id: str) -> None:
         pass
