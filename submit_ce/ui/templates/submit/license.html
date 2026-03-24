@@ -139,7 +139,7 @@ Select a License
 
         <div class="control">
             <label class="radio">
-                <input type="radio" name="license" value="cc-by-sa-40">
+                <input type="radio" name="license" value="https://creativecommons.org/licenses/by-sa/4.0/">
                 CC BY‑SA 4.0: Attribution‑ShareAlike 4.0 International
                 <a href="https://creativecommons.org/licenses/by-sa/4.0/"
                    class="help-bubble" target="_blank">
@@ -155,7 +155,7 @@ Select a License
 
         <div class="control">
             <label class="radio">
-                <input type="radio" name="license" value="cc-by-nc-40">
+                <input type="radio" name="license" value="https://creativecommons.org/licenses/by-nc/4.0/">
                 CC BY‑NC 4.0: Attribution‑NonCommercial 4.0 International
                 <a href="https://creativecommons.org/licenses/by-nc/4.0/"
                    class="help-bubble" target="_blank">
@@ -170,7 +170,7 @@ Select a License
 
         <div class="control">
             <label class="radio">
-                <input type="radio" name="license" value="cc-by-nc-nd-40">
+                <input type="radio" name="license" value="https://creativecommons.org/licenses/by-nc-nd/4.0/">
                 CC BY‑NC‑ND 4.0: Attribution‑NonCommercial‑NoDerivatives
                 <a href="https://creativecommons.org/licenses/by-nc-nd/4.0/"
                    class="help-bubble" target="_blank">
@@ -190,7 +190,7 @@ Select a License
         <h3>(Non‑Governmental) Waive Rights — CC0 / Worldwide Public Domain</h3>
         <div class="control">
             <label class="radio">
-                <input type="radio" name="license" value="cc0">
+                <input type="radio" name="license" value="https://creativecommons.org/publicdomain/zero/1.0/">
                 CC0 1.0 Universal — Public Domain Dedication
                 <a href="https://creativecommons.org/publicdomain/zero/1.0/"
                    class="help-bubble" target="_blank">
@@ -257,24 +257,3 @@ Select a License
 {% include "submit/license_comparison_modal.html" %}
 
 {% endblock within_content %}
-
-<style>
-
-    /* Remove shading from sidebar ONLY on this page */
-    .info-container {
-      background: transparent !important;
-      border-left: none !important;
-      box-shadow: none !important;
-    }
-
-    /* Add blue mockup-style shaded background around license area */
-    #main-page-content .action-container {
-      background: #F5FAFE !important;   /* mockup light blue */
-      border: 1px solid #d7e7f3 !important;
-      border-radius: 6px;
-      padding: 1.5rem !important;
-      margin-top: 1.25rem;
-      box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-    }
-
-</style>
