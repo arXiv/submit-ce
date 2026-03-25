@@ -218,7 +218,7 @@ def _get_upload(params: MultiDict, session: Session, submission: Submission,
     if type(status_data) is dict and status_data['identifier'] == upload_id:
         workspace = Workspace.from_dict(status_data)
     else:
-        workspace = current_app.api.get_file_store().get_workspace(submission_id=submission.submission_id,
+        workspace = current_app.api.get_file_store().get_workspace(submission_id=str(submission.submission_id),
                                                        upload_id=submission.source_content.identifier)
     rdata.update({'status': workspace})
 

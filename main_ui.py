@@ -1,8 +1,13 @@
 """Simple file to run submit ui in debug mode.
 
-Run as `python main.py`"""
+Run as `python main_ui.py`"""
 import os
 from submit_ce.ui.factory import create_web_app
+
+# This can make the development log smaller, by
+# removing log messages for GET /static/*
+#import logging
+#logging.getLogger("werkzeug").setLevel(logging.WARNING)
 
 if __name__ == "__main__":
     os.environ['TEMPLATES_AUTO_RELOAD'] = "1"

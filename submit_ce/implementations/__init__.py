@@ -34,7 +34,7 @@ class NullFileStore(SubmissionFileStore):
     def store_source_package(self, submission_id: str, content: SubmitFile, chunk_size) -> str:
         "Not stored, this is from a NullFileStore"
 
-    def get_source_pacakge_checksum(self, submission_id: str) -> str:
+    def get_source_package_checksum(self, submission_id: str) -> str:
         ""
 
     def does_source_exist(self, submission_id: str) -> bool:

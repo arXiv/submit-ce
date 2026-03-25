@@ -224,7 +224,7 @@ class LegacySubmitImplementation(SubmitApi):
         command = SetUploadPackage(creator=user, client=client,
                                    submission_id=submission.submission_id,
                                    identifier=str(workspace.identifier),
-                                   checksum=f"BOGUS {__file__}",
+                                   checksum=f"bogus-legacy_implementation/__init__.py",
                                    uncompressed_size=workspace.size,
                                    compressed_size=workspace.compressed_size or 0,
                                    source_format=workspace.source_format,
