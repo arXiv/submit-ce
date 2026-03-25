@@ -90,7 +90,7 @@ class SubmissionFileStore(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def get_source_pacakge_checksum(self, submission_id: str) -> str:
+    def get_source_package_checksum(self, submission_id: str) -> str:
         """Get the checksum of the source package for a submission."""
         pass
 

@@ -98,7 +98,6 @@ class ReviewFiles(Stage):
     """The user is asked to review files for their submission with input
        from preflight analysis.
     """
-    #endpoint = 'review_files'
     endpoint = 'review_files'
     label = 'review your submission files'
     title = "Review Files"

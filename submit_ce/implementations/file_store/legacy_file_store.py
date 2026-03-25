@@ -93,7 +93,7 @@ class LegacyFileStore(SubmissionFileStore):
     def store_source_file(self, submission_id: str, content: SubmitFile, chunk_size: int) -> FileStatus:
         return super().store_source_file(submission_id, content, chunk_size)
 
-    def get_source_pacakge_checksum(self, submission_id: str) -> str:
+    def get_source_package_checksum(self, submission_id: str) -> str:
         pass
 
     def get_preview(self, submission_id: str) -> FileObj:
@@ -206,7 +206,7 @@ class LegacyFileStore(SubmissionFileStore):
         return self._preview_path(submission_id).exists()
 
     def _well_formed_submission_id(self, submission_id: str) -> None:
-        """Checkt that submission_id is okay."""
+        """Check that submission_id is okay."""
         if len(submission_id) > 32 or not re.match(r'^\d+', submission_id):
             raise SecurityError('Submission ID is improperly typed. This is a security concern.')
 
