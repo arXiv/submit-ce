@@ -44,7 +44,8 @@ def license(method: str, params: MultiDict, session: Session,
     response_data = {
         'submission_id': submission_id,
         'form': form,
-        'submission': submission
+        'submission': submission,
+        'license_data': LICENSES
     }
     if method == "GET":
         return stay_on_this_stage((response_data, status.OK, {}))
