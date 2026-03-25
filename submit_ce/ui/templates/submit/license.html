@@ -118,140 +118,119 @@ Select a License
       action="{{ url_for('ui.license', submission_id=submission_id) }}">
     {{ form.csrf_token }}
 
-    <!-- CREATIVE COMMONS LICENSES -->
+    {# GROUP DEFINITIONS – these match backend LICENSES URIs #}
+    {% set CC_URIS = [
+    'http://creativecommons.org/licenses/by/4.0/',
+    'http://creativecommons.org/licenses/by-sa/4.0/',
+    'http://creativecommons.org/licenses/by-nc-sa/4.0/',
+    'http://creativecommons.org/licenses/by-nc-nd/4.0/',
+    ] %}
+
+    {% set CC0_URI = 'http://creativecommons.org/publicdomain/zero/1.0/' %}
+    {% set NONEX_URI = 'http://arxiv.org/licenses/nonexclusive-distrib/1.0/' %}
+    {% set USPD_URI = 'http://arxiv.org/licenses/us-public-domain/' %} {# Only if you define this in LICENSES #}
+    {% set NONE_URI = 'none' %}
+
+
+    {# CREATIVE COMMONS GROUP #}
     <div class="field">
         <h3>Creative Commons Licenses</h3>
 
+        {% for value, label in form.license.choices %}
+        {% if value in CC_URIS %}
         <div class="control">
             <label class="radio">
-                <input type="radio" name="license"
-                       value="http://creativecommons.org/licenses/by/4.0/" required>
-                CC BY 4.0: Attribution 4.0 International
-                <a href="http://creativecommons.org/licenses/by/4.0/"
-                   class="help-bubble" target="_blank">
-                    {{ svg.question(klass="icon filter-blue") }}
-                    <div class="bubble-text">Click for CC BY 4.0 license information.</div>
-                </a>
+                <input type="radio"
+                       name="{{ form.license.name }}"
+                       value="{{ value }}"
+                       {% if form.license.data== value %}checked{% endif %}>
+                {{ label }}
             </label>
-            <p>This is the least restrictive license. By selecting this license, you will have given permission to
-                anyone to share, reuse, remix, or adapt your article as long as they formally attribute it to you.</p>
+            <p>{{ license_data[value]["note"] }}</p>
         </div>
-
-        <div class="control">
-            <label class="radio">
-                <input type="radio" name="license" value="https://creativecommons.org/licenses/by-sa/4.0/">
-                CC BY‑SA 4.0: Attribution‑ShareAlike 4.0 International
-                <a href="https://creativecommons.org/licenses/by-sa/4.0/"
-                   class="help-bubble" target="_blank">
-                    {{ svg.question(klass="icon filter-blue") }}
-                    <div class="bubble-text">Click for CC BY-SA information.</div>
-                </a>
-            </label>
-            <p>By selecting this license, you will have given permission to anyone to share, reuse, remix, or adapt
-                your article as long as they formally attribute it to you and they distribute any remixed or adapted
-                version of it under the same license. Exceptions for different licenses can be made with your
-                permission.</p>
-        </div>
-
-        <div class="control">
-            <label class="radio">
-                <input type="radio" name="license" value="https://creativecommons.org/licenses/by-nc/4.0/">
-                CC BY‑NC 4.0: Attribution‑NonCommercial 4.0 International
-                <a href="https://creativecommons.org/licenses/by-nc/4.0/"
-                   class="help-bubble" target="_blank">
-                    {{ svg.question(klass="icon filter-blue") }}
-                    <div class="bubble-text">Click for CC BY-NC information.</div>
-                </a>
-            </label>
-            <p>By selecting this license, you will have given permission to anyone to share, reuse, remix, or
-                adapt your article as long as it is not for commercial purposes and they formally attribute* it
-                to you. Exceptions for commercial use can be made with your permission.</p>
-        </div>
-
-        <div class="control">
-            <label class="radio">
-                <input type="radio" name="license" value="https://creativecommons.org/licenses/by-nc-nd/4.0/">
-                CC BY‑NC‑ND 4.0: Attribution‑NonCommercial‑NoDerivatives
-                <a href="https://creativecommons.org/licenses/by-nc-nd/4.0/"
-                   class="help-bubble" target="_blank">
-                    {{ svg.question(klass="icon filter-blue") }}
-                    <div class="bubble-text">Click for CC BY‑NC‑ND information.</div>
-                </a>
-            </label>
-            <p>By selecting this license, you will have given permission to anyone to share or reuse your article as
-                long as it is not for commercial purposes, and they formally attribute the article to you and do not
-                distribute any remixed or adapted version of it. Exceptions for remixing, adapting, or commercial use
-                can be made with your permission.</p>
-        </div>
+        {% endif %}
+        {% endfor %}
     </div>
 
-    <!-- CC0 -->
+    {# -------------------------------------------------------------- #}
+    {# NON-GOVERNMENTAL (CC0) #}
+    {# -------------------------------------------------------------- #}
+
     <div class="field">
         <h3>(Non‑Governmental) Waive Rights — CC0 / Worldwide Public Domain</h3>
+
         <div class="control">
             <label class="radio">
-                <input type="radio" name="license" value="https://creativecommons.org/publicdomain/zero/1.0/">
+                <input type="radio"
+                       name="{{ form.license.name }}"
+                       value="{{ CC0_URI }}"
+                       {% if form.license.data== CC0_URI %}checked{% endif %}>
                 CC0 1.0 Universal — Public Domain Dedication
-                <a href="https://creativecommons.org/publicdomain/zero/1.0/"
-                   class="help-bubble" target="_blank">
-                    {{ svg.question(klass="icon filter-blue") }}
-                    <div class="bubble-text">Click for CC0 information.</div>
-                </a>
             </label>
-            <p>You dedicate your article to the public domain by waiving any rights worldwide under copyright law.
-                Anyone can copy, modify, and distribute your article, even for commercial purposes, all without
-                asking permission or attribution.</p>
+            <p>
+                You dedicate your article to the public domain by waiving any rights worldwide under
+                copyright law. Anyone can copy, modify, and distribute your article, even for
+                commercial purposes, all without asking permission or attribution.
+            </p>
         </div>
     </div>
 
-    <!-- U.S. Government Public Domain -->
+    {# -------------------------------------------------------------- #}
+    {# U.S. GOVERNMENT PUBLIC DOMAIN #}
+    {# (Only works once you add USPD_URI to LICENSES) #}
+    {# -------------------------------------------------------------- #}
+
     <div class="field">
         <h3>(U.S. Government) U.S. Public Domain</h3>
+
         <div class="control">
             <label class="radio">
-                <input type="radio" name="license" value="us-pd">
+                <input type="radio"
+                       name="{{ form.license.name }}"
+                       value="{{ USPD_URI }}"
+                       {% if form.license.data== USPD_URI %}checked{% endif %}>
                 U.S. Public Domain
-                <a class="help-bubble" href="#" target="_blank">
-                    {{ svg.question(klass="icon filter-blue") }}
-                    <div class="bubble-text">Information about U.S. Public Domain</div>
-                </a>
             </label>
 
-            <!-- Collapsible description -->
             <details class="license-details">
                 <summary>display description</summary>
-
                 <p>
-                    The article is a work of the U.S. government created by government
-                    employees within the scope of their employment or under a contract
-                    assigning rights to the U.S. government. Government works are by default
-                    in the U.S. Public Domain and not subject to domestic copyright
-                    protection under 17 U.S.C. § 105.
-                    Within the United States, anyone can copy, modify, and distribute the
-                    article, even for commercial purposes, all without asking permission.
-                    The U.S. government reserves the right to enforce its copyright
-                    elsewhere.
-                    The default U.S. Public Domain status of U.S. Government Works is
-                    limited to the jurisdiction of the United States. If an agency is able
-                    to expand the public domain status to apply internationally for works
-                    that they have produced, they may instead choose the worldwide public
-                    domain dedication (CC0) by selecting the CC0 option above.
+                    The article is a work of the U.S. government created by government employees within
+                    the scope of their employment or under a contract assigning rights to the U.S.
+                    government. Government works are by default in the U.S. Public Domain and not subject
+                    to domestic copyright protection under 17 U.S.C. § 105.
                 </p>
-
+                <p>
+                    Within the United States, anyone can copy, modify, and distribute the article, even
+                    for commercial purposes, all without asking permission. The U.S. government reserves
+                    the right to enforce its copyright elsewhere.
+                </p>
+                <p>
+                    The default U.S. Public Domain status is limited to the U.S. If an agency can expand
+                    the public domain status internationally, they may use the CC0 option above.
+                </p>
             </details>
         </div>
     </div>
 
-    <!-- NONE -->
+    {# -------------------------------------------------------------- #}
+    {# NO ADDITIONAL LICENSE #}
+    {# -------------------------------------------------------------- #}
+
     <div class="field">
         <h3>No Additional License</h3>
+
         <div class="control">
             <label class="radio">
-                <input type="radio" name="license" value="none" checked>
+                <input type="radio"
+                       name="{{ form.license.name }}"
+                       value="{{ NONE_URI }}"
+                       {% if form.license.data== NONE_URI %}checked{% endif %}>
                 I do not wish to add any of these licenses.
             </label>
         </div>
     </div>
+
 </form>
 
 {% include "submit/license_comparison_modal.html" %}
