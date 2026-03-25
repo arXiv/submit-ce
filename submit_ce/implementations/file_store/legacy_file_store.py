@@ -207,7 +207,7 @@ class LegacyFileStore(SubmissionFileStore):
 
     def _well_formed_submission_id(self, submission_id: str) -> None:
         """Checkt that submission_id is okay."""
-        if len(str(submission_id)) > 32 or not re.match(r'^\d+', submission_id):
+        if len(str(submission_id)) > 32 or not re.match(r'^\d+', str(submission_id)):
             raise SecurityError('Submission ID is improperly typed. This is a security concern.')
 
     def _submission_path(self, submission_id: str) -> Path:
