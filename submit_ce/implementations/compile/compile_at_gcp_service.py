@@ -1,5 +1,8 @@
 from datetime import timezone, datetime
 from typing import Optional
+from venv import logger
+import httpx
+from typing_extensions import override
 from zoneinfo import ZoneInfo
 
 from arxiv.base.config import ARXIV_BUSINESS_TZ
@@ -37,6 +40,14 @@ class GcpCompileAtLegacy(CompileService):
         self.max_tex_files = max_tex_files
         self.timeout = timeout
         self.timezone = ARXIV_BUSINESS_TZ
+
+    def __repr__(self) -> str:
+        return (f"{self.__class__.__name__}("
+                f"tex2pdf_url={self.tex2pdf_url},"
+                f"base_submissions_dir={self.base_submissions_dir}"
+                )
+
+    @override
     def start_compile(self, submission: Submission,
                       user: User, client: Client,
                       api: SubmitApi,
@@ -78,10 +89,16 @@ class GcpCompileAtLegacy(CompileService):
             duration_sec = json_data["total_time"],
             utc_start_time=utc_start_time,
             url=f"FAKE_URL_{__file__}"
-
         )
 
-
-
+    @override
     def check(self, process_id: str, user: User, client: Client) -> ProcessStatus:
         pass
+
+    @override
+    def is_available(self) -> bool:
+        resp = httpx.get(self.tex2pdf_url)
+        if resp.status_code == 200:
+            return True
+        logger.error(f"Healthcheck failed: service at '{self.tex2pdf_url}' responded with status {resp.status_code}")
+        return False

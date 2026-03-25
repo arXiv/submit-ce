@@ -229,6 +229,7 @@ class SubmitApi(ABC):
             """
             ...
 
+    @abstractmethod
     def upload(self, files: SubmitFile, submission_id: int, user: User, client: Client) -> Workspace:
         """Uploads a file to an existing submission.
 
@@ -247,6 +248,7 @@ class SubmitApi(ABC):
         # TODO Make this just an Event+save()
         ...
 
+    @abstractmethod
     def licenses(self, active_only=True) -> List[License]:
         """Gets a list of licenses that submitters can be set on the contents of submissions.
 
@@ -258,6 +260,7 @@ class SubmitApi(ABC):
         """
         ...
 
+    @abstractmethod
     def categories_for_user(self, user_id: str) -> list[str]:
         """Gets list of categories the user may submit to.
 
@@ -268,6 +271,7 @@ class SubmitApi(ABC):
         """
         ...
 
+    @abstractmethod
     def next_announcement_time(self, reference: Optional[datetime] = None) -> datetime:
         """Gets the next announce time. If `reference` is not passed, it does
         the next announce time from now.
@@ -280,7 +284,9 @@ class SubmitApi(ABC):
         Returns
         --------
         Time of next announce always TZ aware"""
+        ...
 
+    @abstractmethod
     def next_freeze_time(self, reference: Optional[datetime] = None) -> datetime:
         """Gets the next freeze time. If `reference` is not passed, it does
         the next freeze time from now.
@@ -293,3 +299,20 @@ class SubmitApi(ABC):
         Returns
         --------
         Time of next freeze always TZ aware"""
+        ...
+
+    @abstractmethod
+    def healthy(self)-> Tuple[bool, str]:
+        """Return a message about this api that is safe to show the general
+        public, raise a :class:`RuntimeError` if api is not configured correctly
+        or services it depends on are not working.
+
+        Returns
+        -------
+            bool
+                `True` if this and all dependent services are healthy.
+            str
+                A message about the api that is safe to show to the general public.
+
+        """
+        ...

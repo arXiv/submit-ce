@@ -77,6 +77,9 @@ class LegacyFileStore(SubmissionFileStore):
         self.source_prefix = source_prefix
         """Prefix in the {root}/{shard}/{id} directory to store the source."""
 
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}(root_dir={self.root_dir})"
+
     def get_source_file(self, submission_id: str, path: Path | str) -> FileObj:
         src_path = self._source_path(submission_id) / path
         if src_path.exists():
@@ -111,13 +114,16 @@ class LegacyFileStore(SubmissionFileStore):
         files: List[FileStatus] = []
         for path in Path(self._source_path(submission_id)).rglob("*"):
             stat = path.stat()
-            files.append(FileStatus(str(path.relative_to(src_dir)),
-                                    path.name,
-                                    "unknown",
-                                    stat.st_size,
-                                    datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc),
-                                    anc_dir in path.parent.parents,
-                                    []))
+            files.append(FileStatus(path=str(path.relative_to(src_dir)),
+                                    name=path.name,
+                                    content_type="unknown",
+                                    bytes=stat.st_size,
+                                    modified=datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc),
+                                    url="http://example.com/fakeurl",
+                                    crc32c="fakecrc32",
+                                    ancillary=anc_dir in path.parent.parents,
+                                    is_versioned=False
+                                    ))
 
         return Workspace(
             identifier=submission_id,

@@ -32,7 +32,7 @@ def create_web_app(config: Optional[dict]=None) -> Flask:
     app.config.from_object(settings)
 
     app.config['TEMPLATES_AUTO_RELOAD']=True
-    # Put the SubmitApi on the flask app
+
     app.api = backend.config_backend_api(settings)
 
     db.init(settings)

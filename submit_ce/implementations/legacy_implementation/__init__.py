@@ -1,12 +1,13 @@
 import logging
 from datetime import datetime, UTC
 from typing import Optional, List, Tuple, Callable
+from sqlalchemy.exc import OperationalError, ProgrammingError
 from typing_extensions import override
 
 from arxiv.auth.domain import User as AuthDomainUser
 from arxiv.auth.legacy.endorsements import get_endorsements
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session as SqlalchemySession, Session
 
 from submit_ce.api import SubmitApi
@@ -65,11 +66,15 @@ class LegacySubmitImplementation(SubmitApi):
         self.get_session = get_session
         self.serialize_file_operations = serialize_file_operations
         self.compiler = compiler
+        self.store = store
 
-        if store is None:
-            self.store = LegacyFileStore(root_dir="data/new")  # for testing only
-        else:
-            self.store = store
+    def __repr__(self) -> str:
+        return (f"{self.__class__.__name__}("
+                f"store={self.store.__repr__()},"
+                f"compiler={self.compiler.__repr__()},"
+                f"serialize_file_operations={self.serialize_file_operations}"
+                ")")
+
 
     @override
     def get(self, submission_id: str) -> Submission:
@@ -175,9 +180,6 @@ class LegacySubmitImplementation(SubmitApi):
     @override
     def upload(self, file: SubmitFile, submission_id: int, user: User, client: Client) -> Workspace:
         """Saves file to legacy FS and sets the upload package on the submission."""
-        if not isinstance(file, SubmitFile):
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-                                detail="SubmitFile Must have file, it must have a filename, content-type and steam")
         logger.debug(f"Uploaded archive MIME type: {file.content_type}.")
         if file.content_type not in acceptable_types:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
@@ -216,8 +218,8 @@ class LegacySubmitImplementation(SubmitApi):
 
         submission, event_list = self._load(session, submission_id, lock_row=self.serialize_file_operations)
 
-        self.store.store_source_package(submission.submission_id, file, 4098)
-        workspace = self.store.get_workspace(submission.submission_id, "fakeuploadid")
+        self.store.store_source_package(str(submission.submission_id), file, 4098)
+        workspace = self.store.get_workspace(str(submission.submission_id), "fakeuploadid")
 
         command = SetUploadPackage(creator=user, client=client,
                                    submission_id=submission.submission_id,
@@ -247,3 +249,34 @@ class LegacySubmitImplementation(SubmitApi):
     @override
     def next_freeze_time(self, reference: Optional[datetime] = None) -> datetime:
         return next_freeze_time(reference)
+
+    @override
+    def healthy(self) -> tuple[bool, str]:
+        msgs = []
+        healthy = True
+        try:
+            session = self.get_session()
+            session.execute(text("SELECT 1")).fetchone()
+            msgs.append("main api db healthy")
+        except (OperationalError, ProgrammingError) as e:
+            logger.error(f"DB connection failed due to {e}")
+            healthy=False
+            msgs.append("Main api DB opertional error")
+        except Exception as e:
+            logger.error(f"Unexpected error while testing db connection: {e}")
+            healthy=False
+            msgs.append("Main api DB failed unexpectedly")
+
+        if not self.get_compiler().is_available():
+            healthy = False
+            msgs.append("Compiler unhealthy")
+        else:
+            msgs.append("Compiler healthy")
+
+        if not self.get_file_store().is_available():
+            healthy = False
+            msgs.append("File store unhealthy")
+        else:
+            msgs.append("File store healthy")
+
+        return healthy, ", ".join(msgs)

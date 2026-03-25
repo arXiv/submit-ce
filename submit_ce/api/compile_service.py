@@ -57,3 +57,16 @@ class CompileService(ABC):
         -------
         ProcessStatus
         """
+        ...
+
+    @abstractmethod
+    def is_available(self) -> bool:
+        """
+        Check if the service is configured and available.
+
+        Returns
+        -------
+        str
+            `True` if service is configured and available.
+        """
+        ...

@@ -96,3 +96,21 @@ def endorsed_for(user: User, category: str) -> bool:
     return category in endorsements \
         or f"{archive}.*" in endorsements \
         or "*.*" in endorsements
+
+
+def backend_startup_health_check():
+    """Raises error if backend is not healthy."""
+    if not current_app.api:
+        raise RuntimeError("Flask current_app has no api")
+    errors=[]
+    if not current_app.api.get_file_store():
+        errors.append("API lacks filestore")
+    elif not current_app.api.get_file_store().is_available():
+        errors.append("Filestore service is misconfigured or not available")
+    if not current_app.api.get_compiler():
+        errors.append("API lacks compiler")
+    elif not current_app.api.get_compiler().is_available():
+        errors.append("Compiler serivce is misconfigured or not available")
+
+    if errors:
+        raise RuntimeError(", ".join(errors))
