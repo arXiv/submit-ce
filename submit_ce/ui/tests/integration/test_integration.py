@@ -1,12 +1,12 @@
-"""Tests for the submission system integration.
+"""Tests of all steps in the submission UI happy path.
 
-This differs from the test_workflow in that this tests the submission
-system as an integrated whole from the outside via HTTP requests. This
-contacts a submission system at a URL via HTTP. test_workflow.py
-creates the flask app and interacts with that.
+This differs from the test_workflow in that this tests the submission system as
+an integrated whole from the outside via HTTP requests. This contacts a
+submission system at a URL via HTTP. test_workflow.py creates the flask app and
+interacts with that.
 
-WARNING: This test is written in a very stateful manner. So the tests must be run
-in order.
+WARNING: This test is written in a very stateful manner. So the tests must be
+run in order.
 """
 
 import os
@@ -19,12 +19,16 @@ import time
 from requests_toolbelt.multipart.encoder import MultipartEncoder
 
 from http import HTTPStatus as status
+from submit_ce.ui.conftest import mocked_compile_service
 from submit_ce.ui.tests.csrf_util import parse_csrf_token
 
+
 @pytest.fixture
-def client(request, authorized_client):
+def client(request, app, authorized_client):
+    mocked_compile_service(app)
     request.cls.client = authorized_client
     yield authorized_client
+
 
 @pytest.mark.usefixtures("client")
 class TestSubmissionIntegration(unittest.TestCase):
@@ -42,28 +46,21 @@ class TestSubmissionIntegration(unittest.TestCase):
             "classification_page",
             "upload_page",
             "review_files",
-            # "process_page",
-            # "metadata_page",
-            # "optional_metadata_page",
-            # "final_preview_page",
-            # "confirmation"
+            "process_page",
+            "metadata_page",
+            #"optional_metadata_page",
+            "final_preview_page",
+            "confirmation"
         ]
 
         cls.next_page = None
-        cls.process_page_timeout = 120 # sec
+        cls.process_page_timeout = 10 # sec
 
 
     def check_response(self, res):
         self.assertEqual(res.status_code, status.SEE_OTHER, f"Should get SEE_OTHER but was {res.status_code}")
         self.assertIn('Location', res.headers)
         self.next_page = res.headers['Location']
-
-
-    # def unloggedin_page(self):
-    #     res = requests.get(self.url, allow_redirects=False) #doesn't use session
-    #     self.assertNotEqual(res.status_code, 200,
-    #                         "page without Authorization must not return a 200")
-
 
     def home_page(self):
         res = self.client.get(self.url)
@@ -97,18 +94,6 @@ class TestSubmissionIntegration(unittest.TestCase):
                                                   'action': 'next',
                                                   'csrf_token': parse_csrf_token(res)})
         self.check_response(res)
-
-    # def authorship_page(self):
-    #     self.assertIn('authorship', self.next_page, "next page should be to authorship")
-    #     res = self.client.get(self.next_page)
-    #     self.assertEqual(res.status_code, 200)
-    #     self.assertIn('I am submitting as an author of this article', res.text)
-    #     res = self.client.post(self.next_page,
-    #                         data={'authorship': 'y',
-    #                               'action': 'next',
-    #                               'csrf_token': parse_csrf_token(res)})
-    #     self.check_response(res)
-
 
     def policy_page(self):
         self.assertIn('policy', self.next_page, "URL should be to policy")
@@ -151,8 +136,7 @@ class TestSubmissionIntegration(unittest.TestCase):
         self.assertEqual(res.status_code, 200)
         self.assertIn('Upload Files', res.text)
 
-        # Upload a file
-        upload_path = Path(os.path.abspath(__file__)).parent / 'upload2.tar.gz'                        
+        upload_path = Path(os.path.abspath(__file__)).parent / 'upload2.tar.gz'
         with open(upload_path, 'rb') as upload_file:
             multipart = MultipartEncoder(fields={
                 'file': ('upload2.tar.gz', upload_file, 'application/gzip'),
@@ -166,13 +150,12 @@ class TestSubmissionIntegration(unittest.TestCase):
         self.assertEqual(res.status_code, 200)
         self.assertIn('gtart_a.cls', res.text, "gtart_a.cls from upload2.tar.gz should be in page text")
 
-        # go to next stage
         res = self.client.post(self.next_page, # should still be file upload page
                             data={'action':'next', 'csrf_token': parse_csrf_token(res)})
         self.check_response(res)
 
     def review_files(self):
-        # TODO test review_files when it is written
+        # TODO test more review_files when it is written
         self.assertIn('review_files', self.next_page)
         res = self.client.get(self.next_page)
         self.assertEqual(res.status_code, 200)
@@ -192,18 +175,18 @@ class TestSubmissionIntegration(unittest.TestCase):
         self.assertEqual(res.status_code, 200)
 
         #wait for TeX processing
-        success, _, start = False, False, time.time()
+        success, start = False, time.time()
         while not success and not time.time() > start + self.process_page_timeout:
             res = self.client.get(self.next_page)
-            success = 'TeXLive Compiler Summary' in res.text
-            if success:
+            success = 'processing successful' in res.text.lower()
+            if success or time.time() - start > self.process_page_timeout:
                 break
             time.sleep(1)
 
         self.assertTrue(success,
-                        'Failed to process and get tex compiler summary after {self.process_page_timeout} sec.')
+                        'Failed to process and get tex compiler summary after'
+                        f'aprox {self.process_page_timeout} sec.')
 
-        #goto next page
         res = self.client.post(self.next_page, # should still be process page
                             data={'action':'next', 'csrf_token': parse_csrf_token(res)})
         self.check_response(res)
@@ -228,23 +211,23 @@ class TestSubmissionIntegration(unittest.TestCase):
         self.check_response(res)
                             
 
-    def optional_metadata_page(self):
-        self.assertIn('optional', self.next_page, 'URL should be for metadata page')
+    # def optional_metadata_page(self):
+    #     self.assertIn('optional', self.next_page, 'URL should be for metadata page')
 
-        res = self.client.get(self.next_page)
-        self.assertEqual(res.status_code, 200)
-        self.assertIn('Optional Metadata', res.text)
+    #     res = self.client.get(self.next_page)
+    #     self.assertEqual(res.status_code, 200)
+    #     self.assertIn('Optional Metadata', res.text)
 
-        res = self.client.post(self.next_page,
-                            data = {
-                                'csrf_token': parse_csrf_token(res),
-                                'doi': '10.1016/S0550-3213(01)00405-9',
-                                'journal_ref': 'Nucl.Phys.Proc.Suppl. 109 (2002) 3-9',
-                                'report_num': 'SU-4240-720; LAUR-01-2140',
-                                'acm_class': 'f.2.2',
-                                'msc_class': '14j650',
-                                'action': 'next'})
-        self.check_response(res)
+    #     res = self.client.post(self.next_page,
+    #                         data = {
+    #                             'csrf_token': parse_csrf_token(res),
+    #                             'doi': '10.1016/S0550-3213(01)00405-9',
+    #                             'journal_ref': 'Nucl.Phys.Proc.Suppl. 109 (2002) 3-9',
+    #                             'report_num': 'SU-4240-720; LAUR-01-2140',
+    #                             'acm_class': 'f.2.2',
+    #                             'msc_class': '14j650',
+    #                             'action': 'next'})
+    #     self.check_response(res)
 
 
     def final_preview_page(self):
