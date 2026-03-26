@@ -292,7 +292,7 @@ def _new_upload(params: MultiDict, pointer: FileStorage, session: Session,
             f' package size is {converted_size}. See below for errors.',
             title='Upload complete, with errors'
         )
-    alerts.flash_hidden(stat.to_dict(), '_status')
+    alerts.flash_hidden(stat.model_dump(), '_status')
 
     rdata.update({'status': stat})
     return stay_on_this_stage((rdata, status.OK, {}))

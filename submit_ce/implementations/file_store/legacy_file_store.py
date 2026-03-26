@@ -109,10 +109,10 @@ class LegacyFileStore(SubmissionFileStore):
         return os.path.exists(self.root_dir)
 
     def get_workspace(self, submission_id: str, upload_id: str) -> Workspace:
-        src_dir = self._source_path(submission_id)
+        src_dir = self._source_path(str(submission_id))
         anc_dir = (src_dir / "anc")
         files: List[FileStatus] = []
-        for path in Path(self._source_path(submission_id)).rglob("*"):
+        for path in Path(self._source_path(str(submission_id))).rglob("*"):
             stat = path.stat()
             files.append(FileStatus(path=str(path.relative_to(src_dir)),
                                     name=path.name,
@@ -126,7 +126,7 @@ class LegacyFileStore(SubmissionFileStore):
                                     ))
 
         return Workspace(
-            identifier=submission_id,
+            identifier=str(submission_id),
             checksum='fake-checksum-asdf1234',
             size=sum([file.bytes for file in files]),
             started=datetime.now(),
@@ -207,7 +207,7 @@ class LegacyFileStore(SubmissionFileStore):
 
     def _well_formed_submission_id(self, submission_id: str) -> None:
         """Checkt that submission_id is okay."""
-        if len(submission_id) > 32 or not re.match(r'^\d+', submission_id):
+        if len(str(submission_id)) > 32 or not re.match(r'^\d+', str(submission_id)):
             raise SecurityError('Submission ID is improperly typed. This is a security concern.')
 
     def _submission_path(self, submission_id: str) -> Path:
