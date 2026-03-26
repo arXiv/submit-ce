@@ -18,6 +18,7 @@ from flask import Flask, current_app
 from sqlalchemy import desc, select
 
 import submit_ce
+from submit_ce.implementations.compile import MockCompileMimesisPdf
 import submit_ce.ui.auth
 from submit_ce.domain import Author, SubmissionContent
 from submit_ce.domain.agent import InternalClient
@@ -55,6 +56,12 @@ def pytest_configure(config):
     """Run before all tests"""
     logging.getLogger("faker.factory").setLevel(logging.ERROR)
     logging.getLogger("submit_ce.make_test_db").setLevel(logging.ERROR)
+
+
+def mocked_compile_service(app: Flask) -> None:
+    """Alter the `app.api` to have a `CompileService` that always returns success and a PDF"""
+    api = app.api
+    api.compiler = MockCompileMimesisPdf()
 
 
 @pytest.fixture(scope='session')
@@ -95,17 +102,23 @@ def legacy_db(legacy_db_w_bootstrap):
 
 
 @pytest.fixture
-def app(legacy_db, jwt_secret) -> Flask:
+def app(legacy_db, jwt_secret):
     engine, uri, _, user_jwt = legacy_db
+
+    data_path = tempfile.mkdtemp()
 
     sce_settings.JWT_SECRET = jwt_secret
     sce_settings.CLASSIC_DB_URI = uri
+    sce_settings.STORE_LOCAL_ROOT = data_path
 
     app = create_web_app()
     app.config["CLASSIC_DB_URI"] = uri
     app.config["JWT_SECRET"] = jwt_secret
 
-    return app
+    try:
+        yield app
+    finally:
+        shutil.rmtree(data_path)
 
 
 @pytest.fixture

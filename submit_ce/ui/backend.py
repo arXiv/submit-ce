@@ -27,7 +27,7 @@ def config_backend_api(settings: Settings) -> SubmitApi:
     
     return FlaskSubmitImplementation(
         store=store,
-        compiler=GcpCompileAtLegacy("data/new"))  # TODO compiler needs to know about store
+        compiler=GcpCompileAtLegacy("data/new"))
 
 
 def get_submission(submission_id: int) -> Tuple[Submission, List[Event]]:

@@ -178,8 +178,9 @@ class LegacyFileStore(SubmissionFileStore):
                       chunk_size: int = 4096) -> str:
         """Store a preview PDF for a submission."""
         preview_path = self._preview_path(submission_id)
-        if not os.path.exists(preview_path):
-            os.makedirs(os.path.split(preview_path)[0])
+        preview_dir = os.path.split(preview_path)[0]
+        if not os.path.exists(preview_dir):
+            os.makedirs(preview_dir)
         with open(preview_path, 'wb') as f:
             while True:
                 chunk = content.read(chunk_size)
