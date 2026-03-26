@@ -56,10 +56,10 @@
 
 
 {% block title %}
-Select a License
+Use of Author's Work
 {% endblock title %}
 
-<!-- SIDEBAR CONTENT (THIS IS WHAT YOU WERE MISSING) -->
+<!-- Sidebar -->
 {% block important_text_box %}
 <p>Trying to decide which Creative Commons license is right for you?
     You may find these resources useful:</p>
@@ -83,12 +83,12 @@ Select a License
 {% endblock important_text_box %}
 
 
-<!-- MAIN PAGE CONTENT -->
+<!-- Main Content -->
 {% block within_content %}
 
-<h2>Use of Author's Work</h2>
-
-<h3>Additional licenses for wider sharing and reuse</h3>
+<p>By submitting to arXiv, you agree to grant arXiv a perpetual non-exclusive
+    license, as outlined in the Submission Agreement. This license is
+    automatically applied to all Work on arXiv.</p>
 
 <p>You may elect to apply an additional license, including a Creative Commons (CC)
     license, to allow for wider sharing and reuse. You must own or control copyright
@@ -118,11 +118,12 @@ Select a License
       action="{{ url_for('ui.license', submission_id=submission_id) }}">
     {{ form.csrf_token }}
 
-    {# GROUP DEFINITIONS – these match backend LICENSES URIs #}
+    {# GROUP DEFINITIONS – update this list when you add/delete licenses #}
     {% set CC_URIS = [
     'http://creativecommons.org/licenses/by/4.0/',
     'http://creativecommons.org/licenses/by-sa/4.0/',
     'http://creativecommons.org/licenses/by-nc-sa/4.0/',
+    'http://creativecommons.org/licenses/by-nc/4.0/',
     'http://creativecommons.org/licenses/by-nc-nd/4.0/',
     ] %}
 
@@ -131,8 +132,7 @@ Select a License
     {% set USPD_URI = 'http://arxiv.org/licenses/us-public-domain/' %} {# Only if you define this in LICENSES #}
     {% set NONE_URI = 'none' %}
 
-
-    {# CREATIVE COMMONS GROUP #}
+    <!-- Creative Commons Group -->
     <div class="field">
         <h3>Creative Commons Licenses</h3>
 
@@ -152,12 +152,11 @@ Select a License
         {% endfor %}
     </div>
 
-    {# -------------------------------------------------------------- #}
-    {# NON-GOVERNMENTAL (CC0) #}
-    {# -------------------------------------------------------------- #}
+    <!-- NON-GOVERNMENTAL (CC0) -->
+    {% if CC0_URI in license_data %}
 
     <div class="field">
-        <h3>(Non‑Governmental) Waive Rights — CC0 / Worldwide Public Domain</h3>
+        <h3>(Non‑Governmental) Waive Rights and Dedicate to Worldwide Public Domain</h3>
 
         <div class="control">
             <label class="radio">
@@ -165,21 +164,18 @@ Select a License
                        name="{{ form.license.name }}"
                        value="{{ CC0_URI }}"
                        {% if form.license.data== CC0_URI %}checked{% endif %}>
-                CC0 1.0 Universal — Public Domain Dedication
+                {{ license_data[CC0_URI]["label"] }}
             </label>
-            <p>
-                You dedicate your article to the public domain by waiving any rights worldwide under
-                copyright law. Anyone can copy, modify, and distribute your article, even for
-                commercial purposes, all without asking permission or attribution.
-            </p>
+
+            <p>{{ license_data[CC0_URI]["note"] }}</p>
         </div>
     </div>
 
-    {# -------------------------------------------------------------- #}
-    {# U.S. GOVERNMENT PUBLIC DOMAIN #}
-    {# (Only works once you add USPD_URI to LICENSES) #}
-    {# -------------------------------------------------------------- #}
+    {% endif %}
 
+
+    <!-- U.S. GOVERNMENT PUBLIC DOMAIN -->
+    {% if USPD_URI in license_data %}
     <div class="field">
         <h3>(U.S. Government) U.S. Public Domain</h3>
 
@@ -189,34 +185,18 @@ Select a License
                        name="{{ form.license.name }}"
                        value="{{ USPD_URI }}"
                        {% if form.license.data== USPD_URI %}checked{% endif %}>
-                U.S. Public Domain
+                {{ license_data[USPD_URI]["label"] }}
             </label>
 
             <details class="license-details">
                 <summary>display description</summary>
-                <p>
-                    The article is a work of the U.S. government created by government employees within
-                    the scope of their employment or under a contract assigning rights to the U.S.
-                    government. Government works are by default in the U.S. Public Domain and not subject
-                    to domestic copyright protection under 17 U.S.C. § 105.
-                </p>
-                <p>
-                    Within the United States, anyone can copy, modify, and distribute the article, even
-                    for commercial purposes, all without asking permission. The U.S. government reserves
-                    the right to enforce its copyright elsewhere.
-                </p>
-                <p>
-                    The default U.S. Public Domain status is limited to the U.S. If an agency can expand
-                    the public domain status internationally, they may use the CC0 option above.
-                </p>
+                <p>{{ license_data[USPD_URI]["note"] }}</p>
             </details>
         </div>
     </div>
+    {% endif %}
 
-    {# -------------------------------------------------------------- #}
-    {# NO ADDITIONAL LICENSE #}
-    {# -------------------------------------------------------------- #}
-
+    <!-- NO ADDITIONAL LICENSE -->
     <div class="field">
         <h3>No Additional License</h3>
 
