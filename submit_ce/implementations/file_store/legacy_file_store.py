@@ -7,6 +7,7 @@ from typing import IO, List
 from subprocess import Popen
 from hashlib import md5
 from base64 import urlsafe_b64encode
+from typing_extensions import override
 
 from arxiv.files import FileObj, LocalFileObj, FileDoesNotExist
 
@@ -80,6 +81,7 @@ class LegacyFileStore(SubmissionFileStore):
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(root_dir={self.root_dir})"
 
+    @override
     def get_source_file(self, submission_id: str, path: Path | str) -> FileObj:
         src_path = self._source_path(submission_id) / path
         if src_path.exists():
@@ -87,15 +89,19 @@ class LegacyFileStore(SubmissionFileStore):
         else:
             return FileDoesNotExist(str(src_path))
 
+    @override
     def get_source_file_info(self, submission_id: str, path: Path | str) -> FileStatus:
         pass
 
+    @override
     def store_source_file(self, submission_id: str, content: SubmitFile, chunk_size: int) -> FileStatus:
         return super().store_source_file(submission_id, content, chunk_size)
 
+    @override
     def get_source_pacakge_checksum(self, submission_id: str) -> str:
         pass
 
+    @override
     def get_preview(self, submission_id: str) -> FileObj:
         path = self._preview_path(submission_id)
         if path.exists():
@@ -103,11 +109,12 @@ class LegacyFileStore(SubmissionFileStore):
         else:
             return FileDoesNotExist(path.name)
 
-
+    @override
     def is_available(self) -> bool:
         """Determine whether the filesystem is available."""
         return os.path.exists(self.root_dir)
 
+    @override
     def get_workspace(self, submission_id: str, upload_id: str) -> Workspace:
         src_dir = self._source_path(str(submission_id))
         anc_dir = (src_dir / "anc")
@@ -140,13 +147,16 @@ class LegacyFileStore(SubmissionFileStore):
             errors=[]
         )
 
+    @override
     def delete_source_file(self, submission_id: str, path: Path|str) -> None:
         pass
 
+    @override
     def delete_workspace(self, submission_id: str):
         src_dir = self._source_path(submission_id)
         shutil.rmtree(src_dir.absolute())
 
+    @override
     def store_source_package(self,
                      submission_id: str,
                      content: SubmitFile,
@@ -174,6 +184,7 @@ class LegacyFileStore(SubmissionFileStore):
         self._set_modes(source_path)
         return self.get_source_checksum(submission_id)
 
+    @override
     def store_preview(self, submission_id: str, content: IO[bytes],
                       chunk_size: int = 4096) -> str:
         """Store a preview PDF for a submission."""
@@ -190,21 +201,33 @@ class LegacyFileStore(SubmissionFileStore):
         self._set_modes(preview_path)
         return self.get_preview_checksum(submission_id)
 
+    @override
     def get_source_checksum(self, submission_id: str) -> str:
         """Get the checksum of the source package for a submission."""
         return self._get_checksum(self._source_package_path(submission_id))
 
+    @override
     def does_source_exist(self, submission_id: str) -> bool:
         """Determine whether source has been deposited for a submission."""
         return os.path.exists(self._source_package_path(submission_id))
 
+    @override
     def get_preview_checksum(self, submission_id: str) -> str:
         """Get the checksum of the preview PDF for a submission."""
         return self._get_checksum(self._preview_path(submission_id))
 
+    @override
     def does_preview_exist(self, submission_id: str) -> bool:
         """Determine whether a preview has been deposited for a submission."""
         return self._preview_path(submission_id).exists()
+
+    @override
+    def delete_all_source_files(self, submission_id: str) -> None:
+        pass
+
+    @override
+    def delete_preview(self, submission_id: str) -> None:
+        pass
 
     def _well_formed_submission_id(self, submission_id: str) -> None:
         """Checkt that submission_id is okay."""
@@ -280,31 +303,6 @@ class LegacyFileStore(SubmissionFileStore):
         source_gid = self.source_gid
         self._chmod_recurse(path, dir_mode, file_mode, source_uid, source_gid)
 
-
-    def makedirs(self, path: str) -> None:
-        """Make directories recursively for ``path``."""
-        abs_path = self.get_path_bare(path)
-        if not os.path.exists(abs_path):
-            os.makedirs(abs_path)
-
-    def is_safe(self, workspace: Workspace, path: str,
-                is_ancillary: bool = False, is_removed: bool = False,
-                is_persisted: bool = False, is_system: bool = False,
-                strict: bool = True) -> bool:
-        """Determine whether a path is safe to use."""
-        path_in_workspace = workspace.get_path(path, is_ancillary=is_ancillary,
-                                               is_removed=is_removed,
-                                               is_system=is_system)
-        full_path = self.get_path_bare(path_in_workspace,
-                                       is_persisted=is_persisted)
-        try:
-            self._check_safe(workspace, full_path, is_ancillary=is_ancillary,
-                             is_removed=is_removed, is_persisted=is_persisted,
-                             is_system=is_system, strict=strict)
-        except ValueError:
-            return False
-        return True
-
     def _check_safe(self, workspace: Workspace, full_path: str,
                     is_ancillary: bool = False, is_removed: bool = False,
                     is_persisted: bool = False, is_system: bool = False,
@@ -323,35 +321,3 @@ class LegacyFileStore(SubmissionFileStore):
                                                is_persisted=is_persisted)
         if wks_full_path not in full_path:
             raise ValueError(f'Not a valid path for workspace: {full_path}')
-
-    def set_permissions(self, workspace: Workspace,
-                        file_mode: int = 0o664, dir_mode: int = 0o775) -> None:
-        """
-        Set the file permissions for all uploaded files and directories.
-
-        Applies to files and directories in submitter's upload source
-        directory.
-        """
-        for u_file in workspace.iter_files(allow_directories=True):
-            if u_file.is_directory:
-                os.chmod(self.get_path(workspace, u_file), dir_mode)
-            else:
-                os.chmod(self.get_path(workspace, u_file), file_mode)
-
-    def remove(self, workspace: Workspace, u_file: UserFile) -> None:
-        """Remove a file."""
-        src_path = self.get_path_bare(workspace.get_path(u_file), u_file.is_persisted)
-        dest_path = self.get_path_bare(workspace.get_path(u_file.path, is_removed=True),
-                                       is_persisted=u_file.is_persisted)
-        self._check_safe(workspace, src_path, is_ancillary=u_file.is_ancillary,
-                         is_persisted=u_file.is_persisted)
-        self._check_safe(workspace, dest_path, is_removed=True,
-                         is_persisted=u_file.is_persisted)
-        self._make_way(dest_path)
-        shutil.move(src_path, dest_path)
-
-    def delete_all_source_files(self, submission_id: str) -> None:
-        pass
-
-    def delete_preview(self, submission_id: str) -> None:
-        pass
