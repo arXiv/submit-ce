@@ -88,6 +88,7 @@ class Submission(Base):    # type: ignore
      userinfo: 0
      is_author: 0
      agree_policy: 0
+     agreement_id: Optional[int] = None
      viewed: 0
      submitter_id: '10'
      submitter_name: ''
@@ -133,6 +134,7 @@ class Submission(Base):    # type: ignore
     userinfo = Column(Integer, server_default=text("'0'"))
     is_author = Column(Integer, nullable=False, server_default=text("'0'"))
     agree_policy = Column(Integer, server_default=text("'0'"))
+    agreement_id = Column(Integer, nullable=True)
     viewed = Column(Integer, server_default=text("'0'"))
     stage = Column(Integer, server_default=text("'0'"))
     submitter_id = Column(
@@ -253,6 +255,7 @@ class Submission(Base):    # type: ignore
         self.submitter_email = submission.creator.email
         self.is_author = 1 if submission.submitter_is_author else 0
         self.agree_policy = 1 if submission.submitter_accepts_policy else 0
+        self.agreement_id = submission.agreement_id
         self.userinfo = 1 if submission.submitter_contact_verified else 0
         self.viewed = 1 if submission.submitter_confirmed_preview else 0
         self.updated = submission.updated
