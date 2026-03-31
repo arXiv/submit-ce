@@ -323,6 +323,9 @@ class Submission:
     is_source_processed: bool = field(default=False)
     submitter_confirmed_preview: bool = field(default=False)
     license: Optional[License] = field(default=None)
+
+    agreement_id: Optional[str] = None
+
     status: str = field(default=WORKING)
     """Disposition within the submission pipeline."""
 
