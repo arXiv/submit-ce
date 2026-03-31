@@ -101,7 +101,7 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
             blob.delete()
 
     @override
-    def get_workspace(self, submission_id: str, upload_id="fake") -> Workspace:
+    def get_workspace(self, submission_id: str) -> Workspace:
         src_dir = self._source_path(submission_id)
         files: List[FileStatus] = []
         for blob in self.bucket.client.list_blobs(self.bucket, prefix=src_dir):

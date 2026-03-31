@@ -91,11 +91,47 @@ class LegacyFileStore(SubmissionFileStore):
 
     @override
     def get_source_file_info(self, submission_id: str, path: Path | str) -> FileStatus:
-        pass
+        if not isinstance(path, Path):
+            path = Path(path)
+
+        stat = path.stat()
+        return FileStatus(
+            name=path.name,
+            path=str(path.relative_to(self._submission_path(submission_id))),
+            content_type="test/plain",  # TODO mimetype
+            bytes=stat.st_size,
+            crc32c="FAKECRC32C",
+            is_versioned=False,
+            url=f"http://fakeurl.com/from/file/{__file__}",
+            modified=datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc),  # TODO timezone is a guess
+            ancillary=False,
+            errors=[])
+
 
     @override
     def store_source_file(self, submission_id: str, content: SubmitFile, chunk_size: int) -> FileStatus:
-        return super().store_source_file(submission_id, content, chunk_size)
+        sub_path = self._submission_path(submission_id)
+        if not os.path.exists(sub_path):
+            os.makedirs(os.path.split(sub_path)[0])
+            self._set_modes(str(sub_path))
+        source_path = self._source_path(submission_id)
+        if not os.path.exists(source_path):
+            os.makedirs(source_path)
+            self._set_modes(str(source_path))
+
+        new_file = source_path / content.filename
+        self._check_path(submission_id, source_path)
+        with open(new_file, "wb") as fh:
+            while True:
+                if (chunk := content.read(chunk_size)):
+                    fh.write(chunk)
+                else:
+                    break
+
+        self._set_modes(str(new_file))
+        return self.get_source_file_info(submission_id, new_file)
+
+
 
     @override
     def get_source_pacakge_checksum(self, submission_id: str) -> str:
@@ -115,7 +151,7 @@ class LegacyFileStore(SubmissionFileStore):
         return os.path.exists(self.root_dir)
 
     @override
-    def get_workspace(self, submission_id: str, upload_id: str) -> Workspace:
+    def get_workspace(self, submission_id: str) -> Workspace:
         src_dir = self._source_path(str(submission_id))
         anc_dir = (src_dir / "anc")
         files: List[FileStatus] = []
@@ -321,3 +357,16 @@ class LegacyFileStore(SubmissionFileStore):
                                                is_persisted=is_persisted)
         if wks_full_path not in full_path:
             raise ValueError(f'Not a valid path for workspace: {full_path}')
+
+    def _check_path(self, submission_id, path:Path) -> None:
+        """Raise a `RuntimeError` if path is not under submisison path."""
+        if not isinstance(path, Path):
+            raise RuntimeError("path must be of type pathlib.Path")
+
+        path_resolved = path.resolve()
+        sub_path = self._submission_path(submission_id)
+        sub_path_resolved = sub_path.resolve()
+        if not path_resolved.is_relative_to(sub_path_resolved):
+            raise RuntimeError(f"path {path} resolves to {path_resolved} which is "\
+                               f"not part of submission {submission_id} at "\
+                               f"{sub_path_resolved}")
