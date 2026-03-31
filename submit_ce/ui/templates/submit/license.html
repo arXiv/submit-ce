@@ -1,73 +1,216 @@
 {% extends "submit/base_edit.html" %}
+{% import "svg.html" as svg %}
 
-{% block title -%}Select a License{%- endblock title %}
+{% block addl_head %}
+{{ super() }}
+<style>
 
+/* Gray info box (mockup) */
+#main-page-content .message.is-info {
+    background-color: #F7F9FA !important;
+    border-left: 4px solid #D0D7DE !important;
+    color: #333 !important;
+}
+
+/* License “cards” */
+#main-page-content .field {
+    background: #F7F9FA !important;
+    border: 1px solid #E1E6EA !important;
+    border-radius: 6px !important;
+
+    padding: 1rem 1.25rem !important;
+    margin-bottom: 1.5rem !important;
+}
+
+/* Radio labels */
+#main-page-content .field label.radio {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 0.35rem !important;
+}
+
+/* Description text (italic + indent) */
+#main-page-content .field p,
+#main-page-content .field details.license-details p {
+    font-style: italic !important;
+    color: #333;
+    line-height: 1.45 !important;
+
+    margin-left: 1.05rem !important;
+    margin-top: 0.35rem !important;
+    margin-bottom: 0.75rem !important;
+}
+
+/* “display description” summary alignment */
+#main-page-content details.license-details summary {
+    margin-left: 1.05rem !important;
+    margin-top: 0.25rem !important;
+    margin-bottom: 0.35rem !important;
+    cursor: pointer;
+}
+
+</style>
+{% endblock addl_head %}
+
+
+{% block title %}
+Use of Author's Work
+{% endblock title %}
+
+<!-- Sidebar -->
 {% block important_text_box %}
-  <p class="is-size-6 is-white has-text-weight-semibold">{{svg.info(klass="icon filter-dark_grey")}}
-    Not sure which license to select?</p>
-    <p>See the <a href="{{ url_for('help_license') }}">Discussion of licenses</a> for more information.</p>
-<p>If you wish to use a different CC license, then select arXiv's non-exclusive license to distribute in the arXiv and indicate the desired Creative Commons license in the article's full text.</p>
-{% endblock important_text_box %}
-            
-{% block within_content %}
-<form id="form" method="POST" action="{{ url_for('ui.license',submission_id=submission_id) }}">
-  {{ form.csrf_token }}
-  <div class="content-container">
-    <h2>Submission license details - Scroll to read before selecting a license</h2>
-    <div class="policy-scroll" style="max-height:300px;">
-      <div class="message is-warning">
-        <div class="message-body">
-          <p>{{svg.info(klass="icon filter-orange")}} This license
-            is <a href="{{ url_for('help_license')}}#licenses-granted-are-irrevocable">
-            irrevocable and permanent</a>. If you plan to publish this article
-            in a journal, check the journal's policies before uploading to
-            arXiv.</p>
-        </div>
-      </div>
-      <p>The Submitter is an original author of the Work, or a proxy pre-approved by arXiv administrators acting on behalf of an original author.  By submitting the work to arXiv, the Submitter is:</p>
-      <ol>
-        <li>Representing and warranting that the Submitter holds the right to make the submission, without conflicting with or violating rights of other persons.</li>
-        <li>Granting a license permitting the work to be included in arXiv.</li>
-        <li>Agreeing not to sue or seek to recover damages from arXiv, Cornell University, or affiliated individuals based on arXiv's actions in connection with your submission including refusal to accept, categorization, removal, or exercise of any other rights granted under the Submittal Agreement.</li>
-        <li>Agreeing to not enter into other agreements or make other commitments that would conflict with the rights granted to arXiv.</li>
-      </ol>
-      <p>arXiv is a repository for scholarly material, and perpetual access is necessary to maintain the scholarly record.  Therefore, arXiv strives to maintain a permanent collection of submitted works, including actions taken with respect to each work.  Nevertheless, arXiv reserves the right, in its sole discretion, to take any action including to removal of a work or blocking access to it, in the event that arXiv determines that such action is required in order to comply with applicable arXiv policies and laws. Submitters should take care to submit a work to arXiv <em>only if they are certain</em> that they will not later wish to publish it in a journal or other outlet that prohibits prior distribution on an e-print server.  <em>arXiv will not remove an announced article in order to comply with such a journal policy – the license granted on submission is irrevocable</em>.</p>
-      <p>arXiv is a service of Cornell University, and all rights and obligations of arXiv are held and exercised by Cornell University.</p>
-      <p>If you have any additional questions about arXiv’s copyright and licensing policies, please contact the arXiv administrators directly.</p>
-    </div>
-  </div>
-  <div class="action-container">
-    <div class="columns">
-      <div class="column">
-        <h3>Select Licence</h3>
-        {% if form.license.errors %}<div class="notification is-danger">{% endif %}
-        <div class="field" role="group" aria-labelledby="license_options">
-          <span id="license_options" class="is-sr-only">Select a license for your submission</span>
-          {% for subfield in form.license %}
-            <div class="control">
-              <label class="radio">
-                {{subfield}}
-                {{ subfield.label.text }}
-              {% if subfield.data %}
-                  <a href="{{subfield.data}}" title="license info" class="help-bubble" target="_blank" rel="external">
-                    {{svg.question()}}
-                    <span class="is-sr-only">Information about {{ subfield.label.text }}</span>
-                    <div class="bubble-text">Click for license information (opens in a new tab)</div>
-                  </a>
-              {% endif %}
-              </label>
-            </div>
-          {% endfor %}
-        </div>
-        {% if form.license.errors %}
-          {% for error in form.license.errors %}
-            <p class="help is-danger field-error">{{ error }}</p>
-          {% endfor %}
-        {% endif %}
-        {% if form.license.errors %}</div>{% endif %}
-      </div>
+<p>Trying to decide which Creative Commons license is right for you?
+    You may find these resources useful:</p>
 
+<div class="buttons">
+    <a href="#" id="open-cc-compare"
+       class="button button-secondary"
+       aria-haspopup="dialog"
+       aria-controls="cc-compare-overlay">
+        CC License Comparison Table
+        {{ svg.question(klass="icon filter-blue") }}
+    </a>
+
+    <a href="https://creativecommons.org/share-your-work/cclicenses/"
+       class="button button-secondary"
+       target="_blank">
+        Creative Commons Licenses
+        {{ svg.question(klass="icon filter-blue") }}
+    </a>
+</div>
+{% endblock important_text_box %}
+
+
+<!-- Main Content -->
+{% block within_content %}
+
+<p>By submitting to arXiv, you agree to grant arXiv a perpetual non-exclusive
+    license, as outlined in the Submission Agreement. This license is
+    automatically applied to all Work on arXiv.</p>
+
+<p>You may elect to apply an additional license, including a Creative Commons (CC)
+    license, to allow for wider sharing and reuse. You must own or control copyright
+    in the Work if applying a CC license. Be aware that your chosen license cannot
+    be revoked.</p>
+
+<p>As the submitter, you are fully responsible for determining the appropriate
+    license for the Work. arXiv encourages you to consult with your own institution,
+    funders, and journal publishers to ensure you have the right to grant arXiv
+    a perpetual non‑exclusive license and to apply a CC license if you choose to do so.</p>
+
+<p>If you elect to add an additional license, please consider selecting from the
+    options below. If you need a license not listed, indicate it in a prominent
+    location in your work.</p>
+
+<div class="message is-info">
+    <div class="message-body">
+        {{ svg.info(klass="icon filter-blue") }}
+        <span class="has-text-weight-bold">Looking for the arXiv license?</span>
+        It is part of the Submission Agreement and does not need to be explicitly chosen.
+        You may choose an additional license below.
     </div>
-  </div>
+</div>
+
+<form id="form"
+      method="POST"
+      action="{{ url_for('ui.license', submission_id=submission_id) }}">
+    {{ form.csrf_token }}
+
+    {# GROUP DEFINITIONS – update this list when you add/delete licenses #}
+    {% set CC_URIS = [
+    'http://creativecommons.org/licenses/by/4.0/',
+    'http://creativecommons.org/licenses/by-sa/4.0/',
+    'http://creativecommons.org/licenses/by-nc-sa/4.0/',
+    'http://creativecommons.org/licenses/by-nc/4.0/',
+    'http://creativecommons.org/licenses/by-nc-nd/4.0/',
+    ] %}
+
+    {% set CC0_URI = 'http://creativecommons.org/publicdomain/zero/1.0/' %}
+    {% set NONEX_URI = 'http://arxiv.org/licenses/nonexclusive-distrib/1.0/' %}
+    {% set USPD_URI = 'http://arxiv.org/licenses/us-public-domain/' %} {# Only if you define this in LICENSES #}
+    {% set NONE_URI = 'none' %}
+
+    <!-- Creative Commons Group -->
+    <div class="field">
+        <h3>Creative Commons Licenses</h3>
+
+        {% for value, label in form.license.choices %}
+        {% if value in CC_URIS %}
+        <div class="control">
+            <label class="radio">
+                <input type="radio"
+                       name="{{ form.license.name }}"
+                       value="{{ value }}"
+                       {% if form.license.data== value %}checked{% endif %}>
+                {{ label }}
+            </label>
+            <p>{{ license_data[value]["note"] }}</p>
+        </div>
+        {% endif %}
+        {% endfor %}
+    </div>
+
+    <!-- NON-GOVERNMENTAL (CC0) -->
+    {% if CC0_URI in license_data %}
+
+    <div class="field">
+        <h3>(Non‑Governmental) Waive Rights and Dedicate to Worldwide Public Domain</h3>
+
+        <div class="control">
+            <label class="radio">
+                <input type="radio"
+                       name="{{ form.license.name }}"
+                       value="{{ CC0_URI }}"
+                       {% if form.license.data== CC0_URI %}checked{% endif %}>
+                {{ license_data[CC0_URI]["label"] }}
+            </label>
+
+            <p>{{ license_data[CC0_URI]["note"] }}</p>
+        </div>
+    </div>
+
+    {% endif %}
+
+
+    <!-- U.S. GOVERNMENT PUBLIC DOMAIN -->
+    {% if USPD_URI in license_data %}
+    <div class="field">
+        <h3>(U.S. Government) U.S. Public Domain</h3>
+
+        <div class="control">
+            <label class="radio">
+                <input type="radio"
+                       name="{{ form.license.name }}"
+                       value="{{ USPD_URI }}"
+                       {% if form.license.data== USPD_URI %}checked{% endif %}>
+                {{ license_data[USPD_URI]["label"] }}
+            </label>
+
+            <details class="license-details">
+                <summary>display description</summary>
+                <p>{{ license_data[USPD_URI]["note"] }}</p>
+            </details>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- NO ADDITIONAL LICENSE -->
+    <div class="field">
+        <h3>No Additional License</h3>
+
+        <div class="control">
+            <label class="radio">
+                <input type="radio"
+                       name="{{ form.license.name }}"
+                       value="{{ NONE_URI }}"
+                       {% if form.license.data== NONE_URI %}checked{% endif %}>
+                I do not wish to add any of these licenses.
+            </label>
+        </div>
+    </div>
+
 </form>
+
+{% include "submit/license_comparison_modal.html" %}
+
 {% endblock within_content %}

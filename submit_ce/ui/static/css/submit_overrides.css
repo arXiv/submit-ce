@@ -1,0 +1,51 @@
+
+
+/* Override blue title -> black */
+h1.title.title-submit {
+    color: #000 !important;
+}
+
+/* Adjust blue active workflow nav tab -> black */
+.navbar-item.is-active,
+.navbar-link.is-active {
+    color: #000 !important;
+    border-bottom-color: #000 !important;
+}
+
+/* Keep outer border of info box blue */
+.message.is-info {
+    border-color: #8bb8dc !important;
+}
+
+/* Keep inner border of info box blue */
+.message.is-info .message-body {
+    border-color: #8bb8dc !important;
+}
+
+/* Restore faint blue background + correct text color
+   for THIS PAGE ONLY (strong enough selector) */
+#main-page-content .message.is-info .message-body {
+    background-color: #e7f2fc !important;
+    color: #1d6ea7 !important;
+}
+
+/* Remove sidebar shading on all Submit 2.0 workflow pages */
+.info-container {
+    background: transparent !important;
+    border-left: none !important;
+    box-shadow: none !important;
+}
+
+/* Sidebar visual cleanup to match mockup */
+
+/* Add padding to the sidebar inner content */
+.info-container-middle {
+    padding: 1rem 1.25rem !important;   /* comfortable L/R spacing */
+}
+
+/* Add thin divider line between buttons and inner content */
+.info-container-top {
+    border-bottom: 1px solid #d0d7de !important; /* subtle gray divider */
+    padding-bottom: 0.75rem !important;          /* space under buttons */
+    margin-bottom: 0.75rem !important;           /* space before content begins */
+}

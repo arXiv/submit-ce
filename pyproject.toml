@@ -108,7 +108,7 @@ dependencies = [
 
 
 [tool.uv.sources]
-arxiv-base = { git = "https://github.com/arXiv/arxiv-base.git", branch = "develop" }
+arxiv-base = { git = "https://github.com/arXiv/arxiv-base.git", branch = "SUBMISSION-80-LicenseDataUpdate" }
 
 [dependency-groups]
 dev = [
