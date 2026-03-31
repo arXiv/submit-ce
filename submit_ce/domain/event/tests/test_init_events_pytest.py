@@ -112,10 +112,25 @@ def test_confirm_authorship(mock_user, base_submission):
     assert sub.submitter_is_author is True
 
 def test_confirm_policy(mock_user, base_submission):
-    e = event.ConfirmPolicy(creator=mock_user, created=datetime.now(UTC))
+    e = event.ConfirmPolicy(
+        creator=mock_user,
+        created=datetime.now(UTC),
+        agreement_id=3  # NEW REQUIRED FIELD
+    )
     e.validate(base_submission)
     sub = e.project(base_submission)
     assert sub.submitter_accepts_policy is True
+
+def test_confirm_policy_sets_agreement_id(mock_user, base_submission):
+    e = event.ConfirmPolicy(
+        creator=mock_user,
+        created=datetime.now(UTC),
+        agreement_id=3
+    )
+    e.validate(base_submission)
+    sub = e.project(base_submission)
+
+    assert sub.agreement_id == 3
 
 def test_set_primary_classification(mock_user, base_submission):
     category = 'astro-ph.GA'
