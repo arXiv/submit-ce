@@ -36,3 +36,16 @@ h1.title.title-submit {
     box-shadow: none !important;
 }
 
+/* Sidebar visual cleanup to match mockup */
+
+/* Add padding to the sidebar inner content */
+.info-container-middle {
+    padding: 1rem 1.25rem !important;   /* comfortable L/R spacing */
+}
+
+/* Add thin divider line between buttons and inner content */
+.info-container-top {
+    border-bottom: 1px solid #d0d7de !important; /* subtle gray divider */
+    padding-bottom: 0.75rem !important;          /* space under buttons */
+    margin-bottom: 0.75rem !important;           /* space before content begins */
+}
