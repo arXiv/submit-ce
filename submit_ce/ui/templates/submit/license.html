@@ -4,52 +4,50 @@
 {% block addl_head %}
 {{ super() }}
 <style>
-    /* Remove sidebar shading on this page only */
-    .layout-container .info-container {
-        background: white !important;
-        border-left: none !important;
-        box-shadow: none !important;
-    }
 
-    /* Remove CE white background that hides license shading */
-    #main-page-content.main-content {
-        background: transparent !important;
-    }
+/* Gray info box (mockup) */
+#main-page-content .message.is-info {
+    background-color: #F7F9FA !important;
+    border-left: 4px solid #D0D7DE !important;
+    color: #333 !important;
+}
 
-    /* Light gray background behind ALL license choices */
-    #main-page-content.main-content form {
-        background: #F7F9FA !important;   /* mockup light gray */
-        border: 1px solid #E1E6EA !important;
-        padding: 1.5rem !important;
-        border-radius: 6px;
-        margin-top: 1.5rem !important;
-    }
+/* License “cards” */
+#main-page-content .field {
+    background: #F7F9FA !important;
+    border: 1px solid #E1E6EA !important;
+    border-radius: 6px !important;
 
-    /* Inner cards for each license block */
-    #main-page-content.main-content form .field {
-        background: #F7F9FA !important;   /* mockup uses white inside gray */
-        border: 1px solid #E1E6EA;
-        padding: 1rem 1.25rem;
-        border-radius: 4px;
-        margin-bottom: 1rem;
-    }
+    padding: 1rem 1.25rem !important;
+    margin-bottom: 1.5rem !important;
+}
 
+/* Radio labels */
+#main-page-content .field label.radio {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 0.35rem !important;
+}
 
-    /* Typography match */
-    #main-page-content.main-content h3 {
-        color: #3A4750;
-        margin-bottom: 0.5rem;
-    }
+/* Description text (italic + indent) */
+#main-page-content .field p,
+#main-page-content .field details.license-details p {
+    font-style: italic !important;
+    color: #333;
+    line-height: 1.45 !important;
 
-    /* Optional: radio buttons in mockup are black */
-    #main-page-content.main-content input[type="radio"] {
-        accent-color: #000;
-    }
+    margin-left: 1.05rem !important;
+    margin-top: 0.35rem !important;
+    margin-bottom: 0.75rem !important;
+}
 
-    /* Make license name bold like mockup */
-    #main-page-content .field label.radio {
-        font-weight: 600 !important;
-    }
+/* “display description” summary alignment */
+#main-page-content details.license-details summary {
+    margin-left: 1.05rem !important;
+    margin-top: 0.25rem !important;
+    margin-bottom: 0.35rem !important;
+    cursor: pointer;
+}
 
 </style>
 {% endblock addl_head %}
