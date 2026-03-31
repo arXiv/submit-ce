@@ -29,3 +29,10 @@ h1.title.title-submit {
     color: #1d6ea7 !important;
 }
 
+/* Remove sidebar shading on all Submit 2.0 workflow pages */
+.info-container {
+    background: transparent !important;
+    border-left: none !important;
+    box-shadow: none !important;
+}
+
