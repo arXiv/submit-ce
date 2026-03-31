@@ -1,0 +1,31 @@
+
+
+/* Override blue title -> black */
+h1.title.title-submit {
+    color: #000 !important;
+}
+
+/* Adjust blue active workflow nav tab -> black */
+.navbar-item.is-active,
+.navbar-link.is-active {
+    color: #000 !important;
+    border-bottom-color: #000 !important;
+}
+
+/* Keep outer border of info box blue */
+.message.is-info {
+    border-color: #8bb8dc !important;
+}
+
+/* Keep inner border of info box blue */
+.message.is-info .message-body {
+    border-color: #8bb8dc !important;
+}
+
+/* Restore faint blue background + correct text color
+   for THIS PAGE ONLY (strong enough selector) */
+#main-page-content .message.is-info .message-body {
+    background-color: #e7f2fc !important;
+    color: #1d6ea7 !important;
+}
+
