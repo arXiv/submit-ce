@@ -78,7 +78,7 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
                    name=file_path.name,
                    content_type=blob.content_type,
                    bytes=blob.size,
-                   crc32c=blob.crc32,
+                   crc32c=blob.crc32c,
                    modified=blob.updated,
                    ancillary=anc_dir in file_path.parent.parents,
                    url=URL(f"gs://{blob.bucket.name}/{blob.name}#{blob.generation}"),
