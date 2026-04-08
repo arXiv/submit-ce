@@ -74,16 +74,16 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
         src_dir = self._source_path(submission_id)
         anc_dir = src_dir / "anc"
         file_path = Path(blob.name)
-        FileStatus(path=str(file_path.relative_to(src_dir)),
-                   name=file_path.name,
-                   content_type=blob.content_type,
-                   bytes=blob.size,
-                   crc32c=blob.crc32,
-                   modified=blob.updated,
-                   ancillary=anc_dir in file_path.parent.parents,
-                   url=URL(f"gs://{blob.bucket.name}/{blob.name}#{blob.generation}"),
-                   is_versioned=True,
-                   errors=[]) # TODO not sure where to get errors from
+        return FileStatus(path=str(file_path.relative_to(src_dir)),
+                          name=file_path.name,
+                          content_type=blob.content_type,
+                          bytes=blob.size,
+                          crc32c=blob.crc32c,
+                          modified=blob.updated,
+                          ancillary=anc_dir in file_path.parent.parents,
+                          url=URL(f"gs://{blob.bucket.name}/{blob.name}#{blob.generation}"),
+                          is_versioned=True,
+                          errors=[]) # TODO not sure where to get errors from
 
 
     def get_source_file_info(self, submission_id: str, path: Path|str) -> FileStatus:
