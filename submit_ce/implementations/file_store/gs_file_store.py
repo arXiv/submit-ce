@@ -211,9 +211,7 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
         return self.get_source_checksum(submission_id)
 
     def delete_workspace(self, submission_id: str):
-        blobs = self.bucket.list_blobs(prefix=str(self._source_path(submission_id)))
-        for blob in blobs:
-            blob.delete()
+        raise RuntimeError("delete_workspace not implementated")
 
     def is_available(self) -> bool:
         """Determine whether the filesystem is available."""
@@ -225,7 +223,13 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
 
 
     def delete_all_source_files(self, submission_id: str) -> None:
-        pass
+        blobs = self.bucket.list_blobs(prefix=str(self._source_path(submission_id)))
+        for blob in blobs:
+            blob.delete()
+
 
     def delete_preview(self, submission_id: str) -> None:
-        pass
+        preview_path = self._preview_path(submission_id)
+        blob = self.bucket.blob(str(preview_path))
+        if blob.exists():
+            blob.delete()
