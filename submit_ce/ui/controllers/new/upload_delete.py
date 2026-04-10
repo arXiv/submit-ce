@@ -11,6 +11,7 @@ from arxiv.forms import csrf
 from markupsafe import Markup
 from flask import current_app
 
+from submit_ce.domain.event.file import RemoveAllFiles
 from submit_ce.ui.auth import user_and_client_from_session
 from submit_ce.domain.event import UpdateUploadPackage
 from submit_ce.domain.uploads import Workspace
@@ -72,7 +73,8 @@ def delete_all(method: str, params: MultiDict, session: Session,
         add_immediate_alert(rdata, alerts.FAILURE, 'Missing auth token')
         return stay_on_this_stage((rdata, status.OK, {}))
 
-    submission, submission_events = get_submission(submission_id)
+    submission, _ = get_submission(submission_id)
+    # TODO need to check the submitter and client?
     submitter, client = user_and_client_from_session(session)
     rdata.update({'submission': submission, 'submission_id': submission_id})
 
@@ -80,58 +82,20 @@ def delete_all(method: str, params: MultiDict, session: Session,
         form = DeleteAllFilesForm()
         rdata.update({'form': form})
         return stay_on_this_stage((rdata, status.OK, {}))
-
     elif method == 'POST':
         form = DeleteAllFilesForm(params)
         rdata.update({'form': form})
-
         if not (form.validate() and form.confirmed.data):
             return stay_on_this_stage((rdata, status.OK, {}))
 
-        current_app.api.get_file_store().delete_workspace(submission.submission_id)
-        # TODO Record that the files were deleted
-
-        # fm = Filemanager.current_session()
-        # try:
-        #     stat = fm.delete_all(upload_id, token)
-        # except exceptions.RequestForbidden as e:
-        #     alerts.flash_failure(Markup(
-        #         'There was a problem authorizing your request. Please try'
-        #         f' again. {SUPPORT}'
-        #     ))
-        #     logger.error('Encountered RequestForbidden: %s', e)
-        # except exceptions.BadRequest as e:
-        #     alerts.flash_warning(Markup(
-        #         'Something odd happened when processing your request.'
-        #         f'{SUPPORT}'
-        #     ))
-        #     logger.error('Encountered BadRequest: %s', e)
-        # except exceptions.RequestFailed as e:
-        #     alerts.flash_failure(Markup(
-        #         'There was a problem carrying out your request. Please try'
-        #         f' again. {SUPPORT}'
-        #     ))
-        #     logger.error('Encountered RequestFailed: %s', e)
-        #
-        # command = UpdateUploadPackage(creator=submitter, client=client,
-        #                               checksum=stat.checksum,
-        #                               uncompressed_size=stat.size,
-        #                               source_format=stat.source_format)
-        # if not validate_command(form, command, submission):
-        #     logger.debug('Command validation failed')
-        #     return return_to_parent_stage((rdata, status.OK, {}))
-        #
-        # try:
-        #     submission, _ = current_app.api.save(command, submission_id=submission_id)
-        # except SaveError:
-        #     alerts.flash_failure(Markup(
-        #         'There was a problem carrying out your request. Please try'
-        #         f' again. {SUPPORT}'
-        #     ))
-
-        return return_to_parent_stage((rdata, status.OK, {}))
-
-    raise MethodNotAllowed('Method not supported')
+        command = RemoveAllFiles(creator=submitter, client=client)
+        if validate_command(form, command, submission, 'add_files'):
+            current_app.api.save(command, submission_id=submission.submission_id)
+            return return_to_parent_stage((rdata, status.OK, {}))
+        else:
+            return return_to_parent_stage((rdata, status.BAD_REQUEST, {}))
+    else:
+        raise MethodNotAllowed('Method not supported')
 
 
 def delete_file(method: str, params: MultiDict, session: Session,

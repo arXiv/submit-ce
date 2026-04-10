@@ -74,16 +74,16 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
         src_dir = self._source_path(submission_id)
         anc_dir = src_dir / "anc"
         file_path = Path(blob.name)
-        FileStatus(path=str(file_path.relative_to(src_dir)),
-                   name=file_path.name,
-                   content_type=blob.content_type,
-                   bytes=blob.size,
-                   crc32c=blob.crc32,
-                   modified=blob.updated,
-                   ancillary=anc_dir in file_path.parent.parents,
-                   url=URL(f"gs://{blob.bucket.name}/{blob.name}#{blob.generation}"),
-                   is_versioned=True,
-                   errors=[]) # TODO not sure where to get errors from
+        return FileStatus(path=str(file_path.relative_to(src_dir)),
+                          name=file_path.name,
+                          content_type=blob.content_type,
+                          bytes=blob.size,
+                          crc32c=blob.crc32c,
+                          modified=blob.updated,
+                          ancillary=anc_dir in file_path.parent.parents,
+                          url=URL(f"gs://{blob.bucket.name}/{blob.name}#{blob.generation}"),
+                          is_versioned=True,
+                          errors=[]) # TODO not sure where to get errors from
 
 
     def get_source_file_info(self, submission_id: str, path: Path|str) -> FileStatus:
@@ -211,9 +211,7 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
         return self.get_source_checksum(submission_id)
 
     def delete_workspace(self, submission_id: str):
-        blobs = self.bucket.list_blobs(prefix=str(self._source_path(submission_id)))
-        for blob in blobs:
-            blob.delete()
+        raise RuntimeError("delete_workspace not implementated")
 
     def is_available(self) -> bool:
         """Determine whether the filesystem is available."""
@@ -225,7 +223,13 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
 
 
     def delete_all_source_files(self, submission_id: str) -> None:
-        pass
+        blobs = self.bucket.list_blobs(prefix=str(self._source_path(submission_id)))
+        for blob in blobs:
+            blob.delete()
+
 
     def delete_preview(self, submission_id: str) -> None:
-        pass
+        preview_path = self._preview_path(submission_id)
+        blob = self.bucket.blob(str(preview_path))
+        if blob.exists():
+            blob.delete()
