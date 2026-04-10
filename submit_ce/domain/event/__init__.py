@@ -242,7 +242,8 @@ class ConfirmPolicy(Event):
 
     NAME = "confirm policy acceptance"
     NAMED = "policy acceptance confirmed"
-
+    agreement_id: int
+    
     def validate(self, submission: Submission) -> None:
         """Cannot apply to a finalized submission."""
         validators.submission_is_not_finalized(self, submission)
@@ -250,6 +251,7 @@ class ConfirmPolicy(Event):
     def project(self, submission: Submission) -> Submission:
         """Set the policy flag on the submission."""
         submission.submitter_accepts_policy = True
+        submission.agreement_id = self.agreement_id
         return submission
 
 

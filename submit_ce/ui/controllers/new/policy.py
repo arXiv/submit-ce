@@ -71,8 +71,10 @@ def policy(method: str, params: MultiDict, session: Session,
         return stay_on_this_stage((response_data, status.BAD_REQUEST, {}))
 
     if accept_policy and not submission.submitter_accepts_policy:
-        command = ConfirmPolicy(creator=submitter, client=client)
+        command = ConfirmPolicy(creator=submitter, client=client,
+                                agreement_id=form.policy_id.data)
         if validate_command(form, command, submission, 'policy'):
+            submission.agreement_id = form.policy_id.data
             submission, _ = current_app.api.save(command, submission_id=submission_id)
             response_data['submission'] = submission
             return ready_for_next((response_data, status.OK, {}))

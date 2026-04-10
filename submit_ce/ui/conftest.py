@@ -220,7 +220,7 @@ def sub_policy(app, authorized_user, sub_authorship):
         user = authorized_user
         ua = InternalClient(name=f"test_client_{__file__}")
         submission, _ = current_app.api.save(
-            ConfirmPolicy(creator=user, client=ua),
+            ConfirmPolicy(creator=user, client=ua, agreement_id=1),
             submission_id=sub_authorship.submission_id)
         return submission
 
@@ -351,7 +351,7 @@ def submitted_submission(app, authorized_user):
             ConfirmContactInformation(creator=user, client=ua),
             ConfirmAuthorship(creator=user, client=ua, submitter_is_author=True),
             SetLicense(creator=user, client=ua, license_uri=cc0, license_name="CC0 1.0"),
-            ConfirmPolicy(creator=user, client=ua),
+            ConfirmPolicy(creator=user, client=ua, agreement_id=1),
             SetPrimaryClassification(creator=user, client=ua, category="astro-ph.GA"),
             SetUploadPackage(creator=user, client=ua,
                 checksum="a9s9k342900skks03330029k",
@@ -396,7 +396,7 @@ def published_submission(app, authorized_user):
             SetLicense(
                 creator=user, client=ua, license_uri=cc0, license_name="CC0 1.0"
             ),
-            ConfirmPolicy(creator=user, client=ua),
+            ConfirmPolicy(creator=user, client=ua, agreement_id=1),
             SetPrimaryClassification(creator=user, client=ua, category="astro-ph.GA"),
             SetUploadPackage(
                 creator=user,
