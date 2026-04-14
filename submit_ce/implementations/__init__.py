@@ -1,12 +1,14 @@
 from datetime import datetime
 from io import BytesIO
 from typing import Optional, Tuple, List, IO
+from pathlib import Path
 
 from arxiv.files import FileObj
 
 from submit_ce.api import SubmitApi, SubmissionFileStore
 from submit_ce.api.compile_service import CompileService
 from submit_ce.domain.types import SubmitFile
+from submit_ce.domain.uploads import FileStatus
 from submit_ce.domain import Event, Submission, License, User, Client, Workspace
 from submit_ce.domain.event.process import Result
 from submit_ce.domain.process import ProcessStatus
@@ -28,32 +30,52 @@ class NullFileStore(SubmissionFileStore):
     def get_workspace(self, submission_id: str) -> Optional[Workspace]:
         return None
 
-    def get_source_file(self, submission_id: str) -> BytesIO:
+    def delete_workspace(self, submission_id: str):
+        pass
+
+    def get_source_file(self, submission_id: str, path: Path|str) -> FileObj:
         raise RuntimeError("No source file")
 
-    def store_source_package(self, submission_id: str, content: SubmitFile, chunk_size) -> str:
-        "Not stored, this is from a NullFileStore"
+    def get_source_file_info(self, submission_id: str, path: Path|str) -> FileStatus:
+        raise RuntimeError("No source file info")
+
+    def delete_source_file(self, submission_id: str, path: Path|str) -> None:
+        pass
+
+    def delete_all_source_files(self, submission_id: str) -> None:
+        pass
+
+    def store_source_file(self, submission_id: str,
+                          content: SubmitFile,
+                          chunk_size: int) -> FileStatus:
+        raise RuntimeError("Not stored, this is from a NullFileStore")
+
+    def store_source_package(self, submission_id: str, content: SubmitFile, chunk_size: int) -> str:
+        return "Not stored, this is from a NullFileStore"
 
     def get_source_pacakge_checksum(self, submission_id: str) -> str:
-        ""
+        return ""
 
     def does_source_exist(self, submission_id: str) -> bool:
-        False
+        return False
 
-    def store_preview(self, submission_id: str, content: IO[bytes]) -> str:
+    def store_preview(self, submission_id: str, content: IO[bytes], chunk_size: int) -> str:
         return "not really stored, NullFileStore"
 
     def get_preview(self, submission_id: str) -> FileObj:
         raise RuntimeError("No preview")
 
+    def delete_preview(self, submission_id: str) -> None:
+        pass
+
     def get_preview_checksum(self, submission_id: str) -> str:
-        ""
+        return ""
 
     def does_preview_exist(self, submission_id: str) -> bool:
-        False
+        return False
 
     def is_available(self) -> bool:
-        False
+        return False
 
 
 class NullImplementation(SubmitApi):
@@ -68,7 +90,7 @@ class NullImplementation(SubmitApi):
     def get_file_store(self) -> SubmissionFileStore:
         return NullFileStore()
 
-    def upload(self, files: SubmitFile, submission_id: int, user: User, client: Client) -> Workspace:
+    def upload(self, files: SubmitFile, submission_id: str, user: User, client: Client) -> Workspace:
         return Workspace()
 
     def licenses(self, active_only=True) -> List[License]:
@@ -83,13 +105,13 @@ class NullImplementation(SubmitApi):
     def next_freeze_time(self, reference: Optional[datetime] = None) -> datetime:
         return next_freeze_time(reference)
 
-    def get_with_history(self, submission_id: int) -> Tuple[Submission, List[Event]]:
+    def get_with_history(self, submission_id: str) -> Tuple[Submission, List[Event]]:
         return Submission(submission_id), []
 
     def load_submissions_for_user(self, user_id: int) -> List[Submission]:
         return []
 
-    def save(self, *events: Event, submission_id: Optional[int] = None) -> Tuple[Submission, List[Event]]:
+    def save(self, *events: Event, submission_id: Optional[str] = None) -> Tuple[Submission, List[Event]]:
         submission = self.get_with_history(submission_id)
         for event in events:
             submission = event.apply(submission)

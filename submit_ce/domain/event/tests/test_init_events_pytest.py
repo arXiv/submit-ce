@@ -20,7 +20,7 @@ def mock_user():
 @pytest.fixture
 def base_submission(mock_user):
     return submission.Submission(
-        submission_id=1,
+        submission_id="1",
         status=submission.Submission.WORKING,
         creator=mock_user,
         owner=mock_user,

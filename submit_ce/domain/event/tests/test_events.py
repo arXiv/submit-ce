@@ -24,7 +24,7 @@ class TestWithdrawalSubmission(TestCase):
         """Initialize auxiliary data for test cases."""
         self.user = user
         self.submission = submission.Submission(
-            submission_id=1,
+            submission_id="1",
             status=submission.Submission.ANNOUNCED,
             creator=self.user,
             owner=self.user,
@@ -89,7 +89,7 @@ class TestReplacementSubmission(TestCase):
         """Initialize auxiliary data for test cases."""
         self.user = user
         self.submission = submission.Submission(
-            submission_id=1,
+            submission_id="1",
             status=submission.Submission.ANNOUNCED,
             creator=self.user,
             owner=self.user,
@@ -163,7 +163,7 @@ class TestDOIorJREFAfterAnnounce(TestCase):
         """Initialize auxiliary data for test cases."""
         self.user = user
         self.submission = submission.Submission(
-            submission_id=1,
+            submission_id="1",
             status=submission.Submission.ANNOUNCED,
             creator=self.user,
             owner=self.user,
@@ -239,7 +239,7 @@ class TestSetPrimaryClassification(TestCase):
         """Initialize auxiliary data for test cases."""
         self.user = user
         self.submission = submission.Submission(
-            submission_id=1,
+            submission_id="1",
             creator=self.user,
             owner=self.user,
             created=datetime.now(UTC)
@@ -249,7 +249,7 @@ class TestSetPrimaryClassification(TestCase):
         """Category is not from the arXiv taxonomy."""
         e = event.SetPrimaryClassification(
             creator=self.user,
-            submission_id=1,
+            submission_id="1",
             category="nonsense"
         )
         with self.assertRaises(InvalidEvent):
@@ -259,7 +259,7 @@ class TestSetPrimaryClassification(TestCase):
         """Category is not from the arXiv taxonomy."""
         e = event.SetPrimaryClassification(
             creator=self.user,
-            submission_id=1,
+            submission_id="1",
             category="chao-dyn"
         )
         with self.assertRaises(InvalidEvent):
@@ -270,7 +270,7 @@ class TestSetPrimaryClassification(TestCase):
         for category in CATEGORIES.keys():
             e = event.SetPrimaryClassification(
                 creator=self.user,
-                submission_id=1,
+                submission_id="1",
                 category=category
             )
             if category in self.user.endorsements:
@@ -288,7 +288,7 @@ class TestSetPrimaryClassification(TestCase):
         self.submission.secondary_classification.append(classification)
         e = event.SetPrimaryClassification(
             creator=self.user,
-            submission_id=1,
+            submission_id="1",
             category='cond-mat.dis-nn'
         )
         with self.assertRaises(InvalidEvent):
@@ -302,7 +302,7 @@ class TestAddSecondaryClassification(TestCase):
         """Initialize auxiliary data for test cases."""
         self.user = user
         self.submission = submission.Submission(
-            submission_id=1,
+            submission_id="1",
             creator=self.user,
             owner=self.user,
             created=datetime.now(UTC),
@@ -313,7 +313,7 @@ class TestAddSecondaryClassification(TestCase):
         """Category is not from the arXiv taxonomy."""
         e = event.AddSecondaryClassification(
             creator=self.user,
-            submission_id=1,
+            submission_id="1",
             category="nonsense"
         )
         with self.assertRaises(InvalidEvent):
@@ -323,7 +323,7 @@ class TestAddSecondaryClassification(TestCase):
         """Category is inactive."""
         e = event.AddSecondaryClassification(
             creator=self.user,
-            submission_id=1,
+            submission_id="1",
             category="bayes-an"
         )
         with self.assertRaises(InvalidEvent):
@@ -334,7 +334,7 @@ class TestAddSecondaryClassification(TestCase):
         for category in CATEGORIES_ACTIVE.keys():
             e = event.AddSecondaryClassification(
                 creator=self.user,
-                submission_id=1,
+                submission_id="1",
                 category=category
             )
             try:
@@ -350,7 +350,7 @@ class TestAddSecondaryClassification(TestCase):
         )
         e = event.AddSecondaryClassification(
             creator=self.user,
-            submission_id=1,
+            submission_id="1",
             category='cond-mat.dis-nn'
         )
         with self.assertRaises(InvalidEvent):
@@ -363,7 +363,7 @@ class TestAddSecondaryClassification(TestCase):
 
         e = event.AddSecondaryClassification(
             creator=self.user,
-            submission_id=1,
+            submission_id="1",
             category='cond-mat.dis-nn'
         )
         with self.assertRaises(InvalidEvent):
@@ -376,7 +376,7 @@ class TestAddSecondaryClassification(TestCase):
 
         e = event.AddSecondaryClassification(
             creator=self.user,
-            submission_id=1,
+            submission_id="1",
             category='physics.gen-ph'
         )
         with self.assertRaises(InvalidEvent):
@@ -389,7 +389,7 @@ class TestAddSecondaryClassification(TestCase):
             submission.Classification('physics.optics'))
         e = event.AddSecondaryClassification(
             creator=self.user,
-            submission_id=1,
+            submission_id="1",
             category='physics.gen-ph'
         )
         with self.assertRaises(InvalidEvent):
@@ -402,7 +402,7 @@ class TestAddSecondaryClassification(TestCase):
 
         e = event.AddSecondaryClassification(
             creator=self.user,
-            submission_id=1,
+            submission_id="1",
             category='physics.optics'
         )
         with self.assertRaises(InvalidEvent):
@@ -415,7 +415,7 @@ class TestAddSecondaryClassification(TestCase):
             submission.Classification('physics.gen-ph'))
         e = event.AddSecondaryClassification(
             creator=self.user,
-            submission_id=1,
+            submission_id="1",
             category='physics.optics'
         )
         with self.assertRaises(InvalidEvent):
@@ -432,7 +432,7 @@ class TestAddSecondaryClassification(TestCase):
 
         e1 = event.AddSecondaryClassification(
             creator=self.user,
-            submission_id=1,
+            submission_id="1",
             category='cond-mat.quant-gas'
         )
         e1.validate(self.submission)
@@ -441,7 +441,7 @@ class TestAddSecondaryClassification(TestCase):
 
         e2 = event.AddSecondaryClassification(
             creator=self.user,
-            submission_id=1,
+            submission_id="1",
             category='cond-mat.str-el'
         )
 
@@ -457,7 +457,7 @@ class TestRemoveSecondaryClassification(TestCase):
         """Initialize auxiliary data for test cases."""
         self.user = user
         self.submission = submission.Submission(
-            submission_id=1,
+            submission_id="1",
             creator=self.user,
             owner=self.user,
             created=datetime.now(UTC),
@@ -468,7 +468,7 @@ class TestRemoveSecondaryClassification(TestCase):
         """Category is not from the arXiv taxonomy."""
         e = event.RemoveSecondaryClassification(
             creator=self.user,
-            submission_id=1,
+            submission_id="1",
             category="nonsense"
         )
         with self.assertRaises(InvalidEvent):
@@ -480,7 +480,7 @@ class TestRemoveSecondaryClassification(TestCase):
         self.submission.secondary_classification.append(classification)
         e = event.RemoveSecondaryClassification(
             creator=self.user,
-            submission_id=1,
+            submission_id="1",
             category='cond-mat.dis-nn'
         )
         try:
@@ -492,7 +492,7 @@ class TestRemoveSecondaryClassification(TestCase):
         """Category is not present."""
         e = event.RemoveSecondaryClassification(
             creator=self.user,
-            submission_id=1,
+            submission_id="1",
             category='cond-mat.dis-nn'
         )
         with self.assertRaises(InvalidEvent):
@@ -506,7 +506,7 @@ class TestSetAuthors(TestCase):
         """Initialize auxiliary data for test cases."""
         self.user = user
         self.submission = submission.Submission(
-            submission_id=1,
+            submission_id="1",
             creator=self.user,
             owner=self.user,
             created=datetime.now(UTC)
@@ -515,7 +515,7 @@ class TestSetAuthors(TestCase):
     def test_canonical_authors_provided(self):
         """Data includes canonical author display string."""
         e = event.SetAuthors(creator=self.user,
-                                submission_id=1,
+                                submission_id="1",
                                 authors=[submission.Author()],
                                 authors_display="Foo authors")
         try:
@@ -530,7 +530,7 @@ class TestSetAuthors(TestCase):
         """Data does not include canonical author display string."""
         e = event.SetAuthors(
             creator=self.user,
-            submission_id=1,
+            submission_id="1",
             authors=[
                 submission.Author(
                     forename="Bob",
@@ -557,7 +557,7 @@ class TestSetTitle(TestCase):
         """Initialize auxiliary data for test cases."""
         self.user = user
         self.submission = submission.Submission(
-            submission_id=1,
+            submission_id="1",
             creator=self.user,
             owner=self.user,
             created=datetime.now(UTC)
@@ -633,7 +633,7 @@ class TestSetAbstract(TestCase):
         """Initialize auxiliary data for test cases."""
         self.user = user
         self.submission = submission.Submission(
-            submission_id=1,
+            submission_id="1",
             creator=self.user,
             owner=self.user,
             created=datetime.now(UTC)
@@ -682,7 +682,7 @@ class TestSetDOI(TestCase):
         """Initialize auxiliary data for test cases."""
         self.user = user
         self.submission = submission.Submission(
-            submission_id=1,
+            submission_id="1",
             creator=self.user,
             owner=self.user,
             created=datetime.now(UTC)
@@ -731,7 +731,7 @@ class TestSetReportNumber(TestCase):
         """Initialize auxiliary data for test cases."""
         self.user = user
         self.submission = submission.Submission(
-            submission_id=1,
+            submission_id="1",
             creator=self.user,
             owner=self.user,
             created=datetime.now(UTC)
@@ -797,7 +797,7 @@ class TestSetJournalReference(TestCase):
         """Initialize auxiliary data for test cases."""
         self.user = user
         self.submission = submission.Submission(
-            submission_id=1,
+            submission_id="1",
             creator=self.user,
             owner=self.user,
             created=datetime.now(UTC)
@@ -858,7 +858,7 @@ class TestSetACMClassification(TestCase):
         """Initialize auxiliary data for test cases."""
         self.user = user
         self.submission = submission.Submission(
-            submission_id=1,
+            submission_id="1",
             creator=self.user,
             owner=self.user,
             created=datetime.now(UTC)
@@ -905,7 +905,7 @@ class TestSetMSCClassification(TestCase):
         """Initialize auxiliary data for test cases."""
         self.user = user
         self.submission = submission.Submission(
-            submission_id=1,
+            submission_id="1",
             creator=self.user,
             owner=self.user,
             created=datetime.now(UTC)
@@ -951,7 +951,7 @@ class TestSetComments(TestCase):
         """Initialize auxiliary data for test cases."""
         self.user = user
         self.submission = submission.Submission(
-            submission_id=1,
+            submission_id="1",
             creator=self.user,
             owner=self.user,
             created=datetime.now(UTC)

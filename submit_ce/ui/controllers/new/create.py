@@ -55,7 +55,7 @@ def create(method: str, params: MultiDict, session: Session, *args,
 
 
 def replace(method: str, params: MultiDict, session: Session,
-            submission_id: int, **kwargs) -> Response:
+            submission_id: str, **kwargs) -> Response:
     """Create a new version, and redirect to workflow."""
     submitter, client = user_and_client_from_session(session)
     submission, submission_events = get_submission(submission_id)

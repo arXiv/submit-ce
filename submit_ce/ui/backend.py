@@ -30,13 +30,13 @@ def config_backend_api(settings: Settings) -> SubmitApi:
         compiler=GcpCompileAtLegacy("data/new"))
 
 
-def get_submission(submission_id: int) -> Tuple[Submission, List[Event]]:
+def get_submission(submission_id: str) -> Tuple[Submission, List[Event]]:
     """
     Load a submission by ID.
 
     Parameters
     ----------
-    submission_id : int
+    submission_id : str
 
     Returns
     -------

@@ -38,7 +38,7 @@ def test_create_submission_round_trip():
     assert after.creator == creator
     assert after.owner == creator
     # ID may be None pre-persist; just assert it’s stable/typed if present.
-    assert after.submission_id is None or isinstance(after.submission_id, int)
+    assert after.submission_id is None or isinstance(after.submission_id, str)
 
 
 def test_finalize_submission_missing_required_fields_raises():

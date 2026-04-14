@@ -81,7 +81,7 @@ class LegacySubmitImplementation(SubmitApi):
         return self._load(self.get_session(), submission_id)[0]
 
     @override
-    def get_with_history(self, submission_id: int) -> Tuple[Submission, List[Event]]:
+    def get_with_history(self, submission_id: str) -> Tuple[Submission, List[Event]]:
         return self._load(self.get_session(), submission_id)
 
     @override
@@ -94,7 +94,7 @@ class LegacySubmitImplementation(SubmitApi):
         return [to_submission(row) for row in
                 session.execute(stmt).unique().scalars().all()]
 
-    def _load(self, session: SqlalchemySession, submission_id: int, lock_row: bool = False) \
+    def _load(self, session: SqlalchemySession, submission_id: str, lock_row: bool = False) \
             -> Tuple[Submission, List[Event]]:
         if not submission_id:
             raise NoSuchSubmission()
@@ -111,7 +111,7 @@ class LegacySubmitImplementation(SubmitApi):
 
 
     @override
-    def save(self, *events: Event, submission_id: Optional[int] = None) -> Tuple[Submission, List[Event]]:
+    def save(self, *events: Event, submission_id: Optional[str] = None) -> Tuple[Submission, List[Event]]:
         if not events:
             raise NothingToDo()
         with self.get_session() as session:
@@ -178,7 +178,7 @@ class LegacySubmitImplementation(SubmitApi):
         return get_endorsements(uzr)
 
     @override
-    def upload(self, file: SubmitFile, submission_id: int, user: User, client: Client) -> Workspace:
+    def upload(self, file: SubmitFile, submission_id: str, user: User, client: Client) -> Workspace:
         """Saves file to legacy FS and sets the upload package on the submission."""
         logger.debug(f"Uploaded archive MIME type: {file.content_type}.")
         if file.content_type not in acceptable_types:

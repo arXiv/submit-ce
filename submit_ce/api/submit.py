@@ -94,7 +94,7 @@ class SubmitApi(ABC):
         """
 
     @abstractmethod
-    def get_with_history(self, submission_id: int) -> Tuple[Submission, List[Event]]:
+    def get_with_history(self, submission_id: str) -> Tuple[Submission, List[Event]]:
         """
         Load a submission and its history.
 
@@ -185,7 +185,7 @@ class SubmitApi(ABC):
 
 
     @abstractmethod
-    def save(self, *events: Event, submission_id: Optional[int] = None) \
+    def save(self, *events: Event, submission_id: Optional[str] = None) \
             -> Tuple[Submission, List[Event]]:
             """
             Commit a set of new :class:`.Event` instances for a submission.
@@ -198,7 +198,7 @@ class SubmitApi(ABC):
             ----------
             events : :class:`.Event`
                 Events to apply and persist.
-            submission_id : int
+            submission_id : str
                 The unique ID for the submission, if available. If not provided, it is
                 expected that ``events`` includes a :class:`.CreateSubmission`.
 
@@ -230,7 +230,7 @@ class SubmitApi(ABC):
             ...
 
     @abstractmethod
-    def upload(self, files: SubmitFile, submission_id: int, user: User, client: Client) -> Workspace:
+    def upload(self, files: SubmitFile, submission_id: str, user: User, client: Client) -> Workspace:
         """Uploads a file to an existing submission.
 
         Saves the `file` to storage and updates the state of the submission.
@@ -238,7 +238,7 @@ class SubmitApi(ABC):
         ----------
         files : :class:`.FileUpload`
             The file to be uploaded.
-        submission_id : int
+        submission_id : str
             Identifier for the submission.
         user : :class:`.User`
             User making the upload

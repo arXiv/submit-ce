@@ -104,13 +104,13 @@ def get_licenses(session: SQLAlchemySession) -> List[License]:
 
 @retry(OperationalError, tries=3, delay=1)
 @handle_operational_errors
-def get_events(session: SQLAlchemySession, submission_id: int) -> List[Event]:
+def get_events(session: SQLAlchemySession, submission_id: str) -> List[Event]:
     """
     Load events from the classic database.
 
     Parameters
     ----------
-    submission_id : int
+    submission_id : str
 
     Returns
     -------
@@ -135,7 +135,7 @@ def get_events(session: SQLAlchemySession, submission_id: int) -> List[Event]:
 
 # @retry(ClassicBaseException, tries=3, delay=1)
 @handle_operational_errors
-def get_submission(session: SQLAlchemySession, submission_id: int, for_update: bool = False) \
+def get_submission(session: SQLAlchemySession, submission_id: str, for_update: bool = False) \
         -> Tuple[Submission, List[Event]]:
     """
     Get the current state of a submission from the database.
@@ -154,7 +154,7 @@ def get_submission(session: SQLAlchemySession, submission_id: int, for_update: b
 
     Parameters
     ----------
-    submission_id : int
+    submission_id : str
 
     Returns
     -------
@@ -371,7 +371,7 @@ def store_event(session: SQLAlchemySession, event: Event, before: Optional[Submi
 
 
 def _load(session: SQLAlchemySession,
-          submission_id: Optional[int] = None, paper_id: Optional[str] = None,
+          submission_id: Optional[str] = None, paper_id: Optional[str] = None,
           version: Optional[int] = 1, row_type: Optional[str] = None) \
         -> models.Submission:
     if row_type is not None:
@@ -548,7 +548,7 @@ def _get_app_version() -> str:
     return '0.0.0'
 
 
-def _get_db_submission_rows(session: SQLAlchemySession, submission_id: int) -> List[models.Submission]:
+def _get_db_submission_rows(session: SQLAlchemySession, submission_id: str) -> List[models.Submission]:
     head = session.query(models.Submission.submission_id,
                          models.Submission.doc_paper_id) \
         .filter_by(submission_id=submission_id) \
@@ -565,7 +565,7 @@ def _get_db_submission_rows(session: SQLAlchemySession, submission_id: int) -> L
 
 
 def to_submission(row: models.Submission,
-                  submission_id: Optional[int] = None) -> domain.Submission:
+                  submission_id: Optional[str] = None) -> domain.Submission:
     """
     Generate a representation of submission state from a DB instance.
 
@@ -573,7 +573,7 @@ def to_submission(row: models.Submission,
     ----------
     row : :class:`.domain.Submission`
         Database row representing a :class:`.domain.submission.Submission`.
-    submission_id : int or None
+    submission_id : str or None
         If provided the database value is overridden when setting
         :attr:`domain.Submission.submission_id`.
 
@@ -592,7 +592,9 @@ def to_submission(row: models.Submission,
     else:
         submitter = row.get_submitter()
     if submission_id is None:
-        submission_id = row.submission_id
+        submission_id = str(row.submission_id)
+    else:
+        submission_id = str(submission_id)
 
     client = HttpClient(remote_addr = row.remote_addr,
                         remote_host = row.remote_host)
@@ -679,7 +681,7 @@ def load(rows: Iterable[models.Submission]) -> Optional[domain.Submission]:
 
     """
     versions: List[domain.Submission] = []
-    submission_id: Optional[int] = None
+    submission_id: Optional[str] = None
 
     # We want to work within versions, and (secondarily) in order of creation
     # time.
@@ -694,7 +696,7 @@ def load(rows: Iterable[models.Submission]) -> Optional[domain.Submission]:
         # We use the original ID to track the entire lifecycle of the
         # submission in NG.
         if version == 1:
-            submission_id = these_version_rows[0].submission_id
+            submission_id = str(these_version_rows[0].submission_id)
             logger.debug('Submission ID: %s', submission_id)
 
         # Find the creation row. There may be some false starts that have been
@@ -752,7 +754,7 @@ def load(rows: Iterable[models.Submission]) -> Optional[domain.Submission]:
     return submission
 
 
-def announce_submission(session: SQLAlchemySession, submission_id: int) -> None:
+def announce_submission(session: SQLAlchemySession, submission_id: str) -> None:
     dbss = _get_db_submission_rows(session, submission_id)
     head = sorted([o for o in dbss if o.is_new_version()], key=lambda o: o.submission_id)[-1]
     if not head.is_announced():

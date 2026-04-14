@@ -30,7 +30,7 @@ Response = Tuple[Dict[str, Any], int, Dict[str, Any]]  # pylint: disable=C0103
 
 
 def license(method: str, params: MultiDict, session: Session,
-            submission_id: int, **kwargs) -> Response:
+            submission_id: str, **kwargs) -> Response:
     """Convert license form data into a `SetLicense` event."""
     submitter, client = user_and_client_from_session(session)
 

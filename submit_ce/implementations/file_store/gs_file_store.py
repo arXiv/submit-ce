@@ -9,6 +9,7 @@ import tarfile
 
 from arxiv.files import FileObj, FileDoesNotExist
 from arxiv.files.object_store import GsObjectStore
+from google.cloud.storage.blob import Blob
 from yarl import URL
 
 from submit_ce.api import SubmissionFileStore
@@ -23,7 +24,9 @@ from submit_ce.implementations.file_store.file_store_mixin import FileStoreMixin
 
 logger = logging.getLogger(__file__)
 
-
+# FileObj is designed so that Blob is a duck type of it.
+# This same line is in arxiv.file.object_store
+FileObj.register(Blob)
 
 class GsFileStore(SubmissionFileStore, FileStoreMixin):
     """Functions for storing and getting source files using Google Storage (GS)."
@@ -70,7 +73,7 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
                 f"source_prefix={self.source_prefix},"
                 )
 
-    def _blob_to_file_status(self, submission_id, blob) -> FileStatus:
+    def _blob_to_file_status(self, submission_id: str, blob) -> FileStatus:
         src_dir = self._source_path(submission_id)
         anc_dir = src_dir / "anc"
         file_path = Path(blob.name)
@@ -180,23 +183,23 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
         """Determine whether a preview has been deposited for a submission."""
         return self.bucket.blob(str(self._preview_path(submission_id))).exists()
 
-    def _get_checksum(self, path: str) -> str:
-        item = self.bucket.blob(path)
+    def _get_checksum(self, path: Path) -> str:
+        item = self.bucket.blob(str(path))
         return item.crc32c
 
-    def _submission_path(self, submission_id: str|str) -> Path:
+    def _submission_path(self, submission_id: str) -> Path:
         """Gets GS filesystem structure ex /{rootdir}/{first 4 digits of submission id}/{submission id}"""
-        shard_dir = self.gs_prefix / Path(str(submission_id)[:4])
-        return shard_dir / Path(str(submission_id))
+        shard_dir = self.gs_prefix / Path(submission_id[:4])
+        return shard_dir / Path(submission_id)
 
-    def _source_path(self, submission_id: int|str) -> Path:
+    def _source_path(self, submission_id: str) -> Path:
         """Get the source path for the submission_id"""
         return self._submission_path(submission_id) / self.source_prefix
 
-    def _source_package_path(self, submission_id: int|str) -> Path:
+    def _source_package_path(self, submission_id: str) -> Path:
         return self._submission_path(submission_id) / f'{submission_id}.tar.gz'
 
-    def _preview_path(self, submission_id: int|str) -> Path:
+    def _preview_path(self, submission_id: str) -> Path:
         return self._submission_path(submission_id) / f'{submission_id}.pdf'
 
     def get_source_file(self, submission_id: str, path: Path|str) -> FileObj:

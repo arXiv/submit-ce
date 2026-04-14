@@ -226,7 +226,7 @@ class ClassificationFormV2(csrf.CSRFForm):
 
 # ############################## CONTROLLER ############################## #
 def classification(
-    method: str, params: MultiDict, session: Session, submission_id: int, **kwargs
+    method: str, params: MultiDict, session: Session, submission_id: str, **kwargs
 ) -> Response:
     """Handle classification requests for a new submission."""
     submitter, client = user_and_client_from_session(session)

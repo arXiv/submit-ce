@@ -57,7 +57,7 @@ class UploadForm(csrf.CSRFForm):
 
 
 def upload_files(method: str, params: MultiDict, session: Session,
-                 submission_id: int, files: Optional[MultiDict] = None,
+                 submission_id: str, files: Optional[MultiDict] = None,
                  token: Optional[str] = None, **kwargs) -> Response:
     """Controller function to handle a file upload request.
 
@@ -78,7 +78,7 @@ def upload_files(method: str, params: MultiDict, session: Session,
         :class:`FileStorage` instances.
     session : :class:`Session`
         The authenticated session for the request.
-    submission_id : int
+    submission_id : str
         The identifier of the submission for which the upload is being made.
     token : str
         The original (encrypted) auth token on the request. Used to perform

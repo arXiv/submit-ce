@@ -32,7 +32,7 @@ Response = Tuple[Dict[str, Any], int, Dict[str, Any]]  # pylint: disable=C0103
 
 
 def file_process(method: str, params: MultiDict, session: Session,
-                 submission_id: int, token: str, **kwargs: Any) -> Response:
+                 submission_id: str, token: str, **kwargs: Any) -> Response:
     """
     Process the file compilation project.
 
@@ -42,7 +42,7 @@ def file_process(method: str, params: MultiDict, session: Session,
         ``GET`` or ``POST``
     session : :class:`Session`
         The authenticated session for the request.
-    submission_id : int
+    submission_id : str
         The identifier of the submission for which the upload is being made.
     token : str
         The original (encrypted) auth token on the request. Used to perform
@@ -72,7 +72,7 @@ def file_process(method: str, params: MultiDict, session: Session,
     raise MethodNotAllowed('Unsupported request')
 
 
-def _check_status(params: MultiDict, session: Session,  submission_id: int,
+def _check_status(params: MultiDict, session: Session,  submission_id: str,
                   token: str, **kwargs: Any) -> Response:
     """
     Check for cases in which the preview already exists.
@@ -104,7 +104,7 @@ def _check_status(params: MultiDict, session: Session,  submission_id: int,
         return ready_for_next(({}, status.OK, {}))
 
 
-def compile_status(params: MultiDict, session: Session, submission_id: int,
+def compile_status(params: MultiDict, session: Session, submission_id: str,
                    token: str, **kwargs: Any) -> Response:
     """
     Returns the status of a compilation.
@@ -113,7 +113,7 @@ def compile_status(params: MultiDict, session: Session, submission_id: int,
     ----------
     session : :class:`Session`
         The authenticated session for the request.
-    submission_id : int
+    submission_id : str
         The identifier of the submission for which the upload is being made.
     token : str
         The original (encrypted) auth token on the request. Used to perform
@@ -166,7 +166,7 @@ def compile_status(params: MultiDict, session: Session, submission_id: int,
     return stay_on_this_stage((response_data, status.OK, {}))
 
 
-def start_compilation(params: MultiDict, session: Session, submission_id: int,
+def start_compilation(params: MultiDict, session: Session, submission_id: str,
                       token: str, **kwargs: Any) -> Response:
     submitter, client = user_and_client_from_session(session)
     submission, submission_events = get_submission(submission_id)
@@ -213,7 +213,7 @@ def start_compilation(params: MultiDict, session: Session, submission_id: int,
     #
 
 # TODO move file_preview to its own controller
-def file_preview(params, session: Session, submission_id: int, token: str,
+def file_preview(params, session: Session, submission_id: str, token: str,
                  **kwargs: Any) -> Tuple[io.BytesIO, int, Dict[str, str]]:
     """Serve the PDF preview for a submission."""
     submitter, client = user_and_client_from_session(session)
@@ -225,7 +225,7 @@ def file_preview(params, session: Session, submission_id: int, token: str,
     return stream, status.OK, headers
 
 
-def compilation_log(params, session: Session, submission_id: int, token: str,
+def compilation_log(params, session: Session, submission_id: str, token: str,
                     **kwargs: Any) -> Response:
     submitter, client = user_and_client_from_session(session)
     submission, submission_events = get_submission(submission_id)
