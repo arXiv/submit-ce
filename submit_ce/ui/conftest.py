@@ -41,7 +41,7 @@ from submit_ce.domain.event import (
 )
 
 
-from submit_ce.make_test_db import bootstrap_db, create_all_legacy_db
+from submit_ce.make_test_db import bootstrap_db, create_all_db
 from submit_ce.ui.tests import ClientArxivAuth
 from submit_ce.ui.config import settings as sce_settings
 from submit_ce.ui.factory import create_web_app
@@ -84,14 +84,14 @@ def classic_db_uri_envvar(test_db_file):
 
 @pytest.fixture(scope='session')
 def legacy_db_no_bootstrap(test_db_file, classic_db_uri_envvar):
-    engine, url, test_db_file = create_all_legacy_db(test_db_file)
+    engine, url, test_db_file = create_all_db(test_db_file)
     return engine, url, test_db_file
 
 
 @pytest.fixture(scope='session')
 def legacy_db_w_bootstrap(test_db_file, jwt_secret, classic_db_uri_envvar):
     jwt = bootstrap_db(db_uri=f"sqlite:///{test_db_file}", jwt_secret=jwt_secret)
-    engine, url, test_db_file = create_all_legacy_db(test_db_file)
+    engine, url, test_db_file = create_all_db(test_db_file)
     return engine, url, test_db_file, jwt
 
 
