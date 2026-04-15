@@ -514,12 +514,13 @@ def _create_jref(session: SQLAlchemySession, document_id: int, paper_id: str, ve
 
 def _new_dbevent(event: Event) -> DBEvent:
     """Create an event entry in the database."""
+    redundant_fields = {"creator", "proxy", "client", "created", "committed", "submission_id"}
     return DBEvent(event_type=event.event_type,
                    event_id=event.event_id,
                    submission_id=event.submission_id if event.submission_id else None,
                    event_version=_get_app_version(),
                    created=event.created,
-                   data=event.model_dump_json(exclude={"creator", "proxy", "client", "created", "committed", "submission_id"}).encode('utf-8'),
+                   data=event.model_dump_json(exclude=redundant_fields).encode('utf-8'),
                    creator=RootModel[User](event.creator).model_dump_json().encode('utf-8'),
                    client=RootModel[Client](event.client).model_dump_json().encode('utf-8') if event.client else None,
                    proxy=RootModel[User](event.proxy).model_dump_json().encode('utf-8') if event.proxy else None
