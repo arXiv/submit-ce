@@ -27,7 +27,7 @@ def finalize_error_summary(error_summary: str) -> str:
     error_summary = error_summary + "</ul>\n"
     return error_summary
 
-def compilation_log_display(autotex_log: str, submission_id: int,
+def compilation_log_display(autotex_log: str, submission_id: str,
                             compilation_status: str) -> str:
     """
     Highlight interesting features in autotex log.

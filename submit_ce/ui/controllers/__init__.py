@@ -24,7 +24,7 @@ from .new.verify_user import verify
 from .util import Response
 
 def submission_status(method: str, params: MultiDict, session: Session,
-                      submission_id: int) -> Response:
+                      submission_id: str) -> Response:
     #user, client = util.user_and_client_from_session(session)
 
     # Will raise NotFound if there is no such submission.
@@ -38,7 +38,7 @@ def submission_status(method: str, params: MultiDict, session: Session,
 
 
 def submission_edit(method: str, params: MultiDict, session: Session,
-                    submission_id: int) -> Response:
+                    submission_id: str) -> Response:
     """Cause flow_control to go to the current_stage of the Submission."""
     submission, submission_events = get_submission(submission_id)
     response_data = {

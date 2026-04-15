@@ -24,7 +24,7 @@ class TestRequestEvents(unittest.TestCase):
             email='uuser@cornell.edu'
         )
         self.submission = Submission(
-            submission_id=1,
+            submission_id="1",
             creator=self.user,
             owner=self.user,
             created=datetime.now(UTC),

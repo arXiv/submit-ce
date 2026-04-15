@@ -40,7 +40,7 @@ class WithdrawalForm(csrf.CSRFForm, FieldMixin):
 
 
 def request_withdrawal(method: str, params: MultiDict, session: Session,
-                       submission_id: int, **kwargs) -> Response:
+                       submission_id: str, **kwargs) -> Response:
     """Request withdrawal of a paper."""
     submitter, client = user_and_client_from_session(session)
     logger.debug(f'method: {method}, submission: {submission_id}. {params}')

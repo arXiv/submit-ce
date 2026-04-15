@@ -72,7 +72,7 @@ class Event(BaseModel):
     be the client that facilitated the operation.
     """
 
-    submission_id: Optional[int] = None
+    submission_id: Optional[str] = None
     """
     The primary identifier of the submission being operated upon.
 

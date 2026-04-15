@@ -28,7 +28,7 @@ Response = Tuple[Dict[str, Any], int, Dict[str, Any]]  # pylint: disable=C0103
 
 
 def finalize(method: str, params: MultiDict, session: Session,
-             submission_id: int, **kwargs) -> Response:
+             submission_id: str, **kwargs) -> Response:
     submitter, _ = user_and_client_from_session(session)
 
     logger.debug(f'method: {method}, ui-app: {submission_id}. {params}')
@@ -78,7 +78,7 @@ class FinalizationForm(csrf.CSRFForm):
 
 
 def confirm(method: str, params: MultiDict, session: Session,
-            submission_id: int, **kwargs) -> Response:
+            submission_id: str, **kwargs) -> Response:
     submission, _ = get_submission(submission_id)
     submitter, _ = user_and_client_from_session(session)
 

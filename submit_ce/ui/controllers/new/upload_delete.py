@@ -36,7 +36,7 @@ Response = Tuple[Dict[str, Any], int, Dict[str, Any]]  # pylint: disable=C0103
 
 
 def delete_all(method: str, params: MultiDict, session: Session,
-               submission_id: int, token: Optional[str] = None,
+               submission_id: str, token: Optional[str] = None,
                **kwargs) -> Response:
     """
     Handle a request to delete all files in the workspace.
@@ -49,7 +49,7 @@ def delete_all(method: str, params: MultiDict, session: Session,
         The query or form data from the request.
     session : :class:`Session`
         The authenticated session for the request.
-    submission_id : int
+    submission_id : str
         The identifier of the submission for which the deletion is being made.
     token : str
         The original (encrypted) auth token on the request. Used to perform
@@ -99,7 +99,7 @@ def delete_all(method: str, params: MultiDict, session: Session,
 
 
 def delete_file(method: str, params: MultiDict, session: Session,
-                submission_id: int, token: Optional[str] = None,
+                submission_id: str, token: Optional[str] = None,
                 **kwargs) -> Response:
     """
     Handle a request to delete a file.
@@ -121,7 +121,7 @@ def delete_file(method: str, params: MultiDict, session: Session,
         The query or form data from the request.
     session : :class:`Session`
         The authenticated session for the request.
-    submission_id : int
+    submission_id : str
         The identifier of the submission for which the deletion is being made.
     token : str
         The original (encrypted) auth token on the request. Used to perform
