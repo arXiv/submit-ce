@@ -74,6 +74,7 @@ from ..preview import Preview
 from ..submission import Submission, Author, \
     Classification, License
 from ..exceptions import InvalidEvent
+from submit_ce.domain.submission import ProxyInfo
 
 __all__ = [
     make_event,
@@ -216,6 +217,27 @@ class ConfirmContactInformation(Event):
     def project(self, submission: Submission) -> Submission:
         """Update :attr:`.Submission.submitter_contact_verified`."""
         submission.submitter_contact_verified = True
+        return submission
+
+
+class SetProxyInformation(Event):
+    """Set proxy information."""
+    proxied_name: str
+    proxied_email: str
+
+    def apply(self, submission: Submission) -> Submission:
+        # Temporary Debugging - works
+        logger.error(
+            "REPLAY apply SetProxyInformation: %s %s",
+            self.proxied_name,
+            self.proxied_email,
+        )
+
+        submission.proxy = ProxyInfo(
+            proxied_name=self.proxied_name,
+            proxied_email=self.proxied_email,
+            proxy_user=self.creator,
+        )
         return submission
 
 
