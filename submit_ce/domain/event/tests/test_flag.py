@@ -22,7 +22,7 @@ class TestFlagEvents(unittest.TestCase):
             email='test@example.com'
         )
         self.submission = Submission(
-            submission_id=1,
+            submission_id="1",
             creator=self.user,
             owner=self.user,
             created=datetime.now(UTC),

@@ -31,7 +31,7 @@ Response = Tuple[Dict[str, Any], int, Dict[str, Any]]   # pylint: disable=C0103
 
 
 def verify(method: str, params: MultiDict, session: Session,
-           submission_id: int, **kwargs) -> Response:
+           submission_id: str, **kwargs) -> Response:
     """
     Prompt the user to verify their contact information.
 

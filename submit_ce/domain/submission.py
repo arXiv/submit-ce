@@ -308,7 +308,7 @@ class Submission:
     created: Optional[datetime] = field(default=None)
     updated: Optional[datetime] = field(default=None)
     submitted: Optional[datetime] = field(default=None)
-    submission_id: Optional[int] = field(default=None)
+    submission_id: Optional[str] = field(default=None)
 
     source_content: Optional[SubmissionContent] = field(default=None)
     preview: Optional[Preview] = field(default=None)

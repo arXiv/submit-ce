@@ -117,7 +117,7 @@ class CrossListForm(csrf.CSRFForm):
 
 
 def request_cross(method: str, params: MultiDict, session: Session,
-                  submission_id: int, **kwargs) -> Response:
+                  submission_id: str, **kwargs) -> Response:
     """Request cross-list classification for an announced e-print."""
     submitter, client = user_and_client_from_session(session)
     logger.debug(f'method: {method}, submission: {submission_id}. {params}')

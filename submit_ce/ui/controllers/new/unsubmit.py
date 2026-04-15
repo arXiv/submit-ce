@@ -28,7 +28,7 @@ class UnsubmitForm(csrf.CSRFForm):
 
 
 def unsubmit(method: str, params: MultiDict, session: Session,
-             submission_id: int, **kwargs) -> Response:
+             submission_id: str, **kwargs) -> Response:
     """Unsubmit a submission."""
     submission, submission_events = get_submission(submission_id)
     response_data = {

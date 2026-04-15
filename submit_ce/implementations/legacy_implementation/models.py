@@ -13,6 +13,32 @@ from submit_ce.domain.agent import PublicUser
 from submit_ce.domain.agent import agent_factory
 from submit_ce.domain.event.base import event_factory
 
+# class SQLiteJSON(types.TypeDecorator):
+#     """A SQLite-friendly JSON data type."""
+#
+#     impl = types.TEXT
+#
+#     def process_bind_param(self, value: Optional[dict], dialect: str) \
+#             -> Optional[str]:
+#         """Serialize a dict to JSON."""
+#         if value is not None:
+#             obj: Optional[str] = serializer.dumps(value)
+#         else:
+#             obj = value
+#         return obj
+#
+#     def process_result_value(self, value: str, dialect: str) \
+#             -> Optional[Union[str, dict]]:
+#         """Deserialize JSON content to a dict."""
+#         if value is not None:
+#             value = serializer.loads(value)
+#         return value
+#
+#
+# # SQLite does not support JSON, so we extend JSON to use our custom data type
+# # as a variant for the 'sqlite' dialect.
+# FriendlyJSON = types.JSON().with_variant(SQLiteJSON, 'sqlite')
+#
 
 Base = declarative_base()
 
@@ -968,7 +994,7 @@ class CategoryProposal(Base):   # type: ignore
 class DBEvent(Base):  # type: ignore
     """Database representation of an :class:`.Event`."""
 
-    __tablename__ = 'event'
+    __tablename__ = 'submit_ce_event'
 
     event_id = Column(String(40), primary_key=True)
     event_type = Column(String(255))

@@ -28,6 +28,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import create_engine, text
 
 from submit_ce.ui.config import DEV_SQLITE_FILE, settings
+from submit_ce.implementations.legacy_implementation import models as submit_ce_models
 
 logging.basicConfig()
 logging.getLogger("arxiv.submission.services.classic.interpolate").setLevel(logging.ERROR)
@@ -331,7 +332,7 @@ def _engine(uri, echo):
     models.configure_db_engine(engine, None)
     return engine
 
-def create_all_legacy_db(test_db_file: str=DEV_SQLITE_FILE, echo: bool=False, uri:Optional[str]=None):
+def create_all_db(test_db_file: str=DEV_SQLITE_FILE, echo: bool=False, uri:Optional[str]=None):
     """Legacy sqlite testing db with all tables created but no data."""
     url =  f"sqlite:///{test_db_file}" if uri is None else uri
     engine = _engine(url, echo)
@@ -342,6 +343,7 @@ def create_all_legacy_db(test_db_file: str=DEV_SQLITE_FILE, echo: bool=False, ur
     else:
         with Session(engine) as session:
             models.metadata.create_all(bind=engine)
+            submit_ce_models.Base.metadata.create_all(engine)
             session.commit()
 
     return engine, url, test_db_file
@@ -414,6 +416,7 @@ def bootstrap_db(
 
             logger.info("Database for classic not yet initialized; creating all tables")
             models.metadata.create_all(engine)
+            submit_ce_models.Base.metadata.create_all(engine)
 
             logger.info("Populate with base data")
             for obj in licenses():
@@ -489,7 +492,7 @@ def jwt_for_user(user_id:int|None, dburi:str|None, jwt_secret:str|None ) -> str:
 
 if __name__ == "__main__":
     fire.Fire({
-        "create_tables":create_all_legacy_db,
+        "create_tables":create_all_db,
         "bootstrap_db": bootstrap_db,
         "jwt_for_user": jwt_for_user,
     })

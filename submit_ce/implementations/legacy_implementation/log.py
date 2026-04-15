@@ -89,7 +89,7 @@ def admin_log(session: SQLAlchemySession,
               program: str, command: str, text: str, notify: bool = False,
               username: Optional[str] = None,
               hostname: Optional[str] = None,
-              submission_id: Optional[int] = None,
+              submission_id: Optional[str] = None,
               paper_id: Optional[str] = None,
               document_id: Optional[int] = None) -> models.AdminLogEntry:
     """
@@ -107,7 +107,7 @@ def admin_log(session: SQLAlchemySession,
     username : str
     hostname : str
         Hostname or IP address of the client.
-    submission_id : int
+    submission_id : str
     paper_id : str
     document_id : int
 

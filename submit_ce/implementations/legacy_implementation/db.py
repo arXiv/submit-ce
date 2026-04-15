@@ -31,6 +31,7 @@ See also :ref:`legacy-integration`.
 """
 
 import copy
+import json
 import traceback
 from datetime import datetime
 from functools import wraps
@@ -47,7 +48,7 @@ from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session as SQLAlchemySession
 from sqlalchemy.orm.exc import NoResultFound
 
-from submit_ce.domain.agent import HttpClient
+from submit_ce.domain.agent import Client, HttpClient
 from submit_ce.domain.event.request import CancelRequest, RequestCrossList, RequestWithdrawal
 
 from . import models, interpolate, log
@@ -104,13 +105,13 @@ def get_licenses(session: SQLAlchemySession) -> List[License]:
 
 @retry(OperationalError, tries=3, delay=1)
 @handle_operational_errors
-def get_events(session: SQLAlchemySession, submission_id: int) -> List[Event]:
+def get_events(session: SQLAlchemySession, submission_id: str) -> List[Event]:
     """
     Load events from the classic database.
 
     Parameters
     ----------
-    submission_id : int
+    submission_id : str
 
     Returns
     -------
@@ -135,7 +136,7 @@ def get_events(session: SQLAlchemySession, submission_id: int) -> List[Event]:
 
 # @retry(ClassicBaseException, tries=3, delay=1)
 @handle_operational_errors
-def get_submission(session: SQLAlchemySession, submission_id: int, for_update: bool = False) \
+def get_submission(session: SQLAlchemySession, submission_id: str, for_update: bool = False) \
         -> Tuple[Submission, List[Event]]:
     """
     Get the current state of a submission from the database.
@@ -154,7 +155,7 @@ def get_submission(session: SQLAlchemySession, submission_id: int, for_update: b
 
     Parameters
     ----------
-    submission_id : int
+    submission_id : str
 
     Returns
     -------
@@ -225,8 +226,7 @@ def get_submission(session: SQLAlchemySession, submission_id: int, for_update: b
 
 # @retry(ClassicBaseException, tries=3, delay=1)
 @handle_operational_errors
-def store_event(session: SQLAlchemySession, event: Event, before: Optional[Submission], after: Submission,
-                *call: Callable) -> Tuple[Event, Submission]:
+def store_event(session: SQLAlchemySession, event: Event, before: Optional[Submission], after: Submission) -> Tuple[Event, Submission]:
     """
     Store an event, and update submission state.
 
@@ -255,10 +255,6 @@ def store_event(session: SQLAlchemySession, event: Event, before: Optional[Submi
         The state of the submission before the event occurred.
     after : :class:`Submission`
         The state of the submission after the event occurred.
-    call : list
-        Items are callables that accept args ``Event, Submission, Submission``.
-        `store_event` makes not attempt to handle exceptions during these.
-
     """
     # Let the caller determine the transaction scope.
     if event.committed:
@@ -331,30 +327,21 @@ def store_event(session: SQLAlchemySession, event: Event, before: Optional[Submi
         else:
             raise ValueError(f"Cannot handle submission of type {type(before)} and event {type(event)}")
 
+    # Make sure that we get a submission ID; note that this does not commit
+    # the transaction, just pushes the SQL that we have generated so far to the db.
     session.add(dbs)
     session.flush([dbs])
 
-    # TODO Event storage disabled
-    # Attach the database object for the event to the row for the
-    #  submission.
-    # if this_is_a_new_submission:    # Update in transaction.
-    #     db_event.submission = dbs
-    # else:                           # Just set the ID directly.
-    #     assert before is not None
-    #     db_event.submission_id = before.submission_id
-    #db_event = _new_dbevent(event)
-    #session.add(db_event)
+    # at this point a new submission will have a submission_id
+    if this_is_a_new_submission:
+        event.submission_id = dbs.submission_id
 
-    # Make sure that we get a submission ID; note that this # does not commit
-    # the transaction, just pushes the # SQL that we have generated so far to
-    # the database # server.
+    # Attach the row for Event to the submission
+    db_event = _new_dbevent(event)
+    session.add(db_event)
+    event.committed = True
 
     log.handle(session, event, before, after)   # Create admin log entry.
-    for func in call:
-        logger.debug('call %s with event %s', func, event.event_id)
-        func(event, before, after)
-
-    event.committed = True
 
     # Update the domain event and submission states with the submission ID.
     # This should carry forward the original submission ID, even if the
@@ -371,7 +358,7 @@ def store_event(session: SQLAlchemySession, event: Event, before: Optional[Submi
 
 
 def _load(session: SQLAlchemySession,
-          submission_id: Optional[int] = None, paper_id: Optional[str] = None,
+          submission_id: Optional[str] = None, paper_id: Optional[str] = None,
           version: Optional[int] = 1, row_type: Optional[str] = None) \
         -> models.Submission:
     if row_type is not None:
@@ -527,13 +514,17 @@ def _create_jref(session: SQLAlchemySession, document_id: int, paper_id: str, ve
 
 def _new_dbevent(event: Event) -> DBEvent:
     """Create an event entry in the database."""
+    redundant_fields = {"creator", "proxy", "client", "created", "committed", "submission_id"}
     return DBEvent(event_type=event.event_type,
                    event_id=event.event_id,
+                   submission_id=event.submission_id if event.submission_id else None,
                    event_version=_get_app_version(),
-                   data=event.model_dump_json().encode('utf-8'),
                    created=event.created,
+                   data=event.model_dump_json(exclude=redundant_fields).encode('utf-8'),
                    creator=RootModel[User](event.creator).model_dump_json().encode('utf-8'),
-                   proxy=RootModel[User](event.proxy).model_dump_json().encode('utf-8') if event.proxy else None)
+                   client=RootModel[Client](event.client).model_dump_json().encode('utf-8') if event.client else None,
+                   proxy=RootModel[User](event.proxy).model_dump_json().encode('utf-8') if event.proxy else None
+                   )
 
 
 def _preserve_sticky_hold(dbs: models.Submission, before: Submission,
@@ -548,7 +539,7 @@ def _get_app_version() -> str:
     return '0.0.0'
 
 
-def _get_db_submission_rows(session: SQLAlchemySession, submission_id: int) -> List[models.Submission]:
+def _get_db_submission_rows(session: SQLAlchemySession, submission_id: str) -> List[models.Submission]:
     head = session.query(models.Submission.submission_id,
                          models.Submission.doc_paper_id) \
         .filter_by(submission_id=submission_id) \
@@ -565,7 +556,7 @@ def _get_db_submission_rows(session: SQLAlchemySession, submission_id: int) -> L
 
 
 def to_submission(row: models.Submission,
-                  submission_id: Optional[int] = None) -> domain.Submission:
+                  submission_id: Optional[str] = None) -> domain.Submission:
     """
     Generate a representation of submission state from a DB instance.
 
@@ -573,7 +564,7 @@ def to_submission(row: models.Submission,
     ----------
     row : :class:`.domain.Submission`
         Database row representing a :class:`.domain.submission.Submission`.
-    submission_id : int or None
+    submission_id : str or None
         If provided the database value is overridden when setting
         :attr:`domain.Submission.submission_id`.
 
@@ -592,7 +583,9 @@ def to_submission(row: models.Submission,
     else:
         submitter = row.get_submitter()
     if submission_id is None:
-        submission_id = row.submission_id
+        submission_id = str(row.submission_id)
+    else:
+        submission_id = str(submission_id)
 
     client = HttpClient(remote_addr = row.remote_addr,
                         remote_host = row.remote_host)
@@ -679,7 +672,7 @@ def load(rows: Iterable[models.Submission]) -> Optional[domain.Submission]:
 
     """
     versions: List[domain.Submission] = []
-    submission_id: Optional[int] = None
+    submission_id: Optional[str] = None
 
     # We want to work within versions, and (secondarily) in order of creation
     # time.
@@ -694,7 +687,7 @@ def load(rows: Iterable[models.Submission]) -> Optional[domain.Submission]:
         # We use the original ID to track the entire lifecycle of the
         # submission in NG.
         if version == 1:
-            submission_id = these_version_rows[0].submission_id
+            submission_id = str(these_version_rows[0].submission_id)
             logger.debug('Submission ID: %s', submission_id)
 
         # Find the creation row. There may be some false starts that have been
@@ -752,7 +745,7 @@ def load(rows: Iterable[models.Submission]) -> Optional[domain.Submission]:
     return submission
 
 
-def announce_submission(session: SQLAlchemySession, submission_id: int) -> None:
+def announce_submission(session: SQLAlchemySession, submission_id: str) -> None:
     dbss = _get_db_submission_rows(session, submission_id)
     head = sorted([o for o in dbss if o.is_new_version()], key=lambda o: o.submission_id)[-1]
     if not head.is_announced():

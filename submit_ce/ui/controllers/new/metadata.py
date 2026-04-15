@@ -88,7 +88,7 @@ def _data_from_submission(params: MultiDict, submission: Submission,
 
 
 def metadata(method: str, params: MultiDict, session: Session,
-             submission_id: int, **kwargs) -> Response:
+             submission_id: str, **kwargs) -> Response:
     """Update submission metadata on the submission."""
     submitter, client = user_and_client_from_session(session)
     logger.debug(f'method: {method}, submission: {submission_id}. {params}')

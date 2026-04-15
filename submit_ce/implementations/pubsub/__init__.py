@@ -31,7 +31,7 @@ class PubsubEventSubmitImplementation(SubmitApi):
         self.topic = topic
         self.inner_api = inner_api
 
-    def save(self, *event, submission_id: Optional[int] = None) -> Tuple[Submission, List[Event]]:
+    def save(self, *event, submission_id: Optional[str] = None) -> Tuple[Submission, List[Event]]:
         answer = self.inner_api.save(*event, submission_id=submission_id)
         pubsub_msg_id = self.publisher.publish(self.topic, self.serialize_msg(event)).result()
         logger.debug(f"submission_id: {submission_id} pubsub_msg_id: {pubsub_msg_id}")
@@ -40,7 +40,7 @@ class PubsubEventSubmitImplementation(SubmitApi):
     def get(self, submission_id: str) -> Submission:
         return self.inner_api.get(submission_id)
 
-    def get_with_history(self, submission_id: int) -> Tuple[Submission, List[Event]]:
+    def get_with_history(self, submission_id: str) -> Tuple[Submission, List[Event]]:
         return self.inner_api.get_with_history(submission_id)
 
     def load_submissions_for_user(self, user_id: int) -> List[Submission]:
@@ -67,7 +67,7 @@ class PubsubEventSubmitImplementation(SubmitApi):
     def healthy(self) -> tuple[bool,str]:
         return self.inner_api.healthy()
 
-    def upload(self, files: SubmitFile, submission_id: int, user: User, client: Client) -> Workspace:
+    def upload(self, files: SubmitFile, submission_id: str, user: User, client: Client) -> Workspace:
         return self.inner_api.upload(files, submission_id, user, client)
 
     @staticmethod
