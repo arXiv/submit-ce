@@ -17,6 +17,28 @@ from .util import get_tzaware_utc_now
 
 
 @dataclass
+class ProxyInfo:
+    """
+    Submission is made by submitter_id on behalf of someone else.
+    """
+    proxied_name: str
+    proxied_email: str
+    proxy_user: User
+
+
+def proxy_equal(a: ProxyInfo | None, b: ProxyInfo | None) -> bool:
+    if a is None and b is None:
+        return True
+    if a is None or b is None:
+        return False
+    return (
+        a.proxied_name == b.proxied_name
+        and a.proxied_email == b.proxied_email
+        and a.proxy_user.identifier == b.proxy_user.identifier
+    )
+
+
+@dataclass
 class Author:
     """Represents an author of a submission."""
 
@@ -303,7 +325,7 @@ class Submission:
 
     creator: User
     owner: User
-    proxy: Optional[User] = field(default=None)
+    proxy: Optional[ProxyInfo] = field(default=None)
     client: Optional[Client] = field(default=None)
     created: Optional[datetime] = field(default=None)
     updated: Optional[datetime] = field(default=None)
@@ -363,6 +385,27 @@ class Submission:
 
     waivers: Dict[str, Waiver] = field(default_factory=dict)
     """Quality control waivers."""
+
+    # ------------------------
+    # Derived / presentation
+    # ------------------------
+    @property
+    def contact_name(self) -> str:
+        """
+        Who appears as the 'From' / contact name.
+        """
+        if self.proxy:
+            return self.proxy.proxy_for_name
+        return self.submitter.full_name
+
+    @property
+    def contact_email(self) -> str:
+        """
+        Who appears as the 'From' / contact email.
+        """
+        if self.proxy:
+            return self.proxy.proxy_for_email
+        return self.submitter.email
 
     @property
     def features(self) -> Dict[str, Feature]:
