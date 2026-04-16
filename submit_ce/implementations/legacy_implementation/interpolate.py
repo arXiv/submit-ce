@@ -1,17 +1,24 @@
-"""
-Inject events from outside the scope of the NG submission system.
+"""Given a legacy 1.5 submission, make a submit 2.0 `List[Event]` that would create
+a submission in that state.
 
-A core concept of the :mod:`arxiv.submission.domain.event` model is that
-the state of a submission can be obtained by playing forward all of the
-commands/events applied to it. That works when all agents that operate
-on submission state are generating commands. The problem that we face in
-the short term is that some operations will be performed by legacy components
-that don't generate command/event data.
+A core concept of the :mod:`arxiv.submission.domain.event` model is that the
+state of a submission can be obtained by playing forward all of the
+commands/events applied to it. This is called "event sourcing". Right now,
+2026-04, we are not using event sourcing and submit 2.0 just writes to the db.
+The events are still valuable because they are a high fidelity history of
+changes to the submission.
 
-The objective of the :class:`ClassicEventInterpolator` is to reconcile
-NG events/commands with aspects of the classic database that are outside its
-current purview. The logic in this module will need to change as the scope
-of the NG submission data architecture expands.
+Event sourcing works when all agents that operate on submission state are
+generating commands. The problem faced in the short term is that some
+operations will be performed by legacy components that don't generate
+command/event data.
+
+The objective of the :class:`ClassicEventInterpolator` is to reconcile NG
+events/commands with the classic database that are outside its event system.
+
+The logic in this module will need to change as the scope of the NG submission
+data architecture expands.
+
 """
 
 import logging
