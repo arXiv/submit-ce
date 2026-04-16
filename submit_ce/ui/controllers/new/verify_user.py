@@ -18,16 +18,16 @@ from arxiv.forms import csrf
 from arxiv.auth.domain import Session
 
 from submit_ce.ui.auth import user_and_client_from_session
-from submit_ce.domain.event import ConfirmContactInformation
+from submit_ce.domain.event import ConfirmContactInformation, SetProxyInformation
 
 from submit_ce.ui.backend import get_submission
 from submit_ce.ui.controllers.util import validate_command
 from submit_ce.ui.routes.flow_control import ready_for_next, stay_on_this_stage
+from submit_ce.domain.submission import ProxyInfo, proxy_equal
 
+logger = logging.getLogger(__name__)  # pylint: disable=C0103
 
-logger = logging.getLogger(__name__)    # pylint: disable=C0103
-
-Response = Tuple[Dict[str, Any], int, Dict[str, Any]]   # pylint: disable=C0103
+Response = Tuple[Dict[str, Any], int, Dict[str, Any]]  # pylint: disable=C0103
 
 
 def verify(method: str, params: MultiDict, session: Session,
@@ -43,9 +43,21 @@ def verify(method: str, params: MultiDict, session: Session,
     # Will raise NotFound if there is no such submission.
     submission, _ = get_submission(submission_id)
     may_proxy = scopes.PROXY_SUBMISSION in submitter.scopes
+    # may_proxy = True
 
     if method == 'GET' and submission.submitter_contact_verified:
         params['verify_user'] = 'true'
+
+    if method == "GET":
+
+        logger.error(
+            "VERIFY_USER GET: submission.proxy=%r",
+            submission.proxy
+        )
+
+        if submission.proxy:
+            params['proxy_name'] = submission.proxy.proxied_name
+            params['proxy_email'] = submission.proxy.proxied_email
 
     form = VerifyUserForm(params)
     response_data = {
@@ -53,7 +65,7 @@ def verify(method: str, params: MultiDict, session: Session,
         'form': form,
         'submission': submission,
         'submitter': submitter,
-        'user': session.user,   # We want the most up-to-date representation.
+        'user': session.user,  # We want the most up-to-date representation.
         'may_proxy': may_proxy,
     }
 
@@ -76,10 +88,34 @@ def verify(method: str, params: MultiDict, session: Session,
         if not ok:
             return stay_on_this_stage((response_data, status.BAD_REQUEST, {}))
 
-    if submission.submitter_contact_verified:
-        return ready_for_next((response_data, status.OK,{}))
+    # We need to process proxy changes
+    #
+    # if submission.submitter_contact_verified:
+    #    return ready_for_next((response_data, status.OK,{}))
+
+    # NEW
+    existing_proxy = submission.proxy
+
+    new_proxy = None
+    if may_proxy and (form.proxy_name.data or form.proxy_email.data):
+        new_proxy = ProxyInfo(
+            proxied_name=form.proxy_name.data.strip(),
+            proxied_email=form.proxy_email.data.strip(),
+            proxy_user=submitter,
+        )
+
+    if not proxy_equal(existing_proxy, new_proxy):
+        submission.proxy = new_proxy
+        cmd = SetProxyInformation(
+            creator=submitter,
+            client=client,
+            proxied_name=new_proxy.proxied_name,
+            proxied_email=new_proxy.proxied_email,
+        )
+        submission, _ = current_app.api.save(cmd, submission_id=submission_id)
 
     cmd = ConfirmContactInformation(creator=submitter, client=client)
+
     if validate_command(form, cmd, submission, 'verify_user'):
         submission, _ = current_app.api.save(cmd, submission_id=submission_id)
         response_data['submission'] = submission
