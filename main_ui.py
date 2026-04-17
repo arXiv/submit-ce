@@ -4,6 +4,11 @@ Run as `python main.py`"""
 import os
 from submit_ce.ui.factory import create_web_app
 
+# This can make the development log easier to read, by
+# removing log messages for GET /static/*
+import logging
+logging.getLogger("werkzeug").setLevel(logging.WARNING)
+
 if __name__ == "__main__":
     os.environ['TEMPLATES_AUTO_RELOAD'] = "1"
     app = create_web_app()
