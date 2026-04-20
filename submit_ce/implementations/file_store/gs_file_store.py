@@ -135,6 +135,16 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
                      content: SubmitFile,
                      chunk_size: int) -> str:
         """Store a source package for a submission."""
+
+        # Upload the entire package file, because
+        # The legacy code seems to keep the gz current, and
+        # tex2pdf-api/preflight needs a path to a zip in a bucket.
+        package_path = self._source_package_path(submission_id)
+        package_blob = self.bucket.blob(str(package_path))
+        content.stream.seek(0)
+        package_blob.upload_from_file(content.stream, content_type=content.content_type)
+
+        content.stream.seek(0)
         files=[]
         src_dir = self._source_path(submission_id)
 
