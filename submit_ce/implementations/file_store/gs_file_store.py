@@ -220,7 +220,7 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
         else:
             return FileDoesNotExist(str(src_path))
 
-    def get_source_pacakge_checksum(self, submission_id: str) -> str:
+    def get_source_package_checksum(self, submission_id: str) -> str:
         return self.get_source_checksum(submission_id)
 
     def delete_workspace(self, submission_id: str):

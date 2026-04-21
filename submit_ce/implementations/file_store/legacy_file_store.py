@@ -93,7 +93,7 @@ class LegacyFileStore(SubmissionFileStore):
     def store_source_file(self, submission_id: str, content: SubmitFile, chunk_size: int) -> FileStatus:
         return super().store_source_file(submission_id, content, chunk_size)
 
-    def get_source_pacakge_checksum(self, submission_id: str) -> str:
+    def get_source_package_checksum(self, submission_id: str) -> str:
         pass
 
     def get_preview(self, submission_id: str) -> FileObj:
