@@ -24,14 +24,14 @@ GCP_COMPILE_URL = "http://localhost:9001"
 class GcpCompileAtLegacy(CompileService):
     """GCP Compile at legacy /data/new file store."""
     def __init__(self,
-                 base_submissions_dir: str,
-                 tex2pdf_url: str = GCP_COMPILE_URL,
+                base_submissions_dir: str,
+                tex2pdf_url: str = GCP_COMPILE_URL,
                 preflight: Optional[PreflightOption] = None,
                 watermark_text: Optional[str] = None,
                 max_append_files: int = DEFAULT_MAX_APPEND_FILES,
                 max_tex_files: int = DEFAULT_MAX_TEX_FILES,
                 timeout: int = DEFAULT_COMPILATION_TIMEOUT,
-                 ):
+                ):
         self.tex2pdf_url = tex2pdf_url
         self.base_submissions_dir = base_submissions_dir
         self.preflight = preflight
