@@ -19,7 +19,7 @@ from submit_ce.implementations.compile.compile_at_gcp import PreflightOption, DE
 sys.path.append('submit_ce/implementations/compile')
 
 
-GCP_COMPILE_URL = "https://tex-to-pdf-default-1090350072932.us-central1.run.app"
+GCP_COMPILE_URL = "http://localhost:9001"
 
 class GcpCompileAtLegacy(CompileService):
     """GCP Compile at legacy /data/new file store."""
