@@ -5,7 +5,6 @@ from . import LegacySubmitImplementation
 from sqlalchemy.orm import Session as SqlalchemySession
 
 from ..compile.compile_at_gcp_service import GcpCompileAtLegacy
-from ..file_store.legacy_file_store import LegacyFileStore
 
 
 def flask_get_session() -> SqlalchemySession:
@@ -21,7 +20,7 @@ class FlaskSubmitImplementation(LegacySubmitImplementation):
                  compiler):
         # TODO this init is not good
         root_dir =  "data/new"
-        store = store or LegacyFileStore(root_dir=Path(root_dir))
+        store = store
         compiler = compiler or GcpCompileAtLegacy(root_dir)
         super().__init__(store=store, compiler=compiler)
         self.get_session = flask_get_session

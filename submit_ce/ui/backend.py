@@ -12,18 +12,18 @@ from submit_ce.domain import User, Submission, Event
 from submit_ce.domain.exceptions import NoSuchSubmission
 from submit_ce.implementations.compile.compile_at_gcp_service import GcpCompileAtLegacy
 from submit_ce.implementations.file_store.gs_file_store import GsFileStore
-from submit_ce.implementations.file_store.legacy_file_store import LegacyFileStore
 from submit_ce.implementations.legacy_implementation.flask_impl import FlaskSubmitImplementation
 
 
 def config_backend_api(settings: Settings) -> SubmitApi:
     engine, _ = configure_db(settings)
     session_factory.configure(bind=engine)
+
     if settings.STORE == "gs":
         store = GsFileStore(gs_bucket=settings.STORE_GS_BUCKET,
                             gs_prefix=settings.STORE_GS_PREFIX)
     else:
-        store = LegacyFileStore(root_dir=settings.STORE_LOCAL_ROOT)
+        raise NotImplementedError("settings.store may not be set correctly.")
     
     return FlaskSubmitImplementation(
         store=store,
