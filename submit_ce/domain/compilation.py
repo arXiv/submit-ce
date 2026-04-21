@@ -13,14 +13,12 @@ class Compilation(BaseModel):
 
     class Status(Enum):      # type: ignore
         """Acceptable compilation process statuses."""
-
         SUCCEEDED = "completed"
         IN_PROGRESS = "in_progress"
         FAILED = "failed"
 
     class Format(Enum):      # type: ignore
         """Supported compilation output formats."""
-
         PDF = "pdf"
         DVI = "dvi"
         PS = "ps"
@@ -37,7 +35,6 @@ class Compilation(BaseModel):
 
     class SupportedCompiler(Enum):
         """Compiler known to be supported by the compiler service."""
-
         PDFLATEX = 'pdflatex'
 
     class CompilerVersion(Enum):
@@ -46,7 +43,6 @@ class Compilation(BaseModel):
 
     class Reason(Enum):
         """Specific reasons for a (usually failure) outcome."""
-
         AUTHORIZATION = "auth_error"
         MISSING = "missing_source"
         SOURCE_TYPE = "invalid_source_type"
