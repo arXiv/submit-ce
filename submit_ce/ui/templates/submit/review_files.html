@@ -49,7 +49,7 @@
   {% endif %}
 {% endmacro %}
 
-{% block title -%}Review Files (COMING SOON){%- endblock title %}
+{% block title -%}Review Files{%- endblock title %}
 
 
 {% if immediate_notifications %}
@@ -75,22 +75,61 @@
 
     <div class="column is-one-half-desktop is-one-half-tablet">
       {{ form.csrf_token }}
-      <div class="field is-grouped is-grouped-multiline">
-        <div class="control is-expanded">
-
-        </div>
-        <div class="control" style="margin-top: .35em">
-
-        </div>
+      
+      <div class="field">
+        <label class="label">{{ form.source_file.label }}</label>
         <div class="control">
+          <div class="select is-fullwidth">
+            {{ form.source_file }}
+          </div>
+        </div>
+        {% if form.source_file.errors %}
+          {% for error in form.source_file.errors %}
+            <p class="help is-danger">{{ error }}</p>
+          {% endfor %}
+        {% endif %}
+      </div>
 
+      <div class="columns">
+        <div class="column">
+          <div class="field">
+            <label class="label">{{ form.compiler.label }}</label>
+            <div class="control">
+              <div class="select is-fullwidth">
+                {{ form.compiler }}
+              </div>
+            </div>
+            {% if form.compiler.errors %}
+              {% for error in form.compiler.errors %}
+                <p class="help is-danger">{{ error }}</p>
+              {% endfor %}
+            {% endif %}
+          </div>
+        </div>
+        <div class="column">
+          <div class="field">
+            <label class="label">{{ form.compiler_version.label }}</label>
+            <div class="control">
+              <div class="select is-fullwidth">
+                {{ form.compiler_version }}
+              </div>
+            </div>
+            {% if form.compiler_version.errors %}
+              {% for error in form.compiler_version.errors %}
+                <p class="help is-danger">{{ error }}</p>
+              {% endfor %}
+            {% endif %}
+          </div>
         </div>
       </div>
-      {% if form.file.errors %}
-        {% for error in form.file.errors %}
-          <p class="help is-danger field-error">{{ error }}</p>
-        {% endfor %}
-      {% endif %}
+
+      <div class="field is-grouped">
+        <div class="control">
+          <button class="button is-primary" type="submit" name="action" value="compile">Compile</button>
+        </div>
+      </div>
+
+      <hr />
 
       {% if status and status.errors %}
         {% for error in status.errors %}

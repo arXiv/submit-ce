@@ -40,6 +40,10 @@ class Compilation(BaseModel):
 
         PDFLATEX = 'pdflatex'
 
+    class CompilerVersion(Enum):
+        """Supported compiler versions."""
+        TEXLIVE_2025 = 'texlive2025'
+
     class Reason(Enum):
         """Specific reasons for a (usually failure) outcome."""
 
