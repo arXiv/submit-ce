@@ -55,10 +55,9 @@ from . import models, interpolate, log
 from .models import DBEvent
 from .patch import patch_cross, patch_hold, patch_jref, patch_withdrawal
 from submit_ce import domain
-from submit_ce.domain import Event, Submission, User, WithdrawalRequest, CrossListClassificationRequest,  License
+from submit_ce.domain import Event, Submission, User, WithdrawalRequest, CrossListClassificationRequest, License
 from submit_ce.domain.event import SetJournalReference, SetDOI, SetReportNumber, CreateSubmission, Rollback
 from submit_ce.domain.exceptions import NoSuchSubmission
-
 
 logger = logging.getLogger(__name__)
 logger.propagate = False
@@ -70,11 +69,14 @@ F = TypeVar('F', bound=FuncType)
 
 # retry = _retry
 retry: Callable[..., Callable[[F], F]] = _retry
+
+
 # wraps: Callable[[F], F] = _wraps
 
 
 def handle_operational_errors(func: F) -> F:
     """Catch SQLAlchemy OperationalErrors and raise :class:`.Unavailable`."""
+
     @wraps(func)
     def inner(*args: Any, **kwargs: Any) -> Any:
         try:
@@ -90,6 +92,7 @@ def handle_operational_errors(func: F) -> F:
             raise OperationalError('Classic database unavailable',
                                    getattr(e, 'params', None),
                                    getattr(e, 'orig', e)) from e
+
     # return inner
     return cast(F, inner)
 
@@ -128,7 +131,7 @@ def get_events(session: SQLAlchemySession, submission_id: str) -> List[Event]:
         .filter(DBEvent.submission_id == submission_id) \
         .order_by(DBEvent.created)
     events = [datum.to_event() for datum in event_data]
-    if not events:      # No events, no dice.
+    if not events:  # No events, no dice.
         logger.error('No events for submission %s', submission_id)
         raise NoSuchSubmission(f'Submission {submission_id} not found')
     return events
@@ -193,9 +196,9 @@ def get_submission(session: SQLAlchemySession, submission_id: str, for_update: b
             .filter(models.Submission.submission_id != submission_id) \
             .order_by(models.Submission.submission_id.asc())
 
-        if for_update:      # Lock these rows as well.
+        if for_update:  # Lock these rows as well.
             subsequent_query = subsequent_query.with_for_update(read=True)
-        subsequent_rows = list(subsequent_query)   # Execute query.
+        subsequent_rows = list(subsequent_query)  # Execute query.
         logger.debug('Got subsequent_rows: %s', subsequent_rows)
 
     try:
@@ -221,7 +224,6 @@ def get_submission(session: SQLAlchemySession, submission_id: str, for_update: b
         _events
     )
     return interpolator.get_submission_state()
-
 
 
 # @retry(ClassicBaseException, tries=3, delay=1)
@@ -265,15 +267,15 @@ def store_event(session: SQLAlchemySession, event: Event, before: Optional[Submi
 
     doc_id: Optional[int] = None
     # This is the case that we have a new submission.
-    if before is None:    # and isinstance(after, Submission):
+    if before is None:  # and isinstance(after, Submission):
         dbs = models.Submission(type=models.Submission.NEW_SUBMISSION)
         dbs.update_from_submission(after)
         this_is_a_new_submission = True
 
-    else:   # Otherwise we're making an update for an existing submission.
+    else:  # Otherwise we're making an update for an existing submission.
         this_is_a_new_submission = False
 
-        if before.arxiv_id is not None: #:
+        if before.arxiv_id is not None:  #:
             # After the original submission is announced, a new Document row is
             # created. This Document is shared by all subsequent Submission rows.
             doc_id = _load_document_id(session, before.arxiv_id, before.version)
@@ -283,18 +285,18 @@ def store_event(session: SQLAlchemySession, event: Event, before: Optional[Submi
             # database.
             if after.version > before.version:
                 dbs = _create_replacement(doc_id, before.arxiv_id,
-                                        after.version, after, event.created)
+                                          after.version, after, event.created)
             elif isinstance(event, Rollback) and before.version > 1:
                 dbs = _delete_replacement(session, doc_id, before.arxiv_id,
-                                        before.version)
+                                          before.version)
 
 
             # Withdrawals also require a new row, and they use the most recent
             # version number.
             elif isinstance(event, RequestWithdrawal):
                 dbs = _create_withdrawal(doc_id, event.reason,
-                                        before.arxiv_id, after.version, after,
-                                        event.created)
+                                         before.arxiv_id, after.version, after,
+                                         event.created)
             elif isinstance(event, RequestCrossList):
                 dbs = _create_crosslist(doc_id, event.categories,
                                         before.arxiv_id, after.version, after,
@@ -304,7 +306,7 @@ def store_event(session: SQLAlchemySession, event: Event, before: Optional[Submi
             # also requires a new row. The version number is not incremented.
             elif before.is_announced and type(event) in JREFEvents:
                 dbs = _create_jref(session, doc_id, before.arxiv_id, after.version, after,
-                                event.created)
+                                   event.created)
 
             elif isinstance(event, CancelRequest):
                 dbs = _cancel_request(session, event, before, after)
@@ -341,7 +343,7 @@ def store_event(session: SQLAlchemySession, event: Event, before: Optional[Submi
     session.add(db_event)
     event.committed = True
 
-    log.handle(session, event, before, after)   # Create admin log entry.
+    log.handle(session, event, before, after)  # Create admin log entry.
 
     # Update the domain event and submission states with the submission ID.
     # This should carry forward the original submission ID, even if the
@@ -456,7 +458,7 @@ def _create_withdrawal(document_id: int, reason: str, paper_id: str,
                             document_id=document_id,
                             version=version,
                             remote_addr=submission.client.remote_addr,
-                            remote_host=submission.client.remote_host,                            
+                            remote_host=submission.client.remote_host,
                             )
     dbs.update_withdrawal(submission, reason, paper_id, version, created)
     return dbs
@@ -578,8 +580,8 @@ def to_submission(row: models.Submission,
     primary = row.primary_classification
     if row.submitter is None:
         submitter = domain.PublicUser(user_id=str(row.submitter_id),
-                                     email=row.submitter_email,
-                                     name=row.submitter_name)
+                                      email=row.submitter_email,
+                                      name=row.submitter_name)
     else:
         submitter = row.get_submitter()
     if submission_id is None:
@@ -587,8 +589,13 @@ def to_submission(row: models.Submission,
     else:
         submission_id = str(submission_id)
 
-    client = HttpClient(remote_addr = row.remote_addr,
-                        remote_host = row.remote_host)
+    if row.proxy:
+        proxy = str(row.proxy)
+    else:
+        proxy = None
+
+    client = HttpClient(remote_addr=row.remote_addr,
+                        remote_host=row.remote_host)
 
     license: Optional[domain.License] = None
     if row.license:
@@ -646,7 +653,8 @@ def to_submission(row: models.Submission,
         primary_classification=primary_clsn,
         secondary_classification=secondary_clsn,
         arxiv_id=row.doc_paper_id,
-        version=row.version
+        version=row.version,
+        proxy=proxy
     )
     if row.sticky_status == row.ON_HOLD or row.status == row.ON_HOLD:
         submission = patch_hold(submission, row)
@@ -682,7 +690,7 @@ def load(rows: Iterable[models.Submission]) -> Optional[domain.Submission]:
         # Creation time isn't all that precise in the classic database, so
         # we'll use submission ID instead.
         these_version_rows = sorted([v for v in version_rows],
-                                     key=lambda o: o.submission_id)
+                                    key=lambda o: o.submission_id)
         logger.debug('Version %s: %s', version, version_rows)
         # We use the original ID to track the entire lifecycle of the
         # submission in NG.
@@ -752,8 +760,8 @@ def announce_submission(session: SQLAlchemySession, submission_id: str) -> None:
         head.status = Submission.ANNOUNCED
     if head.document is None:
         paper_id = datetime.now().strftime('%s')[-4:] \
-            + "." \
-            + datetime.now().strftime('%s')[-5:]
+                   + "." \
+                   + datetime.now().strftime('%s')[-5:]
         head.document = models.Document(paper_id=paper_id)
         head.doc_paper_id = paper_id
     session.add(head)
@@ -763,11 +771,3 @@ def announce_submission(session: SQLAlchemySession, submission_id: str) -> None:
 def _get_head_idx(session: SQLAlchemySession, rows: List[Submission]) -> int:
     """bdc34: Not sure what this is"""
     raise NotImplementedError()
-
-
-
-
-
-
-
-
