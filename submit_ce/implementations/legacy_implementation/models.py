@@ -357,23 +357,8 @@ class Submission(Base):    # type: ignore
             self.remote_addr = str(submission.client.remote_addr)
             self.remote_host = submission.client.remote_host or ""
 
-        # Legacy proxy compatibility
-        #
-        # ProxyInfo is Submit 2.0 state, persisted via events.
-        # The legacy DB proxy column is write‑only compatibility output.
-        if submission.proxy:
-            # historically this stored the proxy submitter's id
-            #self.proxy = submission.proxy.proxy_user.identifier  # Nothing - see below
-            self.proxy = submission.creator.user_id  # THIS IS CURRENTLY NOT WORKING
-            self.proxy = "Test"  # Does not work - need to dig deeper
-            # NOTE: Need to figure out why creator id is empty.
-            #       submission has creator (User) and owner (User)
-            # we also need to update submitter name and email to
-            # support backward compatibility with legacy
-            self.submitter_name = submission.proxy.proxied_name     # works
-            self.submitter_email = submission.proxy.proxied_email   # works
-        else:
-            self.proxy = None
+        self.proxy = submission.proxy
+
 
     @property
     def primary_classification(self) -> Optional['Category']:
