@@ -15,19 +15,6 @@ from .preview import Preview
 from .process import ProcessStatus
 from .util import get_tzaware_utc_now
 
-
-def proxy_equal(a: ProxyInfo | None, b: ProxyInfo | None) -> bool:
-    if a is None and b is None:
-        return True
-    if a is None or b is None:
-        return False
-    return (
-        a.proxied_name == b.proxied_name
-        and a.proxied_email == b.proxied_email
-        and a.proxy_user.identifier == b.proxy_user.identifier
-    )
-
-
 @dataclass
 class Author:
     """Represents an author of a submission."""
