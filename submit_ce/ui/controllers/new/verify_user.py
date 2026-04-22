@@ -23,7 +23,6 @@ from submit_ce.domain.event import ConfirmContactInformation, SetProxyInformatio
 from submit_ce.ui.backend import get_submission
 from submit_ce.ui.controllers.util import validate_command
 from submit_ce.ui.routes.flow_control import ready_for_next, stay_on_this_stage
-from submit_ce.domain.submission import ProxyInfo, proxy_equal
 
 logger = logging.getLogger(__name__)  # pylint: disable=C0103
 
@@ -43,21 +42,15 @@ def verify(method: str, params: MultiDict, session: Session,
     # Will raise NotFound if there is no such submission.
     submission, _ = get_submission(submission_id)
     may_proxy = scopes.PROXY_SUBMISSION in submitter.scopes
-    # may_proxy = True
 
     if method == 'GET' and submission.submitter_contact_verified:
         params['verify_user'] = 'true'
 
     if method == "GET":
 
-        logger.error(
-            "VERIFY_USER GET: submission.proxy=%r",
-            submission.proxy
-        )
-
         if submission.proxy:
-            params['proxy_name'] = submission.proxy.proxied_name
-            params['proxy_email'] = submission.proxy.proxied_email
+            params['proxy_name'] = submission.creator.name
+            params['proxy_email'] = submission.creator.email
 
     form = VerifyUserForm(params)
     response_data = {
@@ -93,26 +86,33 @@ def verify(method: str, params: MultiDict, session: Session,
     # if submission.submitter_contact_verified:
     #    return ready_for_next((response_data, status.OK,{}))
 
-    # NEW
-    existing_proxy = submission.proxy
-
     new_proxy = None
     if may_proxy and (form.proxy_name.data or form.proxy_email.data):
-        new_proxy = ProxyInfo(
-            proxied_name=form.proxy_name.data.strip(),
-            proxied_email=form.proxy_email.data.strip(),
-            proxy_user=submitter,
-        )
 
-    if not proxy_equal(existing_proxy, new_proxy):
-        submission.proxy = new_proxy
-        cmd = SetProxyInformation(
-            creator=submitter,
-            client=client,
-            proxied_name=new_proxy.proxied_name,
-            proxied_email=new_proxy.proxied_email,
-        )
-        submission, _ = current_app.api.save(cmd, submission_id=submission_id)
+        proxied_name=form.proxy_name.data.strip()
+        proxied_email=form.proxy_email.data.strip()
+
+        if proxied_name != submission.contact_name or proxied_email != submission.contact_email:
+            cmd = SetProxyInformation(
+                creator=submitter,
+                client=client,
+                proxied_name=form.proxy_name.data.strip(),
+                proxied_email=form.proxy_email.data.strip(),
+                proxy_name=submitter.name,
+            )
+            submission, _ = current_app.api.save(cmd, submission_id=submission_id)
+
+    # Edge Case: What do we do if proxy information has been saved but the submitter
+    #            no longer has proxy permissions (revoked)? That is, a submitter's
+    #            may_proxy permission is revoked while submission is in working state.
+    #
+    #            I've been told that proxy permissions are permanent.
+    #
+    #            In the event the permission to proxy is revoked, for submissions being
+    #            worked on, the submitter_name and submitter_email will remain set to
+    #            proxied values (they are not reset to actual submitter
+    #
+    #            I have removed the ClearProxyInformation event.
 
     cmd = ConfirmContactInformation(creator=submitter, client=client)
 
