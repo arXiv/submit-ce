@@ -74,7 +74,7 @@ from ..preview import Preview
 from ..submission import Submission, Author, \
     Classification, License
 from ..exceptions import InvalidEvent
-from submit_ce.domain.submission import ProxyInfo
+
 
 __all__ = [
     make_event,
