@@ -224,20 +224,17 @@ class SetProxyInformation(Event):
     """Set proxy information."""
     proxied_name: str
     proxied_email: str
+    proxy_name: str
 
     def apply(self, submission: Submission) -> Submission:
-        # Temporary Debugging - works
-        logger.error(
-            "REPLAY apply SetProxyInformation: %s %s",
-            self.proxied_name,
-            self.proxied_email,
-        )
-
-        submission.proxy = ProxyInfo(
-            proxied_name=self.proxied_name,
-            proxied_email=self.proxied_email,
-            proxy_user=self.creator,
-        )
+        # We need to use the Creator dataclass. This holds
+        # submitter_name and submitter_email (from legacy).
+        # Proxy name setting indicates that these fields are
+        # set by submitter and may not correspond to
+        # user_id (2.0) or submitter_id (1.5).
+        submission.creator.name = self.proxied_name
+        submission.creator.email = self.proxied_email
+        submission.proxy = self.proxy_name
         return submission
 
 
