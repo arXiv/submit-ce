@@ -15,14 +15,18 @@ from submit_ce.implementations.file_store.gs_file_store import GsFileStore
 from submit_ce.implementations.file_store.legacy_file_store import LegacyFileStore
 from submit_ce.implementations.legacy_implementation.flask_impl import FlaskSubmitImplementation
 
+import logging
+logger = logging.getLogger(__name__)
 
 def config_backend_api(settings: Settings) -> SubmitApi:
     engine, _ = configure_db(settings)
     session_factory.configure(bind=engine)
     if settings.STORE == "gs":
+        logger.info(f"Doing FileStore GS bucket {settings.STORE_GS_BUCKET} prefix {settings.STORE_GS_PREFIX}")
         store = GsFileStore(gs_bucket=settings.STORE_GS_BUCKET,
                             gs_prefix=settings.STORE_GS_PREFIX)
     else:
+        logger.info(f"Doing FileStore Legacy at {settings.STORE_LOCAL_ROOT}")
         store = LegacyFileStore(root_dir=settings.STORE_LOCAL_ROOT)
     
     return FlaskSubmitImplementation(
