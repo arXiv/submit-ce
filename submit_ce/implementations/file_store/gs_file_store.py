@@ -44,9 +44,9 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
     - ``GS_BUCKET``: google storage bucket to use
     - ``GS_PREFIX``: a prefix to use after the ``GS_BUCKET`` and before the shard id. May be ""
 
-    Pass a ``client`` to inject a pre-configured ``storage.Client`` (e.g. one
-    pointed at a local emulator).  If omitted, ``storage.Client()`` is used and
-    credentials/endpoint are resolved from the environment as usual.
+    Pass a ``client`` to inject a pre-configured ``storage.Client`` If omitted,
+    ``storage.Client()`` is used and credentials/endpoint are resolved from the
+    environment as usual.
 
     2025-07-17: initial work
 
@@ -256,7 +256,7 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
                    name=file_path.name,
                    content_type=blob.content_type or 'application/octet-stream',
                    bytes=blob.size,
-                   crc32c=blob.crc32c or 'crc32notprovidedduringemulation',
+                   crc32c=blob.crc32c,
                    modified=blob.updated,
                    ancillary=anc_dir in file_path.parent.parents,
                    url=URL(f"gs://{blob.bucket.name}/{blob.name}#{blob.generation}"),
