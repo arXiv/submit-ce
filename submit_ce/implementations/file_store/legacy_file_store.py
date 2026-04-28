@@ -94,10 +94,14 @@ class LegacyFileStore(SubmissionFileStore):
         if not isinstance(path, Path):
             path = Path(path)
 
-        stat = path.stat()
+        if path.is_absolute:
+            raise ValueError("path must be relative to submission source")
+
+        absolute_path = self._submission_path(submission_id) / path
+        stat = absolute_path.stat()
         return FileStatus(
             name=path.name,
-            path=str(path.relative_to(self._submission_path(submission_id))),
+            path=str(absolute_path.relative_to(self._submission_path(submission_id))),
             content_type="test/plain",  # TODO mimetype
             bytes=stat.st_size,
             crc32c="FAKECRC32C",
