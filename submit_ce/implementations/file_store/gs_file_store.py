@@ -229,6 +229,126 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
         if blob.exists():
             blob.delete()
 
+    @override
+    def get_directives(self, submission_id: str) -> FileObj:
+        path = self._directives_path(submission_id)
+        blob = self.bucket.blob(str(path))
+        return blob if blob.exists() else FileDoesNotExist(str(path))
+
+    @override
+    def delete_directives(self, submission_id: str) -> None:
+        blob = self.bucket.blob(str(self._directives_path(submission_id)))
+        if blob.exists():
+            blob.delete()
+
+    @override
+    def get_directives_checksum(self, submission_id: str) -> str:
+        return self._get_checksum(self._directives_path(submission_id))
+
+    @override
+    def does_directives_exist(self, submission_id: str) -> bool:
+        return self.bucket.blob(str(self._directives_path(submission_id))).exists()
+
+    @override
+    def get_compile_log(self, submission_id: str) -> FileObj:
+        path = self._compile_log_path(submission_id)
+        blob = self.bucket.blob(str(path))
+        return blob if blob.exists() else FileDoesNotExist(str(path))
+
+    @override
+    def delete_compile_log(self, submission_id: str) -> None:
+        blob = self.bucket.blob(str(self._compile_log_path(submission_id)))
+        if blob.exists():
+            blob.delete()
+
+    @override
+    def get_compile_log_checksum(self, submission_id: str) -> str:
+        return self._get_checksum(self._compile_log_path(submission_id))
+
+    @override
+    def does_compile_log_exist(self, submission_id: str) -> bool:
+        return self.bucket.blob(str(self._compile_log_path(submission_id))).exists()
+
+    @override
+    def get_compile_json(self, submission_id: str) -> FileObj:
+        path = self._compile_json_path(submission_id)
+        blob = self.bucket.blob(str(path))
+        return blob if blob.exists() else FileDoesNotExist(str(path))
+
+    @override
+    def delete_compile_json(self, submission_id: str) -> None:
+        blob = self.bucket.blob(str(self._compile_json_path(submission_id)))
+        if blob.exists():
+            blob.delete()
+
+    @override
+    def get_compile_json_checksum(self, submission_id: str) -> str:
+        return self._get_checksum(self._compile_json_path(submission_id))
+
+    @override
+    def does_compile_json_exist(self, submission_id: str) -> bool:
+        return self.bucket.blob(str(self._compile_json_path(submission_id))).exists()
+
+    @override
+    def get_preflight(self, submission_id: str) -> FileObj:
+        path = self._preflight_path(submission_id)
+        blob = self.bucket.blob(str(path))
+        return blob if blob.exists() else FileDoesNotExist(str(path))
+
+    @override
+    def delete_preflight(self, submission_id: str) -> None:
+        blob = self.bucket.blob(str(self._preflight_path(submission_id)))
+        if blob.exists():
+            blob.delete()
+
+    @override
+    def get_preflight_checksum(self, submission_id: str) -> str:
+        return self._get_checksum(self._preflight_path(submission_id))
+
+    @override
+    def does_preflight_exist(self, submission_id: str) -> bool:
+        return self.bucket.blob(str(self._preflight_path(submission_id))).exists()
+
+    @override
+    def get_request_log(self, submission_id: str) -> FileObj:
+        path = self._request_log_path(submission_id)
+        blob = self.bucket.blob(str(path))
+        return blob if blob.exists() else FileDoesNotExist(str(path))
+
+    @override
+    def delete_request_log(self, submission_id: str) -> None:
+        blob = self.bucket.blob(str(self._request_log_path(submission_id)))
+        if blob.exists():
+            blob.delete()
+
+    @override
+    def get_request_log_checksum(self, submission_id: str) -> str:
+        return self._get_checksum(self._request_log_path(submission_id))
+
+    @override
+    def does_request_log_exist(self, submission_id: str) -> bool:
+        return self.bucket.blob(str(self._request_log_path(submission_id))).exists()
+
+    @override
+    def get_source_log(self, submission_id: str) -> FileObj:
+        path = self._source_log_path(submission_id)
+        blob = self.bucket.blob(str(path))
+        return blob if blob.exists() else FileDoesNotExist(str(path))
+
+    @override
+    def delete_source_log(self, submission_id: str) -> None:
+        blob = self.bucket.blob(str(self._source_log_path(submission_id)))
+        if blob.exists():
+            blob.delete()
+
+    @override
+    def get_source_log_checksum(self, submission_id: str) -> str:
+        return self._get_checksum(self._source_log_path(submission_id))
+
+    @override
+    def does_source_log_exist(self, submission_id: str) -> bool:
+        return self.bucket.blob(str(self._source_log_path(submission_id))).exists()
+
     def _get_checksum(self, path: str) -> str:
         item = self.bucket.blob(path)
         return item.crc32c
@@ -247,6 +367,24 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
 
     def _preview_path(self, submission_id: str) -> Path:
         return self._submission_path(submission_id) / f'{submission_id}.pdf'
+
+    def _directives_path(self, submission_id: str) -> Path:
+        return self._submission_path(submission_id) / 'directives.json'
+
+    def _compile_log_path(self, submission_id: str) -> Path:
+        return self._submission_path(submission_id) / 'gcp_compile.log'
+
+    def _compile_json_path(self, submission_id: str) -> Path:
+        return self._submission_path(submission_id) / 'gcp_compile.json'
+
+    def _preflight_path(self, submission_id: str) -> Path:
+        return self._submission_path(submission_id) / 'gcp_preflight.json'
+
+    def _request_log_path(self, submission_id: str) -> Path:
+        return self._submission_path(submission_id) / 'gcp_request.log'
+
+    def _source_log_path(self, submission_id: str) -> Path:
+        return self._submission_path(submission_id) / 'source.log'
 
     def _blob_to_file_status(self, submission_id, blob) -> FileStatus:
         src_dir = self._source_path(submission_id)
