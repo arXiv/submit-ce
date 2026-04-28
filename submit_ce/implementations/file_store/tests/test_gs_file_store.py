@@ -1,13 +1,20 @@
 """Integration tests for GsFileStore against real GCS (arxiv-submit-dev / arxiv-development).
 
 Requires Google Cloud credentials with access to the arxiv-development project.
-Run with: uv run pytest submit_ce/implementations/file_store/tests/test_gs_file_store.py -v
+Run with: TEST_GS_FILE_STORE_AT_GCP=1 uv run pytest submit_ce/implementations/file_store/tests/test_gs_file_store.py -v
 """
+import os
 import tarfile
 import uuid
 from io import BytesIO
 
 import pytest
+
+pytestmark = pytest.mark.skipif(
+    not os.environ.get("TEST_GS_FILE_STORE_AT_GCP"),
+    reason="Set TEST_GS_FILE_STORE_AT_GCP=1 and set application default "\
+    "credentials to run GCS integration tests",
+)
 from google.cloud import storage
 
 from arxiv.files import FileDoesNotExist
