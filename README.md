@@ -1,7 +1,7 @@
 # submit-ce API
 arXiv paper submission system
 
-## Installation & Usage
+## Install & use
 
 To run the server, please execute the following from the root directory:
 
@@ -18,11 +18,8 @@ uv run python submit_ce/make_test_db.py bootstrap_db
 # this will give you an Authorization token, save that and use a browser extension
 # like modheader to add Authorization=eyJhb...
 
-uv run flask --app submit_ce.ui.factory:create_web_app run -p 8000
+uv run python local_dev.py
 open http://localhost:8000
-# mac notes: pick another port if 5000 used for music:
-#   uv run flask --app submit_ce.ui.factory:create_web_app run -p 5000
-
 ```
 
 On the mac:
@@ -35,8 +32,22 @@ uv sync
 uv run python submit_ce/make_test_db.py bootstrap_db
 # this will give you an Authorization token, save that and use a browser extension
 # like modheader to add Authorization=eyJhb...
-uv run flask --app submit_ce.ui.factory:create_web_app run -p 8000
+uv run python local_dev.py
 open http://localhost:8000
+```
+
+##  Run the tests
+
+```bash
+pytest submit_ce
+```
+
+## Run the Flask app pointed to a different bucket
+```bash
+STORE=gs \
+STORE_GS_BUCKET=xyz-bucket \
+STORE_GS_PREFIX=data/new \
+uv run flask --app submit_ce.ui.factory:create_web_app run -p 8000
 ```
 
 ## Build Docker Image
@@ -47,19 +58,3 @@ docker build . -t gcr.io/arxiv-development/submit-ce/submit-ce-ui
 docker push gcr.io/arxiv-development/submit-ce/submit-ce-ui
 ```
 
-## Tests
-
-Test setup:
-```
-sudo apt-get install google-cloud-cli-pubsub-emulator
-
-# mac notes: gcloud components install pubsub-emulator
-```
-
-See [emulator instructions](https://cloud.google.com/pubsub/docs/emulator) for other operating systems.
-
-To run the tests:
-
-```bash
-pytest submit_ce
-```
