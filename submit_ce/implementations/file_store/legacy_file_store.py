@@ -111,8 +111,12 @@ class LegacyFileStore(SubmissionFileStore):
     @override
     def store_source_file(self, submission_id: str, content: SubmitFile, chunk_size: int) -> FileStatus:
         sub_path = self._submission_path(submission_id)
+        sub_shard_path = os.path.split(sub_path)[0]
+        if not os.path.exists(sub_shard_path):
+            os.makedirs(sub_shard_path)
+            self._set_modes(str(sub_shard_path))
         if not os.path.exists(sub_path):
-            os.makedirs(os.path.split(sub_path)[0])
+            os.makedirs(sub_path)
             self._set_modes(str(sub_path))
         source_path = self._source_path(submission_id)
         if not os.path.exists(source_path):
