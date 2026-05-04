@@ -47,7 +47,12 @@ from submit_ce.ui import SUPPORT
 
 logger = logging.getLogger(__name__)
 
+
 Response = Tuple[Dict[str, Any], int, Dict[str, Any]]  # pylint: disable=C0103
+
+
+CHUNK_SIZE = 1024 * 4
+
 
 class UploadForm(csrf.CSRFForm):
     """Form for uploading files."""
@@ -159,25 +164,13 @@ def _update_submission(form: UploadForm, submission: Submission, stat: Workspace
     client : :class:`Client` or None
 
     """
-    existing_upload = getattr(submission.source_content, 'identifier', None)
-
     command: Event
-    if existing_upload == stat.identifier:
-        command = UpdateUploadPackage(creator=submitter, client=client,
-                                      checksum=stat.checksum,
-                                      uncompressed_size=stat.size,
-                                      compressed_size=stat.compressed_size,
-                                      source_format=stat.source_format)
-    else:
-        command = SetUploadPackage(creator=submitter, client=client,
-                                   identifier=stat.identifier,
-                                   checksum=stat.checksum,
-                                   compressed_size=stat.compressed_size,
-                                   uncompressed_size=stat.size,
-                                   source_format=stat.source_format)
-
-    if not validate_command(form, command, submission):
-        return None
+    command = UpdateUploadPackage(creator=submitter, client=client,
+                                  checksum=stat.checksum,
+                                  uncompressed_size=stat.size,
+                                  compressed_size=stat.compressed_size,
+                                  source_format=stat.source_format)
+    command.validate(submission) # will raise on invalid
 
     try:
         submission, _ = current_app.api.save(command, submission_id=submission.submission_id)
@@ -221,8 +214,7 @@ def _get_upload(params: MultiDict, session: Session, submission: Submission,
     if type(status_data) is dict and status_data['identifier'] == upload_id:
         workspace = Workspace.from_dict(status_data)
     else:
-        workspace = current_app.api.get_file_store().get_workspace(submission_id=str(submission.submission_id),
-                                                       upload_id=submission.source_content.identifier)
+        workspace = current_app.api.get_file_store().get_workspace(submission_id=str(submission.submission_id))
     rdata.update({'status': workspace})
 
     if workspace:
@@ -272,6 +264,7 @@ def _new_upload(params: MultiDict, pointer: FileStorage, session: Session,
         logger.debug('Invalid form data')
         return stay_on_this_stage((rdata, status.OK, {}))
 
+    # TODO this needs to be changed from api.upload() to api.save()
     stat = current_app.api.upload(form.data['file'], submission.submission_id, submitter, client)
     converted_size = tidy_filesize(stat.size)
     if stat.status is UploadStatus.READY:
@@ -345,8 +338,7 @@ def _new_file(params: MultiDict, pointer: FileStorage, session: Session,
             title="Something went wrong")
         return stay_on_this_stage((rdata, status.OK, {}))
     #try:
-    stat = current_app.api.get_file_store().add_file(upload_id, pointer, token,
-                                         ancillary=form.ancillary.data)
+    stat = current_app.api.get_file_store().store_source_file(upload_id, pointer, CHUNK_SIZE)
     # except  as ex:
     #     try:
     #         ex_data = ex.response.json()
@@ -366,7 +358,7 @@ def _new_file(params: MultiDict, pointer: FileStorage, session: Session,
     #     logger.error(traceback.format_exc())
     #     raise InternalServerError(rdata) from ex
 
-    submission = _update_submission(form, submission, stat, submitter, client)
+    #submission = _update_submission(form, submission, stat, submitter, client)
     converted_size = tidy_filesize(stat.size)
     if stat.status is UploadStatus.READY:
         alerts.flash_success(

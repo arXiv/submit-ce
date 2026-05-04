@@ -169,6 +169,118 @@ class SubmissionFileStore(metaclass=ABCMeta):
     def get_full_directives_package_path(self, submission_id: str) -> str:
         pass
 
+        """Delete the directives file for a submission."""
+        pass
+
+    @abstractmethod
+    def get_directives_checksum(self, submission_id: str) -> str:
+        """Get the checksum of the directives file for a submission."""
+        pass
+
+    @abstractmethod
+    def does_directives_exist(self, submission_id: str) -> bool:
+        """Determine whether a directives file has been deposited for a submission."""
+        pass
+
+    @abstractmethod
+    def get_compile_log(self, submission_id: str) -> FileObj:
+        """Retrieve the compile log for a submission."""
+        pass
+
+    @abstractmethod
+    def delete_compile_log(self, submission_id: str) -> None:
+        """Delete the compile log for a submission."""
+        pass
+
+    @abstractmethod
+    def get_compile_log_checksum(self, submission_id: str) -> str:
+        """Get the checksum of the compile log for a submission."""
+        pass
+
+    @abstractmethod
+    def does_compile_log_exist(self, submission_id: str) -> bool:
+        """Determine whether a compile log has been deposited for a submission."""
+        pass
+
+    @abstractmethod
+    def get_compile_json(self, submission_id: str) -> FileObj:
+        """Retrieve the compile JSON report for a submission."""
+        pass
+
+    @abstractmethod
+    def delete_compile_json(self, submission_id: str) -> None:
+        """Delete the compile JSON report for a submission."""
+        pass
+
+    @abstractmethod
+    def get_compile_json_checksum(self, submission_id: str) -> str:
+        """Get the checksum of the compile JSON report for a submission."""
+        pass
+
+    @abstractmethod
+    def does_compile_json_exist(self, submission_id: str) -> bool:
+        """Determine whether a compile JSON report has been deposited for a submission."""
+        pass
+
+    @abstractmethod
+    def get_preflight(self, submission_id: str) -> FileObj:
+        """Retrieve the preflight report for a submission."""
+        pass
+
+    @abstractmethod
+    def delete_preflight(self, submission_id: str) -> None:
+        """Delete the preflight report for a submission."""
+        pass
+
+    @abstractmethod
+    def get_preflight_checksum(self, submission_id: str) -> str:
+        """Get the checksum of the preflight report for a submission."""
+        pass
+
+    @abstractmethod
+    def does_preflight_exist(self, submission_id: str) -> bool:
+        """Determine whether a preflight report has been deposited for a submission."""
+        pass
+
+    @abstractmethod
+    def get_request_log(self, submission_id: str) -> FileObj:
+        """Retrieve the request log for a submission."""
+        pass
+
+    @abstractmethod
+    def delete_request_log(self, submission_id: str) -> None:
+        """Delete the request log for a submission."""
+        pass
+
+    @abstractmethod
+    def get_request_log_checksum(self, submission_id: str) -> str:
+        """Get the checksum of the request log for a submission."""
+        pass
+
+    @abstractmethod
+    def does_request_log_exist(self, submission_id: str) -> bool:
+        """Determine whether a request log has been deposited for a submission."""
+        pass
+
+    @abstractmethod
+    def get_source_log(self, submission_id: str) -> FileObj:
+        """Retrieve the source log for a submission."""
+        pass
+
+    @abstractmethod
+    def delete_source_log(self, submission_id: str) -> None:
+        """Delete the source log for a submission."""
+        pass
+
+    @abstractmethod
+    def get_source_log_checksum(self, submission_id: str) -> str:
+        """Get the checksum of the source log for a submission."""
+        pass
+
+    @abstractmethod
+    def does_source_log_exist(self, submission_id: str) -> bool:
+        """Determine whether a source log has been deposited for a submission."""
+        pass
 
     # @abstractmethod
     # def _validate_submission_id(self, submission_id: str) -> bool:
