@@ -62,10 +62,26 @@ class NullFileStore(SubmissionFileStore):
     def store_preview(self, submission_id: str, content: IO[bytes], chunk_size: int) -> str:
         return "not really stored, NullFileStore"
 
+    def store_directives(self, submission_id: str, content: dict) -> str:
+        return "not really stored, NullFileStore"
+
+    def get_directives(self, submission_id: str) -> FileObj:
+        from arxiv.files import FileDoesNotExist
+        return FileDoesNotExist(submission_id)
+
     def get_preview(self, submission_id: str) -> FileObj:
         raise RuntimeError("No preview")
 
     def delete_preview(self, submission_id: str) -> None:
+        pass
+
+    def delete_preflight(self, submission_id: str) -> None:
+        pass
+
+    def delete_directives(self, submission_id: str) -> None:
+        pass
+
+    def store_zzrm(self, submission_id: str, content: dict) -> None:
         pass
 
     def get_preview_checksum(self, submission_id: str) -> str:
@@ -73,6 +89,19 @@ class NullFileStore(SubmissionFileStore):
 
     def does_preview_exist(self, submission_id: str) -> bool:
         return False
+
+    def get_preflight(self, submission_id: str) -> FileObj:
+        from arxiv.files import FileDoesNotExist
+        return FileDoesNotExist(submission_id)
+
+    def get_full_source_package_path(self, submission_id: str) -> str:
+        return ""
+
+    def get_full_preflight_package_path(self, submission_id: str) -> str:
+        return ""
+
+    def get_full_directives_package_path(self, submission_id: str) -> str:
+        return ""
 
     def is_available(self) -> bool:
         return False

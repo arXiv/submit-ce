@@ -10,7 +10,6 @@ SUBMIT_API_CONFIG_PREFIX="SUBMIT_API_"
 """Env vars starting with this will configure the submit api client."""
 
 
-
 class Settings(ArxivBaseSettings):
     def __init__(self, **kwargs):
         super().__init__(kwargs)
@@ -87,15 +86,14 @@ class Settings(ArxivBaseSettings):
     JWT_SECRET: str = "foobar"
     """Used to encoded and decode JWTs for auth."""
 
-    STORE: Literal["local","gs"] = "local"
+    STORE: Literal["gs"] = "gs"
 
-    STORE_GS_BUCKET: str = ""
+    STORE_GS_BUCKET: str = "arxiv-sync-test-01"
     """If in gs mode, what bucket to store submissions in."""
     
-    STORE_GS_PREFIX: str = ""
-    """If in gs mode, a prefix to put before each submssion ex data/new.
-    
-    Don't start with a /"""
+    STORE_GS_PREFIX: str = "api-test"
+    """A subdirectory to upload files related to your local database, ie: "api-test/myusername"
+    """
     
     STORE_LOCAL_ROOT: str = "data/new"
     """If in `STORE="local"` mode, what directory to store in.
@@ -106,6 +104,14 @@ class Settings(ArxivBaseSettings):
     """If true, only admin users can use the system. Intended to
     allowe closed to the public dev or beta system."""
 
+    COMPILE_API_URL: str = "http://localhost:9001"
+    """The tex2pdf-api url"""
+    
+    COMPILE_API_MAX_RETRIES: int = 1
+
+    COMPILE_API_RETRY_DELAY: int = 10
+
+    COMPILE_API_PREFLIGHT_TIMEOUT: int = 840
 
 settings = Settings()
 arxivbase_settings.CLASSIC_DB_URI = settings.CLASSIC_DB_URI

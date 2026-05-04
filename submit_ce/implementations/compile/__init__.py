@@ -17,6 +17,20 @@ class MockCompileMimesisPdf(CompileService):
         super().__init__()
 
     @override
+    def start_preflight(self,
+            submission: Submission,
+            user: User,
+            client: Client,
+            api: SubmitApi,
+            source_package_id: Optional[str] = None,
+    ) -> Result:
+        return None
+
+    @override
+    def check_preflight(self, process_id: str, user: User, client: Client) -> ProcessStatus:
+        return None
+
+    @override
     def start_compile(
         self,
         submission: Submission,
@@ -54,3 +68,7 @@ class MockCompileMimesisPdf(CompileService):
     @override
     def is_available(self) -> bool:
         return True
+
+    @override
+    def convert_preflight_to_directives(self, contents: str) -> str:
+        return None

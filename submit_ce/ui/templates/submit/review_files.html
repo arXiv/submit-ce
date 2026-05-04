@@ -5,47 +5,19 @@
  <script src="{{ url_for('static', filename='js/filewidget.js') }}"></script>
 {% endblock addl_head %}
 
-{% macro display_tree(key, item, even) %}
-  {% if key %}
-  <li class="{% if item.errors %}is-warning{% elif item.modified and item|just_updated %}is-success{% endif %} {% if even %}even{% endif %}">
-  {% endif %}
-    {% if item.name %}
-    <div class="columns">
-      <div class="column">
-        {{ item.name }}
-      </div>
-      <div class="column is-one-third-tablet">
-          <div class="columns is-mobile">
-            <div class="column">{{ item.size|filesizeformat }}</div>
-            <div class="column">{{ item.modified|timesince }}</div>
-            <div class="column has-text-centered is-narrow">
-             <a href="{{ url_for('ui.file_delete', submission_id=submission_id) }}?path={{ item.path }}" aria-label="Delete {{ item.name }}">
-               {{svg.trashcan()}}
-               <span class="is-sr-only">Delete file</span>
-             </a>
-            </div>
-          </div>
-      </div>
-    </div>
-    {% else %}
-    {% if key %}
-    {{svg.exclamation(klass="icon filter-blue")}}
-    {{ key }}/{% endif %}
-    <ol class="{% if not key %}file-tree{% endif %}" style="list-style-type: none;">
-      {% for k, subitem in item.items() %}
-      {{ display_tree(k, subitem, loop.cycle('', 'even')) }}
-      {% endfor %}
-    </ol>
-    {% endif %}
-    {% if item.errors %}
-        {% for error in item.errors %}
-        <p class="help has-text-weight-bold is-marginless {% if error.error_type == FileErrorLevels.ERROR %}is-danger{% else %}is-warning{% endif %}">
-          {{ error.message }}
-        </p>
-        {% endfor %}
-      {% endif %}
-  {% if key %}
-  </li>
+{% macro preflight_file_rows(label, files, file_notes) %}
+  {% if files %}
+  <tr><td colspan="3"><strong>{{ label }}</strong></td></tr>
+  {% for f in files %}
+  <tr>
+    <td>
+      <input type="hidden" name="all_files" value="{{ f.filename }}">
+      <input type="checkbox" name="selected_files" value="{{ f.filename }}">
+    </td>
+    <td>{{ f.filename }}</td>
+    <td>{{ file_notes[f.filename] if f.filename in file_notes else '' }}</td>
+  </tr>
+  {% endfor %}
   {% endif %}
 {% endmacro %}
 
@@ -123,39 +95,41 @@
         </div>
       </div>
 
-      <div class="field is-grouped">
-        <div class="control">
-          <button class="button is-primary" type="submit" name="action" value="compile">Compile</button>
-        </div>
-      </div>
-
       <hr />
 
-      {% if status and status.errors %}
-        {% for error in status.errors %}
-        <p class="help has-text-weight-bold is-marginless {% if error.error_type == FileErrorLevels.ERROR %}is-danger{% else %}is-warning{% endif %}">
-          {{ error.message }}
-        </p>
-        {% endfor %}
-      {% endif %}
-
-      {% if status and status.files %}
-      <h3>Files currently attached to this submission ({{ status.size|filesizeformat }})</h3>
-
-      {{ display_tree(None, status.files|group_files) }}
-
-      <p class="help has-text-right" style="margin-right: .5rem">
-
-      </p>
-      {% elif error %}
-      <p class="title is-4 breathe-vertical has-text-centered has-text-danger">
-        Something isn't working right now. Please try again.
-      </p>
+      {% if preflight_files %}
+      <table class="table is-fullwidth">
+        <thead>
+          <tr>
+            <th>
+              Delete
+              <br>
+              <a href="#" onclick="document.querySelectorAll('input[name=selected_files]').forEach(cb => cb.checked = false); return false;">keep all</a>
+            </th>
+            <th>File Name</th>
+            <th>Auto-detected Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{ preflight_file_rows('Top-level files',  preflight_files.detected_toplevel_files, file_notes) }}
+          {{ preflight_file_rows('TeX files',        preflight_files.tex_files,               file_notes) }}
+          {{ preflight_file_rows('Ancillary files',  preflight_files.ancillary_files,         file_notes) }}
+          {{ preflight_file_rows('Maybe used files', preflight_files.maybe_used_files,        file_notes) }}
+          {{ preflight_file_rows('Image files',      preflight_files.image_files,             file_notes) }}
+        </tbody>
+      </table>
       {% else %}
       <p class="title is-4 breathe-vertical has-text-centered">
         No files have been uploaded yet.
       </p>
       {% endif %}
+
+      <hr />
+      <div class="field">
+        <p><strong>has_directives:</strong> {{ form.has_directives }}</p>
+        <p><strong>has_preflight:</strong> {{ form.has_preflight }}</p>
+        <p><strong>has_zzrm:</strong> {{ form.has_zzrm }}</p>
+      </div>
     </div>
   </div>
 </form>

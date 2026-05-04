@@ -5,6 +5,14 @@ arXiv paper submission system
 
 To run the server, please execute the following from the root directory:
 
+Configure:
+In submit_ce/ui/config.py,
+append your username to STORE_GS_PREFIX
+
+Start the compiler api:
+gcloud run services proxy tex2pdf-api-default --project arxiv-development --region us-central1 --port=9001
+
+
 On linux:
 ```bash
 # Install gcld3 dependencies needed by arxiv-base metadata checks

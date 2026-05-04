@@ -10,7 +10,7 @@ from werkzeug.exceptions import BadRequest, NotFound
 from submit_ce.api import SubmitApi
 from submit_ce.domain import User, Submission, Event
 from submit_ce.domain.exceptions import NoSuchSubmission
-from submit_ce.implementations.compile.compile_at_gcp_service import GcpCompileAtLegacy
+from submit_ce.implementations.compile.compile_api_service import CompileApiService
 from submit_ce.implementations.file_store.gs_file_store import GsFileStore
 from submit_ce.implementations.legacy_implementation.flask_impl import FlaskSubmitImplementation
 
@@ -27,7 +27,7 @@ def config_backend_api(settings: Settings) -> SubmitApi:
     
     return FlaskSubmitImplementation(
         store=store,
-        compiler=GcpCompileAtLegacy("data/new"))
+        compiler=CompileApiService())
 
 
 def get_submission(submission_id: str) -> Tuple[Submission, List[Event]]:

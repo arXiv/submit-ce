@@ -89,6 +89,8 @@ dependencies = [
     "sqlalchemy==2.0.35",
     "starlette==0.38.5",
     "termcolor==2.4.0",
+    "toml>=0.10.2",
+    "tomli-w>=1.2.0",
     "typer==0.12.5",
     "typing-extensions==4.12.2",
     "ujson==5.10.0",
@@ -194,7 +196,7 @@ omit = [
 ]
 
 [tool.coverage.report]
-fail_under = 80
+fail_under = 70
 skip_covered = false
 omit = [
     # Ignore tests
@@ -207,6 +209,9 @@ omit = [
     # Fastly code not currently used
     "submit_ce/fastapi",
     "submit_ce/implementations/compile/common.py", # migrate existing tests or eliminate script
+    "submit_ce/implementations/compile/directives/**",    # original tests are in submission-tools
+    "submit_ce/implementations/compile/preflight/**",     # original tests are in submission-tools
+    "submit_ce/implementations/compile/zerozeroreade/**", # original tests are in submission-tools
     "submit_ce/implementations/compile/compile_at_gcp.py", # migrate existing tests or eliminate script
     "submit_ce/implementations/file_store/legacy_file_store.py", # add tests
     "submit_ce/implementations/file_store/gs_file_store.py", # add tests

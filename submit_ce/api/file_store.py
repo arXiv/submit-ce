@@ -24,7 +24,6 @@ from abc import ABCMeta, abstractmethod
 from pathlib import Path
 from typing import TYPE_CHECKING, Optional, IO
 
-
 from arxiv.files import FileObj
 
 if TYPE_CHECKING:
@@ -107,6 +106,13 @@ class SubmissionFileStore(metaclass=ABCMeta):
         pass
 
     @abstractmethod
+    def store_directives(self, submission_id: str, content: dict) -> str:
+        """Store directives.json for a submission.
+
+        Returns checksum"""
+        pass
+
+    @abstractmethod
     def get_preview(self, submission_id: str) -> FileObj:
         """Retrieve a PDF preview from the filesystem."""
         pass
@@ -125,6 +131,44 @@ class SubmissionFileStore(metaclass=ABCMeta):
     def does_preview_exist(self, submission_id: str) -> bool:
         """Determine whether a preview has been deposited for a submission."""
         pass
+
+    @abstractmethod
+    def get_preflight(self, submission_id: str) -> FileObj:
+        """Retrieve the preflight JSON from the filesystem."""
+        pass
+
+    @abstractmethod
+    def get_directives(self, submission_id: str) -> FileObj:
+        """Retrieve the directives.json from the filesystem."""
+        pass
+
+    @abstractmethod
+    def delete_preflight(self, submission_id: str) -> None:
+        """Delete the preflight JSON file."""
+        pass
+
+    @abstractmethod
+    def delete_directives(self, submission_id: str) -> None:
+        """Delete the directives.json file."""
+        pass
+
+    @abstractmethod
+    def store_zzrm(self, submission_id: str, content: dict) -> None:
+        """Store 00README.json in the submission source directory."""
+        pass
+
+    @abstractmethod
+    def get_full_source_package_path(self, submission_id: str) -> str:
+        pass
+
+    @abstractmethod
+    def get_full_preflight_package_path(self, submission_id: str) -> str:
+        pass
+
+    @abstractmethod
+    def get_full_directives_package_path(self, submission_id: str) -> str:
+        pass
+
 
     # @abstractmethod
     # def _validate_submission_id(self, submission_id: str) -> bool:
