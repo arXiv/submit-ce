@@ -86,12 +86,12 @@ class Settings(ArxivBaseSettings):
     JWT_SECRET: str = "foobar"
     """Used to encoded and decode JWTs for auth."""
 
-    STORE: Literal["gs"] = "gs"
+    STORE: Literal["gs", "null"] = "gs"
 
     STORE_GS_BUCKET: str = "arxiv-sync-test-01"
     """If in gs mode, what bucket to store submissions in."""
     
-    STORE_GS_PREFIX: str = "api-test"
+    STORE_GS_PREFIX: str = "api-test/myname"
     """A subdirectory to upload files related to your local database, ie: "api-test/myusername"
     """
     

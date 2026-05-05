@@ -13,6 +13,7 @@ from submit_ce.domain.exceptions import NoSuchSubmission
 from submit_ce.implementations.compile.compile_api_service import CompileApiService
 from submit_ce.implementations.file_store.gs_file_store import GsFileStore
 from submit_ce.implementations.legacy_implementation.flask_impl import FlaskSubmitImplementation
+from submit_ce.implementations import NullFileStore
 
 import logging
 logger = logging.getLogger(__name__)
@@ -25,6 +26,8 @@ def config_backend_api(settings: Settings) -> SubmitApi:
         logger.info(f"Doing FileStore GS bucket {settings.STORE_GS_BUCKET} prefix {settings.STORE_GS_PREFIX}")
         store = GsFileStore(gs_bucket=settings.STORE_GS_BUCKET,
                             gs_prefix=settings.STORE_GS_PREFIX)
+    elif settings.STORE == "null":
+        store = NullFileStore()
     else:
         raise NotImplementedError("settings.store may not be set correctly.")
     
