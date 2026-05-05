@@ -4,6 +4,8 @@ from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
 from typing import IO, List, Optional
+import json
+import io
 import logging
 import tarfile
 from typing_extensions import override
@@ -49,7 +51,6 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
     environment as usual.
 
     2025-07-17: initial work
-
     """
 
     def __init__(self,
@@ -131,7 +132,17 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
                      content: SubmitFile,
                      chunk_size: int) -> str:
         """Store a source package for a submission."""
-        files = []
+
+        # Upload the entire package file, because
+        # - the legacy code seems to keep the gz current, and
+        # - tex2pdf-api/preflight needs a path to a zip in a bucket.
+        package_path = self._source_package_path(submission_id)
+        package_blob = self.bucket.blob(str(package_path))
+        content.stream.seek(0)
+        package_blob.upload_from_file(content.stream, content_type=content.content_type)
+
+        content.stream.seek(0)
+        files=[]
         src_dir = self._source_path(submission_id)
 
         with tarfile.open(fileobj=content.stream, mode="r:*") as tar:
@@ -168,6 +179,15 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
         return blob.crc32c
 
     @override
+    def store_directives(self, submission_id: str, content: dict) -> str:
+        """Store directives.json for a submission."""
+        directives_path = self._directives_path(submission_id)
+        blob = self.bucket.blob(str(directives_path))
+        data = json.dumps(content).encode('utf-8')
+        blob.upload_from_file(io.BytesIO(data), content_type='application/json')
+        blob.reload()
+        return blob.crc32c
+
     def get_source_checksum(self, submission_id: str) -> str:
         """Get the checksum of the source package for a submission."""
         return self._get_checksum(self._source_package_path(submission_id))
@@ -368,11 +388,41 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
     def _preview_path(self, submission_id: str) -> Path:
         return self._submission_path(submission_id) / f'{submission_id}.pdf'
 
+    def _preflight_path(self, submission_id: str) -> Path:
+        return self._submission_path(submission_id) / 'gcp_preflight.json'
+
     def _directives_path(self, submission_id: str) -> Path:
         return self._submission_path(submission_id) / 'directives.json'
 
     def _compile_log_path(self, submission_id: str) -> Path:
         return self._submission_path(submission_id) / 'gcp_compile.log'
+
+    def get_source_file(self, submission_id: str, path: Path|str) -> FileObj:
+        src_path = self._source_path(submission_id) / path
+        blob = self.bucket.blob(str(src_path))
+        if blob.exists():
+            return blob
+        else:
+            return FileDoesNotExist(str(src_path))
+
+    def get_preflight(self, submission_id: str) -> FileObj:
+        preflight_path = self._preflight_path(submission_id)
+        blob = self.bucket.blob(str(preflight_path))
+        if blob.exists():
+            return blob
+        else:
+            return FileDoesNotExist(str(preflight_path))
+
+    def get_directives(self, submission_id: str) -> FileObj:
+        directives_path = self._directives_path(submission_id)
+        blob = self.bucket.blob(str(directives_path))
+        if blob.exists():
+            return blob
+        else:
+            return FileDoesNotExist(str(directives_path))
+
+    def get_source_package_checksum(self, submission_id: str) -> str:
+        return self.get_source_checksum(submission_id)
 
     def _compile_json_path(self, submission_id: str) -> Path:
         return self._submission_path(submission_id) / 'gcp_compile.json'
@@ -380,12 +430,45 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
     def _preflight_path(self, submission_id: str) -> Path:
         return self._submission_path(submission_id) / 'gcp_preflight.json'
 
+    def _full_base_path(self):
+        return f'gs://{self.gs_bucket}'
+
+    def get_full_source_package_path(self, submission_id: str) -> str:
+        return f'{self._full_base_path()}/{self._source_package_path(submission_id)}'
+
+    def get_full_preflight_package_path(self, submission_id: str) -> str:
+        return f'{self._full_base_path()}/{self._preflight_path(submission_id)}'
+
+    def get_full_directives_package_path(self, submission_id: str) -> str:
+        return f'{self._full_base_path()}/{self._directives_path(submission_id)}'
+
     def _request_log_path(self, submission_id: str) -> Path:
         return self._submission_path(submission_id) / 'gcp_request.log'
 
     def _source_log_path(self, submission_id: str) -> Path:
         return self._submission_path(submission_id) / 'source.log'
 
+    def delete_preview(self, submission_id: str) -> None:
+        preview_path = self._preview_path(submission_id)
+        blob = self.bucket.blob(str(preview_path))
+        if blob.exists():
+            blob.delete()
+
+    def delete_preflight(self, submission_id: str) -> None:
+        blob = self.bucket.blob(str(self._preflight_path(submission_id)))
+        if blob.exists():
+            blob.delete()
+
+    def delete_directives(self, submission_id: str) -> None:
+        blob = self.bucket.blob(str(self._directives_path(submission_id)))
+        if blob.exists():
+            blob.delete()
+
+    def store_zzrm(self, submission_id: str, content: dict) -> None:
+        path = self._source_path(submission_id) / '00README.json'
+        blob = self.bucket.blob(str(path))
+        data = json.dumps(content).encode('utf-8')
+        blob.upload_from_file(io.BytesIO(data), content_type='application/json')
     def _blob_to_file_status(self, submission_id, blob) -> FileStatus:
         src_dir = self._source_path(submission_id)
         anc_dir = src_dir / "anc"

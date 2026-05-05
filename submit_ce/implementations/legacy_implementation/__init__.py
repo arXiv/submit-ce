@@ -22,7 +22,6 @@ from ..schedule import next_announcement_time, next_freeze_time
 from .db import to_submission
 from .models import Submission
 from . import models
-from ..file_store.legacy_file_store import LegacyFileStore
 
 from ...domain.uploads import Workspace
 from ...domain.event.base import Event, EventWithSideEffect

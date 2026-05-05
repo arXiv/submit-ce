@@ -80,6 +80,49 @@ class StartCompileSource(EventWithSideEffect):
         return submission
 
 
+class StartPreflight(EventWithSideEffect):
+    """Start preflight checks for a submission."""
+
+    NAME = "start preflight"
+    NAMED = "started preflight"
+
+    source_content_id: Optional[str] = field(default=None)
+    process: Optional[ProcessInfo] = field(default=None)
+    result: Optional[Result] = field(default=None)
+
+    def __post_init__(self) -> None:
+        super(StartPreflight, self).__post_init__()
+
+    def validate(self, submission: Submission) -> None:
+        if submission.source_content is None or not submission.source_content.identifier:
+            raise InvalidEvent("Source content for preflight is empty.")
+
+    def execute(self, api: 'SubmitApi', submission: Submission) -> None:
+        """Run preflight checks."""
+        result = api.get_compiler().start_preflight(
+                submission,
+                self.creator,
+                self.client,
+                api,
+                submission.source_content.identifier
+        )
+        self.source_content_id = submission.source_content.identifier
+        # TODO add process info to Event?
+        #self.process = process
+        self.result = result
+
+    def project(self, submission: Submission) -> Submission:
+        assert self.created is not None
+        submission.processes.append(StartPreflight(
+            creator=self.creator,
+            created=self.created,
+            source_content_id=self.source_content_id,
+            process=self.process,
+            result=self.result,
+        ))
+        return submission
+
+
 class CompileStatus(Event):
     """Add the status of an external/long-running process to a submission."""
 
@@ -104,6 +147,36 @@ class CompileStatus(Event):
 
     def project(self, submission: Submission) -> Submission:
         """Add the process status to the submission."""
+        assert self.created is not None
+        assert self.process is not None
+        submission.processes.append(ProcessStatus(
+            creator=self.creator,
+            created=self.created,
+            process=self.process,
+            result=self.result,
+        ))
+        return submission
+
+
+class PreflightStatus(Event):
+    """Add the status of a preflight process to a submission."""
+
+    NAME = "add status of preflight"
+    NAMED = "added status of preflight"
+
+    process: Optional[ProcessInfo] = field(default=None)
+    result: Optional[Result] = field(default=None)
+
+    def __post_init__(self) -> None:
+        super(PreflightStatus, self).__post_init__()
+
+    def validate(self, submission: Submission) -> None:
+        if self.process is None:
+            raise InvalidEvent(self, "Must include process")
+        if self.result is None:
+            raise InvalidEvent(self, "Must include result")
+
+    def project(self, submission: Submission) -> Submission:
         assert self.created is not None
         assert self.process is not None
         submission.processes.append(ProcessStatus(

@@ -8,7 +8,7 @@ from arxiv.files import FileObj
 from submit_ce.api import SubmitApi, SubmissionFileStore
 from submit_ce.api.compile_service import CompileService
 from submit_ce.domain.types import SubmitFile
-from submit_ce.domain.uploads import FileStatus
+from submit_ce.domain.uploads import FileStatus, UploadStatus, UploadLifecycleStates
 from submit_ce.domain import Event, Submission, License, User, Client, Workspace
 from submit_ce.domain.event.process import Result
 from submit_ce.domain.process import ProcessStatus
@@ -28,7 +28,20 @@ class NullCompilerService(CompileService):
 class NullFileStore(SubmissionFileStore):
 
     def get_workspace(self, submission_id: str) -> Optional[Workspace]:
-        return None
+        return Workspace(
+            identifier=submission_id,
+            checksum='null-store-checksum',
+            size=1024,
+            started=datetime.now(),
+            completed=datetime.now(),
+            created=datetime.now(),
+            modified=datetime.now(),
+            status=UploadStatus.READY,
+            lifecycle=UploadLifecycleStates.ACTIVE,
+            locked=False,
+            files=[],
+            errors=[],
+        )
 
     def delete_workspace(self, submission_id: str):
         pass
@@ -53,7 +66,7 @@ class NullFileStore(SubmissionFileStore):
     def store_source_package(self, submission_id: str, content: SubmitFile, chunk_size: int) -> str:
         return "Not stored, this is from a NullFileStore"
 
-    def get_source_pacakge_checksum(self, submission_id: str) -> str:
+    def get_source_package_checksum(self, submission_id: str) -> str:
         return ""
 
     def does_source_exist(self, submission_id: str) -> bool:
@@ -62,10 +75,27 @@ class NullFileStore(SubmissionFileStore):
     def store_preview(self, submission_id: str, content: IO[bytes], chunk_size: int) -> str:
         return "not really stored, NullFileStore"
 
+    def store_directives(self, submission_id: str, content: dict) -> str:
+        return "not really stored, NullFileStore"
+
+    def get_directives(self, submission_id: str) -> FileObj:
+        from arxiv.files import FileDoesNotExist
+        return FileDoesNotExist(submission_id)
+
     def get_preview(self, submission_id: str) -> FileObj:
-        raise RuntimeError("No preview")
+        from arxiv.files import FileDoesNotExist
+        return FileDoesNotExist(submission_id)
 
     def delete_preview(self, submission_id: str) -> None:
+        pass
+
+    def delete_preflight(self, submission_id: str) -> None:
+        pass
+
+    def delete_directives(self, submission_id: str) -> None:
+        pass
+
+    def store_zzrm(self, submission_id: str, content: dict) -> None:
         pass
 
     def get_preview_checksum(self, submission_id: str) -> str:
@@ -74,11 +104,18 @@ class NullFileStore(SubmissionFileStore):
     def does_preview_exist(self, submission_id: str) -> bool:
         return False
 
-    def get_directives(self, submission_id: str) -> FileObj:
-        raise RuntimeError("No directives")
+    def get_preflight(self, submission_id: str) -> FileObj:
+        from arxiv.files import FileDoesNotExist
+        return FileDoesNotExist(submission_id)
 
-    def delete_directives(self, submission_id: str) -> None:
-        pass
+    def get_full_source_package_path(self, submission_id: str) -> str:
+        return ""
+
+    def get_full_preflight_package_path(self, submission_id: str) -> str:
+        return ""
+
+    def get_full_directives_package_path(self, submission_id: str) -> str:
+        return ""
 
     def get_directives_checksum(self, submission_id: str) -> str:
         return ""
@@ -109,12 +146,6 @@ class NullFileStore(SubmissionFileStore):
 
     def does_compile_json_exist(self, submission_id: str) -> bool:
         return False
-
-    def get_preflight(self, submission_id: str) -> FileObj:
-        raise RuntimeError("No preflight")
-
-    def delete_preflight(self, submission_id: str) -> None:
-        pass
 
     def get_preflight_checksum(self, submission_id: str) -> str:
         return ""

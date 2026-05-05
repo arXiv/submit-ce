@@ -18,6 +18,20 @@ class CompileService(ABC):
     """
 
     @abstractmethod
+    def start_preflight(self,
+            submission: Submission,
+            user: User,
+            client: Client,
+            api: SubmitApi,
+            source_package_id: Optional[str] = None,
+    ) -> Result:
+        ...
+
+    @abstractmethod
+    def check_preflight(self, process_id: str, user: User, client: Client) -> ProcessStatus:
+        ...
+
+    @abstractmethod
     def start_compile(self, submission: Submission, user: User, client: Client,
                       api: SubmitApi,
                       source_package_id: Optional[str] = None) -> Result:
@@ -69,4 +83,8 @@ class CompileService(ABC):
         str
             `True` if service is configured and available.
         """
+        ...
+
+    @abstractmethod
+    def convert_preflight_to_directives(self, contents: str) -> str:
         ...

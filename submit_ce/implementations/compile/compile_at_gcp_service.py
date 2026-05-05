@@ -15,23 +15,21 @@ import sys
 from submit_ce.api.submit import SubmitApi
 from submit_ce.implementations.compile.compile_at_gcp import PreflightOption, DEFAULT_MAX_APPEND_FILES, DEFAULT_MAX_TEX_FILES, DEFAULT_COMPILATION_TIMEOUT, compile_submission
 
-
 sys.path.append('submit_ce/implementations/compile')
 
-
-GCP_COMPILE_URL = "https://tex-to-pdf-default-1090350072932.us-central1.run.app"
+GCP_COMPILE_URL = "http://localhost:9001"
 
 class GcpCompileAtLegacy(CompileService):
     """GCP Compile at legacy /data/new file store."""
     def __init__(self,
-                 base_submissions_dir: str,
-                 tex2pdf_url: str = GCP_COMPILE_URL,
+                base_submissions_dir: str,
+                tex2pdf_url: str = GCP_COMPILE_URL,
                 preflight: Optional[PreflightOption] = None,
                 watermark_text: Optional[str] = None,
                 max_append_files: int = DEFAULT_MAX_APPEND_FILES,
                 max_tex_files: int = DEFAULT_MAX_TEX_FILES,
                 timeout: int = DEFAULT_COMPILATION_TIMEOUT,
-                 ):
+                ):
         self.tex2pdf_url = tex2pdf_url
         self.base_submissions_dir = base_submissions_dir
         self.preflight = preflight
@@ -46,6 +44,19 @@ class GcpCompileAtLegacy(CompileService):
                 f"tex2pdf_url={self.tex2pdf_url},"
                 f"base_submissions_dir={self.base_submissions_dir}"
                 )
+
+    @override
+    def start_preflight(self, submission: Submission, 
+                  user: User, 
+                  client: Client,
+                  api: SubmitApi,
+                  source_package_id: Optional[str] = None
+    ) -> Result:
+        pass
+
+    @override
+    def check_preflight(self, process_id: str, user: User, client: Client) -> ProcessStatus:
+        pass
 
     @override
     def start_compile(self, submission: Submission,

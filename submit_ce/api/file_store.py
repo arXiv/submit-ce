@@ -24,7 +24,6 @@ from abc import ABCMeta, abstractmethod
 from pathlib import Path
 from typing import TYPE_CHECKING, Optional, IO
 
-
 from arxiv.files import FileObj
 
 if TYPE_CHECKING:
@@ -90,7 +89,7 @@ class SubmissionFileStore(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def get_source_pacakge_checksum(self, submission_id: str) -> str:
+    def get_source_package_checksum(self, submission_id: str) -> str:
         """Get the checksum of the source package for a submission."""
         pass
 
@@ -102,6 +101,13 @@ class SubmissionFileStore(metaclass=ABCMeta):
     @abstractmethod
     def store_preview(self, submission_id: str, content: IO[bytes], chunk_size: int) -> str:
         """Store a preview PDF for a submission.
+
+        Returns checksum"""
+        pass
+
+    @abstractmethod
+    def store_directives(self, submission_id: str, content: dict) -> str:
+        """Store directives.json for a submission.
 
         Returns checksum"""
         pass
@@ -127,12 +133,42 @@ class SubmissionFileStore(metaclass=ABCMeta):
         pass
 
     @abstractmethod
+    def get_preflight(self, submission_id: str) -> FileObj:
+        """Retrieve the preflight JSON from the filesystem."""
+        pass
+
+    @abstractmethod
     def get_directives(self, submission_id: str) -> FileObj:
-        """Retrieve the directives file for a submission."""
+        """Retrieve the directives.json from the filesystem."""
+        pass
+
+    @abstractmethod
+    def delete_preflight(self, submission_id: str) -> None:
+        """Delete the preflight JSON file."""
         pass
 
     @abstractmethod
     def delete_directives(self, submission_id: str) -> None:
+        """Delete the directives.json file."""
+        pass
+
+    @abstractmethod
+    def store_zzrm(self, submission_id: str, content: dict) -> None:
+        """Store 00README.json in the submission source directory."""
+        pass
+
+    @abstractmethod
+    def get_full_source_package_path(self, submission_id: str) -> str:
+        pass
+
+    @abstractmethod
+    def get_full_preflight_package_path(self, submission_id: str) -> str:
+        pass
+
+    @abstractmethod
+    def get_full_directives_package_path(self, submission_id: str) -> str:
+        pass
+
         """Delete the directives file for a submission."""
         pass
 

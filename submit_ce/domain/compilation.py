@@ -13,14 +13,12 @@ class Compilation(BaseModel):
 
     class Status(Enum):      # type: ignore
         """Acceptable compilation process statuses."""
-
         SUCCEEDED = "completed"
         IN_PROGRESS = "in_progress"
         FAILED = "failed"
 
     class Format(Enum):      # type: ignore
         """Supported compilation output formats."""
-
         PDF = "pdf"
         DVI = "dvi"
         PS = "ps"
@@ -35,14 +33,31 @@ class Compilation(BaseModel):
             }
             return _ctypes[self]
 
+    # All possible CompilerSpecs
+    # https://github.com/arXiv/submission-tools/blob/master/tex2pdf-tools/tex2pdf_tools/preflight/__init__.py#L913
     class SupportedCompiler(Enum):
         """Compiler known to be supported by the compiler service."""
-
+        DVILUATEX = 'dviluatex'
+        LATEX = 'latex'
+        LUALATEX = 'lualatex'
+        LUATEX = 'luatex'
         PDFLATEX = 'pdflatex'
+        PLATEX = 'platex'
+        PTEX = 'ptex'
+        TEX = 'tex'
+        UPLATEX = 'uplatex'
+        UPTEX = 'uptex'
+        XELATEX = 'xelatex'
+        XETEX = 'xetex'
+
+
+    class CompilerVersion(Enum):
+        """Supported compiler versions."""
+        TEXLIVE_2025 = 'texlive2025'
+        TEXLIVE_2023 = 'texlive2023'
 
     class Reason(Enum):
         """Specific reasons for a (usually failure) outcome."""
-
         AUTHORIZATION = "auth_error"
         MISSING = "missing_source"
         SOURCE_TYPE = "invalid_source_type"
