@@ -88,18 +88,13 @@ class Settings(ArxivBaseSettings):
 
     STORE: Literal["gs", "null"] = "gs"
 
-    STORE_GS_BUCKET: str = "arxiv-sync-test-01"
+    STORE_GS_BUCKET: str = "arxiv-submit-dev"
     """If in gs mode, what bucket to store submissions in."""
     
-    STORE_GS_PREFIX: str = "api-test/myname"
+    STORE_GS_PREFIX: str = "api-test"
     """A subdirectory to upload files related to your local database, ie: "api-test/myusername"
     """
-    
-    STORE_LOCAL_ROOT: str = "data/new"
-    """If in `STORE="local"` mode, what directory to store in.
 
-    Can be relative or absolute."""
-    
     ADMIN_ONLY: bool = False
     """If true, only admin users can use the system. Intended to
     allowe closed to the public dev or beta system."""
