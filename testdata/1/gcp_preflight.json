@@ -1,0 +1,1 @@
+{"status":{"key":"success"},"detected_toplevel_files":[{"filename":"main-test1.tex","process":{"compiler":{"engine":"tex","lang":"latex","output":"pdf","postp":"none"}},"hyperref_found":true}],"tex_files":[{"filename":"main-test1.tex","language":"latex","contains_documentclass":true,"hyperref_found":true}],"ancillary_files":[],"maybe_used_files":[]}
