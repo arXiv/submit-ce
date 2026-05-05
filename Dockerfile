@@ -73,7 +73,7 @@ RUN pytest submit_ce/api submit_ce/ui submit_ce/implementations/legacy_implement
 #################### production ####################
 FROM python:3.11-bookworm AS production
 RUN apt-get -q update && apt-get -q -y upgrade && \
-    apt-get -y install default-libmysqlclient-dev
+    apt-get -y install default-libmysqlclient-dev libprotobuf32
 
 # this has the same python paths as ghcr.io/astral-sh/uv:python3.11-bookworm
 # so this is no longer needed.
