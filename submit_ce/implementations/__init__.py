@@ -8,7 +8,7 @@ from arxiv.files import FileObj
 from submit_ce.api import SubmitApi, SubmissionFileStore
 from submit_ce.api.compile_service import CompileService
 from submit_ce.domain.types import SubmitFile
-from submit_ce.domain.uploads import FileStatus
+from submit_ce.domain.uploads import FileStatus, UploadStatus, UploadLifecycleStates
 from submit_ce.domain import Event, Submission, License, User, Client, Workspace
 from submit_ce.domain.event.process import Result
 from submit_ce.domain.process import ProcessStatus
@@ -28,7 +28,20 @@ class NullCompilerService(CompileService):
 class NullFileStore(SubmissionFileStore):
 
     def get_workspace(self, submission_id: str) -> Optional[Workspace]:
-        return None
+        return Workspace(
+            identifier=submission_id,
+            checksum=None,
+            size=0,
+            started=datetime.now(),
+            completed=datetime.now(),
+            created=datetime.now(),
+            modified=datetime.now(),
+            status=UploadStatus.READY,
+            lifecycle=UploadLifecycleStates.ACTIVE,
+            locked=False,
+            files=[],
+            errors=[],
+        )
 
     def delete_workspace(self, submission_id: str):
         pass
@@ -70,7 +83,8 @@ class NullFileStore(SubmissionFileStore):
         return FileDoesNotExist(submission_id)
 
     def get_preview(self, submission_id: str) -> FileObj:
-        raise RuntimeError("No preview")
+        from arxiv.files import FileDoesNotExist
+        return FileDoesNotExist(submission_id)
 
     def delete_preview(self, submission_id: str) -> None:
         pass
