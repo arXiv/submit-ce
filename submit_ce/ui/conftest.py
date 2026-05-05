@@ -105,21 +105,15 @@ def legacy_db(legacy_db_w_bootstrap):
 def app(legacy_db, jwt_secret):
     engine, uri, _, user_jwt = legacy_db
 
-    data_path = tempfile.mkdtemp()
-
     sce_settings.JWT_SECRET = jwt_secret
     sce_settings.CLASSIC_DB_URI = uri
-    sce_settings.STORE_LOCAL_ROOT = data_path
     sce_settings.STORE = "null"
 
     app = create_web_app()
     app.config["CLASSIC_DB_URI"] = uri
     app.config["JWT_SECRET"] = jwt_secret
 
-    try:
-        yield app
-    finally:
-        shutil.rmtree(data_path)
+    yield app
 
 
 @pytest.fixture
