@@ -91,7 +91,7 @@ class Settings(ArxivBaseSettings):
     STORE_GS_BUCKET: str = "arxiv-submit-dev"
     """If in gs mode, what bucket to store submissions in."""
     
-    STORE_GS_PREFIX: str = "api-test"
+    STORE_GS_PREFIX: str = ""
     """A subdirectory to upload files related to your local database, ie: "api-test/myusername"
     """
 
@@ -99,9 +99,9 @@ class Settings(ArxivBaseSettings):
     """If true, only admin users can use the system. Intended to
     allowe closed to the public dev or beta system."""
 
-    COMPILE_API_URL: str = "http://localhost:9001"
+    COMPILE_API_URL: str = "https://tex2pdf-api-default-874717964009.us-central1.run.app"
     """The tex2pdf-api url"""
-    
+
     COMPILE_API_MAX_RETRIES: int = 1
 
     COMPILE_API_RETRY_DELAY: int = 10
