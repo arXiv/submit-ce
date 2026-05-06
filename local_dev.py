@@ -18,6 +18,7 @@ os.environ.setdefault('STORE_GS_BUCKET', 'arxiv-submit-dev')
 os.environ.setdefault('STORE_GS_PREFIX', DEV_NAME or getpass.getuser())
 os.environ.setdefault('GCLOUD_PROJECT', 'arxiv-development')
 os.environ.setdefault('TEMPLATES_AUTO_RELOAD', '1')
+os.environ.setdefault('COMPILE_API_URL', 'http://localhost:9001')
 
 from submit_ce.ui.factory import create_web_app
 
