@@ -375,7 +375,7 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
 
     def _submission_path(self, submission_id: str) -> Path:
         """Gets GS filesystem structure ex /{rootdir}/{first 4 digits of submission id}/{submission id}"""
-        shard_dir = self.gs_prefix / Path(submission_id[:4])
+        shard_dir = self.gs_prefix
         return shard_dir / Path(submission_id)
 
     def _source_path(self, submission_id: str) -> Path:
