@@ -11,6 +11,12 @@ Requires `gcloud auth application-default login` (or equivalent ADC setup).
 import getpass
 import os
 
+# This can make the development log easier to read, by
+# removing log messages for GET /static/*
+import logging
+logging.getLogger("werkzeug").setLevel(logging.WARNING)
+
+
 DEV_NAME = None  # if you want to override your netid.
 
 os.environ.setdefault('STORE', 'gs')
