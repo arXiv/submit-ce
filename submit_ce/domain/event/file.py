@@ -8,6 +8,7 @@ if TYPE_CHECKING:
 from . import validators
 from .base import Event, EventWithSideEffect
 from ..submission import Submission, SubmissionContent
+from ..uploads import SourceFormat
 from ..exceptions import InvalidEvent
 
 from submit_ce.domain.uploads import SubmitFile
@@ -68,11 +69,11 @@ class AddFiles(EventWithSideEffect):
     checksum: str = ''
     uncompressed_size: int = 0
     compressed_size: int = 0
-    source_format: SubmissionContent.Format = Field(default=SubmissionContent.Format.UNKNOWN)
+    source_format: SourceFormat = Field(default=SourceFormat.UNKNOWN)
 
     def model_post_init(self, *args, **kwargs) -> None:
         if type(self.source_format) is str:
-            self.source_format = SubmissionContent.Format(self.source_format)
+            self.source_format = SourceFormat(self.source_format)
 
     def validate(self, submission: Submission) -> None:
         validators.submission_is_not_finalized(self, submission)

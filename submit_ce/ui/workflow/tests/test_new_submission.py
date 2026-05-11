@@ -6,7 +6,8 @@ from submit_ce.ui.tests import CtrlBase
 from submit_ce.ui.workflow import processor
 from submit_ce.domain.event import CreateSubmission
 from submit_ce.ui.workflow.stages import *
-from submit_ce.domain import SubmissionContent, SubmissionMetadata
+from submit_ce.domain import SubmissionMetadata
+from submit_ce.domain.uploads import SourceFormat
 import pytest
 
 
@@ -189,7 +190,7 @@ class TestNewSubmissionWorkflow(CtrlBase):
         self.assertEqual(nswfps.current_stage(), nswfps.workflow[FileUpload])
 
         submission.source_content = SubmissionContent(
-            'identifierX', 'checksum_xyz', 100, 10, SubmissionContent.Format.TEX)        
+            'identifierX', 'checksum_xyz', 100, 10, SourceFormat.TEX)        
         nswfps.mark_seen(nswfps.workflow[FileUpload])
 
         self.assertTrue(nswfps.can_proceed_to(nswfps.workflow[VerifyUser]))
@@ -212,7 +213,7 @@ class TestNewSubmissionWorkflow(CtrlBase):
 
         #Now try a PDF upload
         submission.source_content = SubmissionContent(
-            'identifierX', 'checksum_xyz', 100, 10, SubmissionContent.Format.PDF)
+            'identifierX', 'checksum_xyz', 100, 10, SourceFormat.PDF)
         self.assertTrue(nswfps.can_proceed_to(nswfps.workflow[Process]))        
         self.assertTrue(nswfps.can_proceed_to(nswfps.workflow[Metadata]))
         

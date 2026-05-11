@@ -9,7 +9,17 @@ from pydantic import BaseModel
 from pydantic_core import core_schema
 from yarl import URL
 
-from .submission import SubmissionContent
+
+class SourceFormat(Enum):
+    """Supported source formats."""
+
+    UNKNOWN = None
+    INVALID = "invalid"
+    TEX = "tex"
+    PDFTEX = "pdftex"
+    POSTSCRIPT = "ps"
+    HTML = "html"
+    PDF = "pdf"
 
 
 class FileErrorLevels(Enum):
@@ -89,7 +99,7 @@ class Workspace(BaseModel):
     lifecycle: UploadLifecycleStates
     locked: bool
     identifier: str
-    source_format: SubmissionContent.Format = SubmissionContent.Format.UNKNOWN
+    source_format: SourceFormat = SourceFormat.UNKNOWN
     checksum: Optional[str] = None
     size: Optional[int] = None
     """Size in bytes of the uncompressed upload workspace."""

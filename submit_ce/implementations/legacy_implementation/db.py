@@ -55,6 +55,7 @@ from . import models, interpolate, log
 from .models import DBEvent
 from .patch import patch_cross, patch_hold, patch_jref, patch_withdrawal
 from submit_ce import domain
+from submit_ce.domain.uploads import SourceFormat
 from submit_ce.domain import Event, Submission, User, WithdrawalRequest, CrossListClassificationRequest,  License
 from submit_ce.domain.event import SetJournalReference, SetDOI, SetReportNumber, CreateSubmission, Rollback
 from submit_ce.domain.exceptions import NoSuchSubmission
@@ -610,7 +611,7 @@ def to_submission(row: models.Submission,
         else:
             identifier = row.package
             checksum = ""
-        source_format = domain.SubmissionContent.Format(row.source_format)
+        source_format = SourceFormat(row.source_format)
         content = domain.SubmissionContent(identifier=identifier,
                                            compressed_size=0,
                                            uncompressed_size=row.source_size,
