@@ -8,6 +8,7 @@ from pytz import UTC
 from mimesis import Text
 
 from submit_ce.domain import event, agent, submission, meta
+from submit_ce.domain.uploads import SourceFormat
 from submit_ce.domain.exceptions import InvalidEvent
 
 user = agent.PublicUser(
@@ -31,7 +32,7 @@ class TestWithdrawalSubmission(TestCase):
             created=datetime.now(UTC),
             source_content=submission.SubmissionContent(
                 identifier='6543',
-                source_format=submission.SubmissionContent.Format('pdf'),
+                source_format=SourceFormat('pdf'),
                 checksum='asdf2345',
                 uncompressed_size=594930,
                 compressed_size=594930
@@ -96,7 +97,7 @@ class TestReplacementSubmission(TestCase):
             created=datetime.now(UTC),
             source_content=submission.SubmissionContent(
                 identifier='6543',
-                source_format=submission.SubmissionContent.Format('pdf'),
+                source_format=SourceFormat('pdf'),
                 checksum='asdf2345',
                 uncompressed_size=594930,
                 compressed_size=594930
@@ -170,7 +171,7 @@ class TestDOIorJREFAfterAnnounce(TestCase):
             created=datetime.now(UTC),
             source_content=submission.SubmissionContent(
                 identifier='6543',
-                source_format=submission.SubmissionContent.Format('pdf'),
+                source_format=SourceFormat('pdf'),
                 checksum='asdf2345',
                 uncompressed_size=594930,
                 compressed_size=594930

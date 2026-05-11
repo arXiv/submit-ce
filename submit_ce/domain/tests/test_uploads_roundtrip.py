@@ -11,7 +11,7 @@ What these tests cover
     * file_count property
     * to_dict()/from_dict() roundtrip
     * all four timestamp fields handled as strings on input
-    * 'source_format' string converted to SubmissionContent.Format enum
+    * 'source_format' string converted to SourceFormat enum
 
 The 'uploads' module primarily provides data structures and conversion helpers.
 Exercising both serialization and deserialization paths touches the majority
@@ -32,7 +32,7 @@ from submit_ce.domain.uploads import (
     UploadLifecycleStates,
     Workspace,
 )
-from submit_ce.domain.submission import SubmissionContent
+from submit_ce.domain.uploads import SourceFormat
 
 
 # -----------------------------
@@ -133,7 +133,7 @@ def test_upload_roundtrip_with_nested_status_and_errors_and_conversions():
         lifecycle=UploadLifecycleStates.ACTIVE,
         locked=False,
         identifier="upload-123",
-        source_format=SubmissionContent.Format.PDF,  # enum
+        source_format=SourceFormat.PDF,  # enum
         checksum="abc123",
         size=4096,
         compressed_size=1024,
@@ -157,7 +157,7 @@ def test_upload_roundtrip_with_nested_status_and_errors_and_conversions():
     #
     # Reconstruct Upload from the dict. from_dict should:
     # - parse all four timestamp strings → datetime
-    # - convert source_format string → SubmissionContent.Format enum
+    # - convert source_format string → SourceFormat enum
     # - map nested file/error dicts back to objects
     restored = Workspace.model_validate(up_dict)
 
@@ -166,7 +166,7 @@ def test_upload_roundtrip_with_nested_status_and_errors_and_conversions():
     # # Verify key properties and nested structures survived the round-trip.
     # assert restored.status == UploadStatus.READY.value
     # assert restored.lifecycle == UploadLifecycleStates.ACTIVE.value
-    # assert restored.source_format == SubmissionContent.Format.PDF
+    # assert restored.source_format == SourceFormat.PDF
     # assert isinstance(restored.started, datetime)
     # assert isinstance(restored.files[0], FileStatus)
     # assert isinstance(restored.errors[0], FileError)

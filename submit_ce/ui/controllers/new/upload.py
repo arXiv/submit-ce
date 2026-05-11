@@ -34,7 +34,8 @@ from werkzeug.exceptions import (
 from wtforms import BooleanField, FileField
 
 from submit_ce.domain import Client, User, Event
-from submit_ce.domain.submission import SubmissionContent, Submission
+from submit_ce.domain.submission import Submission
+from submit_ce.domain.uploads import SourceFormat
 from submit_ce.domain.uploads import Workspace, FileStatus, UploadStatus, is_file_tgz
 from submit_ce.domain.exceptions import SaveError
 
@@ -376,7 +377,7 @@ def _get_notifications(stat: Workspace) -> List[Dict[str, str]]:
                     ' that these issues may cause delays in processing'
                     ' and/or announcement.'
         })
-    if stat.source_format is SubmissionContent.Format.UNKNOWN:
+    if stat.source_format is SourceFormat.UNKNOWN:
         notifications.append({
             'title': 'Unknown submission type',
             'severity': 'warning',
@@ -384,7 +385,7 @@ def _get_notifications(stat: Workspace) -> List[Dict[str, str]]:
                     ' submission. Please check your files carefully. We may'
                     ' not be able to process your files.'
         })
-    elif stat.source_format is SubmissionContent.Format.INVALID:
+    elif stat.source_format is SourceFormat.INVALID:
         notifications.append({
             'title': 'Unsupported submission type',
             'severity': 'danger',

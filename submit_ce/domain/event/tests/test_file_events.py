@@ -5,6 +5,7 @@ import pytest
 
 from submit_ce.domain import submission as submod, agent
 from submit_ce.domain.event.file import AddFiles, RemoveFiles, RemoveAllFiles
+from submit_ce.domain.uploads import SourceFormat
 from submit_ce.domain.exceptions import InvalidEvent
 
 def _now():
@@ -30,7 +31,7 @@ def test_add_files_initializes_package():
     s = _blank_submission()
     e = AddFiles(creator=s.creator, files=[], identifier="ws1", checksum="abc",
                  uncompressed_size=10, compressed_size=5,
-                 source_format=submod.SubmissionContent.Format.PDF)
+                 source_format=SourceFormat.PDF)
     e.validate(s)
     s = e.project(s)
 
@@ -38,7 +39,7 @@ def test_add_files_initializes_package():
     assert s.source_content.identifier == "ws1"
     assert s.source_content.checksum == "abc"
     assert s.source_content.uncompressed_size == 10
-    assert s.source_content.source_format == submod.SubmissionContent.Format.PDF
+    assert s.source_content.source_format == SourceFormat.PDF
     assert s.submitter_confirmed_preview is False
 
 def test_add_files_updates_package():

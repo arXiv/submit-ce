@@ -7,6 +7,7 @@ from typing import Optional, Dict, List, Iterable, Set, Any
 
 from dataclasses import dataclass, field
 
+from .uploads import SourceFormat
 from .agent import Client, User, agent_factory
 from .annotation import Comment, Feature, Annotation
 from .flag import Flag
@@ -62,23 +63,7 @@ class Author:
 class SubmissionContent:
     """Metadata about the submission source package."""
 
-    class Format(Enum):
-        """Supported source formats."""
-
-        UNKNOWN = None
-        """We could not determine the source format."""
-        INVALID = "invalid"
-        """We are able to infer the source format, and it is not supported."""
-        TEX = "tex"
-        """A flavor of TeX."""
-        PDFTEX = "pdftex"
-        """A PDF derived from TeX."""
-        POSTSCRIPT = "ps"
-        """A postscript source."""
-        HTML = "html"
-        """An HTML source."""
-        PDF = "pdf"
-        """A PDF-only source."""
+    Format = SourceFormat
 
     identifier: str
     checksum: str

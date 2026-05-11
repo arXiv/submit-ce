@@ -21,6 +21,7 @@ import submit_ce
 from submit_ce.implementations.compile import MockCompileMimesisPdf
 import submit_ce.ui.auth
 from submit_ce.domain import Author, SubmissionContent
+from submit_ce.domain.uploads import SourceFormat
 from submit_ce.domain.agent import InternalClient
 from submit_ce.domain.event import (
     AddFiles,
@@ -266,7 +267,7 @@ def sub_files(app, authorized_user, sub_cross):
         submission, _ = current_app.api.save(
             AddFiles(creator=user, client=ua,
                 checksum="a9s9k342900skks03330029k",
-                source_format=SubmissionContent.Format.TEX,
+                source_format=SourceFormat.TEX,
                 identifier="123",
                 uncompressed_size=593992,
                 compressed_size=59392,
@@ -350,7 +351,7 @@ def submitted_submission(app, authorized_user):
             SetPrimaryClassification(creator=user, client=ua, category="astro-ph.GA"),
             AddFiles(creator=user, client=ua,
                 checksum="a9s9k342900skks03330029k",
-                source_format=SubmissionContent.Format.TEX,
+                source_format=SourceFormat.TEX,
                 identifier="123",
                 uncompressed_size=593992,
                 compressed_size=59392,
@@ -397,7 +398,7 @@ def published_submission(app, authorized_user):
                 creator=user,
                 client=ua,
                 checksum="a9s9k342900skks03330029k",
-                source_format=SubmissionContent.Format.TEX,
+                source_format=SourceFormat.TEX,
                 identifier="123",
                 uncompressed_size=593992,
                 compressed_size=59392,
