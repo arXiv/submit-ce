@@ -15,7 +15,7 @@ from collections import OrderedDict
 from http import HTTPStatus as status
 from locale import strxfrm
 from pathlib import Path
-from typing import Tuple, Dict, Any, Optional, List, Union
+from typing import Tuple, Dict, Any, Optional, List, Union, assert_never
 
 from fastapi.exceptions import HTTPException
 from flask import current_app
@@ -136,20 +136,28 @@ def upload_files(method: str, params: MultiDict, session: Session,
         return _get_upload(params, session, submission, rdata, token)
     elif method == 'POST':
         pointer = files['file'] if (files and 'file' in files and files['file']) else None
+        params['file'] = pointer
+        form = UploadForm(params)
+        rdata.update({'form': form, 'submission': submission})
+        if not form.validate():
+            logger.error('Submission %s Invalid upload form: %s %s', submission.submission_id, form.errors)
+            alerts.flash_failure("No file was uploaded; please try again.")
+            return stay_on_this_stage((rdata, status.OK, {}))
+
         is_archive = _single_file_archive(files)
         try:
             match (pointer, params.get('action'), submission.source_content, is_archive):
+                case (_, _, _, _) if len(files) > 1:
+                    raise BadRequest(description="Multi file upload not yet supported. Use a zip or tgz file.")
                 case (None, action, _, _) if action:  # trying to go back to previous page
                     return {}, status.SEE_OTHER, {}  # Don't flash a message
                 case (None, _, _, _):
                     logger.debug('No files on request')
                     return stay_on_this_stage(_get_upload(params, session, submission, rdata, token))
-                case (_, _, _, _) if len(files) > 1:
-                    raise BadRequest(description="Multi file upload not yet supported. Use a zip or tgz file.")
                 case (_, _, None, True):
-                    return _new_upload(params, pointer, session, submission, rdata, token)
+                    return _upload_archive(form, params, pointer, session, submission, rdata, token)
                 case (_, _, None, False):
-                    return _new_file(params, pointer, session, submission, rdata, token)
+                    return _upload_file(form, params, pointer, session, submission, rdata, token)
                 case unhandled:
                     assert_never(unhandled)
         except RequestEntityTooLarge as ex:
@@ -164,42 +172,6 @@ def upload_files(method: str, params: MultiDict, session: Session,
 
         return stay_on_this_stage(_get_upload(params, session, submission, rdata, token))
 
-
-# def _update_submission(form: UploadForm, submission: Submission, stat: Workspace,
-#                        submitter: User, client: Optional[Client] = None) \
-#         -> Optional[Submission]:
-#     """
-#     Update the :class:`.Submission` after an upload-related action.
-
-#     The submission is linked to the upload workspace via the
-#     :attr:`Submission.source_content` attribute. This is set using a
-#     :class:`SetUploadPackage` command. If the workspace identifier changes
-#     (e.g. on first upload), we want to execute :class:`SetUploadPackage` to
-#     make the association.
-
-#     Parameters
-#     ----------
-#     form : WTForm for adding validation error messages
-#     submission : :class:`Submission`
-#     stat : :class:`Upload`
-#     submitter : :class:`User`
-#     client : :class:`Client` or None
-
-#     """
-#     command: Event
-#     command = UpdateUploadPackage(creator=submitter, client=client,
-#                                   checksum=stat.checksum,
-#                                   uncompressed_size=stat.size,
-#                                   compressed_size=stat.compressed_size,
-#                                   source_format=stat.source_format)
-#     command.validate(submission) # will raise on invalid
-
-#     try:
-#         submission, _ = current_app.api.save(command, submission_id=submission.submission_id)
-#     except SaveError:
-#         alerts.flash_failure(Markup('There was a problem carrying out your request. Please try'
-#                     f' again. {SUPPORT}'))
-#     return submission
 
 
 def _get_upload(params: MultiDict, session: Session, submission: Submission,
@@ -231,28 +203,23 @@ def _get_upload(params: MultiDict, session: Session, submission: Submission,
     if submission.source_content is None:
         return rdata, status.OK, {}  # Nothing to show; generate a blank-slate upload page
 
-    upload_id = submission.source_content.identifier
     status_data = alerts.get_hidden_alerts('_status')
-    if type(status_data) is dict and status_data['identifier'] == upload_id:
-        workspace = Workspace.from_dict(status_data)
+    if type(status_data) is dict and status_data['identifier'] == submission.submission_id:
+        workspace = Workspace.model_validate(status_data)
     else:
         workspace = current_app.api.get_file_store().get_workspace(submission_id=str(submission.submission_id))
-    rdata.update({'status': workspace})
 
+    rdata.update({'status': workspace})
     if workspace:
         rdata.update({'immediate_notifications': _get_notifications(workspace)})
     return rdata, status.OK, {}
 
 
-def _new_upload(params: MultiDict, pointer: FileStorage, session: Session,
+def _upload_archive(form: UploadForm, params: MultiDict, pointer: FileStorage, session: Session,
                 submission: Submission, rdata: Dict[str, Any], token: str) \
         -> Response:
     """
-    Handle a POST request with a new upload package.
-
-    This occurs in the case that there is not already an upload workspace
-    associated with the submission. See the :attr:`Submission.source_content`
-    attribute, which is set using :class:`SetUploadPackage`.
+    Handle a POST request with a archive like a tgz or a zip.
 
     Parameters
     ----------
@@ -278,13 +245,6 @@ def _new_upload(params: MultiDict, pointer: FileStorage, session: Session,
 
     logger.debug('New upload package')
     submitter, client = user_and_client_from_session(session)
-    params['file'] = pointer
-    form = UploadForm(params)
-    rdata.update({'form': form})
-
-    if not form.validate():
-        logger.debug('Invalid form data')
-        return stay_on_this_stage((rdata, status.OK, {}))
 
     # TODO this needs to be changed from api.upload() to api.save()
     #stat = current_app.api.save(
@@ -315,7 +275,7 @@ def _new_upload(params: MultiDict, pointer: FileStorage, session: Session,
     return stay_on_this_stage((rdata, status.OK, {}))
 
 
-def _new_file(params: MultiDict, pointer: FileStorage, session: Session,
+def _upload_file(form: UploadForm, params: MultiDict, pointer: FileStorage, session: Session,
               submission: Submission, rdata: Dict[str, Any], token: str) \
         -> Response:
     """
@@ -347,22 +307,9 @@ def _new_file(params: MultiDict, pointer: FileStorage, session: Session,
         the `Location` header for use in the 303 redirect response.
 
     """
-    logger.debug('Adding additional files')
     submitter, client = user_and_client_from_session(session)
-    upload_id = submission.source_content.identifier
-
-    # Using a form object provides some extra assurance that this is a legit request; provides CSRF protection.
-    params['file'] = pointer
-    form = UploadForm(params)
-    rdata.update({'form': form, 'submission': submission})
-
-    if not form.validate():
-        logger.error('Invalid upload form: %s', form.errors)
-        alerts.flash_failure("No file was uploaded; please try again.",
-            title="Something went wrong")
-        return stay_on_this_stage((rdata, status.OK, {}))
     #try:
-    stat = current_app.api.get_file_store().store_source_file(upload_id, pointer, CHUNK_SIZE)
+    stat = current_app.api.get_file_store().store_source_file(submission.submission_id, pointer, CHUNK_SIZE)
     # except  as ex:
     #     try:
     #         ex_data = ex.response.json()
