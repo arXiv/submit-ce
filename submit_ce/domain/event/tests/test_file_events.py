@@ -26,11 +26,20 @@ def _blank_submission(uid: str = "u1"):
         created=_now(),
     )
 
-def test_add_files_requires_upload_package():
+def test_add_files_initializes_package():
     s = _blank_submission()
-    e = AddFiles(creator=s.creator, files=[], checksum="abc", uncompressed_size=10, compressed_size=5)
-    with pytest.raises(InvalidEvent, match="No upload package exists for this submission"):
-        e.validate(s)
+    e = AddFiles(creator=s.creator, files=[], identifier="ws1", checksum="abc",
+                 uncompressed_size=10, compressed_size=5,
+                 source_format=submod.SubmissionContent.Format.PDF)
+    e.validate(s)
+    s = e.project(s)
+
+    assert s.source_content is not None
+    assert s.source_content.identifier == "ws1"
+    assert s.source_content.checksum == "abc"
+    assert s.source_content.uncompressed_size == 10
+    assert s.source_content.source_format == submod.SubmissionContent.Format.PDF
+    assert s.submitter_confirmed_preview is False
 
 def test_add_files_updates_package():
     s = _blank_submission()

@@ -29,7 +29,7 @@ from arxiv.files import FileObj
 if TYPE_CHECKING:
     from submit_ce.domain import Workspace
     from submit_ce.domain.uploads import FileStatus
-    from submit_ce.domain.types import SubmitFile
+    from submit_ce.domain.uploads import SubmitFile
 
 
 class SubmissionFileStore(metaclass=ABCMeta):

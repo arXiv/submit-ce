@@ -13,7 +13,6 @@ from flask import current_app
 
 from submit_ce.domain.event.file import RemoveAllFiles
 from submit_ce.ui.auth import user_and_client_from_session
-from submit_ce.domain.event import UpdateUploadPackage
 from submit_ce.domain.uploads import Workspace
 from submit_ce.domain.exceptions import SaveError
 from arxiv.auth.domain import Session
@@ -165,39 +164,8 @@ def delete_file(method: str, params: MultiDict, session: Session,
             logger.debug('Invalid form data')
             return stay_on_this_stage((rdata, status.OK, {}))
 
-        stat: Optional[Workspace] = None
         raise NotImplementedError()
-        # try:
-        #     fm = Filemanager.current_session()
-        #     file_path = form.file_path.data
-        #     stat = fm.delete_file(upload_id, file_path, token)
-        #     alerts.flash_success(
-        #         f'File <code>{form.file_path.data}</code> was deleted'
-        #         ' successfully', title='Deleted file successfully',
-        #         safe=True
-        #     )
-        # except (exceptions.RequestForbidden, exceptions.BadRequest, exceptions.RequestFailed):
-        #     alerts.flash_failure(Markup(
-        #         'There was a problem carrying out your request. Please try'
-        #         f' again. {SUPPORT}'
-        #     ))
 
-        if stat is not None:
-            command = UpdateUploadPackage(creator=submitter,
-                                          checksum=stat.checksum,
-                                          uncompressed_size=stat.size,
-                                          source_format=stat.source_format)
-            if not validate_command(form, command, submission):
-                logger.debug('Command validation failed')
-                return stay_on_this_stage((rdata, status.OK, {}))
-            try:
-                submission, _ = current_app.api.save(command, submission_id=submission_id)
-            except SaveError:
-                alerts.flash_failure(Markup(
-                    'There was a problem carrying out your request. Please try'
-                    f' again. {SUPPORT}'
-                ))
-        return return_to_parent_stage(({}, status.OK, {}))
     return stay_on_this_stage((rdata, status.OK, {}))
 
 

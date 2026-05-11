@@ -12,7 +12,7 @@ from submit_ce.api.compile_service import CompileService
 from submit_ce.domain.agent import Client, User
 from submit_ce.domain.event.base import EventList
 from submit_ce.domain.meta import License
-from submit_ce.domain.types import SubmitFile
+from submit_ce.domain.uploads import SubmitFile
 from submit_ce.domain.uploads import Workspace
 
 

@@ -23,7 +23,6 @@ from wtforms import SelectField
 from wtforms.validators import DataRequired
 
 from submit_ce.domain import Client, User, Event
-from submit_ce.domain.event import SetUploadPackage, UpdateUploadPackage
 from submit_ce.domain.submission import SubmissionContent, Submission
 from submit_ce.domain.uploads import Workspace, FileStatus, UploadStatus
 from submit_ce.domain.exceptions import SaveError
