@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session as SqlalchemySession, Session
 
 from submit_ce.api import SubmitApi
 from submit_ce.api.file_store import SubmissionFileStore
-from submit_ce.domain.types import SubmitFile
+from submit_ce.domain.uploads import SubmitFile
 from submit_ce.domain.agent import Client, User
 from submit_ce.domain.meta import License
 from ...api.compile_service import CompileService
@@ -27,7 +27,7 @@ from ...domain.uploads import Workspace
 from ...domain.event.base import Event, EventWithSideEffect
 from ...domain.util import get_tzaware_utc_now
 
-from ...domain.event import CreateSubmission, SetUploadPackage
+from ...domain.event import CreateSubmission, AddFiles
 from ...domain.exceptions import NoSuchSubmission, NothingToDo
 from . import db
 
@@ -220,14 +220,14 @@ class LegacySubmitImplementation(SubmitApi):
         self.store.store_source_package(str(submission.submission_id), file, 4098)
         workspace = self.store.get_workspace(str(submission.submission_id))
 
-        command = SetUploadPackage(creator=user, client=client,
-                                   submission_id=submission.submission_id,
-                                   identifier=str(workspace.identifier),
-                                   checksum=f"BOGUS {__file__}",
-                                   uncompressed_size=workspace.size,
-                                   compressed_size=workspace.compressed_size or 0,
-                                   source_format=workspace.source_format,
-                                   )
+        command = AddFiles(creator=user, client=client,
+                           submission_id=submission.submission_id,
+                           identifier=str(workspace.identifier),
+                           checksum=f"BOGUS {__file__}",
+                           uncompressed_size=workspace.size,
+                           compressed_size=workspace.compressed_size or 0,
+                           source_format=workspace.source_format,
+                           )
         command.validate(submission)
         self._save(command, submission=submission, session=session, existing_events=event_list)
         session.commit()  # unlocks submission row

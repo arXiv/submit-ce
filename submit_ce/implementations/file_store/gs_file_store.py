@@ -18,7 +18,7 @@ from yarl import URL
 from submit_ce.api import SubmissionFileStore
 from submit_ce.domain import Workspace
 from submit_ce.domain.uploads import UploadLifecycleStates, UploadStatus, FileStatus
-from submit_ce.domain.types import SubmitFile
+from submit_ce.domain.uploads import SubmitFile
 
 from google.cloud import storage
 

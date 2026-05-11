@@ -27,15 +27,15 @@ from markupsafe import Markup
 from werkzeug.datastructures import FileStorage
 from werkzeug.datastructures import MultiDict
 from werkzeug.exceptions import (
+    BadRequest,
     MethodNotAllowed,
     RequestEntityTooLarge
 )
 from wtforms import BooleanField, FileField
 
 from submit_ce.domain import Client, User, Event
-from submit_ce.domain.event import SetUploadPackage, UpdateUploadPackage
 from submit_ce.domain.submission import SubmissionContent, Submission
-from submit_ce.domain.uploads import Workspace, FileStatus, UploadStatus
+from submit_ce.domain.uploads import Workspace, FileStatus, UploadStatus, is_file_tgz
 from submit_ce.domain.exceptions import SaveError
 
 from submit_ce.ui.auth import user_and_client_from_session
@@ -52,6 +52,24 @@ Response = Tuple[Dict[str, Any], int, Dict[str, Any]]  # pylint: disable=C0103
 
 
 CHUNK_SIZE = 1024 * 4
+
+
+
+_TARGZ_MIMETYPES = frozenset({
+    'application/gzip',
+    'application/x-gzip',
+    'application/x-tar',
+    'application/tar+gzip',
+    'application/x-compressed',
+})
+
+
+def _single_file_archive(files: MultiDict) -> bool:
+    """Return True if the uploaded file is a tar.gz archive."""
+    pointer = files.get('file')
+    if pointer is None:
+        return False
+    return is_file_tgz(pointer)
 
 
 class UploadForm(csrf.CSRFForm):
@@ -117,19 +135,23 @@ def upload_files(method: str, params: MultiDict, session: Session,
     elif method == 'GET':
         return _get_upload(params, session, submission, rdata, token)
     elif method == 'POST':
-        if not files or 'file' not in files or not files['file']:
-            logger.debug('No files on request')
-            if params.get('action', None):  # Don't flash a message if trying to go back to previous page
-                return {}, status.SEE_OTHER, {}
-            else:
-                return stay_on_this_stage(_get_upload(params, session, submission, rdata, token))
-
-        pointer = files['file']
+        pointer = files['file'] if (files and 'file' in files and files['file']) else None
+        is_archive = _single_file_archive(files)
         try:
-            if submission.source_content is None:
-                return _new_upload(params, pointer, session, submission, rdata, token)
-            else:
-                return _new_file(params, pointer, session, submission, rdata, token)
+            match (pointer, params.get('action'), submission.source_content, is_archive):
+                case (None, action, _, _) if action:  # trying to go back to previous page
+                    return {}, status.SEE_OTHER, {}  # Don't flash a message
+                case (None, _, _, _):
+                    logger.debug('No files on request')
+                    return stay_on_this_stage(_get_upload(params, session, submission, rdata, token))
+                case (_, _, _, _) if len(files) > 1:
+                    raise BadRequest(description="Multi file upload not yet supported. Use a zip or tgz file.")
+                case (_, _, None, True):
+                    return _new_upload(params, pointer, session, submission, rdata, token)
+                case (_, _, None, False):
+                    return _new_file(params, pointer, session, submission, rdata, token)
+                case unhandled:
+                    assert_never(unhandled)
         except RequestEntityTooLarge as ex:
             logger.warning('POSTed upload was too large', ex)
             alerts.flash_failure(Markup('There was a problem uploading your file because it exceeds '
@@ -143,41 +165,41 @@ def upload_files(method: str, params: MultiDict, session: Session,
         return stay_on_this_stage(_get_upload(params, session, submission, rdata, token))
 
 
-def _update_submission(form: UploadForm, submission: Submission, stat: Workspace,
-                       submitter: User, client: Optional[Client] = None) \
-        -> Optional[Submission]:
-    """
-    Update the :class:`.Submission` after an upload-related action.
+# def _update_submission(form: UploadForm, submission: Submission, stat: Workspace,
+#                        submitter: User, client: Optional[Client] = None) \
+#         -> Optional[Submission]:
+#     """
+#     Update the :class:`.Submission` after an upload-related action.
 
-    The submission is linked to the upload workspace via the
-    :attr:`Submission.source_content` attribute. This is set using a
-    :class:`SetUploadPackage` command. If the workspace identifier changes
-    (e.g. on first upload), we want to execute :class:`SetUploadPackage` to
-    make the association.
+#     The submission is linked to the upload workspace via the
+#     :attr:`Submission.source_content` attribute. This is set using a
+#     :class:`SetUploadPackage` command. If the workspace identifier changes
+#     (e.g. on first upload), we want to execute :class:`SetUploadPackage` to
+#     make the association.
 
-    Parameters
-    ----------
-    form : WTForm for adding validation error messages
-    submission : :class:`Submission`
-    stat : :class:`Upload`
-    submitter : :class:`User`
-    client : :class:`Client` or None
+#     Parameters
+#     ----------
+#     form : WTForm for adding validation error messages
+#     submission : :class:`Submission`
+#     stat : :class:`Upload`
+#     submitter : :class:`User`
+#     client : :class:`Client` or None
 
-    """
-    command: Event
-    command = UpdateUploadPackage(creator=submitter, client=client,
-                                  checksum=stat.checksum,
-                                  uncompressed_size=stat.size,
-                                  compressed_size=stat.compressed_size,
-                                  source_format=stat.source_format)
-    command.validate(submission) # will raise on invalid
+#     """
+#     command: Event
+#     command = UpdateUploadPackage(creator=submitter, client=client,
+#                                   checksum=stat.checksum,
+#                                   uncompressed_size=stat.size,
+#                                   compressed_size=stat.compressed_size,
+#                                   source_format=stat.source_format)
+#     command.validate(submission) # will raise on invalid
 
-    try:
-        submission, _ = current_app.api.save(command, submission_id=submission.submission_id)
-    except SaveError:
-        alerts.flash_failure(Markup('There was a problem carrying out your request. Please try'
-                    f' again. {SUPPORT}'))
-    return submission
+#     try:
+#         submission, _ = current_app.api.save(command, submission_id=submission.submission_id)
+#     except SaveError:
+#         alerts.flash_failure(Markup('There was a problem carrying out your request. Please try'
+#                     f' again. {SUPPORT}'))
+#     return submission
 
 
 def _get_upload(params: MultiDict, session: Session, submission: Submission,
@@ -265,7 +287,9 @@ def _new_upload(params: MultiDict, pointer: FileStorage, session: Session,
         return stay_on_this_stage((rdata, status.OK, {}))
 
     # TODO this needs to be changed from api.upload() to api.save()
+    #stat = current_app.api.save(
     stat = current_app.api.upload(form.data['file'], submission.submission_id, submitter, client)
+
     converted_size = tidy_filesize(stat.size)
     if stat.status is UploadStatus.READY:
         alerts.flash_success(

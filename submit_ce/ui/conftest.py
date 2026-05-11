@@ -23,6 +23,7 @@ import submit_ce.ui.auth
 from submit_ce.domain import Author, SubmissionContent
 from submit_ce.domain.agent import InternalClient
 from submit_ce.domain.event import (
+    AddFiles,
     AddSecondaryClassification,
     ConfirmAuthorship,
     ConfirmContactInformation,
@@ -37,7 +38,6 @@ from submit_ce.domain.event import (
     SetPrimaryClassification,
     SetReportNumber,
     SetTitle,
-    SetUploadPackage,
 )
 
 
@@ -264,7 +264,7 @@ def sub_files(app, authorized_user, sub_cross):
         user = authorized_user
         ua = InternalClient(name=f"test_client_{__file__}")
         submission, _ = current_app.api.save(
-            SetUploadPackage(creator=user, client=ua,
+            AddFiles(creator=user, client=ua,
                 checksum="a9s9k342900skks03330029k",
                 source_format=SubmissionContent.Format.TEX,
                 identifier="123",
@@ -348,7 +348,7 @@ def submitted_submission(app, authorized_user):
             SetLicense(creator=user, client=ua, license_uri=cc0, license_name="CC0 1.0"),
             ConfirmPolicy(creator=user, client=ua, agreement_id=1),
             SetPrimaryClassification(creator=user, client=ua, category="astro-ph.GA"),
-            SetUploadPackage(creator=user, client=ua,
+            AddFiles(creator=user, client=ua,
                 checksum="a9s9k342900skks03330029k",
                 source_format=SubmissionContent.Format.TEX,
                 identifier="123",
@@ -393,7 +393,7 @@ def published_submission(app, authorized_user):
             ),
             ConfirmPolicy(creator=user, client=ua, agreement_id=1),
             SetPrimaryClassification(creator=user, client=ua, category="astro-ph.GA"),
-            SetUploadPackage(
+            AddFiles(
                 creator=user,
                 client=ua,
                 checksum="a9s9k342900skks03330029k",

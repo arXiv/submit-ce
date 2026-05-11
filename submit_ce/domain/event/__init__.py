@@ -62,7 +62,7 @@ from pytz import UTC
 from . import validators
 from .base import Event
 from .base import event_factory as make_event
-from .file import SetUploadPackage, UpdateUploadPackage, AddFiles, RemoveFiles, RemoveAllFiles
+from .file import AddFiles, RemoveFiles, RemoveAllFiles
 from .flag import AddMetadataFlag, AddUserFlag, AddContentFlag, RemoveFlag, \
     AddHold, RemoveHold
 from .request import RequestCrossList, RequestWithdrawal, ApplyRequest, \
@@ -79,7 +79,7 @@ __all__ = [
     make_event,
     validators,
     Event,
-    SetUploadPackage, UpdateUploadPackage, AddFiles, RemoveFiles, RemoveAllFiles,
+    AddFiles, RemoveFiles, RemoveAllFiles,
     AddMetadataFlag, AddUserFlag, AddContentFlag, RemoveFlag,
     AddHold, RemoveHold,
     RequestCrossList, RequestWithdrawal, ApplyRequest,

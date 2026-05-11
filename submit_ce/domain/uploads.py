@@ -1,10 +1,12 @@
 """Upload-related data structures."""
 
+from typing import Protocol, runtime_checkable, Any
 from typing import List, Optional
 from datetime import datetime
 from enum import Enum
 
 from pydantic import BaseModel
+from pydantic_core import core_schema
 from yarl import URL
 
 from .submission import SubmissionContent
@@ -100,3 +102,39 @@ class Workspace(BaseModel):
     def file_count(self) -> int:
         """The number of files in the workspace."""
         return len(self.files)
+
+
+@runtime_checkable
+class SubmitFile(Protocol):
+    """Represents a file for a submission.
+
+    This is a protocol to support using a file uploaded to flask to the `SubmitApi`."""
+    filename: str
+    """Name of the file as provided by the client."""
+    content_type: str
+    """The MIME type of the file as provided by the client."""
+    stream: Any # should be BytesIO but often SpooledTemporaryFile Not sure how to handle this
+    """File contents as provided by the client."""
+
+    @classmethod
+    def __get_pydantic_core_schema__(
+        cls, source_type: Any, handler: Any
+    ) -> core_schema.CoreSchema:
+        return core_schema.any_schema()
+
+
+TARGZ_MIMETYPES = frozenset({
+    'application/gzip',
+    'application/x-gzip',
+    'application/x-tar',
+    'application/tar+gzip',
+    'application/x-compressed',
+})
+"""tar.gz mime types."""
+
+def is_file_tgz(file: SubmitFile) -> bool:
+    """Return True if the uploaded file is a tar.gz archive."""
+    return bool(file) and (
+        file.content_type in TARGZ_MIMETYPES or
+        bool(file.filename and file.filename.endswith('.tar.gz'))
+    )
