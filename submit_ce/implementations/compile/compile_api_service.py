@@ -31,7 +31,7 @@ ie: ?
 '''
 
 class CompileApiService(CompileService):
-    """Local Compile Service implementation."""
+    """Wrap calls to the tex2pdf-api service. See directive_manager.py for processing done in submit, on that data."""
 
     def __init__(self):
         pass
@@ -161,6 +161,76 @@ class CompileApiService(CompileService):
         except httpx.RequestError as exc:
             logger.error(f"Local compile service at '{self.tex2pdf_url}' is not available: {exc}")
             return False
+
+    @override
+    def start_directives(self,
+            submission: Submission,
+            user: User,
+            client: Client,
+            api: SubmitApi,
+            source_package_id: Optional[str] = None,
+    ) -> Result:
+        logger.info("start_directives, submission %s", submission.submission_id)
+
+        submission_path = f"{current_app.api.get_file_store().get_full_submission_path(submission.submission_id)}/"
+        directives_path = current_app.api.get_file_store().get_full_directives_package_path(submission.submission_id)
+
+        query_params = {
+            'source': submission_path,
+            'dest': directives_path,
+        }
+        headers = {
+            'accept': 'application/json',
+        }
+
+        logger.info(f"start_directives, query_params '{settings.COMPILE_API_URL}/directives?")
+        logger.info("start_directives, query_params %s", query_params)
+        url = f'{settings.COMPILE_API_URL}/directives?{urllib.parse.urlencode(query_params)}'
+
+        response = None
+        for retry_attempt in range(settings.COMPILE_API_MAX_RETRIES):
+            try:
+                with httpx.Client(timeout=settings.COMPILE_API_PREFLIGHT_TIMEOUT) as client:
+                    response = client.post(url, headers=headers)
+                    if response.status_code == 500:
+                        time.sleep(settings.COMPILE_API_RETRY_DELAY)
+                    else:
+                        break
+            except httpx.HTTPStatusError as exc:
+                logger.error(f"HTTPX error occurred: {exc.response.text}")
+                raise exc
+            except httpx.RequestError as exc:
+                logger.error(f"Request error occurred: {exc}")
+
+        if response is None:
+            raise RuntimeError("response is unexpectedly None")
+
+        if response.status_code == 500:
+            raise httpx.HTTPStatusError(f"HTTP error {response.status_code}", request=response.request, response=response)
+
+        response.raise_for_status()
+
+        return Result(
+            status=ProcessStatus(
+                status=ProcessStatus.Status.SUCCEEDED,
+                creator=user,
+                created=datetime.now(timezone.utc),
+                details={'message': 'Directives completed'}
+            ),
+            duration_sec=0,
+            utc_start_time=datetime.now(timezone.utc),
+            url="FAKE_URL_LOCAL_DIRECTIVES"
+
+        )
+    @override
+    def check_directives(self, process_id: str, user: User, client: Client) -> ProcessStatus:
+        logger.info("Checking preflight for process %s", process_id)
+        return ProcessStatus(
+            status=ProcessStatus.Status.SUCCEEDED,
+            creator=user,
+            created=datetime.now(timezone.utc),
+            details={'message': 'Directives check completed'}
+        )
 
     @override
     def convert_preflight_to_directives(self, contents: str) -> str:

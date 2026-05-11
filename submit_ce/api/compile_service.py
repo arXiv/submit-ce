@@ -18,6 +18,20 @@ class CompileService(ABC):
     """
 
     @abstractmethod
+    def start_directives(self,
+            submission: Submission,
+            user: User,
+            client: Client,
+            api: SubmitApi,
+            source_package_id: Optional[str] = None,
+    ) -> Result:
+        ...
+
+    @abstractmethod
+    def check_directives(self, process_id: str, user: User, client: Client) -> ProcessStatus:
+        ...
+
+    @abstractmethod
     def start_preflight(self,
             submission: Submission,
             user: User,
