@@ -157,7 +157,8 @@ class CreateSubmissionVersion(Event):
         submission.status = Submission.WORKING
         # Return these to default.
         submission.status = Submission.status
-        submission.source_content = Submission.source_content
+        submission.source_format = Submission.source_format
+        submission.uncompressed_size = Submission.uncompressed_size
         submission.license = Submission.license
         submission.submitter_is_author = Submission.submitter_is_author
         submission.submitter_contact_verified = \
@@ -191,7 +192,8 @@ class Rollback(Event):
         target = submission.versions[-1]
         # Return these to last announced state.
         submission.status = target.status
-        submission.source_content = target.source_content
+        submission.source_format = target.source_format
+        submission.uncompressed_size = target.uncompressed_size
         submission.submitter_contact_verified = \
             target.submitter_contact_verified
         submission.submitter_accepts_policy = \
@@ -925,7 +927,7 @@ class FinalizeSubmission(Event):
     REQUIRED: ClassVar[str] = [
         'creator', 'primary_classification',
         # TODO this is broken: 'submitter_contact_verified',
-        'submitter_accepts_policy', 'license', 'source_content', 'metadata',
+        'submitter_accepts_policy', 'license', 'source_format', 'metadata',
     ]
     REQUIRED_METADATA: ClassVar[str] = ['title', 'abstract', 'authors_display']
 

@@ -146,8 +146,9 @@ def upload_files(method: str, params: MultiDict, session: Session,
             return stay_on_this_stage((rdata, status.OK, {}))
 
         is_archive = _single_file_archive(files)
+        has_files = submission.source_format is not None
         try:
-            match (pointer, params.get('action'), submission.source_content, is_archive):
+            match (pointer, params.get('action'), has_files, is_archive):
                 case (_, _, _, _) if len(files) > 1:
                     raise BadRequest(description="Multi file upload not yet supported. Use a zip or tgz file.")
                 case (None, action, _, _) if action:  # trying to go back to previous page
@@ -155,9 +156,9 @@ def upload_files(method: str, params: MultiDict, session: Session,
                 case (None, _, _, _):
                     logger.debug('No files on request')
                     return stay_on_this_stage(_get_upload(params, session, submission, rdata, token))
-                case (_, _, None, True):
+                case (_, _, False, True):
                     return _upload_archive(form, params, pointer, session, submission, rdata, token)
-                case (_, _, None, False):
+                case (_, _, False, False):
                     return _upload_file(form, params, pointer, session, submission, rdata, token)
                 case unhandled:
                     assert_never(unhandled)
@@ -201,7 +202,7 @@ def _get_upload(params: MultiDict, session: Session, submission: Submission,
     """
     rdata.update({'status': None, 'form': UploadForm()})
 
-    if submission.source_content is None:
+    if submission.source_format is None:
         return rdata, status.OK, {}  # Nothing to show; generate a blank-slate upload page
 
     status_data = alerts.get_hidden_alerts('_status')

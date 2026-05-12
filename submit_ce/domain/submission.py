@@ -59,23 +59,6 @@ class Author:
         return name
 
 
-@dataclass
-class SubmissionContent:
-    """Metadata about the submission source package."""
-
-    Format = SourceFormat
-
-    identifier: str
-    checksum: str
-    uncompressed_size: int
-    compressed_size: int
-    source_format: Format = Format.UNKNOWN
-
-    def __post_init__(self) -> None:
-        """Make sure that :attr:`.source_format` is a :class:`.Format`."""
-        if self.source_format and type(self.source_format) is str:
-            self.source_format = self.Format(self.source_format)
-
 
 @dataclass
 class SubmissionMetadata:
@@ -295,7 +278,8 @@ class Submission:
     submitted: Optional[datetime] = field(default=None)
     submission_id: Optional[str] = field(default=None)
 
-    source_content: Optional[SubmissionContent] = field(default=None)
+    source_format: Optional[SourceFormat] = field(default=None)
+    uncompressed_size: int = field(default=0)
     preview: Optional[Preview] = field(default=None)
 
     metadata: SubmissionMetadata = field(default_factory=SubmissionMetadata)

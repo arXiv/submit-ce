@@ -50,7 +50,7 @@ class StartCompileSource(EventWithSideEffect):
 
     def validate(self, submission: Submission) -> None:
         """Verify that we have a :class:`.ProcessStatus`."""
-        if submission.source_content is None or not submission.source_content.identifier:
+        if not submission.submission_id:
             raise InvalidEvent("Compile source for the submission is empty.")
 
     def execute(self, api: 'SubmitApi', submission: Submission) -> None:
@@ -59,8 +59,8 @@ class StartCompileSource(EventWithSideEffect):
                                                   self.creator,
                                                   self.client,
                                                   api,
-                                                  submission.source_content.identifier)
-        self.source_content_id = submission.source_content.identifier
+                                                  submission.submission_id)
+        self.source_content_id = submission.submission_id
         # TODO add process info to Event?
         #self.process = process
         self.result = result
@@ -94,7 +94,7 @@ class StartPreflight(EventWithSideEffect):
         super(StartPreflight, self).__post_init__()
 
     def validate(self, submission: Submission) -> None:
-        if submission.source_content is None or not submission.source_content.identifier:
+        if not submission.submission_id:
             raise InvalidEvent("Source content for preflight is empty.")
 
     def execute(self, api: 'SubmitApi', submission: Submission) -> None:
@@ -104,9 +104,9 @@ class StartPreflight(EventWithSideEffect):
                 self.creator,
                 self.client,
                 api,
-                submission.source_content.identifier
+                submission.submission_id
         )
-        self.source_content_id = submission.source_content.identifier
+        self.source_content_id = submission.submission_id
         # TODO add process info to Event?
         #self.process = process
         self.result = result
@@ -137,7 +137,7 @@ class StartDirectives(EventWithSideEffect):
         super(StartDirectives, self).__post_init__()
 
     def validate(self, submission: Submission) -> None:
-        if submission.source_content is None or not submission.source_content.identifier:
+        if not submission.submission_id:
             raise InvalidEvent("Source content for directives is empty.")
 
     def execute(self, api: 'SubmitApi', submission: Submission) -> None:
@@ -146,9 +146,9 @@ class StartDirectives(EventWithSideEffect):
                 self.creator,
                 self.client,
                 api,
-                submission.source_content.identifier
+                submission.submission_id
         )
-        self.source_content_id = submission.source_content.identifier
+        self.source_content_id = submission.submission_id
         self.result = result
 
     def project(self, submission: Submission) -> Submission:

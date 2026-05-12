@@ -30,13 +30,8 @@ class TestWithdrawalSubmission(TestCase):
             creator=self.user,
             owner=self.user,
             created=datetime.now(UTC),
-            source_content=submission.SubmissionContent(
-                identifier='6543',
-                source_format=SourceFormat('pdf'),
-                checksum='asdf2345',
-                uncompressed_size=594930,
-                compressed_size=594930
-            ),
+            source_format=SourceFormat('pdf'),
+            uncompressed_size=594930,
             primary_classification=meta.Classification('astro-ph.GA'),
             secondary_classification=[meta.Classification('astro-ph.CO')],
             license=meta.License(uri='http://free', name='free'),
@@ -95,13 +90,8 @@ class TestReplacementSubmission(TestCase):
             creator=self.user,
             owner=self.user,
             created=datetime.now(UTC),
-            source_content=submission.SubmissionContent(
-                identifier='6543',
-                source_format=SourceFormat('pdf'),
-                checksum='asdf2345',
-                uncompressed_size=594930,
-                compressed_size=594930
-            ),
+            source_format=SourceFormat('pdf'),
+            uncompressed_size=594930,
             primary_classification=meta.Classification('astro-ph.GA'),
             secondary_classification=[meta.Classification('astro-ph.CO')],
             license=meta.License(uri='http://free', name='free'),
@@ -130,7 +120,7 @@ class TestReplacementSubmission(TestCase):
         self.assertTrue(self.submission.is_announced)
         self.assertFalse(replacement.is_announced)
 
-        self.assertIsNone(replacement.source_content)
+        self.assertIsNone(replacement.source_format)
 
         # The user is asked to reaffirm these points.
         self.assertFalse(replacement.submitter_contact_verified)
@@ -169,13 +159,8 @@ class TestDOIorJREFAfterAnnounce(TestCase):
             creator=self.user,
             owner=self.user,
             created=datetime.now(UTC),
-            source_content=submission.SubmissionContent(
-                identifier='6543',
-                source_format=SourceFormat('pdf'),
-                checksum='asdf2345',
-                uncompressed_size=594930,
-                compressed_size=594930
-            ),
+            source_format=SourceFormat('pdf'),
+            uncompressed_size=594930,
             primary_classification=meta.Classification('astro-ph.GA'),
             secondary_classification=[meta.Classification('astro-ph.CO')],
             license=meta.License(uri='http://free', name='free'),
