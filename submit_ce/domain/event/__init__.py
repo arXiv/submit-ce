@@ -75,6 +75,7 @@ from ..submission import Submission, Author, \
     Classification, License
 from ..exceptions import InvalidEvent
 
+
 __all__ = [
     make_event,
     validators,
@@ -216,6 +217,24 @@ class ConfirmContactInformation(Event):
     def project(self, submission: Submission) -> Submission:
         """Update :attr:`.Submission.submitter_contact_verified`."""
         submission.submitter_contact_verified = True
+        return submission
+
+
+class SetProxyInformation(Event):
+    """Set proxy information."""
+    proxied_name: str
+    proxied_email: str
+    proxy_name: str
+
+    def apply(self, submission: Submission) -> Submission:
+        # We need to use the Creator dataclass. This holds
+        # submitter_name and submitter_email (from legacy).
+        # Proxy name setting indicates that these fields are
+        # set by submitter and may not correspond to
+        # user_id (2.0) or submitter_id (1.5).
+        submission.creator.name = self.proxied_name
+        submission.creator.email = self.proxied_email
+        submission.proxy = self.proxy_name
         return submission
 
 
