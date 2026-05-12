@@ -31,6 +31,10 @@ def has_secondary(submission: Submission) -> bool:
     return len(submission.secondary_classification) > 0
 
 
+def has_files(submission: Submission) -> bool:
+    """Determine if the submission has any files."""
+    return submission.uncompressed_size > 0
+
 def has_valid_content(submission: Submission) -> bool:
     """Determine whether the submitter has uploaded files."""
     return (submission.source_format is not None

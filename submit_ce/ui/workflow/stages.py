@@ -91,7 +91,7 @@ class FileUpload(Stage):
     title = "File upload"
     display = "Upload Files"
     always_check = True
-    completed = [conditions.has_valid_content]
+    completed = [conditions.has_files]
 
 
 class ReviewFiles(Stage):
