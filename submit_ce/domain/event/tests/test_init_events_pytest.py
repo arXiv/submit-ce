@@ -68,7 +68,8 @@ def test_rollback_v2(mock_user, base_submission):
     v1 = mock.MagicMock(spec=submission.Submission)
     v1.status = submission.Submission.ANNOUNCED
     v1.arxiv_id = '1901.00123'
-    v1.source_content = None
+    v1.source_format = None
+    v1.uncompressed_size = 0
     v1.submitter_contact_verified = True
     v1.submitter_accepts_policy = True
     v1.submitter_confirmed_preview = True
@@ -332,7 +333,9 @@ def test_finalize_submission(mock_user, base_submission):
     base_submission.primary_classification = meta.Classification('astro-ph.GA')
     base_submission.submitter_accepts_policy = True
     base_submission.license = meta.License(uri='http://creativecommons.org/licenses/by/4.0/', name='CC BY 4.0')
-    base_submission.source_content = submission.SubmissionContent(identifier='123', checksum='abc', uncompressed_size=100, compressed_size=50)
+    from submit_ce.domain.uploads import SourceFormat
+    base_submission.source_format = SourceFormat.TEX
+    base_submission.uncompressed_size = 100
     
     e = event.FinalizeSubmission(creator=mock_user, created=datetime.now(UTC))
     e.validate(base_submission)

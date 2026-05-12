@@ -33,18 +33,14 @@ def has_secondary(submission: Submission) -> bool:
 
 def has_valid_content(submission: Submission) -> bool:
     """Determine whether the submitter has uploaded files."""
-    return submission.source_content is not None and\
-        submission.source_content.checksum is not None and\
-        submission.source_content.source_format is not None and \
-        submission.source_content.uncompressed_size > 0 and \
-        submission.source_content.source_format != SourceFormat.INVALID
+    return (submission.source_format is not None
+            and submission.source_format != SourceFormat.INVALID
+            and submission.uncompressed_size > 0)
 
 def has_non_processing_content(submission: Submission) -> bool:
-    return (submission.source_content is not None and
-            submission.source_content.source_format is not None and
-            (submission.source_content.source_format != SourceFormat.TEX
-             and
-             submission.source_content.source_format != SourceFormat.POSTSCRIPT))
+    return (submission.source_format is not None
+            and submission.source_format != SourceFormat.TEX
+            and submission.source_format != SourceFormat.POSTSCRIPT)
 
 def is_source_processed(submission: Submission) -> bool:
     """Determine whether the submitter has compiled their upload."""    

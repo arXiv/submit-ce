@@ -604,19 +604,8 @@ def to_submission(row: models.Submission,
         for db_cat in row.categories if not db_cat.is_primary
     ]
 
-    content: Optional[domain.SubmissionContent] = None
-    if row.package:
-        if row.package.startswith('fm://'):
-            identifier, checksum = row.package.split('://', 1)[1].split('@', 1)
-        else:
-            identifier = row.package
-            checksum = ""
-        source_format = SourceFormat(row.source_format)
-        content = domain.SubmissionContent(identifier=identifier,
-                                           compressed_size=0,
-                                           uncompressed_size=row.source_size,
-                                           checksum=checksum,
-                                           source_format=source_format)
+    source_format = SourceFormat(row.source_format) if row.package and row.source_format else None
+    uncompressed_size = row.source_size if row.package else 0
 
     assert status is not None
     submission = domain.Submission(
@@ -627,7 +616,8 @@ def to_submission(row: models.Submission,
         status=status,
         created=row.get_created(),
         updated=row.get_updated(),
-        source_content=content,
+        source_format=source_format,
+        uncompressed_size=uncompressed_size,
         submitter_is_author=bool(row.is_author),
         submitter_accepts_policy=bool(row.agree_policy),
         submitter_contact_verified=bool(row.userinfo),

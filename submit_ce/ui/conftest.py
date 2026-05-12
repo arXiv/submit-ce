@@ -20,7 +20,7 @@ from sqlalchemy import desc, select
 import submit_ce
 from submit_ce.implementations.compile import MockCompileMimesisPdf
 import submit_ce.ui.auth
-from submit_ce.domain import Author, SubmissionContent
+from submit_ce.domain import Author
 from submit_ce.domain.uploads import SourceFormat
 from submit_ce.domain.agent import InternalClient
 from submit_ce.domain.event import (
