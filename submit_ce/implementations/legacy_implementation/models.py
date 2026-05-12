@@ -272,7 +272,13 @@ class Submission(Base):    # type: ignore
                                    category=category, is_primary=0))
 
     def update_from_submission(self, submission: domain.Submission) -> None:
-        """Update this database object from a :class:`.domain.submission.Submission`."""
+        """Update this database object from a :class:`.domain.submission.Submission`.
+
+            NOTE:
+             submitter_name/email are projected from submission.creator
+             Events must not set submitter_name/email directly.
+             Proxy state is persisted explicitly.
+        """
         if self.is_announced():     # Avoid doing anything. to be safe.
             return
 
