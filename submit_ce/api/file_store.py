@@ -39,12 +39,12 @@ class SubmissionFileStore(metaclass=ABCMeta):
 
     @abstractmethod
     def get_workspace(self, submission_id: str) -> Optional[Workspace]:
-        """Returns information about the source package."""
+        """Returns information about the source of a submission."""
         pass
 
     @abstractmethod
     def delete_workspace(self, submission_id: str):
-        """Deletes the source package."""
+        """Deletes the source."""
         pass
 
     @abstractmethod
@@ -64,7 +64,7 @@ class SubmissionFileStore(metaclass=ABCMeta):
 
     @abstractmethod
     def delete_source_file(self, submission_id: str, path: Path|str) -> None:
-        """Deletes a file from the source package."""
+        """Deletes a file from the source."""
         pass
 
     @abstractmethod
@@ -76,7 +76,7 @@ class SubmissionFileStore(metaclass=ABCMeta):
     def store_source_file(self, submission_id: str,
                           content: SubmitFile,
                           chunk_size: int) -> FileStatus:
-        """Store a source package for a submission.
+        """Store a source file for a submission.
 
         If this is a single file, just save it. If it is a tgz of zip, unzip it.
 
