@@ -22,6 +22,7 @@ from sqlalchemy.orm import sessionmaker
 
 from submit_ce.domain import Submission as DomainSubmission
 from submit_ce.domain.agent import HttpClient, PublicUser
+from submit_ce.domain.event import SetProxyInformation
 from submit_ce.implementations.legacy_implementation import models
 from submit_ce.implementations.legacy_implementation.db import to_submission
 
@@ -221,3 +222,71 @@ def test_non_proxy_round_trip_through_db(db_session):
     rebuilt = to_submission(reloaded_row)
 
     assert rebuilt.proxy is None
+
+
+# ---------------------------------------------------------------------------
+# Full pipeline: SetProxyInformation event -> DB -> reload -> domain
+# ---------------------------------------------------------------------------
+
+def test_full_pipeline_event_through_db_to_domain(db_session):
+    """Exercise the production flow end-to-end.
+
+    1. Build a domain ``Submission`` for an authenticated proxy submitter.
+    2. Apply a ``SetProxyInformation`` event (overwrites creator contact,
+       sets ``submission.proxy``).
+    3. Persist via ``update_from_submission`` + commit.
+    4. Reload the row and rebuild the domain object via ``to_submission``.
+    5. Assert the rebuilt submission carries the proxied contact and the
+       proxy marker.
+
+    This is the same sequence the ``verify_user`` controller drives in
+    ``submit_ce/ui/controllers/new/verify_user.py`` when a submitter enters
+    a proxy contact for the first time.
+    """
+    # 1. Domain Submission owned by the proxy submitter.
+    proxy_submitter = PublicUser(
+        user_id="123",
+        name="David Submitter",
+        email="david@example.org",
+    )
+    client = HttpClient(remote_addr="127.0.0.1", remote_host="localhost")
+    submission = DomainSubmission(
+        creator=proxy_submitter,
+        owner=proxy_submitter,
+        client=client,
+        created=datetime(2026, 1, 1, tzinfo=timezone.utc),
+        updated=datetime(2026, 1, 1, tzinfo=timezone.utc),
+    )
+
+    # 2. Apply SetProxyInformation: David is now submitting for Bob.
+    event = SetProxyInformation(
+        creator=proxy_submitter,
+        proxied_name="Bob Proxied",
+        proxied_email="bob@proxied.org",
+        proxy_name=proxy_submitter.name,
+    )
+    event.apply(submission)
+
+    # Sanity check: the event mutated the in-memory submission as expected.
+    assert submission.contact_name == "Bob Proxied"
+    assert submission.contact_email == "bob@proxied.org"
+    assert submission.proxy == "David Submitter"
+
+    # 3. Persist to the legacy DB.
+    dbs = _new_db_row()
+    dbs.update_from_submission(submission)
+    db_session.add(dbs)
+    db_session.commit()
+    submission_id = dbs.submission_id
+
+    # 4. Reload and rebuild the domain object.
+    db_session.expire_all()
+    reloaded_row = db_session.get(models.Submission, submission_id)
+    rebuilt = to_submission(reloaded_row)
+
+    # 5. Proxied contact and proxy marker survive the round trip.
+    assert rebuilt.contact_name == "Bob Proxied"
+    assert rebuilt.contact_email == "bob@proxied.org"
+    assert rebuilt.proxy == "David Submitter"
+    # The user account behind the submission is still David's.
+    assert rebuilt.creator.user_id == "123"
