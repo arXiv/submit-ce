@@ -34,7 +34,7 @@ from submit_ce.ui import SUPPORT
 
 from submit_ce.domain.compilation import Compilation
 
-from submit_ce.implementations.compile.directive_manager3 import DirectiveManager as dm 
+from submit_ce.implementations.compile.directive_manager import DirectiveManager as dm 
 
 logger = logging.getLogger(__name__)
 
@@ -46,8 +46,8 @@ The submit 1.5 workflow:
 
 The submit 2 workflow:
   If gcp_preflight.json does not exist then /preflight is called
-  The src/00README.json is copied user_options.json, then deleted.
-  user_options.json is loaded into the web form, and if changed,
+  The src/00README.json is copied user_decisions.json, then deleted.
+  user_decisions.json is loaded into the web form, and if changed,
     the new values will overwrite it.
   If any files are changed, or the user changes values in the form
   then gcp_preflight.json is deleted, and we restart with /preflight.
@@ -57,15 +57,15 @@ The submit 2 workflow:
 Special cases for later:
   If the user goes back to add-files, and edits the src/00README,
     it's ignored,
-    and the last edits save to user_options.json are reloaded.
-  Could just delete user_options.json on leaving add-files
+    and the last edits save to user_decisions.json are reloaded.
+  Could just delete user_decisions.json on leaving add-files
 
 TODO:
 - call workflow.validate
 - fix test_integration.py
 - incorporate preflight error messages into html file list, if any.
 - in add-files, delete preflight if user modifies files.
-- in add-files, delete user_options if user uploads src/zzrm
+- in add-files, delete user_decisions if user uploads src/zzrm
 '''
 
 class ReviewForm(csrf.CSRFForm):
@@ -82,10 +82,10 @@ def review_files(method: str, params: MultiDict, session: Session,
     """Controller for the review-files workflow stage.
 
     On GET, ensures preflight data exists (running preflight if needed),
-    seeds user_options from a 00README.json if present, and populates the
+    seeds user_decisions from a 00README.json if present, and populates the
     form with detected source files and compiler choices.
 
-    On POST, compares submitted form values against the stored user_options
+    On POST, compares submitted form values against the stored user_decisions
     and the workspace files. If the user changed compiler options or marked
     files for deletion, the preflight is invalidated and the flow returns to
     the parent (add-files) stage. Otherwise directives are generated (if not
@@ -105,7 +105,7 @@ def review_files(method: str, params: MultiDict, session: Session,
         StartDirectives commands.
     submission_id : str
         Identifier of the submission being reviewed; used to look up the
-        workspace, preflight, user_options, and directives blobs.
+        workspace, preflight, user_decisions, and directives blobs.
     token : str
         Auth token forwarded to downstream service calls (preflight,
         directives) triggered by this controller.
@@ -127,8 +127,6 @@ def review_files(method: str, params: MultiDict, session: Session,
     ------
     MethodNotAllowed
         If ``method`` is anything other than 'GET' or 'POST'.
-    InternalServerError
-        If the submission has no associated workspace.
     """
     if method not in ['GET', 'POST']:
         raise MethodNotAllowed()
@@ -137,9 +135,6 @@ def review_files(method: str, params: MultiDict, session: Session,
 
     workspace = current_app.api.get_file_store().get_workspace(
         submission_id=submission.submission_id)
-    if not workspace:
-        raise InternalServerError("Missing workspace")
-
     form = ReviewForm(params)
 
     rdata = {
@@ -151,8 +146,11 @@ def review_files(method: str, params: MultiDict, session: Session,
         'file_notes': {},
     }
 
+    if not workspace:
+        return return_to_parent_stage((rdata, status.OK, {}))
+
     if method == 'GET':
-        preflight_data, user_options_data = _load_or_create_preflight(submission_id, params, session, token, workspace)
+        preflight_data, user_decisions_data = _load_or_create_preflight(submission_id, params, session, token, workspace)
 
         if preflight_data is None:
             alerts.flash_warning(
@@ -161,7 +159,7 @@ def review_files(method: str, params: MultiDict, session: Session,
             return stay_on_this_stage((rdata, status.OK, {}))
 
         rdata['file_notes'] = dm.get_files_from_preflight(preflight_data)
-        _populate_form(form, preflight_data, user_options_data)
+        _populate_form(form, preflight_data, user_decisions_data)
         rdata['immediate_notifications'] = _get_notifications(submission_id, preflight_data)
         return stay_on_this_stage((rdata, status.OK, {}))
 
@@ -189,8 +187,8 @@ def _get_preflight_data(submission_id: str) -> Optional[dict]:
         return None
     return json.loads(blob.download_as_text())
 
-def _get_user_options_data(submission_id: str) -> Optional[dict]:
-    blob = current_app.api.get_file_store().get_user_options(submission_id=submission_id)
+def _get_user_decisions_data(submission_id: str) -> Optional[dict]:
+    blob = current_app.api.get_file_store().get_user_decisions(submission_id=submission_id)
     if isinstance(blob, FileDoesNotExist):
         return None
     return json.loads(blob.download_as_text())
@@ -200,7 +198,7 @@ def _update_preflight(params: MultiDict, submission_id: str, workspace: Workspac
     files_to_delete = [p for p in params.getlist('selected_files') if p in existing_paths]
 
     compiler_version = params.get('compiler_version', '')
-    new_options = {
+    new_decisions = {
         'sources': [{'filename': params.get('source_file', ''), 'usage': 'toplevel'}],
         'texlive_version': compiler_version,
         'process': {
@@ -208,28 +206,28 @@ def _update_preflight(params: MultiDict, submission_id: str, workspace: Workspac
             'compiler_version': compiler_version,
         },
     }
-    options_changed = new_options != (_get_user_options_data(submission_id) or {})
+    decisions_changed = new_decisions != (_get_user_decisions_data(submission_id) or {})
 
-    has_changes = bool(files_to_delete) or options_changed
+    has_changes = bool(files_to_delete) or decisions_changed
     if not has_changes:
         return False
 
     file_store = current_app.api.get_file_store()
     file_store.delete_preflight(submission_id)
-    file_store.store_user_options(submission_id, new_options)
+    file_store.store_user_decisions(submission_id, new_decisions)
     for path in files_to_delete:
         file_store.delete_source_file(submission_id, path)
 
     return True
 
 
-def _populate_form(form: ReviewForm, preflight_data: Optional[dict], user_options_data: Optional[dict]) -> list:
+def _populate_form(form: ReviewForm, preflight_data: Optional[dict], user_decisions_data: Optional[dict]) -> list:
     form.compiler.choices = [(c.value, c.value) for c in Compilation.SupportedCompiler]
     form.compiler_version.choices = [(v.value, f'TeX Live {v.value}') for v in Compilation.CompilerVersion]
     tex_files = [f['filename'] for f in preflight_data.get('tex_files', [])]
     form.source_file.choices = [(f, f) for f in tex_files]
 
-    opts = user_options_data or {}
+    opts = user_decisions_data or {}
     form.source_file.data = (
         (opts.get('sources') or [{}])[0].get('filename')
         or (preflight_data.get('detected_toplevel_files') or [{}])[0].get('filename', '')
@@ -246,32 +244,32 @@ def _populate_form(form: ReviewForm, preflight_data: Optional[dict], user_option
 
 
 def _load_or_create_preflight(submission_id: str, params: MultiDict, session: Session, token: str, workspace) -> tuple[Optional[dict], Optional[dict]]:
-    """Returns preflight and user_options"""
+    """Returns preflight and user_decisions"""
     preflight_data = _get_preflight_data(submission_id)
     zzrm_data = None
     if preflight_data is None:
         file_store = current_app.api.get_file_store()
-        # if there is no preflight, then there wouldn't be a user options file.
-        #   check if there is a zzrm, and use that as initial user options.
+        # if there is no preflight, then there wouldn't be a user decisions file.
+        #   check if there is a zzrm, and use that as initial user decisions.
         zzrm_data = _get_zzrm_data(workspace, submission_id)
         if zzrm_data is not None:
-            zzrm_data = dm.convert_zzrm_to_user_options(zzrm_data)
-            file_store.store_user_options(submission_id, zzrm_data)
+            zzrm_data = dm.convert_zzrm_to_user_decisions(zzrm_data)
+            file_store.store_user_decisions(submission_id, zzrm_data)
             file_store.delete_source_file(submission_id, '00README.json')
 
-        # user_options + preflight + compile logs -> directives.json
+        # user_decisions + preflight + compile logs -> directives.json
         file_store.delete_directives(submission_id)
 
         start_preflight(params, session, submission_id, token)
         preflight_data = _get_preflight_data(submission_id)
 
-    # If there is no zzrm found above, then check if there is a user options file,
+    # If there is no zzrm found above, then check if there is a user decisions file,
     #   which may have been created already, if the user has made selections before.
-    user_options_data = None
+    user_decisions_data = None
     if zzrm_data == None:
-        user_options_data = _get_user_options_data(submission_id)
+        user_decisions_data = _get_user_decisions_data(submission_id)
 
-    return preflight_data, user_options_data or zzrm_data
+    return preflight_data, user_decisions_data or zzrm_data
 
 
 def _load_or_create_directives(params: MultiDict, session: Session, submission_id: str, token: str) -> None:

@@ -37,19 +37,11 @@ class Compilation(BaseModel):
     # https://github.com/arXiv/submission-tools/blob/master/tex2pdf-tools/tex2pdf_tools/preflight/__init__.py#L913
     class SupportedCompiler(Enum):
         """Compiler known to be supported by the compiler service."""
-        #DVILUATEX = 'dviluatex'
         LATEX = 'latex'
-        #LUALATEX = 'lualatex'
-        #LUATEX = 'luatex'
         PDFLATEX = 'pdflatex'
         PDFTEX = 'pdftex'
-        #PLATEX = 'platex'
-        #PTEX = 'ptex'
         TEX = 'tex'
-        #UPLATEX = 'uplatex'
-        #UPTEX = 'uptex'
         XELATEX = 'xelatex'
-        #XETEX = 'xetex'
 
 
     class CompilerVersion(Enum):

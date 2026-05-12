@@ -1,14 +1,12 @@
-import json
 import sys
 from collections import OrderedDict
-
 
 class DirectiveManager:
     '''This class is used for simple tasks related to the compiler.
     See compile_api_service.py for endpoints called in tex2pdf-api.'''
 
-    def convert_zzrm_to_user_options(zzrm: dict) -> dict:
-        '''Example user_options.json:
+    def convert_zzrm_to_user_decisions(zzrm: dict) -> dict:
+        '''Example user_decisions.json:
         {
             "sources": [{"filename": "main1.tex", "usage" : "toplevel"}],
             "texlive_version": "2025",

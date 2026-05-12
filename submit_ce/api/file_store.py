@@ -35,6 +35,7 @@ if TYPE_CHECKING:
 class SubmissionFileStore(metaclass=ABCMeta):
     @abstractmethod
     def get_full_submission_path(self, submission_id: str) -> Path:
+        """Returns bucket name and full path to submission directory."""
         pass
 
     @abstractmethod
@@ -163,17 +164,17 @@ class SubmissionFileStore(metaclass=ABCMeta):
 
     @abstractmethod
     def get_full_source_package_path(self, submission_id: str) -> str:
+        """Returns bucket name and full path to tar.gz."""
         pass
 
     @abstractmethod
     def get_full_preflight_package_path(self, submission_id: str) -> str:
+        """Returns bucket name and full path to preflight file."""
         pass
 
     @abstractmethod
     def get_full_directives_package_path(self, submission_id: str) -> str:
-        pass
-
-        """Delete the directives file for a submission."""
+        """Returns bucket name and full path to directives file."""
         pass
 
     @abstractmethod
@@ -187,28 +188,28 @@ class SubmissionFileStore(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def store_user_options(self, submission_id: str, content: dict) -> str:
-        """Store user_options.json for a submission. Returns checksum."""
+    def store_user_decisions(self, submission_id: str, content: dict) -> str:
+        """Store user_decisions.json for a submission. Returns checksum."""
         pass
 
     @abstractmethod
-    def get_user_options(self, submission_id: str) -> FileObj:
-        """Retrieve the user_options.json from the filesystem."""
+    def get_user_decisions(self, submission_id: str) -> FileObj:
+        """Retrieve the user_decisions.json from the filesystem."""
         pass
 
     @abstractmethod
-    def delete_user_options(self, submission_id: str) -> None:
-        """Delete the user_options.json file."""
+    def delete_user_decisions(self, submission_id: str) -> None:
+        """Delete the user_decisions.json file."""
         pass
 
     @abstractmethod
-    def get_user_options_checksum(self, submission_id: str) -> str:
-        """Get the checksum of the user_options.json file for a submission."""
+    def get_user_decisions_checksum(self, submission_id: str) -> str:
+        """Get the checksum of the user_decisions.json file for a submission."""
         pass
 
     @abstractmethod
-    def does_user_options_exist(self, submission_id: str) -> bool:
-        """Determine whether a user_options.json has been deposited for a submission."""
+    def does_user_decisions_exist(self, submission_id: str) -> bool:
+        """Determine whether a user_decisions.json has been deposited for a submission."""
         pass
 
     @abstractmethod
@@ -249,16 +250,6 @@ class SubmissionFileStore(metaclass=ABCMeta):
     @abstractmethod
     def does_compile_json_exist(self, submission_id: str) -> bool:
         """Determine whether a compile JSON report has been deposited for a submission."""
-        pass
-
-    @abstractmethod
-    def get_preflight(self, submission_id: str) -> FileObj:
-        """Retrieve the preflight report for a submission."""
-        pass
-
-    @abstractmethod
-    def delete_preflight(self, submission_id: str) -> None:
-        """Delete the preflight report for a submission."""
         pass
 
     @abstractmethod

@@ -231,7 +231,3 @@ class CompileApiService(CompileService):
             created=datetime.now(timezone.utc),
             details={'message': 'Directives check completed'}
         )
-
-    @override
-    def convert_preflight_to_directives(self, contents: str) -> str:
-        return None
