@@ -178,6 +178,7 @@ class CompileApiService(CompileService):
         query_params = {
             'source': submission_path,
             'dest': directives_path,
+            'user_decisions_filename' : 'user_decisions.json',
         }
         headers = {
             'accept': 'application/json',
