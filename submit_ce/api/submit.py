@@ -231,25 +231,6 @@ class SubmitApi(ABC):
             """
             ...
 
-    @abstractmethod
-    def upload(self, files: SubmitFile, submission_id: str, user: User, client: Client) -> Workspace:
-        """Uploads a file to an existing submission.
-
-        Saves the `file` to storage and updates the state of the submission.
-        Parameters
-        ----------
-        files : :class:`.FileUpload`
-            The file to be uploaded.
-        submission_id : str
-            Identifier for the submission.
-        user : :class:`.User`
-            User making the upload
-        client : :class:`.Client`
-            Client tool making the upload.
-        """
-        # TODO Make this just an Event+save()
-        ...
-
 
     #__Informational Methods___________________________________________________
 
