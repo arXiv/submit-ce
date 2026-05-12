@@ -232,9 +232,6 @@ class NullImplementation(SubmitApi):
     def get_file_store(self) -> SubmissionFileStore:
         return NullFileStore()
 
-    def upload(self, files: SubmitFile, submission_id: str, user: User, client: Client) -> Workspace:
-        return Workspace()
-
     def licenses(self, active_only=True) -> List[License]:
         return []
 

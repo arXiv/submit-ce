@@ -67,9 +67,6 @@ class PubsubEventSubmitImplementation(SubmitApi):
     def healthy(self) -> tuple[bool,str]:
         return self.inner_api.healthy()
 
-    def upload(self, files: SubmitFile, submission_id: str, user: User, client: Client) -> Workspace:
-        return self.inner_api.upload(files, submission_id, user, client)
-
     @staticmethod
     def serialize_msg(*events: Event) -> bytes:
         """Serialize events to `bytes` to send as pubsub message."""
