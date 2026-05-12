@@ -44,6 +44,7 @@ from submit_ce.ui.controllers.util import add_immediate_alert, validate_command
 from submit_ce.ui.routes.flow_control import stay_on_this_stage
 from submit_ce.ui.backend import get_submission
 from submit_ce.ui import SUPPORT
+from submit_ce.ui.workflow import conditions
 
 
 logger = logging.getLogger(__name__)
@@ -202,7 +203,7 @@ def _get_upload(params: MultiDict, session: Session, submission: Submission,
     """
     rdata.update({'status': None, 'form': UploadForm()})
 
-    if submission.source_format is None:
+    if not conditions.has_files(submission):
         return rdata, status.OK, {}  # Nothing to show; generate a blank-slate upload page
 
     status_data = alerts.get_hidden_alerts('_status')
