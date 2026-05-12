@@ -243,7 +243,7 @@ def get_endorsements(user: auth_domian.User) -> list[str]:
     return [cat.id for cat in explicit_endorsements(user)]
 
 
-def user_and_client_from_session(session: auth_domian.Session) -> Tuple[User, Optional[Client]]:
+def user_and_client_from_session(session: auth_domian.Session) -> Tuple[User, Client]:
     """
     Get submission user/client representations from a :class:`.Session`.
 

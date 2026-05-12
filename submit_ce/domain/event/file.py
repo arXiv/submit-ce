@@ -31,10 +31,14 @@ class UploadArchive(EventWithSideEffect):
 
     def execute(self, api: SubmitApi, submission: Submission) -> None:
         """Upload the new files using the file store."""
-        file_store = api.get_file_store()
-        # TODO the unpack of the archive is not written
-        for f in self.files:
-            file_store.store_source_file(str(submission.submission_id), f, chunk_size=4096)
+        api.get_file_store().store_source_package(str(submission.submission_id), self.file, 4098)
+        workspace = api.get_file_store().get_workspace(str(submission.submission_id))
+        if workspace is None:
+            raise RuntimeError("Workspace was None during UploadArchive")
+        elif workspace.size and workspace.size > 0:
+            self.uncompressed_size = workspace.size
+        else:
+            self.uncompressed_size = 0
 
     def project(self, submission: Submission) -> Submission:
         submission.uncompressed_size = self.uncompressed_size

@@ -34,6 +34,7 @@ from werkzeug.exceptions import (
 from wtforms import BooleanField, FileField
 
 from submit_ce.domain import Client, User, Event
+from submit_ce.domain.event.file import UploadArchive
 from submit_ce.domain.submission import Submission
 from submit_ce.domain.uploads import SourceFormat
 from submit_ce.domain.uploads import Workspace, FileStatus, UploadStatus, is_file_tgz
@@ -122,6 +123,8 @@ def upload_files(method: str, params: MultiDict, session: Session,
         applicable.
 
     """
+    submitter, client = user_and_client_from_session(session)
+
     rdata = {}
     if files is None or token is None:
         add_immediate_alert(rdata, alerts.FAILURE, 'Missing auth files or token')
@@ -137,8 +140,8 @@ def upload_files(method: str, params: MultiDict, session: Session,
     elif method == 'GET':
         return _get_upload(params, session, submission, rdata, token)
     elif method == 'POST':
-        pointer = files['file'] if (files and 'file' in files and files['file']) else None
-        params['file'] = pointer
+        file = files['file'] if (files and 'file' in files and files['file']) else None
+        params['file'] = file
         form = UploadForm(params)
         rdata.update({'form': form, 'submission': submission})
         if not form.validate():
@@ -149,7 +152,7 @@ def upload_files(method: str, params: MultiDict, session: Session,
         is_archive = _single_file_archive(files)
         has_files = submission.source_format is not None
         try:
-            match (pointer, params.get('action'), has_files, is_archive):
+            match (file, params.get('action'), has_files, is_archive):
                 case (_, _, _, _) if len(files) > 1:
                     raise BadRequest(description="Multi file upload not yet supported. Use a zip or tgz file.")
                 case (None, action, _, _) if action:  # trying to go back to previous page
@@ -158,9 +161,9 @@ def upload_files(method: str, params: MultiDict, session: Session,
                     logger.debug('No files on request')
                     return stay_on_this_stage(_get_upload(params, session, submission, rdata, token))
                 case (_, _, False, True):
-                    return _upload_archive(form, params, pointer, session, submission, rdata, token)
+                    return _upload_archive(form, file, submitter, client, submission, rdata, token)
                 case (_, _, False, False):
-                    return _upload_file(form, params, pointer, session, submission, rdata, token)
+                    return _upload_file(form, params, file, session, submission, rdata, token)
                 case unhandled:
                     assert_never(unhandled)
         except RequestEntityTooLarge as ex:
@@ -218,8 +221,10 @@ def _get_upload(params: MultiDict, session: Session, submission: Submission,
     return rdata, status.OK, {}
 
 
-def _upload_archive(form: UploadForm, params: MultiDict, pointer: FileStorage, session: Session,
-                submission: Submission, rdata: Dict[str, Any], token: str) \
+
+def _upload_archive(form: UploadForm, file: FileStorage,
+                    submitter: User, client: Client,
+                    submission: Submission, rdata: Dict[str, Any], token: str) \
         -> Response:
     """
     Handle a POST request with a archive like a tgz or a zip.
@@ -245,36 +250,32 @@ def _upload_archive(form: UploadForm, params: MultiDict, pointer: FileStorage, s
         Extra headers to add/update on the response. Should include the `Location` header for use in a 303 redirect.
 
     """
-
-    logger.debug('New upload package')
-    submitter, client = user_and_client_from_session(session)
-
-    # TODO this needs to be changed from api.upload() to api.save()
-    #stat = current_app.api.save(
-    stat = current_app.api.upload(form.data['file'], submission.submission_id, submitter, client)
-
-    converted_size = tidy_filesize(stat.size)
-    if stat.status is UploadStatus.READY:
+    command = UploadArchive(creator=submitter, client=client, file=file)
+    validate_command(form, command, submission, 'file')  # raises on invalid
+    submission, _ = current_app.api.save(command, submission_id=submission.submission_id)
+    workspace = current_app.api.get_file_store().get_workspace(submission_id=str(submission.submission_id))
+    converted_size = tidy_filesize(workspace.size)
+    if workspace.status is UploadStatus.READY:
         alerts.flash_success(
-            f'Unpacked {stat.file_count} files. Total submission'
+            f'Unpacked {workspace.file_count} files. Total submission'
             f' package size is {converted_size}',
             title='Upload successful'
         )
-    elif stat.status is UploadStatus.READY_WITH_WARNINGS:
+    elif workspace.status is UploadStatus.READY_WITH_WARNINGS:
         alerts.flash_warning(
-            f'Unpacked {stat.file_count} files. Total submission'
+            f'Unpacked {workspace.file_count} files. Total submission'
             f' package size is {converted_size}. See below for warnings.',
             title='Upload complete, with warnings'
         )
-    elif stat.status is UploadStatus.ERRORS:
+    elif workspace.status is UploadStatus.ERRORS:
         alerts.flash_warning(
-            f'Unpacked {stat.file_count} files. Total submission'
+            f'Unpacked {workspace.file_count} files. Total submission'
             f' package size is {converted_size}. See below for errors.',
             title='Upload complete, with errors'
         )
-    alerts.flash_hidden(stat.model_dump(), '_status')
+    alerts.flash_hidden(workspace.model_dump(), '_status')
 
-    rdata.update({'status': stat})
+    rdata.update({'status': workspace})
     return stay_on_this_stage((rdata, status.OK, {}))
 
 
@@ -310,51 +311,7 @@ def _upload_file(form: UploadForm, params: MultiDict, pointer: FileStorage, sess
         the `Location` header for use in the 303 redirect response.
 
     """
-    submitter, client = user_and_client_from_session(session)
-    #try:
-    stat = current_app.api.get_file_store().store_source_file(submission.submission_id, pointer, CHUNK_SIZE)
-    # except  as ex:
-    #     try:
-    #         ex_data = ex.response.json()
-    #     except Exception:
-    #         ex_data = None
-    #     if ex_data is not None and 'reason' in ex_data:
-    #         alerts.flash_failure(Markup(
-    #             'There was a problem carrying out your request:'
-    #             f' {ex_data["reason"]}. {SUPPORT}'
-    #         ))
-    #         return stay_on_this_stage((rdata, status.OK, {}))
-    #     alerts.flash_failure(Markup(
-    #         'There was a problem carrying out your request. Please try'
-    #         f' again. {SUPPORT}'
-    #     ))
-    #     logger.debug('Failed to add file: %s', )
-    #     logger.error(traceback.format_exc())
-    #     raise InternalServerError(rdata) from ex
-
-    #submission = _update_submission(form, submission, stat, submitter, client)
-    converted_size = tidy_filesize(stat.size)
-    if stat.status is UploadStatus.READY:
-        alerts.flash_success(
-            f'Uploaded {pointer.filename} successfully. Total submission'
-            f' package size is {converted_size}',
-            title='Upload successful'
-        )
-    elif stat.status is UploadStatus.READY_WITH_WARNINGS:
-        alerts.flash_warning(
-            f'Uploaded {pointer.filename} successfully. Total submission'
-            f' package size is {converted_size}. See below for warnings.',
-            title='Upload complete, with warnings'
-        )
-    elif stat.status is UploadStatus.ERRORS:
-        alerts.flash_warning(
-            f'Uploaded {pointer.filename} successfully. Total submission'
-            f' package size is {converted_size}. See below for errors.',
-            title='Upload complete, with errors'
-        )
-    status_data = stat.to_dict()
-    alerts.flash_hidden(status_data, '_status')
-    rdata.update({'status': stat})
+    alerts.flash_warning("single file upload not yet implemeneted")
     return stay_on_this_stage((rdata, status.OK, {}))
 
 
