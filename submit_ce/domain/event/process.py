@@ -123,6 +123,43 @@ class StartPreflight(EventWithSideEffect):
         return submission
 
 
+class StartDirectives(EventWithSideEffect):
+    """Start directives generation for a submission."""
+
+    NAME = "start directives"
+    NAMED = "started directives"
+
+    source_content_id: Optional[str] = field(default=None)
+    process: Optional[ProcessInfo] = field(default=None)
+    result: Optional[Result] = field(default=None)
+
+    def validate(self, submission: Submission) -> None:
+        if submission.source_content is None or not submission.source_content.identifier:
+            raise InvalidEvent("Source content for directives is empty.")
+
+    def execute(self, api: 'SubmitApi', submission: Submission) -> None:
+        result = api.get_compiler().start_directives(
+                submission,
+                self.creator,
+                self.client,
+                api,
+                submission.source_content.identifier
+        )
+        self.source_content_id = submission.source_content.identifier
+        self.result = result
+
+    def project(self, submission: Submission) -> Submission:
+        assert self.created is not None
+        submission.processes.append(StartDirectives(
+            creator=self.creator,
+            created=self.created,
+            source_content_id=self.source_content_id,
+            process=self.process,
+            result=self.result,
+        ))
+        return submission
+
+
 class CompileStatus(Event):
     """Add the status of an external/long-running process to a submission."""
 

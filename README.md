@@ -4,7 +4,7 @@ arXiv paper submission system
 ## Install & use
 
 ```bash
-Start the compiler api:
+# Start the compiler api:
 gcloud run services proxy tex2pdf-api-default --project arxiv-development --region us-central1 --port=9001
 
 # Install gcld3 dependencies needed by arxiv-base metadata checks
@@ -30,7 +30,7 @@ open http://localhost:8000
 ##  Run the tests
 
 ```bash
-pytest submit_ce
+./test.sh
 ```
 
 ## Build Docker Image

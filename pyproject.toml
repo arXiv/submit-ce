@@ -180,7 +180,6 @@ omit = [
     "submit_ce/fastapi/**",
     #
     "submit_ce/implementations/compile/common.py",
-    "submit_ce/implementations/compile/compile_at_gcp.py", # migrate existing tests or eliminate script
     "submit_ce/implementations/file_store/gs_file_store.py",
     "submit_ce/implementations/file_store/legacy_file_store.py",
     "submit_ce/ui/filters/**", # need rewrite

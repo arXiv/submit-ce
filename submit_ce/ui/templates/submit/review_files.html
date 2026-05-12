@@ -5,25 +5,35 @@
  <script src="{{ url_for('static', filename='js/filewidget.js') }}"></script>
 {% endblock addl_head %}
 
-{% macro preflight_file_rows(label, files, file_notes) %}
-  {% if files %}
-  <tr><td colspan="3"><strong>{{ label }}</strong></td></tr>
-  {% for f in files %}
+{% macro display_preflight_tree(key, item) %}
+  {% if 'filename' in item %}
   <tr>
     <td>
-      <input type="hidden" name="all_files" value="{{ f.filename }}">
-      <input type="checkbox" name="selected_files" value="{{ f.filename }}">
+      <input type="hidden" name="all_files" value="{{ item.filename }}">
+      <input type="checkbox" name="selected_files" value="{{ item.filename }}">
     </td>
-    <td>{{ f.filename }}</td>
-    <td>{{ file_notes[f.filename] if f.filename in file_notes else '' }}</td>
+    <td>{{ item.filename }}</td>
+    <td>
+      {% if item.used_by %}used by: {{ item.used_by | join(', ') }}<br>{% endif %}
+      {% if item.used_by_tex %}used tex: {{ item.used_by_tex | join(', ') }}<br>{% endif %}
+      {% if item.used_by_bib %}used bib: {{ item.used_by_bib | join(', ') }}{% endif %}
+    </td>
   </tr>
+  {% else %}
+  <tr><td colspan="3"><em>{{ key }}/</em></td></tr>
+  {% for k, subitem in item.items() %}
+    {{ display_preflight_tree(k, subitem) }}
   {% endfor %}
   {% endif %}
 {% endmacro %}
 
 {% block title -%}Review Files{%- endblock title %}
 
+{% block important_text_box %}
+  <p>Review Files sidebar information goes here</p>
+{% endblock important_text_box %}
 
+{% block within_content %}
 {% if immediate_notifications %}
   {% for notification in immediate_notifications %}
   <div class="notification is-{{ notification.severity }}" role="alert" aria-atomic="true">
@@ -35,13 +45,6 @@
   {% endfor %}
 {% endif %}
 
-{% block important_text_box %}
-
-  <p>Review Files sidebar information goes here</p>
-
-   {% endblock important_text_box %}
-
-{% block within_content %}
 <form id="form" class="form" action="{{ url_for('ui.review_files', submission_id=submission_id) }}" method="POST" enctype="multipart/form-data">
   <div class="columns action-container">
 
@@ -97,7 +100,7 @@
 
       <hr />
 
-      {% if preflight_files %}
+      {% if file_notes %}
       <table class="table is-fullwidth">
         <thead>
           <tr>
@@ -111,11 +114,9 @@
           </tr>
         </thead>
         <tbody>
-          {{ preflight_file_rows('Top-level files',  preflight_files.detected_toplevel_files, file_notes) }}
-          {{ preflight_file_rows('TeX files',        preflight_files.tex_files,               file_notes) }}
-          {{ preflight_file_rows('Ancillary files',  preflight_files.ancillary_files,         file_notes) }}
-          {{ preflight_file_rows('Maybe used files', preflight_files.maybe_used_files,        file_notes) }}
-          {{ preflight_file_rows('Image files',      preflight_files.image_files,             file_notes) }}
+          {% for k, item in (file_notes | group_preflight_files).items() %}
+            {{ display_preflight_tree(k, item) }}
+          {% endfor %}
         </tbody>
       </table>
       {% else %}
@@ -124,12 +125,6 @@
       </p>
       {% endif %}
 
-      <hr />
-      <div class="field">
-        <p><strong>has_directives:</strong> {{ form.has_directives }}</p>
-        <p><strong>has_preflight:</strong> {{ form.has_preflight }}</p>
-        <p><strong>has_zzrm:</strong> {{ form.has_zzrm }}</p>
-      </div>
     </div>
   </div>
 </form>
