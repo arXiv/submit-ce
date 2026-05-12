@@ -197,13 +197,11 @@ def _update_preflight(params: MultiDict, submission_id: str, workspace: Workspac
     existing_paths = {f.path for f in workspace.files}
     files_to_delete = [p for p in params.getlist('selected_files') if p in existing_paths]
 
-    compiler_version = params.get('compiler_version', '')
     new_decisions = {
-        'sources': [{'filename': params.get('source_file', ''), 'usage': 'toplevel'}],
-        'texlive_version': compiler_version,
+        'sources': [{'filename': params.get('source_file', '')}],
+        'texlive_version': params.get('compiler_version', ''),
         'process': {
             'compiler': params.get('compiler', ''),
-            'compiler_version': compiler_version,
         },
     }
     decisions_changed = new_decisions != (_get_user_decisions_data(submission_id) or {})

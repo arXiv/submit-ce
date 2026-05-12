@@ -16,14 +16,15 @@ class DirectiveManager:
         result = {}
         if 'sources' in zzrm:
             result['sources'] = [
-                {k: v for k, v in s.items() if k in ('filename', 'usage')}
+                {'filename': s['filename']}
                 for s in zzrm['sources']
+                if s.get('usage') == 'toplevel'
             ]
         if 'texlive_version' in zzrm:
             result['texlive_version'] = zzrm['texlive_version']
         if 'process' in zzrm:
             result['process'] = {k: v for k, v in zzrm['process'].items()
-                                 if k in ('compiler')}
+                                 if k in ('compiler',)}
         return result
 
     def get_files_from_preflight(preflight_data: dict) -> list:

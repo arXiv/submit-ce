@@ -18,15 +18,37 @@ def test_convert_zzrm_to_user_decisions_empty():
     assert dm.convert_zzrm_to_user_decisions({}) == {}
 
 
-def test_convert_zzrm_to_user_decisions_filters_unknown_source_keys():
+def test_convert_zzrm_to_user_decisions_keeps_only_filename():
     zzrm = {"sources": [{"filename": "main.tex", "usage": "toplevel", "ignored": "x"}]}
     result = dm.convert_zzrm_to_user_decisions(zzrm)
-    assert result["sources"] == [{"filename": "main.tex", "usage": "toplevel"}]
+    assert result["sources"] == [{"filename": "main.tex"}]
 
 
 def test_convert_zzrm_to_user_decisions_preserves_texlive_version():
     zzrm = {"texlive_version": "2025"}
     assert dm.convert_zzrm_to_user_decisions(zzrm) == {"texlive_version": "2025"}
+
+
+def test_convert_zzrm_to_user_decisions_keeps_only_toplevel_sources():
+    zzrm = {
+        "sources": [
+            {"filename": "main.tex", "usage": "toplevel"},
+            {"filename": "old.tex", "usage": "ignore"},
+            {"filename": "fig.pdf", "usage": "include"},
+        ],
+    }
+    result = dm.convert_zzrm_to_user_decisions(zzrm)
+    assert result["sources"] == [{"filename": "main.tex"}]
+
+
+def test_convert_zzrm_to_user_decisions_drops_process_compiler_version():
+    zzrm = {
+        "sources": [{"filename": "main.tex", "usage": "toplevel"}],
+        "texlive_version": "2025",
+        "process": {"compiler": "pdflatex", "compiler_version": "2025"},
+    }
+    result = dm.convert_zzrm_to_user_decisions(zzrm)
+    assert result["process"] == {"compiler": "pdflatex"}
 
 
 def test_get_files_from_preflight_collects_all_sections():
