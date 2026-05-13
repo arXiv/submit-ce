@@ -30,8 +30,8 @@ class NullFileStore(SubmissionFileStore):
     def get_workspace(self, submission_id: str) -> Optional[Workspace]:
         return Workspace(
             identifier=submission_id,
-            checksum=None,
-            size=0,
+            checksum='null-store-checksum',
+            size=1024,
             started=datetime.now(),
             completed=datetime.now(),
             created=datetime.now(),
@@ -104,11 +104,18 @@ class NullFileStore(SubmissionFileStore):
     def does_preview_exist(self, submission_id: str) -> bool:
         return False
 
-    def get_directives(self, submission_id: str) -> FileObj:
-        raise RuntimeError("No directives")
+    def get_preflight(self, submission_id: str) -> FileObj:
+        from arxiv.files import FileDoesNotExist
+        return FileDoesNotExist(submission_id)
 
-    def delete_directives(self, submission_id: str) -> None:
-        pass
+    def get_full_source_package_path(self, submission_id: str) -> str:
+        return ""
+
+    def get_full_preflight_package_path(self, submission_id: str) -> str:
+        return ""
+
+    def get_full_directives_package_path(self, submission_id: str) -> str:
+        return ""
 
     def get_directives_checksum(self, submission_id: str) -> str:
         return ""
@@ -139,12 +146,6 @@ class NullFileStore(SubmissionFileStore):
 
     def does_compile_json_exist(self, submission_id: str) -> bool:
         return False
-
-    def get_preflight(self, submission_id: str) -> FileObj:
-        raise RuntimeError("No preflight")
-
-    def delete_preflight(self, submission_id: str) -> None:
-        pass
 
     def get_preflight_checksum(self, submission_id: str) -> str:
         return ""
