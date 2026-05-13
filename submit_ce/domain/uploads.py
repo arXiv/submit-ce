@@ -142,7 +142,7 @@ TARGZ_MIMETYPES = frozenset({
 })
 """tar.gz mime types."""
 
-def is_file_tgz(file: SubmitFile) -> bool:
+def is_file_tgz(file: Optional[SubmitFile]) -> bool:
     """Return True if the uploaded file is a tar.gz archive."""
     return bool(file) and (
         file.content_type in TARGZ_MIMETYPES or

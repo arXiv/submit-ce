@@ -151,7 +151,7 @@ def upload_files(method: str, params: MultiDict, session: Session,
             return stay_on_this_stage((rdata, status.OK, {}))
 
         file_count = 0 if not files else len(files)
-        is_archive = "ARCHIVE" if _single_file_archive(files) else "NONARCHIVE"
+        is_archive = "ARCHIVE" if is_file_tgz(files.get('file')) else "NONARCHIVE"
         # TODO not sure if has_files is useful any more. _upload_files can upload with or without files,
         has_files = submission.uncompressed_size > 0
         try:
@@ -167,6 +167,8 @@ def upload_files(method: str, params: MultiDict, session: Session,
                     raise BadRequest(description="Multi file upload not yet supported. Use a zip or tgz file.")
                 case (_, _, False, "ARCHIVE"):
                     return _upload_archive(form, file, submitter, client, submission, rdata, token)
+                case (_, _, True, "ARCHIVE"):
+                    raise BadRequest(description="Archive upload with existing files not yet supported.")
                 case (_, _, _, "NONARCHIVE"):
                     return _upload_files(form, files, submitter, client, submission, rdata, token)
                 case unhandled:

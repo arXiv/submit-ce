@@ -25,7 +25,7 @@ class UploadArchive(EventWithSideEffect):
     NAME = "upload and unpack archive"
     NAMED = "archive unpacked and added"
 
-    file: Annotated[SubmitFile, WithJsonSchema({'type': 'object'})] = Field(default_factory=list, exclude=True)
+    file: Annotated[SubmitFile, WithJsonSchema({'type': 'object'})] = Field(exclude=True)
     """File to upload."""
 
     uncompressed_size: int = 0
