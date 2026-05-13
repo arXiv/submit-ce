@@ -41,9 +41,6 @@ class NullCompilerService(CompileService):
     def is_available(self) -> bool:
         return False
 
-    def convert_preflight_to_directives(self, contents: str) -> str:
-        return ""
-
 
 class NullFileStore(SubmissionFileStore):
 
@@ -146,20 +143,20 @@ class NullFileStore(SubmissionFileStore):
     def does_directives_exist(self, submission_id: str) -> bool:
         return False
 
-    def store_user_options(self, submission_id: str, content: dict) -> str:
+    def store_user_decisions(self, submission_id: str, content: dict) -> str:
         return ""
 
-    def get_user_options(self, submission_id: str) -> FileObj:
+    def get_user_decisions(self, submission_id: str) -> FileObj:
         from arxiv.files import FileDoesNotExist
         return FileDoesNotExist(submission_id)
 
-    def delete_user_options(self, submission_id: str) -> None:
+    def delete_user_decisions(self, submission_id: str) -> None:
         pass
 
-    def get_user_options_checksum(self, submission_id: str) -> str:
+    def get_user_decisions_checksum(self, submission_id: str) -> str:
         return ""
 
-    def does_user_options_exist(self, submission_id: str) -> bool:
+    def does_user_decisions_exist(self, submission_id: str) -> bool:
         return False
 
     def get_compile_log(self, submission_id: str) -> FileObj:

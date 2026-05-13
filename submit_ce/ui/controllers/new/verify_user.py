@@ -18,16 +18,15 @@ from arxiv.forms import csrf
 from arxiv.auth.domain import Session
 
 from submit_ce.ui.auth import user_and_client_from_session
-from submit_ce.domain.event import ConfirmContactInformation
+from submit_ce.domain.event import ConfirmContactInformation, SetProxyInformation
 
 from submit_ce.ui.backend import get_submission
 from submit_ce.ui.controllers.util import validate_command
 from submit_ce.ui.routes.flow_control import ready_for_next, stay_on_this_stage
 
+logger = logging.getLogger(__name__)  # pylint: disable=C0103
 
-logger = logging.getLogger(__name__)    # pylint: disable=C0103
-
-Response = Tuple[Dict[str, Any], int, Dict[str, Any]]   # pylint: disable=C0103
+Response = Tuple[Dict[str, Any], int, Dict[str, Any]]  # pylint: disable=C0103
 
 
 def verify(method: str, params: MultiDict, session: Session,
@@ -47,13 +46,19 @@ def verify(method: str, params: MultiDict, session: Session,
     if method == 'GET' and submission.submitter_contact_verified:
         params['verify_user'] = 'true'
 
+    if method == "GET":
+
+        if submission.proxy:
+            params['proxy_name'] = submission.creator.name
+            params['proxy_email'] = submission.creator.email
+
     form = VerifyUserForm(params)
     response_data = {
         'submission_id': submission_id,
         'form': form,
         'submission': submission,
         'submitter': submitter,
-        'user': session.user,   # We want the most up-to-date representation.
+        'user': session.user,  # We want the most up-to-date representation.
         'may_proxy': may_proxy,
     }
 
@@ -76,10 +81,41 @@ def verify(method: str, params: MultiDict, session: Session,
         if not ok:
             return stay_on_this_stage((response_data, status.BAD_REQUEST, {}))
 
-    if submission.submitter_contact_verified:
-        return ready_for_next((response_data, status.OK,{}))
+    # We need to process proxy changes
+    #
+    # if submission.submitter_contact_verified:
+    #    return ready_for_next((response_data, status.OK,{}))
+
+    new_proxy = None
+    if may_proxy and (form.proxy_name.data or form.proxy_email.data):
+
+        proxied_name=form.proxy_name.data.strip()
+        proxied_email=form.proxy_email.data.strip()
+
+        if proxied_name != submission.contact_name or proxied_email != submission.contact_email:
+            cmd = SetProxyInformation(
+                creator=submitter,
+                client=client,
+                proxied_name=form.proxy_name.data.strip(),
+                proxied_email=form.proxy_email.data.strip(),
+                proxy_name=submitter.name,
+            )
+            submission, _ = current_app.api.save(cmd, submission_id=submission_id)
+
+    # Edge Case: What do we do if proxy information has been saved but the submitter
+    #            no longer has proxy permissions (revoked)? That is, a submitter's
+    #            may_proxy permission is revoked while submission is in working state.
+    #
+    #            I've been told that proxy permissions are permanent.
+    #
+    #            In the event the permission to proxy is revoked, for submissions being
+    #            worked on, the submitter_name and submitter_email will remain set to
+    #            proxied values (they are not reset to actual submitter
+    #
+    #            I have removed the ClearProxyInformation event.
 
     cmd = ConfirmContactInformation(creator=submitter, client=client)
+
     if validate_command(form, cmd, submission, 'verify_user'):
         submission, _ = current_app.api.save(cmd, submission_id=submission_id)
         response_data['submission'] = submission

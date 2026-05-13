@@ -270,32 +270,32 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
         return self.bucket.blob(str(self._directives_path(submission_id))).exists()
 
     @override
-    def store_user_options(self, submission_id: str, content: dict) -> str:
-        blob = self.bucket.blob(str(self._user_options_path(submission_id)))
+    def store_user_decisions(self, submission_id: str, content: dict) -> str:
+        blob = self.bucket.blob(str(self._user_decisions_path(submission_id)))
         data = json.dumps(content).encode('utf-8')
         blob.upload_from_file(io.BytesIO(data), content_type='application/json')
         blob.reload()
         return blob.crc32c
 
     @override
-    def get_user_options(self, submission_id: str) -> FileObj:
-        path = self._user_options_path(submission_id)
+    def get_user_decisions(self, submission_id: str) -> FileObj:
+        path = self._user_decisions_path(submission_id)
         blob = self.bucket.blob(str(path))
         return blob if blob.exists() else FileDoesNotExist(str(path))
 
     @override
-    def delete_user_options(self, submission_id: str) -> None:
-        blob = self.bucket.blob(str(self._user_options_path(submission_id)))
+    def delete_user_decisions(self, submission_id: str) -> None:
+        blob = self.bucket.blob(str(self._user_decisions_path(submission_id)))
         if blob.exists():
             blob.delete()
 
     @override
-    def get_user_options_checksum(self, submission_id: str) -> str:
-        return self._get_checksum(self._user_options_path(submission_id))
+    def get_user_decisions_checksum(self, submission_id: str) -> str:
+        return self._get_checksum(self._user_decisions_path(submission_id))
 
     @override
-    def does_user_options_exist(self, submission_id: str) -> bool:
-        return self.bucket.blob(str(self._user_options_path(submission_id))).exists()
+    def does_user_decisions_exist(self, submission_id: str) -> bool:
+        return self.bucket.blob(str(self._user_decisions_path(submission_id))).exists()
 
     @override
     def get_compile_log(self, submission_id: str) -> FileObj:
@@ -422,8 +422,8 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
     def _directives_path(self, submission_id: str) -> Path:
         return self._submission_path(submission_id) / 'directives.json'
 
-    def _user_options_path(self, submission_id: str) -> Path:
-        return self._submission_path(submission_id) / 'user_options.json'
+    def _user_decisions_path(self, submission_id: str) -> Path:
+        return self._submission_path(submission_id) / 'user_decisions.json'
 
     def _compile_log_path(self, submission_id: str) -> Path:
         return self._submission_path(submission_id) / 'gcp_compile.log'

@@ -1,1 +1,18 @@
-{"sources": [{"filename": "main-test1.tex"}], "process": {"compiler": "pdflatex", "compiler_version": "texlive2025"}}
+{
+  "sources": [
+    {
+      "filename": "main-test1.tex",
+      "usage": "toplevel"
+    },
+    {
+      "filename": "other-test.tex",
+      "usage": "ignore"
+    }
+  ],
+  "spec_version": 1,
+  "texlive_version" : "2025",
+  "process": {
+    "compiler": "pdflatex",
+    "compiler_version": "2025"
+  }
+}

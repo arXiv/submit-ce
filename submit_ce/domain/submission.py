@@ -16,7 +16,6 @@ from .preview import Preview
 from .process import ProcessStatus
 from .util import get_tzaware_utc_now
 
-
 @dataclass
 class Author:
     """Represents an author of a submission."""
@@ -271,7 +270,7 @@ class Submission:
 
     creator: User
     owner: User
-    proxy: Optional[User] = field(default=None)
+    proxy: Optional[str] = field(default=None)
     client: Optional[Client] = field(default=None)
     created: Optional[datetime] = field(default=None)
     updated: Optional[datetime] = field(default=None)
@@ -332,6 +331,24 @@ class Submission:
 
     waivers: Dict[str, Waiver] = field(default_factory=dict)
     """Quality control waivers."""
+
+    # Derived / presentation
+    #     These should eventually replace creator, since creator
+    # does not represent creator's submitter name and email when
+    # proxying a submissions for someone else.
+    @property
+    def contact_name(self) -> str:
+        """
+        Who appears as the 'From' / contact name.
+        """
+        return self.creator.name
+
+    @property
+    def contact_email(self) -> str:
+        """
+        Who appears as the 'From' / contact email.
+        """
+        return self.creator.email
 
     @property
     def features(self) -> Dict[str, Feature]:

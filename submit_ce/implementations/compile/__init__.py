@@ -68,7 +68,3 @@ class MockCompileMimesisPdf(CompileService):
     @override
     def is_available(self) -> bool:
         return True
-
-    @override
-    def convert_preflight_to_directives(self, contents: str) -> str:
-        return None

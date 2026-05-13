@@ -25,10 +25,45 @@ class CompileService(ABC):
             api: SubmitApi,
             source_package_id: Optional[str] = None,
     ) -> Result:
+        """
+        Start a directives process.
+
+        Combines preflight output, user options, and compile logs to produce
+        the ``directives.json`` blob that drives downstream compilation.
+
+        Parameters
+        ----------
+        submission : Submission
+            Instance to generate directives for.
+        user : User
+            Person requesting the directives.
+        client : Client
+            Software client the user is making the request with.
+        api : SubmitApi
+            For implementations to access needed resources in the API.
+        source_package_id : Optional[str]
+            If `None`, the latest source package on the submission is used.
+        """
         ...
 
     @abstractmethod
     def check_directives(self, process_id: str, user: User, client: Client) -> ProcessStatus:
+        """
+        Check if there is a result for a directives process.
+
+        Parameters
+        ----------
+        process_id : str
+            Check for this process id.
+        user : User
+            Represents the person requesting the check.
+        client : Client
+            The software client the user is making the request with.
+
+        Returns
+        -------
+        ProcessStatus
+        """
         ...
 
     @abstractmethod
@@ -39,10 +74,46 @@ class CompileService(ABC):
             api: SubmitApi,
             source_package_id: Optional[str] = None,
     ) -> Result:
+        """
+        Start a preflight process.
+
+        Analyzes the submission's source files to detect TeX files, top-level
+        candidates, and required assets, producing the ``gcp_preflight.json``
+        blob consumed by the review-files stage.
+
+        Parameters
+        ----------
+        submission : Submission
+            Instance to run preflight on.
+        user : User
+            Person requesting preflight.
+        client : Client
+            Software client the user is making the request with.
+        api : SubmitApi
+            For implementations to access needed resources in the API.
+        source_package_id : Optional[str]
+            If `None`, the latest source package on the submission is used.
+        """
         ...
 
     @abstractmethod
     def check_preflight(self, process_id: str, user: User, client: Client) -> ProcessStatus:
+        """
+        Check if there is a result for a preflight process.
+
+        Parameters
+        ----------
+        process_id : str
+            Check for this process id.
+        user : User
+            Represents the person requesting the check.
+        client : Client
+            The software client the user is making the request with.
+
+        Returns
+        -------
+        ProcessStatus
+        """
         ...
 
     @abstractmethod
@@ -97,8 +168,4 @@ class CompileService(ABC):
         str
             `True` if service is configured and available.
         """
-        ...
-
-    @abstractmethod
-    def convert_preflight_to_directives(self, contents: str) -> str:
         ...

@@ -1,14 +1,12 @@
-import json
 import sys
 from collections import OrderedDict
-
 
 class DirectiveManager:
     '''This class is used for simple tasks related to the compiler.
     See compile_api_service.py for endpoints called in tex2pdf-api.'''
 
-    def convert_zzrm_to_user_options(zzrm: dict) -> dict:
-        '''Example user_options.json:
+    def convert_zzrm_to_user_decisions(zzrm: dict) -> dict:
+        '''Example user_decisions.json:
         {
             "sources": [{"filename": "main1.tex", "usage" : "toplevel"}],
             "texlive_version": "2025",
@@ -18,14 +16,15 @@ class DirectiveManager:
         result = {}
         if 'sources' in zzrm:
             result['sources'] = [
-                {k: v for k, v in s.items() if k in ('filename', 'usage')}
+                {'filename': s['filename']}
                 for s in zzrm['sources']
+                if s.get('usage') == 'toplevel'
             ]
         if 'texlive_version' in zzrm:
             result['texlive_version'] = zzrm['texlive_version']
         if 'process' in zzrm:
             result['process'] = {k: v for k, v in zzrm['process'].items()
-                                 if k in ('compiler')}
+                                 if k in ('compiler',)}
         return result
 
     def get_files_from_preflight(preflight_data: dict) -> list:

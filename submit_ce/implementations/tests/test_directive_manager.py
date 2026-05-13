@@ -1,32 +1,54 @@
 import json
 from pathlib import Path
 
-from submit_ce.implementations.compile.directive_manager3 import DirectiveManager as dm
+from submit_ce.implementations.compile.directive_manager import DirectiveManager as dm
 
 _TESTDATA = Path(__file__).parents[3] / "testdata" / "1"
 
 
-def test_convert_zzrm_to_user_options():
+def test_convert_zzrm_to_user_decisions():
     zzrm = json.loads((_TESTDATA / "src" / "00README.json").read_text())
-    user_options = json.loads((_TESTDATA / "user_options.json").read_text())
-    result = dm.convert_zzrm_to_user_options(zzrm)
+    user_decisions = json.loads((_TESTDATA / "user_decisions.json").read_text())
+    result = dm.convert_zzrm_to_user_decisions(zzrm)
 
-    assert result["sources"][0]["filename"] == user_options["sources"][0]["filename"]
-
-
-def test_convert_zzrm_to_user_options_empty():
-    assert dm.convert_zzrm_to_user_options({}) == {}
+    assert result["sources"][0]["filename"] == user_decisions["sources"][0]["filename"]
 
 
-def test_convert_zzrm_to_user_options_filters_unknown_source_keys():
+def test_convert_zzrm_to_user_decisions_empty():
+    assert dm.convert_zzrm_to_user_decisions({}) == {}
+
+
+def test_convert_zzrm_to_user_decisions_keeps_only_filename():
     zzrm = {"sources": [{"filename": "main.tex", "usage": "toplevel", "ignored": "x"}]}
-    result = dm.convert_zzrm_to_user_options(zzrm)
-    assert result["sources"] == [{"filename": "main.tex", "usage": "toplevel"}]
+    result = dm.convert_zzrm_to_user_decisions(zzrm)
+    assert result["sources"] == [{"filename": "main.tex"}]
 
 
-def test_convert_zzrm_to_user_options_preserves_texlive_version():
+def test_convert_zzrm_to_user_decisions_preserves_texlive_version():
     zzrm = {"texlive_version": "2025"}
-    assert dm.convert_zzrm_to_user_options(zzrm) == {"texlive_version": "2025"}
+    assert dm.convert_zzrm_to_user_decisions(zzrm) == {"texlive_version": "2025"}
+
+
+def test_convert_zzrm_to_user_decisions_keeps_only_toplevel_sources():
+    zzrm = {
+        "sources": [
+            {"filename": "main.tex", "usage": "toplevel"},
+            {"filename": "old.tex", "usage": "ignore"},
+            {"filename": "fig.pdf", "usage": "include"},
+        ],
+    }
+    result = dm.convert_zzrm_to_user_decisions(zzrm)
+    assert result["sources"] == [{"filename": "main.tex"}]
+
+
+def test_convert_zzrm_to_user_decisions_drops_process_compiler_version():
+    zzrm = {
+        "sources": [{"filename": "main.tex", "usage": "toplevel"}],
+        "texlive_version": "2025",
+        "process": {"compiler": "pdflatex", "compiler_version": "2025"},
+    }
+    result = dm.convert_zzrm_to_user_decisions(zzrm)
+    assert result["process"] == {"compiler": "pdflatex"}
 
 
 def test_get_files_from_preflight_collects_all_sections():

@@ -133,9 +133,6 @@ class StartDirectives(EventWithSideEffect):
     process: Optional[ProcessInfo] = field(default=None)
     result: Optional[Result] = field(default=None)
 
-    def __post_init__(self) -> None:
-        super(StartDirectives, self).__post_init__()
-
     def validate(self, submission: Submission) -> None:
         if not submission.submission_id:
             raise InvalidEvent("Source content for directives is empty.")
