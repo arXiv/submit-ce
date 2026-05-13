@@ -141,7 +141,7 @@ def upload_files(method: str, params: MultiDict, session: Session,
     elif method == 'GET':
         return _get_upload(params, session, submission, rdata, token)
     elif method == 'POST':
-        file_list = files.getlist('files') if (files and 'file' in files and files['file']) else []
+        file_list = files.getlist('file') if files else []
         if len(file_list) > 1:
             raise BadRequest(description="Multi file upload not yet supported. Use a zip or tgz file.")
 
