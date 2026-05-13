@@ -1,134 +1,129 @@
 {% extends "submit/base_edit.html" %}
 
 {% block title -%}Suggest Category{%- endblock title %}
-  
+
+{% block addl_head %}
+  {{ super() }}
+  <script defer src="{{ url_for('static', filename='js/classification_combobox.js') }}"></script>
+{% endblock addl_head %}
+
+{# NOTE: The browser tab title is set via the `pagetitle` variable in the
+   shared head template (arxiv-base/base/head.html). To match the mockup's
+   <title>Choose a Primary Classification</title>, the controller would
+   need to pass pagetitle='Choose a Primary Classification' in response_data.
+   Leaving H1 = "Suggest Category" per the visible mockup heading. #}
+
 {% block info_container_middle -%}
-<!-- TODO: add link to categories with descriptions -->
-<p>Select the primary category that is most specific for your article. If there
-is interest in more than one category for your article, you may choose
-cross-lists as secondary categories on the next step.
-</p>
-
-<p>Category selection is subject to moderation which may cause a delay in
-announcement in some cases. Click here to view a <a href="#"
-target="_blank">complete list of categories and descriptions</a>.
-</p>
-
-{% if submitter.endorsements|endorsetype == 'None' %}
-  <div class="message is-danger">
-    <div class="message-header">
-      <p>Endorsements</p>
-    </div>
-    <div class="message-body">
-        {{svg.exclamation(klass="icon filter-red")}}
-      <p>Your account does not currently have any endorsed categories. You will need to <a href="{{ url_for('help_endorse') }}">seek endorsement</a> before submitting.</p>
-    </div>
+  <div class="message-body">
+    <p>Category suggestion is subject to moderation. Selecting a poor fit may
+       cause a delay in announcement. View a
+       <a href="https://arxiv.org/category_taxonomy" target="_blank">complete
+       list of categories</a> <em>(link opens in a new tab)</em> to check
+       for fit.</p>
   </div>
-  {% endif %}
-  {% if submitter.endorsements|endorsetype == 'Some' %}
-    <div class="message is-link">
-      <div class="message-body">
-        <p class="has-text-weight-bold">{{svg.info(klass="icon filter-blue")}}Endorsements</p>
-        <p>This list shows only the categories for which you are endorsed. If
-        you wish to submit to a category not shown here, you will need
-        to <a href="{{ url_for('help_endorse') }}">seek endorsement</a> prior to
-        submission.</p>
-      </div>
-    </div>
-  {% endif %}
-
-  <div>You may cross-list your article to another relevant category.  If
-  accepted your article will appear in the regular listing for that category (in
-  the cross-list section).  Cross-lists should be of direct interest to the
-  professionals studying that field, not simply use techniques of, or derived
-  from, that field.
-</div>
 {%- endblock info_container_middle %}
 
 {% block within_content %}
-  <div class="action-container">
   <form id="form" method="POST" action="{{ url_for('ui.classification', submission_id=submission_id) }}">
-    {{ form.csrf_token }}    
-    <div style="display: none">{# remove this div for debugging to see what the form is donig #}
+    {{ form.csrf_token }}
+    {# Hidden staged-edit fields populated by classification_combobox.js. #}
+    <div style="display: none">
       staged_add:{{ form.secondaries_staged_add }}
-      staged_remove:{{ form.secondaries_staged_remove }} 
-  </div>
+      staged_remove:{{ form.secondaries_staged_remove }}
+    </div>
 
-    {% with field = form.primary %} {# ############################## PRIMARY ############################## #}
-    <div class="field">
-      <label class="label {{opt_class}}" for="{{field.name}}">{{ field.label.text }}
-        {% if not required %}<span>- Optional</span>{% endif %}
-        <a href="{{help_url}}" class="help-bubble">{{svg.question()}}
-          <div class="bubble-text">{{help_text}}</div>
-        </a>
-      </label>
+    {# ENDORSEMENT NOTICE - inline at top of form area.
+       TODO(category-redesign): revisit the None-case treatment (text and styling). #}
+    {% set _endorsement_state = submitter.endorsements|endorsetype %}
+    {% if _endorsement_state == 'None' %}
+      <div class="notification is-danger">
+        <p><strong>Endorsement:</strong> Your account does not currently have
+        any endorsed categories. You will need to
+        <a href="{{ url_for('help_endorse') }}">seek endorsement</a> before
+        you can submit.</p>
+      </div>
+    {% elif _endorsement_state == 'Some' %}
+      <div class="notification is-warning">
+        <p><strong>Endorsement:</strong> You will only see and be able to
+        select a primary category for which you are endorsed. If you wish to
+        suggest a category not shown here, first
+        <a href="{{ url_for('help_endorse') }}">seek endorsement</a> prior to
+        submission.</p>
+      </div>
+    {% endif %}
+
+    {# PRIMARY CATEGORY #}
+    {% with field = form.primary %}
+    <div class="field action-container">
+      <label class="label" for="{{ field.name }}">Primary Category Suggestion</label>
       {% if field.errors %}
         <div class="help is-danger field-error">
-          {% for error in field.errors %}
-            {{ error }}
-          {% endfor %}
+          {% for error in field.errors %}{{ error }}{% endfor %}
         </div>
       {% endif %}
-      {% if field.description %}
-        <p class="help has-text-grey is-marginless">{{ field.description|safe }}</p>
-      {% endif %}
-      {% if field.errors %}
-        {{ field(onchange="this.form.submit()", class=[class, "is-danger"]) }}
-      {% else %}
-        {{ field(onchange="this.form.submit()", class=class)}}
-      {% endif %}
+      <div class="has-addons">
+        <div class="select">
+          {% if field.errors %}
+            {{ field(onchange="this.form.submit()", class="is-danger") }}
+          {% else %}
+            {{ field(onchange="this.form.submit()") }}
+          {% endif %}
+        </div>
+      </div>
     </div>
     {% endwith %}
 
-    {% set secondaries_save_and_staged = form.secondaries_save_and_staged(submission,submitter) %}    
-    {% with field = form.add_secondary %} {# ########## ADD CROSS LIST CATEGORY ########## #}
-      <label class="label" id="crosslist" for="{{field.name}}">Add a cross-list category
-        <a href="{{ url_for('help_cross') }}" class="help-bubble">
-          {{svg.question()}}
-          <span class="is-sr-only">Learn more about cross-list suggestions</span>
-          <div class="bubble-text">Cross-list suggestions indicate areas of overlapping interest for the submission. Click here to learn more.</div>
-        </a>
-      </label>
-      <div class="field has-addons" style="margin-bottom: 3em">
-        <div class="select">
-          {{ field(onchange="document.getElementById('classification-stage-add').click()") }}
-        </div>
-        {% if field.errors %}
-          <div class="help is-danger field-error">
-            {% for error in field.errors %}
-              {{ error }}
+    {# CROSS-LIST CATEGORIES #}
+    {% set displayed_secondaries = form.secondaries_save_and_staged(submission, submitter) %}
+    {% set saved_categories = submission.secondary_categories|list %}
+    <div class="field secondary-container">
+      <label class="label" id="crosslist">Cross-list Category Suggestion (Optional)</label>
+      <div class="category-selection-container">
+        <p>Optional cross listings can be used to suggest overlapping interest
+        for the submission. Note that readers consider excessive or
+        inappropriate cross-listing to be bad etiquette.
+        <a href="{{ url_for('help_cross') }}">Click here to learn more.</a></p>
+
+        <div class="combobox-container">
+          <div class="combobox-wrapper"
+               id="combobox"
+               data-max-tags="4"
+               data-saved-categories='{{ saved_categories|tojson }}'>
+            {% for category in displayed_secondaries %}
+              <span class="tag" data-value="{{ category }}">
+                <span class="tag-code">{{ category }}</span>
+                <span class="tag-name">{{ category|get_category_name }}</span>
+                <button type="button" class="remove-tag"
+                        aria-label="Remove {{ category }}">&times;</button>
+              </span>
             {% endfor %}
+            <input type="text" id="cross-list-input"
+                   placeholder="Click to select or search..."
+                   autocomplete="off"
+                   {% if displayed_secondaries|length >= 4 %}style="display:none" disabled{% endif %}>
           </div>
-        {% endif %}
-        {% if field.description %}
-          <p class="help has-text-grey">
-            {{ field.description|safe }}
-          </p>
-        {% endif %}
-        <button type="submit" class="button is-link" id="classification-stage-add"
-                style="display: none"
-                name="operation" value="STAGE_ADD">Add</button>
+          <ul class="dropdown-list" id="dropdown" role="listbox">
+            {% for archive_id, archive_choices in form.add_secondary.choices %}
+              {% for cat, display in archive_choices %}
+                <li class="dropdown-item" role="option" data-value="{{ cat }}">{{ display }}</li>
+              {% endfor %}
+            {% endfor %}
+          </ul>
+        </div>
+
+        {# No-JS fallback: server-driven STAGE_ADD path. The button is hidden
+           by default but click-able by the legacy onchange handler if JS is
+           unavailable. #}
+        <noscript>
+          <div class="field has-addons" style="margin-top: 1em">
+            <div class="select">
+              {{ form.add_secondary }}
+            </div>
+            <button type="submit" class="button is-link"
+                    name="operation" value="STAGE_ADD">Add</button>
+          </div>
+        </noscript>
       </div>
-    {% endwith %}
-    
-    {# #################### REMOVE SECONDARIES ROWS ############################## #}
-    {% if secondaries_save_and_staged %}
-      <div class="label">Cross-list Categor{{ secondaries_save_and_staged|length|pluralize("y","ies")}}</div>
-      <ol class="file-tree">
-        {% for category in secondaries_save_and_staged %}
-          <li>
-            <span class="tag" style="border: 1px solid #999;">{{ category }}</span>
-            <span class="category-name-label">{{ category|get_category_name }}</span> 
-            <button type="submit" class="button is-link"  title="Remove category"
-                name="operation" value="STAGE_REMOVE:{{category}}"
-                style="border: 0;background:transparent;">
-                    {{svg.trashcan()}}<span class="is-sr-only">Remove category</span>
-            </button>
-          </li>
-        {% endfor %}
-      </ol>
-    {% endif %}
-
+    </div>
   </form>
-
 {% endblock within_content %}
