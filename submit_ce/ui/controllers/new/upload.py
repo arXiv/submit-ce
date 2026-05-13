@@ -141,8 +141,12 @@ def upload_files(method: str, params: MultiDict, session: Session,
     elif method == 'GET':
         return _get_upload(params, session, submission, rdata, token)
     elif method == 'POST':
-        file = files['file'] if (files and 'file' in files and files['file']) else None
-        params['file'] = file
+        file_list = files.getlist('files') if (files and 'file' in files and files['file']) else []
+        if len(file_list) > 1:
+            raise BadRequest(description="Multi file upload not yet supported. Use a zip or tgz file.")
+
+        file = file_list[0] if file_list else None
+        params['file'] = file_list[0]
         form = AddfilesForm(params)
         rdata.update({'form': form, 'submission': submission})
         if not form.validate():
@@ -150,27 +154,24 @@ def upload_files(method: str, params: MultiDict, session: Session,
             alerts.flash_failure("No file was uploaded; please try again.")
             return stay_on_this_stage((rdata, status.OK, {}))
 
-        file_count = 0 if not files else len(files)
-        is_archive = "ARCHIVE" if is_file_tgz(files.get('file')) else "NONARCHIVE"
+        is_archive = "ARCHIVE" if is_file_tgz(file) else "NONARCHIVE"
         # TODO not sure if has_files is useful any more. _upload_files can upload with or without files,
         has_files = submission.uncompressed_size > 0
         try:
-            match (file_count, params.get('action'), has_files, is_archive):
+            match (file, params.get('action'), has_files, is_archive):
                 case (_, 'next', _, _):
                     return ready_for_next((rdata, status.OK, {}))
-                case (0, action, _, _) if action:  # trying to go back to previous page
-                    return {}, status.SEE_OTHER, {}  # Don't flash a message
-                case (0, _, _, _):
+                case (_, action, _, _) if action:  # trying to go back to previous page
+                    return {}, status.SEE_OTHER, {}
+                case (None, _,  _, _):
                     logger.debug('No files on request')
                     return stay_on_this_stage(_get_upload(params, session, submission, rdata, token))
-                case (_, _, _, _) if len(files) > 1:
-                    raise BadRequest(description="Multi file upload not yet supported. Use a zip or tgz file.")
                 case (_, _, False, "ARCHIVE"):
                     return _upload_archive(form, file, submitter, client, submission, rdata, token)
                 case (_, _, True, "ARCHIVE"):
                     raise BadRequest(description="Archive upload with existing files not yet supported.")
                 case (_, _, _, "NONARCHIVE"):
-                    return _upload_files(form, files, submitter, client, submission, rdata, token)
+                    return _upload_files(form, file, submitter, client, submission, rdata, token)
                 case unhandled:
                     assert_never(unhandled)
         except RequestEntityTooLarge as ex:
@@ -263,34 +264,31 @@ def _upload_archive(form: AddfilesForm, file: FileStorage,
     return stay_on_this_stage((rdata, status.OK, {}))
 
 
-def _upload_files(form: AddfilesForm, files: List[FileStorage],
+def _upload_files(form: AddfilesForm, file: FileStorage,
                  submitter: User, client: Client,
                  submission: Submission, rdata: Dict[str, Any], token: str)\
         -> Response:
     """Handle a POST with a files to add to a submission."""
-    file_list = [value for value in files.values() if isinstance(value, FileStorage)]
-    command = UploadFiles(creator=submitter, client=client, files=file_list)
+    command = UploadFiles(creator=submitter, client=client, files=[file])
     validate_command(form, command, submission, 'file')
     submission, _ = current_app.api.save(command, submission_id=submission.submission_id)
     workspace = current_app.api.get_file_store().get_workspace(submission_id=str(submission.submission_id))
     converted_size = tidy_filesize(workspace.size)
-    files_uploaded = len(files)
-    files_number= "file" if files_uploaded == 1 else "files"
     if workspace.status is UploadStatus.READY:
         alerts.flash_success(
-            f'Uploaded {files_uploaded} {files_number}. Total submission'
+            f'Uploaded file. Total submission'
             f' package size is {converted_size}',
             title='Upload successful'
         )
     elif workspace.status is UploadStatus.READY_WITH_WARNINGS:
         alerts.flash_warning(
-            f'Uploaded {files_uploaded} {files_number}. Total submission'
+            f'Uploaded file. Total submission'
             f' package size is {converted_size}. See below for warnings.',
             title='Upload complete, with warnings'
         )
     elif workspace.status is UploadStatus.ERRORS:
         alerts.flash_warning(
-            f'Uploaded {files_uploaded} {files_number}. Total submission'
+            f'Uploaded file. Total submission'
             f' package size is {converted_size}. See below for errors.',
             title='Upload complete, with errors'
         )

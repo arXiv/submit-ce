@@ -62,7 +62,7 @@ class UploadFiles(EventWithSideEffect):
 
     files: List[Annotated[SubmitFile, WithJsonSchema({'type': 'object'})]] = \
         Field(default_factory=list, exclude=True)
-    _bytes_added: int = 0
+    bytes_added: int = 0
 
     def validate(self, submission: Submission) -> None:
         validators.submission_is_not_finalized(self, submission)
@@ -72,10 +72,10 @@ class UploadFiles(EventWithSideEffect):
         file_store = api.get_file_store()
         for f in self.files:
             stat=file_store.store_source_file(str(submission.submission_id), f, chunk_size=4096)
-            self._bytes_added += stat.bytes
+            self.bytes_added += stat.bytes
 
     def project(self, submission: Submission) -> Submission:
-        submission.uncompressed_size = submission.uncompressed_size + self._bytes_added
+        submission.uncompressed_size = submission.uncompressed_size + self.bytes_added
         _common_file_change_project(submission)
         return submission
 
@@ -90,7 +90,7 @@ class RemoveFiles(EventWithSideEffect):
     files: List[Annotated[SubmitFile, WithJsonSchema({'type': 'object'})]] = \
         Field(default_factory=list, exclude=True)
 
-    _bytes_removed:int = 0
+    bytes_removed:int = 0
 
     def validate(self, submission: Submission) -> None:
         validators.submission_is_not_finalized(self, submission)
@@ -101,10 +101,10 @@ class RemoveFiles(EventWithSideEffect):
         for f in self.files:
             file_store.delete_source_file(str(submission.submission_id), f.filename)
             # TODO Will need to accumulate the size of the files removed and update the uncompressed_size
-            # self._bytes_removed += f.size Not surehow to get size!
+            # self.bytes_removed += f.size Not surehow to get size!
 
     def project(self, submission: Submission) -> Submission:
-        #submission.uncompressed_size = submission.uncompressed_size - self._bytes_removed
+        #submission.uncompressed_size = submission.uncompressed_size - self.bytes_removed
         submission.submitter_confirmed_preview = False
         return submission
 

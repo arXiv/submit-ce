@@ -50,7 +50,7 @@ class StartCompileSource(EventWithSideEffect):
 
     def validate(self, submission: Submission) -> None:
         """Verify that we have a :class:`.ProcessStatus`."""
-        if not submission.submission_id:
+        if not submission.uncompressed_size <= 0:
             raise InvalidEvent("Compile source for the submission is empty.")
 
     def execute(self, api: 'SubmitApi', submission: Submission) -> None:
