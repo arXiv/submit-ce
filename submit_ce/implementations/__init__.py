@@ -90,18 +90,77 @@ class NullFileStore(SubmissionFileStore):
     def does_preview_exist(self, submission_id: str) -> bool:
         return False
 
+    def get_directives(self, submission_id: str) -> FileObj:
+        raise RuntimeError("No directives")
+
+    def delete_directives(self, submission_id: str) -> None:
+        pass
+
+    def get_directives_checksum(self, submission_id: str) -> str:
+        return ""
+
+    def does_directives_exist(self, submission_id: str) -> bool:
+        return False
+
+    def get_compile_log(self, submission_id: str) -> FileObj:
+        raise RuntimeError("No compile log")
+
+    def delete_compile_log(self, submission_id: str) -> None:
+        pass
+
+    def get_compile_log_checksum(self, submission_id: str) -> str:
+        return ""
+
+    def does_compile_log_exist(self, submission_id: str) -> bool:
+        return False
+
+    def get_compile_json(self, submission_id: str) -> FileObj:
+        raise RuntimeError("No compile JSON")
+
+    def delete_compile_json(self, submission_id: str) -> None:
+        pass
+
+    def get_compile_json_checksum(self, submission_id: str) -> str:
+        return ""
+
+    def does_compile_json_exist(self, submission_id: str) -> bool:
+        return False
+
     def get_preflight(self, submission_id: str) -> FileObj:
-        from arxiv.files import FileDoesNotExist
-        return FileDoesNotExist(submission_id)
+        raise RuntimeError("No preflight")
 
-    def get_full_source_package_path(self, submission_id: str) -> str:
+    def delete_preflight(self, submission_id: str) -> None:
+        pass
+
+    def get_preflight_checksum(self, submission_id: str) -> str:
         return ""
 
-    def get_full_preflight_package_path(self, submission_id: str) -> str:
+    def does_preflight_exist(self, submission_id: str) -> bool:
+        return False
+
+    def get_request_log(self, submission_id: str) -> FileObj:
+        raise RuntimeError("No request log")
+
+    def delete_request_log(self, submission_id: str) -> None:
+        pass
+
+    def get_request_log_checksum(self, submission_id: str) -> str:
         return ""
 
-    def get_full_directives_package_path(self, submission_id: str) -> str:
+    def does_request_log_exist(self, submission_id: str) -> bool:
+        return False
+
+    def get_source_log(self, submission_id: str) -> FileObj:
+        raise RuntimeError("No source log")
+
+    def delete_source_log(self, submission_id: str) -> None:
+        pass
+
+    def get_source_log_checksum(self, submission_id: str) -> str:
         return ""
+
+    def does_source_log_exist(self, submission_id: str) -> bool:
+        return False
 
     def is_available(self) -> bool:
         return False

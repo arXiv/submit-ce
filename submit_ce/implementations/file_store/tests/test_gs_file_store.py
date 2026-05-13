@@ -192,3 +192,66 @@ def test_delete_workspace(store, sub_id):
 
 def test_is_available(store):
     assert store.is_available() is True
+
+
+# ---------------------------------------------------------------------------
+# Artifact tests: directives, compile_log, compile_json, preflight,
+#                 request_log, source_log
+# ---------------------------------------------------------------------------
+
+ARTIFACTS = [
+    ("directives",   b'{"compiler": "pdflatex"}'),
+    ("compile_log",  b"Compilation log content"),
+    ("compile_json", b'{"status": "success"}'),
+    ("preflight",    b'{"issues": []}'),
+    ("request_log",  b"Request log content"),
+    ("source_log",   b"Source log content"),
+]
+
+
+@pytest.fixture
+def upload_artifact(store):
+    """Upload arbitrary bytes to the correct GCS path for a given resource."""
+    def _upload(sub_id: str, resource: str, content: bytes) -> None:
+        path = getattr(store, f'_{resource}_path')(sub_id)
+        blob = store.bucket.blob(str(path))
+        blob.upload_from_file(BytesIO(content))
+    return _upload
+
+
+@pytest.mark.parametrize("resource,content", ARTIFACTS)
+def test_artifact_missing_returns_FileDoesNotExist(store, sub_id, resource, content):
+    result = getattr(store, f'get_{resource}')(sub_id)
+    assert isinstance(result, FileDoesNotExist)
+
+
+@pytest.mark.parametrize("resource,content", ARTIFACTS)
+def test_artifact_does_not_exist_initially(store, sub_id, resource, content):
+    assert not getattr(store, f'does_{resource}_exist')(sub_id)
+
+
+@pytest.mark.parametrize("resource,content", ARTIFACTS)
+def test_artifact_does_exist_after_upload(store, sub_id, upload_artifact, resource, content):
+    upload_artifact(sub_id, resource, content)
+    assert getattr(store, f'does_{resource}_exist')(sub_id)
+
+
+@pytest.mark.parametrize("resource,content", ARTIFACTS)
+def test_artifact_get_returns_correct_content(store, sub_id, upload_artifact, resource, content):
+    upload_artifact(sub_id, resource, content)
+    blob = getattr(store, f'get_{resource}')(sub_id)
+    assert blob.download_as_bytes() == content
+
+
+@pytest.mark.parametrize("resource,content", ARTIFACTS)
+def test_artifact_checksum_is_nonempty(store, sub_id, upload_artifact, resource, content):
+    upload_artifact(sub_id, resource, content)
+    checksum = getattr(store, f'get_{resource}_checksum')(sub_id)
+    assert checksum
+
+
+@pytest.mark.parametrize("resource,content", ARTIFACTS)
+def test_artifact_delete(store, sub_id, upload_artifact, resource, content):
+    upload_artifact(sub_id, resource, content)
+    getattr(store, f'delete_{resource}')(sub_id)
+    assert not getattr(store, f'does_{resource}_exist')(sub_id)
