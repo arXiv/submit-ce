@@ -50,7 +50,7 @@ open http://localhost:8000
 ##  Run the tests
 
 ```bash
-pytest submit_ce
+./test.sh
 ```
 
 ## Run the Flask app pointed to a different bucket
