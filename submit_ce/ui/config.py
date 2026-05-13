@@ -100,13 +100,21 @@ class Settings(ArxivBaseSettings):
     allowe closed to the public dev or beta system."""
 
     COMPILE_API_URL: str = "https://tex2pdf-api-default-874717964009.us-central1.run.app"
-    """The tex2pdf-api url"""
+    """The tex2pdf-api url.
+    Do not end with a /.
+    """
 
     COMPILE_API_MAX_RETRIES: int = 1
 
     COMPILE_API_RETRY_DELAY: int = 10
 
     COMPILE_API_PREFLIGHT_TIMEOUT: int = 840
+
+    COMPILE_API_IMPERSONATE_SA: str = ""
+    """Service account email to impersonate when minting ID tokens for the
+    tex2pdf-api Cloud Run service. Leave empty in production (the attached
+    runtime SA is used via the metadata server). Set locally to e.g.
+    submit-ce-dev-sa@arxiv-development.iam.gserviceaccount.com."""
 
 settings = Settings()
 arxivbase_settings.CLASSIC_DB_URI = settings.CLASSIC_DB_URI

@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Optional
 import logging
 import httpx
@@ -6,6 +6,11 @@ import time
 import urllib.parse
 from typing_extensions import override
 from flask import current_app
+
+import google.auth
+import google.auth.transport.requests
+import google.oauth2.id_token
+from google.auth import impersonated_credentials
 
 from submit_ce.ui.config import settings
 
@@ -29,6 +34,50 @@ preflight report.
 It eventually should include information from post-compilation sources.
 ie: ?
 '''
+
+_ID_TOKEN_CACHE: dict[str, tuple[str, datetime]] = {}
+_ID_TOKEN_TTL = timedelta(minutes=50)
+
+
+def _get_id_token(audience: str) -> str:
+    """Return a Google OIDC ID token for ``audience``.
+
+    Uses the attached service account via the metadata server when
+    ``COMPILE_API_IMPERSONATE_SA`` is empty (production on Cloud Run/GCE/GKE).
+    Otherwise impersonates that SA using application-default credentials,
+    which is the local-dev path.
+    """
+    cached = _ID_TOKEN_CACHE.get(audience)
+    if cached and cached[1] > datetime.now(timezone.utc):
+        return cached[0]
+
+    auth_req = google.auth.transport.requests.Request()
+    impersonate_sa = settings.COMPILE_API_IMPERSONATE_SA
+    if impersonate_sa:
+        source_creds, _ = google.auth.default()
+        target_creds = impersonated_credentials.Credentials(
+            source_credentials=source_creds,
+            target_principal=impersonate_sa,
+            target_scopes=["https://www.googleapis.com/auth/cloud-platform"],
+        )
+        id_creds = impersonated_credentials.IDTokenCredentials(
+            target_creds, target_audience=audience,
+        )
+        id_creds.refresh(auth_req)
+        token = id_creds.token
+    else:
+        token = google.oauth2.id_token.fetch_id_token(auth_req, audience)
+
+    _ID_TOKEN_CACHE[audience] = (token, datetime.now(timezone.utc) + _ID_TOKEN_TTL)
+    return token
+
+
+def _auth_headers() -> dict:
+    headers = {'accept': 'application/json'}
+    if settings.COMPILE_API_URL.startswith('https://'):
+        headers['Authorization'] = f'Bearer {_get_id_token(settings.COMPILE_API_URL)}'
+    return headers
+
 
 class CompileApiService(CompileService):
     """Wrap calls to the tex2pdf-api service. See directive_manager.py for processing done in submit, on that data."""
@@ -72,9 +121,7 @@ class CompileApiService(CompileService):
             'source': source_path,
             'dest': preflight_path,
         }
-        headers = {
-            'accept': 'application/json',
-        }
+        headers = _auth_headers()
 
         url = f'{settings.COMPILE_API_URL}/preflight?{urllib.parse.urlencode(query_params)}'
 
@@ -180,9 +227,7 @@ class CompileApiService(CompileService):
             'dest': directives_path,
             'user_decisions_filename' : 'user_decisions.json',
         }
-        headers = {
-            'accept': 'application/json',
-        }
+        headers = _auth_headers()
 
         logger.info(f"start_directives, query_params '{settings.COMPILE_API_URL}/directives?")
         logger.info("start_directives, query_params %s", query_params)
