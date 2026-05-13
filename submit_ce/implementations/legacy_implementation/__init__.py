@@ -27,7 +27,7 @@ from ...domain.uploads import Workspace
 from ...domain.event.base import Event, EventWithSideEffect
 from ...domain.util import get_tzaware_utc_now
 
-from ...domain.event import CreateSubmission, AddFiles
+from ...domain.event import CreateSubmission, UploadFiles
 from ...domain.exceptions import NoSuchSubmission, NothingToDo
 from . import db
 

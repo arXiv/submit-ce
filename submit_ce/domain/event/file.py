@@ -14,6 +14,10 @@ from ..exceptions import InvalidEvent
 import logging
 logger = logging.getLogger(__name__)
 
+def _common_file_change_project(submission: Submission) -> None:
+    """Common changes to submission when any file change happens."""
+    submission.submitter_confirmed_preview = False
+
 
 class UploadArchive(EventWithSideEffect):
     """Uploads a zip or tgz file to the workspace, unpacking all the files."""
@@ -42,11 +46,11 @@ class UploadArchive(EventWithSideEffect):
 
     def project(self, submission: Submission) -> Submission:
         submission.uncompressed_size = self.uncompressed_size
-        submission.submitter_confirmed_preview = False
+        _common_file_change_project(submission)
         return submission
 
 
-class AddFiles(EventWithSideEffect):
+class UploadFiles(EventWithSideEffect):
     """Add files to the upload workspace for this submission.
 
     Also initializes the upload package if none exists yet.
@@ -56,27 +60,24 @@ class AddFiles(EventWithSideEffect):
     NAME = "add files"
     NAMED = "files added"
 
-    files: List[Annotated[SubmitFile, WithJsonSchema({'type': 'object'})]] = Field(default_factory=list, exclude=True)
-    uncompressed_size: int = 0
-    source_format: SourceFormat = Field(default=SourceFormat.UNKNOWN)
-
-    def model_post_init(self, *args, **kwargs) -> None:
-        if type(self.source_format) is str:
-            self.source_format = SourceFormat(self.source_format)
+    files: List[Annotated[SubmitFile, WithJsonSchema({'type': 'object'})]] = \
+        Field(default_factory=list, exclude=True)
+    _bytes_added: int = 0
 
     def validate(self, submission: Submission) -> None:
         validators.submission_is_not_finalized(self, submission)
 
     def execute(self, api: SubmitApi, submission: Submission) -> None:
         """Upload the new files using the file store."""
+        breakpoint()
         file_store = api.get_file_store()
         for f in self.files:
-            file_store.store_source_file(str(submission.submission_id), f, chunk_size=4096)
+            stat=file_store.store_source_file(str(submission.submission_id), f, chunk_size=4096)
+            self._bytes_added += stat.bytes
 
     def project(self, submission: Submission) -> Submission:
-        submission.source_format = self.source_format
-        submission.uncompressed_size = self.uncompressed_size
-        submission.submitter_confirmed_preview = False
+        submission.uncompressed_size = submission.uncompressed_size + self._bytes_added
+        _common_file_change_project(submission)
         return submission
 
 
@@ -87,8 +88,10 @@ class RemoveFiles(EventWithSideEffect):
     NAME = "remove files"
     NAMED = "files removed"
 
-    files: List[Annotated[SubmitFile, WithJsonSchema({'type': 'object'})]] = Field(default_factory=list, exclude=True)
-    uncompressed_size: int = 0
+    files: List[Annotated[SubmitFile, WithJsonSchema({'type': 'object'})]] = \
+        Field(default_factory=list, exclude=True)
+
+    _bytes_removed:int = 0
 
     def validate(self, submission: Submission) -> None:
         validators.submission_is_not_finalized(self, submission)
@@ -98,9 +101,11 @@ class RemoveFiles(EventWithSideEffect):
         file_store = api.get_file_store()
         for f in self.files:
             file_store.delete_source_file(str(submission.submission_id), f.filename)
+            # TODO Will need to accumulate the size of the files removed and update the uncompressed_size
+            # self._bytes_removed += f.size Not surehow to get size!
 
     def project(self, submission: Submission) -> Submission:
-        submission.uncompressed_size = self.uncompressed_size
+        #submission.uncompressed_size = submission.uncompressed_size - self._bytes_removed
         submission.submitter_confirmed_preview = False
         return submission
 
@@ -123,5 +128,5 @@ class RemoveAllFiles(EventWithSideEffect):
     def project(self, submission: Submission) -> Submission:
         submission.source_format = None
         submission.uncompressed_size = 0
-        submission.submitter_confirmed_preview = False
+        _common_file_change_project(submission)
         return submission

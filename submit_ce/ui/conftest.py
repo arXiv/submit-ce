@@ -18,13 +18,13 @@ from flask import Flask, current_app
 from sqlalchemy import desc, select
 
 import submit_ce
+from submit_ce.domain.event.file import UploadFiles
 from submit_ce.implementations.compile import MockCompileMimesisPdf
 import submit_ce.ui.auth
 from submit_ce.domain import Author
 from submit_ce.domain.uploads import SourceFormat
 from submit_ce.domain.agent import InternalClient
 from submit_ce.domain.event import (
-    AddFiles,
     AddSecondaryClassification,
     ConfirmAuthorship,
     ConfirmContactInformation,
@@ -264,13 +264,9 @@ def sub_files(app, authorized_user, sub_cross):
     with app.app_context():
         user = authorized_user
         ua = InternalClient(name=f"test_client_{__file__}")
+        # TODO need to mock filestore so that it fakes a file enought to change the Submission
         submission, _ = current_app.api.save(
-            AddFiles(creator=user, client=ua,
-                checksum="a9s9k342900skks03330029k",
-                source_format=SourceFormat.TEX,
-                identifier="123",
-                uncompressed_size=593992,
-                compressed_size=59392,
+            UploadFiles(creator=user, client=ua, files=[]
             ), submission_id=sub_cross.submission_id)
         return submission
 
@@ -348,7 +344,7 @@ def submitted_submission(app, authorized_user):
             ConfirmAuthorship(creator=user, client=ua, submitter_is_author=True),
             SetLicense(creator=user, client=ua, license_uri=cc0, license_name="CC0 1.0"),
             ConfirmPolicy(creator=user, client=ua, agreement_id=1),
-            SetPrimaryClassification(creator=user, client=ua, category="astro-ph.GA"),
+            UploadFilesryClassification(creator=user, client=ua, category="astro-ph.GA"),
             AddFiles(creator=user, client=ua,
                 checksum="a9s9k342900skks03330029k",
                 source_format=SourceFormat.TEX,
@@ -393,7 +389,7 @@ def published_submission(app, authorized_user):
                 creator=user, client=ua, license_uri=cc0, license_name="CC0 1.0"
             ),
             ConfirmPolicy(creator=user, client=ua, agreement_id=1),
-            SetPrimaryClassification(creator=user, client=ua, category="astro-ph.GA"),
+            UploadFilesryClassification(creator=user, client=ua, category="astro-ph.GA"),
             AddFiles(
                 creator=user,
                 client=ua,
