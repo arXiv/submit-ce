@@ -4,7 +4,7 @@ from pytz import UTC
 import pytest
 
 from submit_ce.domain import submission as submod, agent
-from submit_ce.domain.event.file import AddFiles, RemoveFiles, RemoveAllFiles
+from submit_ce.domain.event.file import UploadFiles, RemoveFiles, RemoveAllFiles
 from submit_ce.domain.uploads import SourceFormat
 from submit_ce.domain.exceptions import InvalidEvent
 
@@ -29,43 +29,32 @@ def _blank_submission(uid: str = "u1"):
 
 def test_add_files_initializes_package():
     s = _blank_submission()
-    e = AddFiles(creator=s.creator, files=[], uncompressed_size=10,
-                 source_format=SourceFormat.PDF)
+    e = UploadFiles(creator=s.creator, files=[])
     e.validate(s)
     s = e.project(s)
 
-    assert s.source_format == SourceFormat.PDF
-    assert s.uncompressed_size == 10
     assert s.submitter_confirmed_preview is False
 
 def test_add_files_updates_package():
     s = _blank_submission()
-    s.source_format = SourceFormat.TEX
-    s.uncompressed_size = 0
-    e = AddFiles(creator=s.creator, files=[], uncompressed_size=10, source_format=SourceFormat.TEX)
+    e = UploadFiles(creator=s.creator, files=[])
 
     e.validate(s)
     s = e.project(s)
 
-    assert s.uncompressed_size == 10
     assert s.submitter_confirmed_preview is False
 
 def test_remove_files_updates_size():
     s = _blank_submission()
-    s.source_format = SourceFormat.TEX
-    s.uncompressed_size = 20
-    e = RemoveFiles(creator=s.creator, files=[], uncompressed_size=10)
+    e = RemoveFiles(creator=s.creator, files=[])
 
     e.validate(s)
     s = e.project(s)
 
-    assert s.uncompressed_size == 10
     assert s.submitter_confirmed_preview is False
 
 def test_remove_all_files_clears_package():
     s = _blank_submission()
-    s.source_format = SourceFormat.TEX
-    s.uncompressed_size = 20
     e = RemoveAllFiles(creator=s.creator)
 
     e.validate(s)

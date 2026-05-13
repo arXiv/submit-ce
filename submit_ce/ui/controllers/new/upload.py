@@ -34,7 +34,7 @@ from werkzeug.exceptions import (
 from wtforms import BooleanField, FileField
 
 from submit_ce.domain import Client, User, Event
-from submit_ce.domain.event.file import UploadArchive
+from submit_ce.domain.event.file import UploadArchive, UploadFiles
 from submit_ce.domain.submission import Submission
 from submit_ce.domain.uploads import SourceFormat
 from submit_ce.domain.uploads import Workspace, FileStatus, UploadStatus, is_file_tgz
@@ -75,10 +75,11 @@ def _single_file_archive(files: MultiDict) -> bool:
     return is_file_tgz(pointer)
 
 
-class UploadForm(csrf.CSRFForm):
+class AddfilesForm(csrf.CSRFForm):
     """Form for uploading files."""
 
     file = FileField('Choose a file...')
+    # TODO ancillary field is not yet handled by controller
     ancillary = BooleanField('Ancillary')
 
 
@@ -133,7 +134,7 @@ def upload_files(method: str, params: MultiDict, session: Session,
     submission, _ = get_submission(submission_id)
     rdata.update({'submission_id': submission_id,
                   'submission': submission,
-                  'form': UploadForm()})
+                  'form': AddfilesForm()})
 
     if method not in ['GET', 'POST']:
         raise MethodNotAllowed()
@@ -142,28 +143,30 @@ def upload_files(method: str, params: MultiDict, session: Session,
     elif method == 'POST':
         file = files['file'] if (files and 'file' in files and files['file']) else None
         params['file'] = file
-        form = UploadForm(params)
+        form = AddfilesForm(params)
         rdata.update({'form': form, 'submission': submission})
         if not form.validate():
             logger.error('Submission %s Invalid upload form: %s %s', submission.submission_id, form.errors)
             alerts.flash_failure("No file was uploaded; please try again.")
             return stay_on_this_stage((rdata, status.OK, {}))
 
-        is_archive = _single_file_archive(files)
-        has_files = submission.source_format is not None
+        file_count = 0 if not files else len(files)
+        is_archive = "ARCHIVE" if _single_file_archive(files) else "NONARCHIVE"
+        # TODO not sure if has_files is useful any more. _upload_files can upload with or without files,
+        has_files = submission.uncompressed_size > 0
         try:
-            match (file, params.get('action'), has_files, is_archive):
-                case (_, _, _, _) if len(files) > 1:
-                    raise BadRequest(description="Multi file upload not yet supported. Use a zip or tgz file.")
-                case (None, action, _, _) if action:  # trying to go back to previous page
+            match (file_count, params.get('action'), has_files, is_archive):
+                case (0, action, _, _) if action:  # trying to go back to previous page
                     return {}, status.SEE_OTHER, {}  # Don't flash a message
-                case (None, _, _, _):
+                case (0, _, _, _):
                     logger.debug('No files on request')
                     return stay_on_this_stage(_get_upload(params, session, submission, rdata, token))
-                case (_, _, False, True):
+                case (_, _, _, _) if len(files) > 1:
+                    raise BadRequest(description="Multi file upload not yet supported. Use a zip or tgz file.")
+                case (_, _, False, "ARCHIVE"):
                     return _upload_archive(form, file, submitter, client, submission, rdata, token)
-                case (_, _, False, False):
-                    return _upload_file(form, params, file, session, submission, rdata, token)
+                case (_, _, _, "NONARCHIVE"):
+                    return _upload_files(form, files, submitter, client, submission, rdata, token)
                 case unhandled:
                     assert_never(unhandled)
         except RequestEntityTooLarge as ex:
@@ -204,7 +207,7 @@ def _get_upload(params: MultiDict, session: Session, submission: Submission,
         Extra headers to add/update on the response.
 
     """
-    rdata.update({'status': None, 'form': UploadForm()})
+    rdata.update({'status': None, 'form': AddfilesForm()})
 
     if not conditions.has_files(submission):
         return rdata, status.OK, {}  # Nothing to show; generate a blank-slate upload page
@@ -222,34 +225,11 @@ def _get_upload(params: MultiDict, session: Session, submission: Submission,
 
 
 
-def _upload_archive(form: UploadForm, file: FileStorage,
+def _upload_archive(form: AddfilesForm, file: FileStorage,
                     submitter: User, client: Client,
                     submission: Submission, rdata: Dict[str, Any], token: str) \
         -> Response:
-    """
-    Handle a POST request with a archive like a tgz or a zip.
-
-    Parameters
-    ----------
-    params : :class:`MultiDict`
-        The form data from the request.
-    pointer : :class:`FileStorage`
-        The file upload stream.
-    session : :class:`Session`
-        The authenticated session for the request.
-    submission : :class:`Submission`
-        The submission for which the upload is being made.
-
-    Returns
-    -------
-    dict
-        Response data, to render in template.
-    int
-        HTTP status code. This should be ``303``, unless something goes wrong.
-    dict
-        Extra headers to add/update on the response. Should include the `Location` header for use in a 303 redirect.
-
-    """
+    """Handle a POST request with a archive like a tgz or a zip."""
     command = UploadArchive(creator=submitter, client=client, file=file)
     validate_command(form, command, submission, 'file')  # raises on invalid
     submission, _ = current_app.api.save(command, submission_id=submission.submission_id)
@@ -279,39 +259,40 @@ def _upload_archive(form: UploadForm, file: FileStorage,
     return stay_on_this_stage((rdata, status.OK, {}))
 
 
-def _upload_file(form: UploadForm, params: MultiDict, pointer: FileStorage, session: Session,
-              submission: Submission, rdata: Dict[str, Any], token: str) \
+def _upload_files(form: AddfilesForm, files: List[FileStorage],
+                 submitter: User, client: Client,
+                 submission: Submission, rdata: Dict[str, Any], token: str)\
         -> Response:
-    """
-    Handle a POST request with a new file to add to an existing upload package.
+    """Handle a POST with a files to add to a submission."""
+    file_list = [value for value in files.values() if isinstance(value, FileStorage)]
+    command = UploadFiles(creator=submitter, client=client, files=file_list)
+    validate_command(form, command, submission, 'file')
+    submission, _ = current_app.api.save(command, submission_id=submission.submission_id)
+    workspace = current_app.api.get_file_store().get_workspace(submission_id=str(submission.submission_id))
+    converted_size = tidy_filesize(workspace.size)
+    files_uploaded = len(files)
+    files_number= "file" if files_uploaded == 1 else "files"
+    if workspace.status is UploadStatus.READY:
+        alerts.flash_success(
+            f'Uploaded {files_uploaded} {files_number}. Total submission'
+            f' package size is {converted_size}',
+            title='Upload successful'
+        )
+    elif workspace.status is UploadStatus.READY_WITH_WARNINGS:
+        alerts.flash_warning(
+            f'Uploaded {files_uploaded} {files_number}. Total submission'
+            f' package size is {converted_size}. See below for warnings.',
+            title='Upload complete, with warnings'
+        )
+    elif workspace.status is UploadStatus.ERRORS:
+        alerts.flash_warning(
+            f'Uploaded {files_uploaded} {files_number}. Total submission'
+            f' package size is {converted_size}. See below for errors.',
+            title='Upload complete, with errors'
+        )
+    alerts.flash_hidden(workspace.model_dump(), '_status')
 
-    This occurs in the case that there is already an upload workspace
-    associated with the submission. See the :attr:`Submission.source_content`
-    attribute, which is set using :class:`SetUploadPackage`.
-
-    Parameters
-    ----------
-    params : :class:`MultiDict`
-        The form data from the request.
-    pointer : :class:`FileStorage`
-        The file upload stream.
-    session : :class:`Session`
-        The authenticated session for the request.
-    submission : :class:`Submission`
-        The submission for which the upload is being made.
-
-    Returns
-    -------
-    dict
-        Response data, to render in template.
-    int
-        HTTP status code. This should be ``303``, unless something goes wrong.
-    dict
-        Extra headers to add/update on the response. This should include
-        the `Location` header for use in the 303 redirect response.
-
-    """
-    alerts.flash_warning("single file upload not yet implemeneted")
+    rdata.update({'status': workspace})
     return stay_on_this_stage((rdata, status.OK, {}))
 
 
