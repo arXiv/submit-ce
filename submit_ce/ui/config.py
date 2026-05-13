@@ -100,7 +100,9 @@ class Settings(ArxivBaseSettings):
     allowe closed to the public dev or beta system."""
 
     COMPILE_API_URL: str = "https://tex2pdf-api-default-874717964009.us-central1.run.app"
-    """The tex2pdf-api url"""
+    """The tex2pdf-api url.
+    Do not end with a /.
+    """
 
     COMPILE_API_MAX_RETRIES: int = 1
 
