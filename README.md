@@ -1,13 +1,12 @@
 # submit-ce API
 arXiv paper submission system
 
-## Install & use
+## Run the app for development
+
+These are instructions to run the app on your laptop using the tex2pdf service
+at GCP and storage at GCP GS.
 
 To run the server, please execute the following from the root directory:
-
-Configure:
-In submit_ce/ui/config.py,
-append your username to STORE_GS_PREFIX
 
 Start the compiler api:
 gcloud run services proxy tex2pdf-api-default --project arxiv-development --region us-central1 --port=9001
@@ -17,15 +16,15 @@ On linux:
 ```bash
 # Install gcld3 dependencies needed by arxiv-base metadata checks
 sudo apt-get install cmake libprotobuf-dev protobuf-compiler
-uv sync
+
+uv sync  # makes .venv with correct python and installs packages
 
 # this will give you an Authorization token, save that and use a browser extension
 # like modheader to add Authorization=eyJhb...
 uv run python submit_ce/make_test_db.py bootstrap_db
 
-uv run flask --app submit_ce.ui.factory:create_web_app run -p 8000
-
-google-chrome http://localhost:8000
+uv run python local_dev.py  # runs app with GS prefix of your username
+open http://localhost:8000
 ```
 
 On mac:
@@ -43,7 +42,7 @@ source .venv/bin/activate
 
 python submit_ce/make_test_db.py bootstrap_db
 
-uv run python local_dev.py
+uv run python local_dev.py  # runs app with GS prefix of your username
 open http://localhost:8000
 ```
 
