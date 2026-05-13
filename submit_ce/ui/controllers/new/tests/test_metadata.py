@@ -15,7 +15,8 @@ def test_metadata(app, authorized_client, sub_processed):
     url = f"/{sub.submission_id}/add_metadata"
     resp = authorized_client.get(url)
     assert resp.status_code == 200 \
-        and b"<title>Add or Edit Metadata" in resp.data and b"<form " in resp.data
+        and b"<title>Add or Edit Metadata" in resp.data and b"<form " in resp.data, \
+        "PROBLEM: sub_processed fixture cannot even get to metadata page"
 
     resp = authorized_client.post(url, data={})
     assert resp.status_code == 400 \

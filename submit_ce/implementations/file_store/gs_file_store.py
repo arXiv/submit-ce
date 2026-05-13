@@ -439,12 +439,15 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
     def get_full_submission_path(self, submission_id: str) -> Path:
         return f'{self._full_base_path()}/{self._submission_path(submission_id)}'
 
+    @override
     def get_full_source_package_path(self, submission_id: str) -> str:
         return f'{self._full_base_path()}/{self._source_package_path(submission_id)}'
 
+    @override
     def get_full_preflight_package_path(self, submission_id: str) -> str:
         return f'{self._full_base_path()}/{self._preflight_path(submission_id)}'
 
+    @override
     def get_full_directives_package_path(self, submission_id: str) -> str:
         return f'{self._full_base_path()}/{self._directives_path(submission_id)}'
 
@@ -454,6 +457,7 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
     def _source_log_path(self, submission_id: str) -> Path:
         return self._submission_path(submission_id) / 'source.log'
 
+    @override
     def store_zzrm(self, submission_id: str, content: dict) -> None:
         path = self._source_path(submission_id) / '00README.json'
         blob = self.bucket.blob(str(path))
@@ -483,66 +487,6 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
         """
         if not str(path).startswith(str(self._source_path(submission_id))):
             raise RuntimeError(f"Path {path} not part of submission_id {submission_id}")
-
-    @override
-    def delete_workspace(self, submission_id: str):
-        raise RuntimeError("delete_workspace not implementated")
-
-    @override
-    def is_available(self) -> bool:
-        """Determine whether the filesystem is available."""
-        try:
-            return self.bucket.exists()
-        except Exception as ex:
-            logger.error(f"Could not check if bucket exists: {ex}")
-            return False
-
-    def _full_base_path(self):
-        return f'gs://{self.gs_bucket}'
-
-    @override
-    def get_full_source_package_path(self, submission_id: str) -> str:
-        return f'{self._full_base_path()}/{self._source_package_path(submission_id)}'
-
-    @override
-    def get_full_preflight_package_path(self, submission_id: str) -> str:
-        return f'{self._full_base_path()}/{self._preflight_path(submission_id)}'
-
-    @override
-    def get_full_directives_package_path(self, submission_id: str) -> str:
-        return f'{self._full_base_path()}/{self._directives_path(submission_id)}'
-
-    @override
-    def delete_all_source_files(self, submission_id: str) -> None:
-        blobs = self.bucket.list_blobs(prefix=str(self._source_path(submission_id)))
-        for blob in blobs:
-            blob.delete()
-
-    @override
-    def delete_preview(self, submission_id: str) -> None:
-        preview_path = self._preview_path(submission_id)
-        blob = self.bucket.blob(str(preview_path))
-        if blob.exists():
-            blob.delete()
-
-    @override
-    def delete_preflight(self, submission_id: str) -> None:
-        blob = self.bucket.blob(str(self._preflight_path(submission_id)))
-        if blob.exists():
-            blob.delete()
-
-    @override
-    def delete_directives(self, submission_id: str) -> None:
-        blob = self.bucket.blob(str(self._directives_path(submission_id)))
-        if blob.exists():
-            blob.delete()
-
-    @override
-    def store_zzrm(self, submission_id: str, content: dict) -> None:
-        path = self._source_path(submission_id) / '00README.json'
-        blob = self.bucket.blob(str(path))
-        data = json.dumps(content).encode('utf-8')
-        blob.upload_from_file(io.BytesIO(data), content_type='application/json')
 
     def __repr__(self) -> str:
         return (f"{self.__class__.__name__}("
