@@ -1,6 +1,6 @@
-"""Integration tests for GsFileStore using fsouza/fake-gcs-server via Docker.
+"""Integration tests for GsFileStore against real GCS (arxiv-submit-dev / arxiv-development).
 
-Requires Docker. The fake-gcs-server image is pulled automatically on first run.
+Requires Google Cloud credentials with access to the arxiv-development project.
 Run with: uv run pytest submit_ce/implementations/file_store/tests/test_gs_file_store.py -v
 """
 import tarfile
@@ -8,54 +8,50 @@ import uuid
 from io import BytesIO
 
 import pytest
-from xprocess import ProcessStarter
-from google.auth.credentials import AnonymousCredentials
 from google.cloud import storage
 
 from arxiv.files import FileDoesNotExist
 from submit_ce.implementations.file_store.gs_file_store import GsFileStore
 
-EMULATOR_PORT = 4443
-EMULATOR_URL = f"http://localhost:{EMULATOR_PORT}"
-BUCKET_NAME = "test-submit-ce"
+BUCKET_NAME = "arxiv-submit-dev"
+PROJECT = "arxiv-development"
+TEST_PREFIX_BASE = "test_gs_file_store"
 
 
 @pytest.fixture(scope="session")
-def fake_gcs_server(xprocess):
-    class Starter(ProcessStarter):
-        pattern = "server started at"
-        args = [
-            "docker", "run", "--rm",
-            "-p", f"{EMULATOR_PORT}:{EMULATOR_PORT}",
-            "fsouza/fake-gcs-server",
-            "-scheme", "http",
-            "-port", str(EMULATOR_PORT),
-        ]
-        timeout = 60
-
-    xprocess.ensure("fake-gcs-server", Starter)
-    yield EMULATOR_URL
-    xprocess.getinfo("fake-gcs-server").terminate()
-
-
-@pytest.fixture(scope="session")
-def gcs_client(fake_gcs_server):
-    return storage.Client(
-        credentials=AnonymousCredentials(),
-        project="test-project",
-        client_options={"api_endpoint": fake_gcs_server},
-    )
+def gcs_client():
+    return storage.Client(project=PROJECT)
 
 
 @pytest.fixture(scope="session")
 def bucket(gcs_client):
-    b = gcs_client.create_bucket(BUCKET_NAME)
-    return b.name
+    b = gcs_client.bucket(BUCKET_NAME)
+    if gcs_client.project != PROJECT:
+        pytest.fail(f"GCS client project is {gcs_client.project!r}, expected {PROJECT!r}; refusing to run against non-dev bucket.")
+    if "dev" not in BUCKET_NAME:
+        pytest.fail(f"Bucket name {BUCKET_NAME!r} does not contain 'dev'; refusing to run against non-dev bucket.")
+    chosen = None
+    for _ in range(8):
+        candidate = f"{TEST_PREFIX_BASE}/{uuid.uuid4().hex[:12]}"
+        existing = list(gcs_client.list_blobs(b, prefix=candidate, max_results=1))
+        if not existing:
+            chosen = candidate
+            break
+    if chosen is None:
+        pytest.fail(
+            f"Could not find a free prefix under {TEST_PREFIX_BASE!r} in {BUCKET_NAME} "
+            "after 8 attempts; aborting to avoid interference with existing data."
+        )
+    yield BUCKET_NAME, chosen
+    blobs = list(gcs_client.list_blobs(b, prefix=chosen))
+    if blobs:
+        b.delete_blobs(blobs)
 
 
 @pytest.fixture
 def store(gcs_client, bucket):
-    return GsFileStore(gs_bucket=bucket, client=gcs_client)
+    bucket_name, gs_prefix = bucket
+    return GsFileStore(gs_bucket=bucket_name, gs_prefix=gs_prefix, client=gcs_client)
 
 
 @pytest.fixture
