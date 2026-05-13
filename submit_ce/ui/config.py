@@ -108,5 +108,11 @@ class Settings(ArxivBaseSettings):
 
     COMPILE_API_PREFLIGHT_TIMEOUT: int = 840
 
+    COMPILE_API_IMPERSONATE_SA: str = ""
+    """Service account email to impersonate when minting ID tokens for the
+    tex2pdf-api Cloud Run service. Leave empty in production (the attached
+    runtime SA is used via the metadata server). Set locally to e.g.
+    submit-ce-dev-sa@arxiv-development.iam.gserviceaccount.com."""
+
 settings = Settings()
 arxivbase_settings.CLASSIC_DB_URI = settings.CLASSIC_DB_URI
