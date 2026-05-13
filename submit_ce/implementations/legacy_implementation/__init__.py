@@ -218,7 +218,7 @@ class LegacySubmitImplementation(SubmitApi):
         submission, event_list = self._load(session, submission_id, lock_row=self.serialize_file_operations)
 
         self.store.store_source_package(str(submission.submission_id), file, 4098)
-        workspace = self.store.get_workspace(str(submission.submission_id), "fakeuploadid")
+        workspace = self.store.get_workspace(str(submission.submission_id))
 
         command = SetUploadPackage(creator=user, client=client,
                                    submission_id=submission.submission_id,

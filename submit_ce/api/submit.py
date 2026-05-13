@@ -141,12 +141,17 @@ class SubmitApi(ABC):
 
     @abstractmethod
     def get_file_store(self) -> SubmissionFileStore:
-        """
-        Get a submission file store.
+        """Get a submission file store.
+
+        Used by `Events` with side effects to work with files.
+
+        Also intended to allow code with access to the SubmitApi to also have
+        access to files.
 
         Returns
         -------
             `SubmissionFileStore`
+
         """
         ...
 
@@ -155,33 +160,30 @@ class SubmitApi(ABC):
         """
         Gets a `CompileService` implementation object.
 
+        Used by `Events` with side effects to work with compiler.
+
+        Intended to allow code with access to the SubmitApi to also have
+        access to the compile service.
+
         Returns
         -------
             `CompileService`
         """
         ...
 
-    # Ex what happens on a Command like CompileSource
-    # What about longer commands? or things like compile source that may have a later result?
-    # In legacy compile source is just synchronous.
+    # Ex what happens on a Command like CompileSource What about longer
+    # commands? or things like compile source that may have a later result?  In
+    # legacy compile source is just synchronous.
 
-    # What about other things in the QA system? Text extraction is kind of slow, usually 20 or 30 sec.
-    # But some pathological cases, up to a timelimit of 5 or 10 minutes. Also, there are huge documents like 800 pages.
+    # What about other things in the QA system? Text extraction is kind of slow,
+    # usually 20 or 30 sec.  But some pathological cases, up to a timelimit of 5
+    # or 10 minutes. Also, there are huge documents like 800 pages.
 
-    # File upload is also more than just a basic metadata change.
 
     # On submit, send mail on submit and later if there is a problem send an email too.
 
-    # Probably need a "status of submission and problems list" page. But this doesn't need to be designed right now
-
-    # UploadCommand(file=uploaded_byteio, file_name="something.tgz", mime_type=mt, ...)
-    # CompileSource()
-
-    # def start_submission(self, start_cmd: StartCommand) -> Submission:
-    #     ...
-    #
-    # def get_history(self, submission_id: str) -> List[Event]:
-    #     ...
+    # Probably need a "status of submission and problems list" page. But this
+    # doesn't need to be designed right now
 
 
     @abstractmethod
@@ -247,6 +249,10 @@ class SubmitApi(ABC):
         """
         # TODO Make this just an Event+save()
         ...
+
+
+    #__Informational Methods___________________________________________________
+
 
     @abstractmethod
     def licenses(self, active_only=True) -> List[License]:
