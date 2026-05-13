@@ -344,8 +344,8 @@ def submitted_submission(app, authorized_user):
             ConfirmAuthorship(creator=user, client=ua, submitter_is_author=True),
             SetLicense(creator=user, client=ua, license_uri=cc0, license_name="CC0 1.0"),
             ConfirmPolicy(creator=user, client=ua, agreement_id=1),
-            UploadFilesryClassification(creator=user, client=ua, category="astro-ph.GA"),
-            AddFiles(creator=user, client=ua,
+            SetPrimaryClassification(creator=user, client=ua, category="astro-ph.GA"),
+            UploadFiles(creator=user, client=ua,
                 checksum="a9s9k342900skks03330029k",
                 source_format=SourceFormat.TEX,
                 identifier="123",
@@ -389,8 +389,8 @@ def published_submission(app, authorized_user):
                 creator=user, client=ua, license_uri=cc0, license_name="CC0 1.0"
             ),
             ConfirmPolicy(creator=user, client=ua, agreement_id=1),
-            UploadFilesryClassification(creator=user, client=ua, category="astro-ph.GA"),
-            AddFiles(
+            SetPrimaryClassification(creator=user, client=ua, category="astro-ph.GA"),
+            UploadFiles(
                 creator=user,
                 client=ua,
                 checksum="a9s9k342900skks03330029k",

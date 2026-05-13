@@ -69,7 +69,6 @@ class UploadFiles(EventWithSideEffect):
 
     def execute(self, api: SubmitApi, submission: Submission) -> None:
         """Upload the new files using the file store."""
-        breakpoint()
         file_store = api.get_file_store()
         for f in self.files:
             stat=file_store.store_source_file(str(submission.submission_id), f, chunk_size=4096)
