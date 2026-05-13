@@ -42,7 +42,7 @@ from submit_ce.domain.exceptions import SaveError
 
 from submit_ce.ui.auth import user_and_client_from_session
 from submit_ce.ui.controllers.util import add_immediate_alert, validate_command
-from submit_ce.ui.routes.flow_control import stay_on_this_stage
+from submit_ce.ui.routes.flow_control import ready_for_next, stay_on_this_stage
 from submit_ce.ui.backend import get_submission
 from submit_ce.ui import SUPPORT
 from submit_ce.ui.workflow import conditions
@@ -156,6 +156,8 @@ def upload_files(method: str, params: MultiDict, session: Session,
         has_files = submission.uncompressed_size > 0
         try:
             match (file_count, params.get('action'), has_files, is_archive):
+                case (_, 'next', _, _):
+                    return ready_for_next((rdata, status.OK, {}))
                 case (0, action, _, _) if action:  # trying to go back to previous page
                     return {}, status.SEE_OTHER, {}  # Don't flash a message
                 case (0, _, _, _):
