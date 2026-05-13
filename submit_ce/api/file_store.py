@@ -34,6 +34,10 @@ if TYPE_CHECKING:
 
 class SubmissionFileStore(metaclass=ABCMeta):
     @abstractmethod
+    def get_full_submission_path(self, submission_id: str) -> Path:
+        pass
+
+    @abstractmethod
     def get_workspace(self, submission_id: str) -> Optional[Workspace]:
         """Returns information about the source package."""
         pass
@@ -150,6 +154,31 @@ class SubmissionFileStore(metaclass=ABCMeta):
     @abstractmethod
     def does_directives_exist(self, submission_id: str) -> bool:
         """Determine whether a directives file has been deposited for a submission."""
+        pass
+
+    @abstractmethod
+    def store_user_options(self, submission_id: str, content: dict) -> str:
+        """Store user_options.json for a submission. Returns checksum."""
+        pass
+
+    @abstractmethod
+    def get_user_options(self, submission_id: str) -> FileObj:
+        """Retrieve the user_options.json from the filesystem."""
+        pass
+
+    @abstractmethod
+    def delete_user_options(self, submission_id: str) -> None:
+        """Delete the user_options.json file."""
+        pass
+
+    @abstractmethod
+    def get_user_options_checksum(self, submission_id: str) -> str:
+        """Get the checksum of the user_options.json file for a submission."""
+        pass
+
+    @abstractmethod
+    def does_user_options_exist(self, submission_id: str) -> bool:
+        """Determine whether a user_options.json has been deposited for a submission."""
         pass
 
     @abstractmethod

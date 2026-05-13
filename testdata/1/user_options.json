@@ -1,0 +1,6 @@
+{
+  "sources": [{"filename": "main-test1.tex", "usage" : "toplevel"}],
+  "texlive_version": "2025",
+  "process": {"compiler": "pdflatex"}
+}
+

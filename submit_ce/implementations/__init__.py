@@ -17,12 +17,32 @@ from submit_ce.implementations.schedule import next_announcement_time, next_free
 
 class NullCompilerService(CompileService):
 
+    def start_directives(self, submission: Submission, user: User, client: Client, api: 'SubmitApi',
+                         source_package_id: Optional[str] = None) -> Result:
+        pass
+
+    def check_directives(self, process_id: str, user: User, client: Client) -> ProcessStatus:
+        pass
+
+    def start_preflight(self, submission: Submission, user: User, client: Client, api: 'SubmitApi',
+                        source_package_id: Optional[str] = None) -> Result:
+        pass
+
+    def check_preflight(self, process_id: str, user: User, client: Client) -> ProcessStatus:
+        pass
+
     def start_compile(self, submission: Submission, user: User, client: Client, api: 'SubmitApi',
                       source_package_id: Optional[str] = None) -> Result:
         pass
 
     def check(self, process_id: str, user: User, client: Client) -> ProcessStatus:
         pass
+
+    def is_available(self) -> bool:
+        return False
+
+    def convert_preflight_to_directives(self, contents: str) -> str:
+        return ""
 
 
 class NullFileStore(SubmissionFileStore):
@@ -71,6 +91,9 @@ class NullFileStore(SubmissionFileStore):
 
     def does_source_exist(self, submission_id: str) -> bool:
         return False
+
+    def get_full_submission_path(self, submission_id: str) -> str:
+        return ""
 
     def store_preview(self, submission_id: str, content: IO[bytes], chunk_size: int) -> str:
         return "not really stored, NullFileStore"
@@ -121,6 +144,22 @@ class NullFileStore(SubmissionFileStore):
         return ""
 
     def does_directives_exist(self, submission_id: str) -> bool:
+        return False
+
+    def store_user_options(self, submission_id: str, content: dict) -> str:
+        return ""
+
+    def get_user_options(self, submission_id: str) -> FileObj:
+        from arxiv.files import FileDoesNotExist
+        return FileDoesNotExist(submission_id)
+
+    def delete_user_options(self, submission_id: str) -> None:
+        pass
+
+    def get_user_options_checksum(self, submission_id: str) -> str:
+        return ""
+
+    def does_user_options_exist(self, submission_id: str) -> bool:
         return False
 
     def get_compile_log(self, submission_id: str) -> FileObj:

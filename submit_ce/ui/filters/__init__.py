@@ -1,7 +1,10 @@
 """Custom Jinja2 filters."""
 
+from collections import OrderedDict
 from dataclasses import asdict
 from datetime import datetime
+from locale import strxfrm
+from pathlib import Path
 from typing import List, Tuple, Callable
 
 from arxiv import taxonomy
@@ -116,6 +119,31 @@ def compilation_status_display(status: Compilation.Status) -> str:
     raise ValueError("Unknown status")
 
 
+def group_preflight_files(files: list) -> OrderedDict:
+    """Group preflight file dicts by directory, top-level files first then subdirs."""
+    tree: dict = {}
+    for f in files:
+        path = Path(f['filename'])
+        level = tree
+        for p in reversed(path.parents):
+            if str(p) == '.':
+                continue
+            level = level.setdefault(p.name, {})
+        level[path.name] = f
+
+    def _order(node: dict) -> OrderedDict:
+        file_items = [(k, v) for k, v in node.items() if 'filename' in v]
+        dir_items  = [(k, v) for k, v in node.items() if 'filename' not in v]
+        ordered = OrderedDict()
+        for k, v in sorted(file_items, key=lambda kv: strxfrm(kv[0].casefold())):
+            ordered[k] = v
+        for k, v in sorted(dir_items, key=lambda kv: strxfrm(kv[0].casefold())):
+            ordered[k] = _order(v)
+        return ordered
+
+    return _order(tree)
+
+
 def pluralize(number, singular="", plural="s"):
     if number == 1:
         return singular
@@ -135,4 +163,5 @@ def get_filters() -> List[Tuple[str, Callable]]:
         ('asdict', asdict),
         ('compilation_log_display', compilation_log_display),
         ('pluralize', pluralize),
+        ('group_preflight_files', group_preflight_files),
     ]

@@ -271,6 +271,34 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
         return self.bucket.blob(str(self._directives_path(submission_id))).exists()
 
     @override
+    def store_user_options(self, submission_id: str, content: dict) -> str:
+        blob = self.bucket.blob(str(self._user_options_path(submission_id)))
+        data = json.dumps(content).encode('utf-8')
+        blob.upload_from_file(io.BytesIO(data), content_type='application/json')
+        blob.reload()
+        return blob.crc32c
+
+    @override
+    def get_user_options(self, submission_id: str) -> FileObj:
+        path = self._user_options_path(submission_id)
+        blob = self.bucket.blob(str(path))
+        return blob if blob.exists() else FileDoesNotExist(str(path))
+
+    @override
+    def delete_user_options(self, submission_id: str) -> None:
+        blob = self.bucket.blob(str(self._user_options_path(submission_id)))
+        if blob.exists():
+            blob.delete()
+
+    @override
+    def get_user_options_checksum(self, submission_id: str) -> str:
+        return self._get_checksum(self._user_options_path(submission_id))
+
+    @override
+    def does_user_options_exist(self, submission_id: str) -> bool:
+        return self.bucket.blob(str(self._user_options_path(submission_id))).exists()
+
+    @override
     def get_compile_log(self, submission_id: str) -> FileObj:
         path = self._compile_log_path(submission_id)
         blob = self.bucket.blob(str(path))
@@ -392,20 +420,45 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
     def _directives_path(self, submission_id: str) -> Path:
         return self._submission_path(submission_id) / 'directives.json'
 
+    def _user_options_path(self, submission_id: str) -> Path:
+        return self._submission_path(submission_id) / 'user_options.json'
+
     def _compile_log_path(self, submission_id: str) -> Path:
         return self._submission_path(submission_id) / 'gcp_compile.log'
+
+    def get_source_package_checksum(self, submission_id: str) -> str:
+        return self.get_source_checksum(submission_id)
 
     def _compile_json_path(self, submission_id: str) -> Path:
         return self._submission_path(submission_id) / 'gcp_compile.json'
 
-    def _preflight_path(self, submission_id: str) -> Path:
-        return self._submission_path(submission_id) / 'gcp_preflight.json'
+    def _full_base_path(self):
+        return f'gs://{self.gs_bucket}'
+
+    @override
+    def get_full_submission_path(self, submission_id: str) -> Path:
+        return f'{self._full_base_path()}/{self._submission_path(submission_id)}'
+
+    def get_full_source_package_path(self, submission_id: str) -> str:
+        return f'{self._full_base_path()}/{self._source_package_path(submission_id)}'
+
+    def get_full_preflight_package_path(self, submission_id: str) -> str:
+        return f'{self._full_base_path()}/{self._preflight_path(submission_id)}'
+
+    def get_full_directives_package_path(self, submission_id: str) -> str:
+        return f'{self._full_base_path()}/{self._directives_path(submission_id)}'
 
     def _request_log_path(self, submission_id: str) -> Path:
         return self._submission_path(submission_id) / 'gcp_request.log'
 
     def _source_log_path(self, submission_id: str) -> Path:
         return self._submission_path(submission_id) / 'source.log'
+
+    def store_zzrm(self, submission_id: str, content: dict) -> None:
+        path = self._source_path(submission_id) / '00README.json'
+        blob = self.bucket.blob(str(path))
+        data = json.dumps(content).encode('utf-8')
+        blob.upload_from_file(io.BytesIO(data), content_type='application/json')
 
     def _blob_to_file_status(self, submission_id, blob) -> FileStatus:
         src_dir = self._source_path(submission_id)
