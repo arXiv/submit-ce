@@ -1,8 +1,10 @@
 import os
+import io
 import shutil
 import tempfile
 import uuid
 import logging
+from unittest.mock import MagicMock
 
 import arxiv.db.models as classic
 import pytest
@@ -18,9 +20,11 @@ from flask import Flask, current_app
 from sqlalchemy import desc, select
 
 import submit_ce
+from submit_ce.domain.event.file import UploadFiles
 from submit_ce.implementations.compile import MockCompileMimesisPdf
 import submit_ce.ui.auth
-from submit_ce.domain import Author, SubmissionContent
+from submit_ce.domain import Author
+from submit_ce.domain.uploads import SourceFormat
 from submit_ce.domain.agent import InternalClient
 from submit_ce.domain.event import (
     AddSecondaryClassification,
@@ -37,7 +41,6 @@ from submit_ce.domain.event import (
     SetPrimaryClassification,
     SetReportNumber,
     SetTitle,
-    SetUploadPackage,
 )
 
 
@@ -258,24 +261,43 @@ def sub_cross(app, authorized_user, sub_primary):
 
 
 @pytest.fixture(scope="function")
-def sub_files(app, authorized_user, sub_cross):
-    """A submission marked as with files uploaded. (but no real files)"""
+def sub_files(app, authorized_user, sub_cross, mocker):
+    """A submission marked as with files uploaded and a PDF file."""
     with app.app_context():
         user = authorized_user
         ua = InternalClient(name=f"test_client_{__file__}")
-        submission, _ = current_app.api.save(
-            SetUploadPackage(creator=user, client=ua,
-                checksum="a9s9k342900skks03330029k",
-                source_format=SubmissionContent.Format.TEX,
-                identifier="123",
-                uncompressed_size=593992,
-                compressed_size=59392,
-            ), submission_id=sub_cross.submission_id)
+        class _FakePdf:
+            filename = "paper.pdf"
+            content_type = "application/pdf"
+            stream = io.BytesIO(b"%PDF-1.4\n%%EOF\n")
+
+        fake_stat = MagicMock()
+        fake_stat.bytes = 10_000
+
+        mock_store = MagicMock()
+        mock_store.store_source_file.return_value = fake_stat
+
+        original_store = current_app.api.store
+        current_app.api.store = mock_store
+        try:
+            submission, _ = current_app.api.save(
+                UploadFiles(creator=user, client=ua, files=[_FakePdf()]),
+                submission_id=sub_cross.submission_id,
+            )
+        finally:
+            current_app.api.store = original_store
+
         return submission
 
 
 @pytest.fixture(scope="function")
-def sub_processed(app, authorized_user, sub_files):
+def sub_reviewfiles(app, authorized_user, sub_files):
+    # TODO what needs to be done here to make a submission that has the review files stage done?
+    return sub_files
+
+
+@pytest.fixture(scope="function")
+def sub_processed(app, authorized_user, sub_reviewfiles):
     with app.app_context():
         user = authorized_user
         ua = InternalClient(name=f"test_client_{__file__}")
@@ -287,7 +309,7 @@ def sub_processed(app, authorized_user, sub_files):
                 prefiew_checksum="pxxx",
                 size_bytes=23432,
             )
-            ,submission_id=sub_files.submission_id)
+            ,submission_id=sub_reviewfiles.submission_id)
         return submission
 
 
@@ -348,9 +370,9 @@ def submitted_submission(app, authorized_user):
             SetLicense(creator=user, client=ua, license_uri=cc0, license_name="CC0 1.0"),
             ConfirmPolicy(creator=user, client=ua, agreement_id=1),
             SetPrimaryClassification(creator=user, client=ua, category="astro-ph.GA"),
-            SetUploadPackage(creator=user, client=ua,
+            UploadFiles(creator=user, client=ua,
                 checksum="a9s9k342900skks03330029k",
-                source_format=SubmissionContent.Format.TEX,
+                source_format=SourceFormat.TEX,
                 identifier="123",
                 uncompressed_size=593992,
                 compressed_size=59392,
@@ -393,11 +415,11 @@ def published_submission(app, authorized_user):
             ),
             ConfirmPolicy(creator=user, client=ua, agreement_id=1),
             SetPrimaryClassification(creator=user, client=ua, category="astro-ph.GA"),
-            SetUploadPackage(
+            UploadFiles(
                 creator=user,
                 client=ua,
                 checksum="a9s9k342900skks03330029k",
-                source_format=SubmissionContent.Format.TEX,
+                source_format=SourceFormat.TEX,
                 identifier="123",
                 uncompressed_size=593992,
                 compressed_size=59392,

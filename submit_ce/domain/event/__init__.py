@@ -62,7 +62,7 @@ from pytz import UTC
 from . import validators
 from .base import Event
 from .base import event_factory as make_event
-from .file import SetUploadPackage, UpdateUploadPackage, AddFiles, RemoveFiles, RemoveAllFiles
+from .file import UploadFiles, RemoveFiles, RemoveAllFiles
 from .flag import AddMetadataFlag, AddUserFlag, AddContentFlag, RemoveFlag, \
     AddHold, RemoveHold
 from .request import RequestCrossList, RequestWithdrawal, ApplyRequest, \
@@ -80,7 +80,7 @@ __all__ = [
     make_event,
     validators,
     Event,
-    SetUploadPackage, UpdateUploadPackage, AddFiles, RemoveFiles, RemoveAllFiles,
+    UploadFiles, RemoveFiles, RemoveAllFiles,
     AddMetadataFlag, AddUserFlag, AddContentFlag, RemoveFlag,
     AddHold, RemoveHold,
     RequestCrossList, RequestWithdrawal, ApplyRequest,
@@ -158,7 +158,8 @@ class CreateSubmissionVersion(Event):
         submission.status = Submission.WORKING
         # Return these to default.
         submission.status = Submission.status
-        submission.source_content = Submission.source_content
+        submission.source_format = Submission.source_format
+        submission.uncompressed_size = Submission.uncompressed_size
         submission.license = Submission.license
         submission.submitter_is_author = Submission.submitter_is_author
         submission.submitter_contact_verified = \
@@ -192,7 +193,8 @@ class Rollback(Event):
         target = submission.versions[-1]
         # Return these to last announced state.
         submission.status = target.status
-        submission.source_content = target.source_content
+        submission.source_format = target.source_format
+        submission.uncompressed_size = target.uncompressed_size
         submission.submitter_contact_verified = \
             target.submitter_contact_verified
         submission.submitter_accepts_policy = \
@@ -944,7 +946,7 @@ class FinalizeSubmission(Event):
     REQUIRED: ClassVar[str] = [
         'creator', 'primary_classification',
         # TODO this is broken: 'submitter_contact_verified',
-        'submitter_accepts_policy', 'license', 'source_content', 'metadata',
+        'submitter_accepts_policy', 'license', 'source_format', 'metadata',
     ]
     REQUIRED_METADATA: ClassVar[str] = ['title', 'abstract', 'authors_display']
 

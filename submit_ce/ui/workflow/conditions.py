@@ -1,4 +1,5 @@
-from submit_ce.domain import Submission, SubmissionContent
+from submit_ce.domain import Submission
+from submit_ce.domain.uploads import SourceFormat
 
 
 def is_contact_verified(submission: Submission) -> bool:
@@ -30,20 +31,20 @@ def has_secondary(submission: Submission) -> bool:
     return len(submission.secondary_classification) > 0
 
 
+def has_files(submission: Submission) -> bool:
+    """Determine if the submission has any files."""
+    return submission.uncompressed_size > 0
+
 def has_valid_content(submission: Submission) -> bool:
     """Determine whether the submitter has uploaded files."""
-    return submission.source_content is not None and\
-        submission.source_content.checksum is not None and\
-        submission.source_content.source_format is not None and \
-        submission.source_content.uncompressed_size > 0 and \
-        submission.source_content.source_format != SubmissionContent.Format.INVALID
+    return (submission.source_format is not None
+            and submission.source_format != SourceFormat.INVALID
+            and submission.uncompressed_size > 0)
 
 def has_non_processing_content(submission: Submission) -> bool:
-    return (submission.source_content is not None and
-            submission.source_content.source_format is not None and
-            (submission.source_content.source_format != SubmissionContent.Format.TEX
-             and
-             submission.source_content.source_format != SubmissionContent.Format.POSTSCRIPT))
+    return (submission.source_format is not None
+            and submission.source_format != SourceFormat.TEX
+            and submission.source_format != SourceFormat.POSTSCRIPT)
 
 def is_source_processed(submission: Submission) -> bool:
     """Determine whether the submitter has compiled their upload."""    

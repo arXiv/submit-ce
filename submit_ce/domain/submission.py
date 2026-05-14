@@ -7,6 +7,7 @@ from typing import Optional, Dict, List, Iterable, Set, Any
 
 from dataclasses import dataclass, field
 
+from .uploads import SourceFormat
 from .agent import Client, User, agent_factory
 from .annotation import Comment, Feature, Annotation
 from .flag import Flag
@@ -56,39 +57,6 @@ class Author:
             return "%s (%s)" % (name, self.affiliation)
         return name
 
-
-@dataclass
-class SubmissionContent:
-    """Metadata about the submission source package."""
-
-    class Format(Enum):
-        """Supported source formats."""
-
-        UNKNOWN = None
-        """We could not determine the source format."""
-        INVALID = "invalid"
-        """We are able to infer the source format, and it is not supported."""
-        TEX = "tex"
-        """A flavor of TeX."""
-        PDFTEX = "pdftex"
-        """A PDF derived from TeX."""
-        POSTSCRIPT = "ps"
-        """A postscript source."""
-        HTML = "html"
-        """An HTML source."""
-        PDF = "pdf"
-        """A PDF-only source."""
-
-    identifier: str
-    checksum: str
-    uncompressed_size: int
-    compressed_size: int
-    source_format: Format = Format.UNKNOWN
-
-    def __post_init__(self) -> None:
-        """Make sure that :attr:`.source_format` is a :class:`.Format`."""
-        if self.source_format and type(self.source_format) is str:
-            self.source_format = self.Format(self.source_format)
 
 
 @dataclass
@@ -309,7 +277,8 @@ class Submission:
     submitted: Optional[datetime] = field(default=None)
     submission_id: Optional[str] = field(default=None)
 
-    source_content: Optional[SubmissionContent] = field(default=None)
+    source_format: Optional[SourceFormat] = field(default=None)
+    uncompressed_size: int = field(default=0)
     preview: Optional[Preview] = field(default=None)
 
     metadata: SubmissionMetadata = field(default_factory=SubmissionMetadata)

@@ -6,8 +6,7 @@ from .annotation import Comment
 from .meta import License, Classification
 from .preview import Preview
 from .submission import Submission, SubmissionMetadata, Author, Hold, \
-    WithdrawalRequest, UserRequest, CrossListClassificationRequest, \
-    SubmissionContent
+    WithdrawalRequest, UserRequest, CrossListClassificationRequest
 from .uploads import Workspace
 
 __all__ = [
@@ -33,6 +32,5 @@ __all__ = [
     WithdrawalRequest,
     UserRequest,
     CrossListClassificationRequest,
-    SubmissionContent,
     Workspace,
 ]

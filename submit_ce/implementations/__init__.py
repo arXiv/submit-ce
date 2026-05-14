@@ -7,7 +7,7 @@ from arxiv.files import FileObj
 
 from submit_ce.api import SubmitApi, SubmissionFileStore
 from submit_ce.api.compile_service import CompileService
-from submit_ce.domain.types import SubmitFile
+from submit_ce.domain.uploads import SubmitFile
 from submit_ce.domain.uploads import FileStatus, UploadStatus, UploadLifecycleStates
 from submit_ce.domain import Event, Submission, License, User, Client, Workspace
 from submit_ce.domain.event.process import Result
@@ -228,9 +228,6 @@ class NullImplementation(SubmitApi):
 
     def get_file_store(self) -> SubmissionFileStore:
         return NullFileStore()
-
-    def upload(self, files: SubmitFile, submission_id: str, user: User, client: Client) -> Workspace:
-        return Workspace()
 
     def licenses(self, active_only=True) -> List[License]:
         return []

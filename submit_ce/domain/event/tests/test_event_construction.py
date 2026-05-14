@@ -45,7 +45,7 @@ def test_round_trip():
         class EventFactory(ModelFactory[klass]):
             @classmethod
             def get_provider_map(cls):
-                from submit_ce.domain.types import SubmitFile
+                from submit_ce.domain.uploads import SubmitFile
                 from io import BytesIO
 
                 class DummySubmitFile:

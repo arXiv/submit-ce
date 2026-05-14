@@ -274,13 +274,6 @@ class ClassicEventInterpolator:
 
     def _apply(self, event: Event) -> None:
         self.submission = event.apply(self.submission)
-
-        # Temporary
-        logger.error(
-            "AFTER _apply: submission.proxy=%r",
-            self.submission.proxy
-        )
-
         self.applied_events.append(event)
 
     def _backport_event(self, event: Event) -> None:
@@ -337,10 +330,4 @@ class ClassicEventInterpolator:
         assert self.submission is not None
         logger.debug('done; submission in state %s with %i events',
                      self.submission.status, len(self.applied_events))
-        # Temporary Debugging
-        logger.error(
-            "BEFORE RETURN: submission.proxy=%r",
-            self.submission.proxy
-        )
-
         return self.submission, self.applied_events

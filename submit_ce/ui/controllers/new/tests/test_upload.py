@@ -16,7 +16,7 @@ from submit_ce.domain.uploads import FileStatus, UploadLifecycleStates, UploadSt
 from submit_ce.ui.controllers.new import upload
 
 
-from submit_ce.domain import SubmissionContent
+from submit_ce.domain.uploads import SourceFormat
 import submit_ce.domain
 
 from submit_ce.ui.controllers.new import upload_delete
@@ -70,7 +70,7 @@ class TestUpload(CtrlBase):
                     checksum='a1s2d3f4',
                     uncompressed_size=593920,
                     compressed_size=1000,
-                    source_format=SubmissionContent.Format.TEX
+                    source_format=SourceFormat.TEX
                 ),
                 is_finalized=False, is_announced=False, arxiv_id=None,
                 version=1
@@ -131,7 +131,7 @@ class TestUpload(CtrlBase):
                 checksum='a1s2d3f4',
                 uncompressed_size=593920,
                 compressed_size=1000,
-                source_format=SubmissionContent.Format.TEX
+                source_format=SourceFormat.TEX
             ),
             is_finalized=False, is_announced=False, arxiv_id=None, version=1
         )
@@ -223,7 +223,7 @@ class TestDelete(TestCase):
                     checksum='a1s2d3f4',
                     uncompressed_size=593920,
                     compressed_size=1000,
-                    source_format=SubmissionContent.Format.TEX
+                    source_format=SourceFormat.TEX
                 ),
                 is_finalized=False, is_announced=False, arxiv_id=None,
                 version=1
@@ -252,7 +252,7 @@ class TestDelete(TestCase):
                     checksum='a1s2d3f4',
                     uncompressed_size=593920,
                     compressed_size=1000,
-                    source_format=SubmissionContent.Format.TEX
+                    source_format=SourceFormat.TEX
                 ),
                 is_finalized=False, is_announced=False, arxiv_id=None,
                 version=1
@@ -287,7 +287,7 @@ class TestDelete(TestCase):
                     checksum='a1s2d3f4',
                     uncompressed_size=593920,
                     compressed_size=1000,
-                    source_format=SubmissionContent.Format.TEX
+                    source_format=SourceFormat.TEX
                 ),
                 is_finalized=False, is_announced=False, arxiv_id=None,
                 version=1
@@ -301,7 +301,7 @@ class TestDelete(TestCase):
                     checksum='a1s2d3f4',
                     uncompressed_size=593920,
                     compressed_size=1000,
-                    source_format=SubmissionContent.Format.TEX
+                    source_format=SourceFormat.TEX
                 ),
                 is_finalized=False, is_announced=False, arxiv_id=None,
                 version=1

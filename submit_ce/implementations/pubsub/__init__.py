@@ -12,7 +12,7 @@ from submit_ce.api.compile_service import CompileService
 from submit_ce.domain.agent import Client, User
 from submit_ce.domain.event.base import EventList
 from submit_ce.domain.meta import License
-from submit_ce.domain.types import SubmitFile
+from submit_ce.domain.uploads import SubmitFile
 from submit_ce.domain.uploads import Workspace
 
 
@@ -66,9 +66,6 @@ class PubsubEventSubmitImplementation(SubmitApi):
 
     def healthy(self) -> tuple[bool,str]:
         return self.inner_api.healthy()
-
-    def upload(self, files: SubmitFile, submission_id: str, user: User, client: Client) -> Workspace:
-        return self.inner_api.upload(files, submission_id, user, client)
 
     @staticmethod
     def serialize_msg(*events: Event) -> bytes:

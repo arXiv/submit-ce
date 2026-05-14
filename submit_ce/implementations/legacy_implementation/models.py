@@ -319,15 +319,14 @@ class Submission(Base):    # type: ignore
         if submission.license:
             self.license = submission.license.uri
 
-        if submission.source_content is not None:
-            self.source_size = submission.source_content.uncompressed_size
-            if submission.source_content.source_format is not None:
-                self.source_format = \
-                    submission.source_content.source_format.value
-            else:
-                self.source_format = None
-            self.package = (f'fm://{submission.source_content.identifier}'
-                            f'@{submission.source_content.checksum}')
+        self.source_size = submission.uncompressed_size
+
+        if submission.source_format:
+            self.source_format = submission.source_format.value
+        else:
+            self.source_format = ""
+
+        self.package = str(submission.submission_id)
 
         if self.package is None:
             self.package = ""

@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session as SqlalchemySession, Session
 
 from submit_ce.api import SubmitApi
 from submit_ce.api.file_store import SubmissionFileStore
-from submit_ce.domain.types import SubmitFile
+from submit_ce.domain.uploads import SubmitFile
 from submit_ce.domain.agent import Client, User
 from submit_ce.domain.meta import License
 from ...api.compile_service import CompileService
@@ -27,7 +27,7 @@ from ...domain.uploads import Workspace
 from ...domain.event.base import Event, EventWithSideEffect
 from ...domain.util import get_tzaware_utc_now
 
-from ...domain.event import CreateSubmission, SetUploadPackage
+from ...domain.event import CreateSubmission, UploadFiles
 from ...domain.exceptions import NoSuchSubmission, NothingToDo
 from . import db
 
@@ -117,6 +117,39 @@ class LegacySubmitImplementation(SubmitApi):
             before: Optional[Submission] = None
             existing_events: List[Event] = []
             if submission_id is not None:
+                """
+                This is a critical section where:
+                1. the submission is read from the db
+                2. changes are made to submission including file changes via Event.execute
+                3. the file state is written to the db, checksum, size, file type.
+
+                The arXiv_submission row for the submission will be
+                locked. Legacy did not lock during file upload.
+
+                There are at least these problems:
+
+                1. Correctness problem: If the files are uploaded, the state of
+                the files changes, these need to be written to the db, if there
+                is an exception before the db is written then the db and files
+                are out of sync.
+
+                2. Race condition problem: if the db submission row is not
+                locked, two processes can both upload at the same time which can
+                create a file system state that neither intended.
+
+                (there may be other problems)
+
+                We may need a different design for this. Maybe a immutable
+                upload space id?  Maybe go to no file state info in the db?
+
+                FAQ:
+
+                What happens if the _load() locks but then there is an exception
+                during file upload or other times?
+
+                The session will be rolled back and the files on the FS may not
+                match what is in the db for size and checksum.  """
+
                 before, existing_events = self._load(session, submission_id, lock_row=True)
             elif events[0].submission_id is None and not isinstance(events[0], CreateSubmission):
                 raise NoSuchSubmission('Unable to determine submission')
@@ -175,63 +208,6 @@ class LegacySubmitImplementation(SubmitApi):
                        email="fake@fake.com",
                        username=f"fake_username_{__file__}")
         return get_endorsements(uzr)
-
-    @override
-    def upload(self, file: SubmitFile, submission_id: str, user: User, client: Client) -> Workspace:
-        """Saves file to legacy FS and sets the upload package on the submission."""
-        logger.debug(f"Uploaded archive MIME type: {file.content_type}.")
-        if file.content_type not in acceptable_types:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-                                detail=f"File content type must be one of {acceptable_types} but it was {file.content_type}")
-
-        session = self.get_session()
-        check_user_authorized(session, user, client, submission_id)
-
-        """
-        This is a critical section where: 
-        1. the submission is read from the db
-        2. files are uploaded
-        3. the file state is written to the db, checksum, size, file type.
-         
-        If serialize_file_operations=False the db won't be locked. If it is True, the arXiv_submission row for the 
-        submission will be locked. Legacy did not lock during file upload.
-        
-        There are at least these problems:
-        
-        1. Correctness problem: If the files are uploaded, the state of the files changes, these need to be written to the db, if there
-        is an exception before the db is written then the db and files are out of sync.
-        
-        2. Race condition problem: if the db submission row is not locked, two processes can both upload at the same time 
-        which can create a file system state that neither intended.
-        
-        (there may be other problems)
-        
-        We may need a different design for this. Maybe a immutable upload space id? 
-        Maybe go to no file state info in the db?  
-        
-        FAQ:
-        What happens if the _load() locks but then there is an exception during file upload or other times? 
-        The session will be rolled back by https://github.com/arXiv/arxiv-base/blob/b99d4b4a842b3077f740455f685396af71b293dd/arxiv/base/__init__.py#L127
-        The files on the FS may not match what is in the db for size and checksum.
-        """
-
-        submission, event_list = self._load(session, submission_id, lock_row=self.serialize_file_operations)
-
-        self.store.store_source_package(str(submission.submission_id), file, 4098)
-        workspace = self.store.get_workspace(str(submission.submission_id))
-
-        command = SetUploadPackage(creator=user, client=client,
-                                   submission_id=submission.submission_id,
-                                   identifier=str(workspace.identifier),
-                                   checksum=f"BOGUS {__file__}",
-                                   uncompressed_size=workspace.size,
-                                   compressed_size=workspace.compressed_size or 0,
-                                   source_format=workspace.source_format,
-                                   )
-        command.validate(submission)
-        self._save(command, submission=submission, session=session, existing_events=event_list)
-        session.commit()  # unlocks submission row
-        return workspace
 
     @override
     def get_file_store(self) -> SubmissionFileStore:
