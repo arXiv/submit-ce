@@ -91,7 +91,7 @@ def _cat(cat: str | Classification | None) -> Optional[Category]:
         return taxonomy.definitions.CATEGORIES[cat]
 
 
-class HiddenCatetorySet(TextAreaField):
+class HiddenCategorySet(TextAreaField):
     """Hidden field for a `Set` of staged category changes."""
 
     def _value(self):
@@ -117,13 +117,13 @@ class ClassificationFormV2(csrf.CSRFForm):
 
     add_secondary = OptGroupSelectField(choices=CATEGORIES, default="")
 
-    secondaries_staged_add = HiddenCatetorySet()
+    secondaries_staged_add = HiddenCategorySet()
     """Hiddent set of secondaries to add on real save."""
 
-    secondaries_staged_remove = HiddenCatetorySet()
+    secondaries_staged_remove = HiddenCategorySet()
     """Hiddent set of secondaries to remove on real save."""
 
-    def fitler_primary_choices(self, user: User)->None:
+    def filter_primary_choices(self, user: User) -> None:
         p_options = []
         for archive, archive_choices in CATEGORIES:
             cat_list = []
@@ -235,7 +235,7 @@ def classification(
     primary_cat_id = primary.id if primary else ""
 
     form = ClassificationFormV2(params)
-    form.fitler_primary_choices(submitter)
+    form.filter_primary_choices(submitter)
     response_data = {
         "submission_id": submission_id,
         "submission": submission,

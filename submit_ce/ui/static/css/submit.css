@@ -548,4 +548,118 @@ h1.title.title-submit { color: black !important; }  /* keep H1 black */
 .legal-page .content-container,
 .legal-page .action-container { background-color: #f9f7f7; }
 
+/* =====================================================================
+   Category step (classification.html)
+   --------------------------------------------------------------------- */
+
+/* Section framing - primary uses the existing .action-container card;
+   cross-list section gets a subtle paper tone behind the combobox. */
+.secondary-container { background-color: #f9f7f7; }
+
+/* Card styling for primary + cross-list panels on the Category page. */
+main .field.action-container,
+main .field.secondary-container {
+  border: 1px solid #e0dede;
+  border-radius: 8px;
+  padding: 1.5em;
+}
+main .field.action-container > label.label,
+main .field.secondary-container > label.label {
+  font-size: 1.1em;
+}
+
+/* Cross-list combobox -------------------------------------------------- */
+.combobox-container {
+  font-family: sans-serif;
+  width: 100%;
+  max-width: 500px;
+  position: relative;
+}
+
+.combobox-wrapper {
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 5px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  background: white;
+  min-height: 38px;
+  align-items: center;
+  transition: border-color 0.2s;
+}
+.combobox-wrapper:focus-within {
+  border-color: #1e8bc3;
+  box-shadow: 0 0 0 2px rgba(30, 139, 195, 0.25);
+}
+
+/* Pills inside the combobox. The base .tag style comes from Bulma; these
+   rules tighten the layout for our two-line code + name format. */
+.combobox-wrapper .tag {
+  background: #e9ecef;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: auto;
+}
+.combobox-wrapper .tag .tag-code {
+  font-weight: 600;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.combobox-wrapper .tag .tag-name { color: #555; }
+.combobox-wrapper .remove-tag {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  color: #888;
+  padding: 0 2px;
+}
+.combobox-wrapper .remove-tag:hover { color: #b31b1b; }
+
+/* The text input shares the combobox wrapper with the pills. Force it to
+   its own line so typing always starts on a fresh row. */
+.combobox-wrapper #cross-list-input {
+  border: none;
+  outline: none;
+  flex: 1 0 100%;
+  width: 100%;
+  order: 999;
+  padding: 8px 4px;
+  font-size: 14px;
+  margin-top: 6px;
+  border-top: 1px solid #f1f1f1;
+  background: transparent;
+}
+
+/* Dropdown list of category options. */
+.dropdown-list {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  margin-top: 4px;
+  padding: 0;
+  list-style: none;
+  max-height: 240px;
+  overflow-y: auto;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  z-index: 10;
+  display: none;
+}
+.dropdown-item {
+  padding: 8px 10px;
+  cursor: pointer;
+  font-size: 14px;
+}
+.dropdown-item:hover { background-color: #f1f3f5; }
+.dropdown-item.is-taken { display: none; }
 
