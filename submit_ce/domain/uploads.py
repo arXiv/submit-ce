@@ -148,3 +148,18 @@ def is_file_tgz(file: Optional[SubmitFile]) -> bool:
         file.content_type in TARGZ_MIMETYPES or
         bool(file.filename and file.filename.endswith('.tar.gz'))
     )
+
+
+ZIP_MIMETYPES = frozenset({
+    'application/zip',
+    'application/x-zip-compressed',
+    'application/x-zip',
+})
+"""zip mime types."""
+
+def is_file_zip(file: Optional[SubmitFile]) -> bool:
+    """Return True if the uploaded file is a zip archive."""
+    return bool(file) and (
+        file.content_type in ZIP_MIMETYPES or
+        bool(file.filename and file.filename.endswith('.zip'))
+    )
