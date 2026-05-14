@@ -87,8 +87,8 @@ class RemoveFiles(EventWithSideEffect):
     NAME = "remove files"
     NAMED = "files removed"
 
-    files: List[Annotated[SubmitFile, WithJsonSchema({'type': 'object'})]] = \
-        Field(default_factory=list, exclude=True)
+    files: List[str] = Field(default_factory=List)
+    """name of files to remove."""
 
     bytes_removed:int = 0
 
@@ -98,8 +98,8 @@ class RemoveFiles(EventWithSideEffect):
     def execute(self, api: SubmitApi, submission: Submission) -> None:
         """Remove the specified files from the file store."""
         file_store = api.get_file_store()
-        for f in self.files:
-            file_store.delete_source_file(str(submission.submission_id), f.filename)
+        for filename in self.files:
+            file_store.delete_source_file(str(submission.submission_id), filename)
             # TODO Will need to accumulate the size of the files removed and update the uncompressed_size
             # self.bytes_removed += f.size Not surehow to get size!
 

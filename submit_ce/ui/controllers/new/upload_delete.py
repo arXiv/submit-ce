@@ -11,13 +11,12 @@ from arxiv.forms import csrf
 from markupsafe import Markup
 from flask import current_app
 
-from submit_ce.domain.event.file import RemoveAllFiles
+from submit_ce.domain.event.file import RemoveAllFiles, RemoveFiles
 from submit_ce.ui.auth import user_and_client_from_session
 from submit_ce.domain.uploads import Workspace
 from submit_ce.domain.exceptions import SaveError
 from arxiv.auth.domain import Session
 from werkzeug.datastructures import MultiDict
-from werkzeug.exceptions import MethodNotAllowed
 from wtforms import BooleanField, HiddenField
 from wtforms.validators import DataRequired
 from submit_ce.ui.backend import get_submission
@@ -67,19 +66,13 @@ def delete_all(method: str, params: MultiDict, session: Session,
         applicable.
 
     """
-    rdata = {}
-    if token is None:
-        add_immediate_alert(rdata, alerts.FAILURE, 'Missing auth token')
-        return stay_on_this_stage((rdata, status.OK, {}))
-
     submission, _ = get_submission(submission_id)
     # TODO need to check the submitter and client?
     submitter, client = user_and_client_from_session(session)
-    rdata.update({'submission': submission, 'submission_id': submission_id})
+    rdata = {'submission': submission, 'submission_id': submission_id}
 
     if method == 'GET':
-        form = DeleteAllFilesForm()
-        rdata.update({'form': form})
+        rdata.update({'form': DeleteAllFilesForm()})
         return stay_on_this_stage((rdata, status.OK, {}))
     elif method == 'POST':
         form = DeleteAllFilesForm(params)
@@ -91,10 +84,9 @@ def delete_all(method: str, params: MultiDict, session: Session,
         if validate_command(form, command, submission, 'add_files'):
             current_app.api.save(command, submission_id=submission.submission_id)
             return return_to_parent_stage((rdata, status.OK, {}))
-        else:
-            return return_to_parent_stage((rdata, status.BAD_REQUEST, {}))
-    else:
-        raise MethodNotAllowed('Method not supported')
+
+    return return_to_parent_stage((rdata, status.BAD_REQUEST, {}))
+
 
 
 def delete_file(method: str, params: MultiDict, session: Session,
@@ -139,14 +131,8 @@ def delete_file(method: str, params: MultiDict, session: Session,
         applicable.
 
     """
-    rdata = {}
-    if token is None:
-        add_immediate_alert(rdata, alerts.FAILURE, 'Missing auth token')
-        return stay_on_this_stage((rdata, status.OK, {}))
-
-    submission, submission_events = get_submission(submission_id)
+    submission, _ = get_submission(submission_id)
     submitter, client = user_and_client_from_session(session)
-
     rdata = {'submission': submission, 'submission_id': submission_id}
 
     if method == 'GET':
@@ -155,18 +141,22 @@ def delete_file(method: str, params: MultiDict, session: Session,
         # to trigger actual deletion. The user must explicitly indicate via
         # a valid POST that the file should in fact be deleted.
         params = MultiDict({'file_path': params['path']})
-
-    form = DeleteFileForm(params)
-    rdata.update({'form': form})
-
-    if method == 'POST':
-        if not (form.validate() and form.confirmed.data):
-            logger.debug('Invalid form data')
+        rdata.update({'form': DeleteFileForm(params)})
+        return stay_on_this_stage((rdata, status.OK, {}))
+    elif method == 'POST':
+        form = DeleteFileForm(params)
+        rdata.update({'form': form})
+        if not (form.validate() and form.confirmed.data and form.file_path.data):
             return stay_on_this_stage((rdata, status.OK, {}))
 
-        raise NotImplementedError()
+        command = RemoveFiles(creator=submitter, client=client, files=[form.file_path.data])
+        if validate_command(form, command, submission, 'add_files'):
+            current_app.api.save(command, submission_id=submission.submission_id)
+            return return_to_parent_stage((rdata, status.OK, {}))
 
-    return stay_on_this_stage((rdata, status.OK, {}))
+    return return_to_parent_stage((rdata, status.BAD_REQUEST, {}))
+
+
 
 
 class DeleteFileForm(csrf.CSRFForm):
