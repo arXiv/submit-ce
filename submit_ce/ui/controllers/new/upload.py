@@ -155,22 +155,18 @@ def upload_files(method: str, params: MultiDict, session: Session,
             return stay_on_this_stage((rdata, status.OK, {}))
 
         is_archive = "ARCHIVE" if (is_file_tgz(file) or is_file_zip(file)) else "NONARCHIVE"
-        # TODO not sure if has_files is useful any more. _upload_files can upload with or without files,
-        has_files = submission.uncompressed_size > 0
         try:
-            match (file, params.get('action'), has_files, is_archive):
-                case (_, 'next', _, _):
+            match (file, params.get('action'), is_archive):
+                case (_, 'next', _):
                     return ready_for_next((rdata, status.OK, {}))
-                case (_, action, _, _) if action:  # trying to go back to previous page
+                case (_, action, _) if action:  # trying to go back to previous page
                     return {}, status.SEE_OTHER, {}
-                case (None, _,  _, _):
+                case (None, _, _):
                     logger.debug('No files on request')
                     return stay_on_this_stage(_get_upload(params, session, submission, rdata, token))
-                case (_, _, False, "ARCHIVE"):
+                case (_, _, "ARCHIVE"):
                     return _upload_archive(form, file, submitter, client, submission, rdata, token)
-                case (_, _, True, "ARCHIVE"):
-                    raise BadRequest(description="Archive upload with existing files not yet supported.")
-                case (_, _, _, "NONARCHIVE"):
+                case (_, _, "NONARCHIVE"):
                     return _upload_files(form, file, submitter, client, submission, rdata, token)
                 case unhandled:
                     assert_never(unhandled)
