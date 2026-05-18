@@ -10,6 +10,7 @@ from flask import current_app
 from arxiv.auth.domain import Session
 from arxiv.base import alerts
 from submit_ce.domain.event.process import StartPreflight, StartDirectives  # noqa: F401 (StartDirectives used below)
+from submit_ce.domain.event import SetSourceFormat
 from ...auth import user_and_client_from_session
 from arxiv.files import FileObj, FileDoesNotExist
 from arxiv.forms import csrf
@@ -259,6 +260,8 @@ def _load_or_create_preflight(submission_id: str, params: MultiDict, session: Se
 
         start_preflight(params, session, submission_id, token)
         preflight_data = _get_preflight_data(submission_id)
+        _store_source_format(preflight_data, session, submission_id)
+
 
     # If there is no zzrm found above, then check if there is a user decisions file,
     #   which may have been created already, if the user has made selections before.
@@ -267,6 +270,24 @@ def _load_or_create_preflight(submission_id: str, params: MultiDict, session: Se
         user_decisions_data = _get_user_decisions_data(submission_id)
 
     return preflight_data, user_decisions_data or zzrm_data
+
+
+def _store_source_format(preflight_data: Optional[dict], session: Session,
+                         submission_id: str) -> None:
+    """Record the preflight-detected `lang` as the submission source_format."""
+    if not preflight_data:
+        return
+    lang = dm.get_lang_from_preflight(preflight_data)
+    if lang is None:
+        return
+    submitter, client = user_and_client_from_session(session)
+    command = SetSourceFormat(source_format=lang,
+                              creator=submitter, client=client)
+    try:
+        current_app.api.save(command, submission_id=submission_id)
+    except SaveError as e:
+        logger.warning(
+            f"Could not save SetSourceFormat for {submission_id}: {e}")
 
 
 def _load_or_create_directives(params: MultiDict, session: Session, submission_id: str, token: str) -> None:
