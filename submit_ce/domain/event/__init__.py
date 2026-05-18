@@ -73,6 +73,7 @@ from ..annotation import Feature, ClassifierResults, \
 from ..preview import Preview
 from ..submission import Submission, Author, \
     Classification, License
+from ..uploads import SourceFormat
 from ..exceptions import InvalidEvent
 
 
@@ -827,6 +828,33 @@ class SetAuthors(Event):
         return submission
 
 
+
+
+class SetSourceFormat(Event):
+    """Set the source format of a submission (detected from preflight)."""
+
+    NAME = "set source format"
+    NAMED = "source format set"
+
+    source_format: Optional[str] = field(default=None)
+
+    def validate(self, submission: Submission) -> None:
+        """Validate that source_format is a known SourceFormat value."""
+        if self.source_format is None:
+            return
+        try:
+            SourceFormat(self.source_format)
+        except ValueError:
+            raise InvalidEvent(self,
+                               f"Unknown source format: {self.source_format}")
+
+    def project(self, submission: Submission) -> Submission:
+        """Set :attr:`.domain.Submission.source_format`."""
+        if self.source_format is None:
+            submission.source_format = None
+        else:
+            submission.source_format = SourceFormat(self.source_format)
+        return submission
 
 
 class ConfirmSourceProcessed(Event):

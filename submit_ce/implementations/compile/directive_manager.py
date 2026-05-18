@@ -1,9 +1,28 @@
 import sys
 from collections import OrderedDict
+from typing import Optional
+
 
 class DirectiveManager:
     '''This class is used for simple tasks related to the compiler.
     See compile_api_service.py for endpoints called in tex2pdf-api.'''
+
+    def get_lang_from_preflight(preflight_data: dict) -> Optional[str]:
+        '''Return the `lang` value from gcp_preflight.json.
+
+        Looks at detected_toplevel_files[0].process.compiler.lang.
+        Possible values: "pdf", "latex", "html". Returns None if not
+        present. detected_toplevel_files is an array; we use the first
+        element.
+        '''
+        if not preflight_data:
+            return None
+        toplevel = preflight_data.get('detected_toplevel_files') or []
+        if not toplevel:
+            return None
+        process = toplevel[0].get('process') or {}
+        compiler = process.get('compiler') or {}
+        return compiler.get('lang')
 
     def convert_zzrm_to_user_decisions(zzrm: dict) -> dict:
         '''Example user_decisions.json:
