@@ -37,7 +37,7 @@ from submit_ce.domain import Client, User, Event
 from submit_ce.domain.event.file import UploadArchive, UploadFiles
 from submit_ce.domain.submission import Submission
 from submit_ce.domain.uploads import SourceFormat
-from submit_ce.domain.uploads import Workspace, FileStatus, UploadStatus, is_file_tgz
+from submit_ce.domain.uploads import Workspace, FileStatus, UploadStatus, is_file_tgz, is_file_zip
 from submit_ce.domain.exceptions import SaveError
 
 from submit_ce.ui.auth import user_and_client_from_session
@@ -68,11 +68,11 @@ _TARGZ_MIMETYPES = frozenset({
 
 
 def _single_file_archive(files: MultiDict) -> bool:
-    """Return True if the uploaded file is a tar.gz archive."""
+    """Return True if the uploaded file is a tar.gz or zip archive."""
     pointer = files.get('file')
     if pointer is None:
         return False
-    return is_file_tgz(pointer)
+    return is_file_tgz(pointer) or is_file_zip(pointer)
 
 
 class AddfilesForm(csrf.CSRFForm):
@@ -154,7 +154,7 @@ def upload_files(method: str, params: MultiDict, session: Session,
             alerts.flash_failure("No file was uploaded; please try again.")
             return stay_on_this_stage((rdata, status.OK, {}))
 
-        is_archive = "ARCHIVE" if is_file_tgz(file) else "NONARCHIVE"
+        is_archive = "ARCHIVE" if (is_file_tgz(file) or is_file_zip(file)) else "NONARCHIVE"
         # TODO not sure if has_files is useful any more. _upload_files can upload with or without files,
         has_files = submission.uncompressed_size > 0
         try:
