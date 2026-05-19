@@ -90,3 +90,8 @@ def test_get_files_from_preflight_with_testdata():
     result = dm.get_files_from_preflight(preflight)
     filenames = [f["filename"] for f in result]
     assert "main-test1.tex" in filenames
+
+
+def test_get_lang_from_preflight_with_testdata():
+    preflight = json.loads((_TESTDATA / "gcp_preflight.json").read_text())
+    assert dm.get_lang_from_preflight(preflight) == "latex"
