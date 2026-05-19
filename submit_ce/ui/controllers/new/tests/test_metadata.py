@@ -10,7 +10,6 @@ def test_no_sub(app, authorized_client):
     resp = authorized_client.get(url)
     assert resp.status_code == 404
 
-@pytest.mark.skip(reason="source_format not yet persisted")
 def test_metadata(app, authorized_client, sub_processed):    
     sub: Submission = sub_processed
     url = f"/{sub.submission_id}/add_metadata"

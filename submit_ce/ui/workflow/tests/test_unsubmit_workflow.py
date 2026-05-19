@@ -14,7 +14,6 @@ def _parse_csrf_token( response):
         assert 0, 'Could not find CSRF token'
 
 
-@pytest.mark.skip(reason="source_format not yet persisted")
 def test_unsubmit_submission(app, authorized_client, submitted_submission):
     """Test that progress through the unsubmit workflow."""
 
