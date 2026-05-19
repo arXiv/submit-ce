@@ -85,12 +85,16 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
         return self._blob_to_file_status(submission_id, blob)
 
     @override
-    def delete_source_file(self, submission_id: str, path: Path|str) -> None:
+    def delete_source_file(self, submission_id: str, path: Path|str) -> Optional[FileStatus]:
         del_path = str(self._source_path(submission_id) / path)
         self._check_path_safe(submission_id, del_path)
         blob = self.bucket.get_blob(del_path)
         if blob is not None:
+            file = self._blob_to_file_status(blob)
             blob.delete()
+            return file
+        else:
+            return None
 
     @override
     def get_workspace(self, submission_id: str) -> Workspace:
@@ -131,7 +135,7 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
     def store_source_package(self,
                      submission_id: str,
                      content: SubmitFile,
-                     chunk_size: int) -> str:
+                     chunk_size: int) -> List[FileStatus]:
         """Store a source package for a submission."""
 
         # Upload the entire package file, because
@@ -159,7 +163,7 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
                     with zf.open(info) as file:
                         blob = self.bucket.blob(store_at)
                         blob.upload_from_file(file, size=info.file_size)
-                        files.append({"file": info.filename, "bytes": info.file_size})
+                        files.append(self._blob_to_file_status(blob))
         elif is_file_tgz(content):
             with tarfile.open(fileobj=content.stream, mode="r:*") as tar:
                 for member in tar.getmembers():
@@ -170,7 +174,7 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
                         self._check_path_safe(submission_id, store_at)
                         blob = self.bucket.blob(store_at)
                         blob.upload_from_file(file, size=member.size)
-                        files.append({"file": member.name, "bytes": member.size})
+                        files.append(self._blob_to_file_status(blob))
         else:
             raise ValueError(f"Unsupported source package content type: {content.content_type!r}")
 
@@ -479,6 +483,7 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
         blob = self.bucket.blob(str(path))
         data = json.dumps(content).encode('utf-8')
         blob.upload_from_file(io.BytesIO(data), content_type='application/json')
+
     def _blob_to_file_status(self, submission_id, blob) -> FileStatus:
         src_dir = self._source_path(submission_id)
         anc_dir = src_dir / "anc"

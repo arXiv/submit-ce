@@ -164,8 +164,8 @@ class LegacySubmitImplementation(SubmitApi):
         before = submission
         committed: List[Event] = []
         for event in events:
-            if event.submission_id is None and submission and submission.submission_id is not None:
-                event.submission_id = submission.submission_id
+            if event.submission_id is None and before and before.submission_id is not None:
+                event.submission_id = before.submission_id
 
             # The created timestamp should be roughly when the event was committed.
             # Since the event may refer to its own ID which in future versions should be based on the
@@ -176,7 +176,7 @@ class LegacySubmitImplementation(SubmitApi):
                     raise RuntimeError("Must not save and execute an already executed event. "
                                        "{event.event_id} {event.NAME} executed {event.executed}")
                 logger.debug('Execute event %s: %s', event.event_id, event.NAME)
-                event.execute(self, submission)
+                event.execute(self, before)
                 if not event.executed:
                     event.executed = get_tzaware_utc_now()
 

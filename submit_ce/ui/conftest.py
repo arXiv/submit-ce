@@ -40,6 +40,7 @@ from submit_ce.domain.event import (
     SetLicense,
     SetPrimaryClassification,
     SetReportNumber,
+    SetSourceFormat,
     SetTitle,
 )
 
@@ -302,6 +303,7 @@ def sub_processed(app, authorized_user, sub_reviewfiles):
         user = authorized_user
         ua = InternalClient(name=f"test_client_{__file__}")
         submission, _ = current_app.api.save(
+            SetSourceFormat(creator=user, client=ua, source_format=SourceFormat.TEX.value),
             ConfirmSourceProcessed(
                 creator=user, client=ua,
                 soruce_id="123",
@@ -377,6 +379,7 @@ def submitted_submission(app, authorized_user):
                 uncompressed_size=593992,
                 compressed_size=59392,
             ),
+            SetSourceFormat(creator=user, client=ua, source_format=SourceFormat.TEX.value),
             SetTitle(creator=user, client=ua, title="Foo title, submitted submission"),
             SetAbstract(creator=user, client=ua, abstract="Foo abstract {__file__} and the reasons for why the place feels like original equipment."),
             SetComments(creator=user, client=ua, comments="pickels"),
@@ -424,6 +427,7 @@ def published_submission(app, authorized_user):
                 uncompressed_size=593992,
                 compressed_size=59392,
             ),
+            SetSourceFormat(creator=user, client=ua, source_format=SourceFormat.TEX.value),
             SetTitle(creator=user, client=ua, title="Foo bar and the right data"),
             SetAbstract(creator=user, client=ua, abstract="The correct foo bar and the right data is exactly what is needed for this test." * 20),
             SetComments(creator=user, client=ua, comments="indeed"),

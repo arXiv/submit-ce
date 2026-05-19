@@ -64,8 +64,12 @@ class SubmissionFileStore(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def delete_source_file(self, submission_id: str, path: Path|str) -> None:
-        """Deletes a file from the source."""
+    def delete_source_file(self, submission_id: str, path: Path|str) -> Optional[FileStatus]:
+        """Deletes a file from the source.
+
+        Returns `FileStatus` with info about the deleted file if
+        successful. Returns `None` if the file at `path` did not exist
+        """
         pass
 
     @abstractmethod
@@ -87,7 +91,7 @@ class SubmissionFileStore(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def store_source_package(self, submission_id: str, content: SubmitFile, chunk_size: int) -> str:
+    def store_source_package(self, submission_id: str, content: SubmitFile, chunk_size: int) -> list[FileStatus]:
         """Store a source package (tgz, tar, gzip or zip) for a submission.
 
         Returns checksum"""

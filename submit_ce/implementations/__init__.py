@@ -69,7 +69,7 @@ class NullFileStore(SubmissionFileStore):
     def get_source_file_info(self, submission_id: str, path: Path|str) -> FileStatus:
         raise RuntimeError("No source file info")
 
-    def delete_source_file(self, submission_id: str, path: Path|str) -> None:
+    def delete_source_file(self, submission_id: str, path: Path|str) -> Optional[FileStatus]:
         pass
 
     def delete_all_source_files(self, submission_id: str) -> None:
@@ -80,7 +80,7 @@ class NullFileStore(SubmissionFileStore):
                           chunk_size: int) -> FileStatus:
         raise RuntimeError("Not stored, this is from a NullFileStore")
 
-    def store_source_package(self, submission_id: str, content: SubmitFile, chunk_size: int) -> str:
+    def store_source_package(self, submission_id: str, content: SubmitFile, chunk_size: int) -> list[FileStatus]:
         return "Not stored, this is from a NullFileStore"
 
     def get_source_package_checksum(self, submission_id: str) -> str:
