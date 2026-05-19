@@ -294,6 +294,14 @@ def user_and_client_from_session(session: auth_domian.Session) -> Tuple[User, Cl
     return user, client
 
 
+def is_admin_or_dev(session: auth_domian.Session, **kw) -> bool:
+    """Check whether the session user is a StaffUser."""
+    #user, _ = user_and_client_from_session(session)
+    #return isinstance(user, StaffUser) or is_dev(session)
+    return is_admin(session) or is_dev(session)
+
+
+
 def is_owner(session: auth_domian.Session, submission_id: str, **kw) -> bool:
     """Check whether the user has privileges to edit a submission."""
     submission, _ = backend.get_submission(int(submission_id))
