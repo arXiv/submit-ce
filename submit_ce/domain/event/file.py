@@ -1,15 +1,14 @@
 from __future__ import annotations
 from pydantic import ConfigDict, Field, WithJsonSchema
-from typing import TYPE_CHECKING, List, Annotated, Optional
+from typing import TYPE_CHECKING, List, Annotated
 
 if TYPE_CHECKING:
     from submit_ce.api.submit import SubmitApi
 
 from . import validators
-from .base import Event, EventWithSideEffect
+from .base import EventWithSideEffect
 from ..submission import Submission
-from ..uploads import SourceFormat, SubmitFile
-from ..exceptions import InvalidEvent
+from ..uploads import SubmitFile
 
 import logging
 logger = logging.getLogger(__name__)

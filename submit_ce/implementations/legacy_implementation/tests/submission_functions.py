@@ -1,4 +1,3 @@
-from typing import List
 from sqlalchemy.orm import Session as SQLAlchemySession
 
 from submit_ce.domain import Submission

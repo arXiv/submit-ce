@@ -40,7 +40,6 @@ from submit_ce.domain.event import (
     SetDOI,
     SetJournalReference,
     SetMSCClassification,
-    SetProxyInformation,
     SetReportNumber,
     SetTitle,
 )

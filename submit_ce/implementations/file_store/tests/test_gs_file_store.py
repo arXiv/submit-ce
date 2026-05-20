@@ -9,16 +9,16 @@ import uuid
 from io import BytesIO
 
 import pytest
+from google.cloud import storage
+
+from arxiv.files import FileDoesNotExist
+from submit_ce.implementations.file_store.gs_file_store import GsFileStore
 
 pytestmark = pytest.mark.skipif(
     not os.environ.get("TEST_GS_FILE_STORE_AT_GCP"),
     reason="Set TEST_GS_FILE_STORE_AT_GCP=1 and set application default "\
     "credentials to run GCS integration tests",
 )
-from google.cloud import storage
-
-from arxiv.files import FileDoesNotExist
-from submit_ce.implementations.file_store.gs_file_store import GsFileStore
 
 BUCKET_NAME = "arxiv-submit-dev"
 PROJECT = "arxiv-development"

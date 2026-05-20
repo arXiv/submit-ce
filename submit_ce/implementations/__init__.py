@@ -1,5 +1,4 @@
 from datetime import datetime
-from io import BytesIO
 from typing import Optional, Tuple, List, IO
 from pathlib import Path
 

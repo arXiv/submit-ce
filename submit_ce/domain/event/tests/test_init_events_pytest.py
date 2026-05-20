@@ -4,7 +4,6 @@ from datetime import datetime
 from unittest import mock
 from pytz import UTC
 
-from arxiv.taxonomy.definitions import CATEGORIES, CATEGORIES_ACTIVE
 from submit_ce.domain import event, agent, submission, meta, preview, annotation
 from submit_ce.domain.exceptions import InvalidEvent
 

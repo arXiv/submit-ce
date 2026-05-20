@@ -6,13 +6,11 @@ from typing_extensions import override
 
 from arxiv.auth.domain import User as AuthDomainUser
 from arxiv.auth.legacy.endorsements import get_endorsements
-from fastapi import HTTPException, status
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session as SqlalchemySession, Session
 
 from submit_ce.api import SubmitApi
 from submit_ce.api.file_store import SubmissionFileStore
-from submit_ce.domain.uploads import SubmitFile
 from submit_ce.domain.agent import Client, User
 from submit_ce.domain.meta import License
 from ...api.compile_service import CompileService
@@ -23,11 +21,10 @@ from .db import to_submission
 from .models import Submission
 from . import models
 
-from ...domain.uploads import Workspace
 from ...domain.event.base import Event, EventWithSideEffect
 from ...domain.util import get_tzaware_utc_now
 
-from ...domain.event import CreateSubmission, UploadFiles
+from ...domain.event import CreateSubmission
 from ...domain.exceptions import NoSuchSubmission, NothingToDo
 from . import db
 
