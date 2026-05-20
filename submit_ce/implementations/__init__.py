@@ -81,7 +81,7 @@ class NullFileStore(SubmissionFileStore):
         raise RuntimeError("Not stored, this is from a NullFileStore")
 
     def store_source_package(self, submission_id: str, content: SubmitFile, chunk_size: int) -> list[FileStatus]:
-        return "Not stored, this is from a NullFileStore"
+        raise RuntimeError("Not stored, this is from a NullFileStore")
 
     def get_source_package_checksum(self, submission_id: str) -> str:
         return ""
