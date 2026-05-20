@@ -174,7 +174,7 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
                         self._check_path_safe(submission_id, store_at)
                         blob = self.bucket.blob(store_at)
                         blob.upload_from_file(file, size=member.size)
-                        files.append(self._blob_to_file_status(blob))
+                        files.append(self._blob_to_file_status(submission_id, blob))
         else:
             raise ValueError(f"Unsupported source package content type: {content.content_type!r}")
 

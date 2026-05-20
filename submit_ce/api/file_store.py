@@ -94,7 +94,7 @@ class SubmissionFileStore(metaclass=ABCMeta):
     def store_source_package(self, submission_id: str, content: SubmitFile, chunk_size: int) -> list[FileStatus]:
         """Store a source package (tgz, tar, gzip or zip) for a submission.
 
-        Returns checksum"""
+        Returns `list[FileStatus]`"""
         pass
 
     @abstractmethod
