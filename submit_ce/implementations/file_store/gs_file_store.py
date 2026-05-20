@@ -90,7 +90,7 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
         self._check_path_safe(submission_id, del_path)
         blob = self.bucket.get_blob(del_path)
         if blob is not None:
-            file = self._blob_to_file_status(blob)
+            file = self._blob_to_file_status(submission_id, blob)
             blob.delete()
             return file
         else:
@@ -163,7 +163,7 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
                     with zf.open(info) as file:
                         blob = self.bucket.blob(store_at)
                         blob.upload_from_file(file, size=info.file_size)
-                        files.append(self._blob_to_file_status(blob))
+                        files.append(self._blob_to_file_status(submission_id, blob))
         elif is_file_tgz(content):
             with tarfile.open(fileobj=content.stream, mode="r:*") as tar:
                 for member in tar.getmembers():
