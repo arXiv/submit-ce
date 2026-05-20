@@ -8,7 +8,7 @@ class DirectiveManager:
     See compile_api_service.py for endpoints called in tex2pdf-api.'''
 
     _PREFLIGHT_LANG_TO_SOURCE_FORMAT = {
-        "pdftex": "pdftex",
+        "tex": "tex",
         "pdf": "pdf",
         "latex": "tex",
         "html": "html",
