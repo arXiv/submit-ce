@@ -39,6 +39,7 @@ def test_delete_file_post_confirmed(app, authorized_client, sub_files, mocker):
     csrf = parse_csrf_token(resp)
 
     mock_store = mocker.patch.object(app.api, 'store')
+    mock_store.delete_source_file.return_value.bytes = 1
 
     resp = authorized_client.post(url, data={
         'csrf_token': csrf,
@@ -79,7 +80,10 @@ def test_delete_all_post_confirmed(app, authorized_client, sub_files, mocker):
     resp = authorized_client.get(url)
     csrf = parse_csrf_token(resp)
 
-    mock_store = mocker.patch.object(app.api, 'store')
+    mock_store = mocker.MagicMock()
+    mock_store.delete_source_file.return_value.bytes = 1
+    mocker.patch.object(app.api, 'get_file_store', return_value=mock_store)
+    mocker.patch.object(app.api, 'store', mock_store)
 
     resp = authorized_client.post(url, data={
         'csrf_token': csrf,

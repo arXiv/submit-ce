@@ -1,12 +1,8 @@
 from datetime import datetime
 from pytz import UTC
 
-import pytest
-
 from submit_ce.domain import submission as submod, agent
 from submit_ce.domain.event.file import UploadFiles, RemoveFiles, RemoveAllFiles
-from submit_ce.domain.uploads import SourceFormat
-from submit_ce.domain.exceptions import InvalidEvent
 
 def _now():
     return datetime.now(UTC)

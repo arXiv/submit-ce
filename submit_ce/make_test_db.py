@@ -412,7 +412,7 @@ def bootstrap_db(
                 logger.info(
                     "arXiv_submissions table already exists, DB bootstraped. No new users created."
                 )
-                return user_to_jwt(accounts.get_user_by_id(session.query(models.TapirUser).first().user_id))
+                return user_to_jwt(session.query(models.TapirUser).first().user_id)
 
             logger.info("Database for classic not yet initialized; creating all tables")
             models.metadata.create_all(engine)

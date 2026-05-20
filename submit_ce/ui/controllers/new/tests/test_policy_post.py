@@ -5,10 +5,6 @@ from sqlalchemy import text
 from arxiv.db import Session
 from submit_ce.ui.tests.csrf_util import parse_csrf_token
 
-from flask import current_app
-from sqlalchemy import text
-from arxiv.db import Session
-from submit_ce.ui.tests.csrf_util import parse_csrf_token
 
 
 def test_policy_post_sets_agreement_id(app, authorized_client, sub_authorship):

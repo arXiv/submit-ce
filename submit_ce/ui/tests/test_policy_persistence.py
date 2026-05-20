@@ -1,5 +1,3 @@
-from datetime import datetime
-from pytz import UTC
 from flask import current_app
 from arxiv.db import Session
 from sqlalchemy import text

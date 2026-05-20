@@ -1,5 +1,4 @@
 """Tests for the submission application as a whole."""
-import pytest
 from http import HTTPStatus as status
 
 from arxiv.db import Session
@@ -10,7 +9,6 @@ import arxiv.db.models as classic
 from submit_ce.ui.tests.csrf_util import parse_csrf_token
 
 
-@pytest.mark.skip(reason="source_format not yet persisted")
 def test_withdrawl_workflow(app, authorized_client, published_submission):
     """Tests that progress through the withdrawal request workflow."""
     client = authorized_client

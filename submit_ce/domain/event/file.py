@@ -1,22 +1,28 @@
 from __future__ import annotations
 from pydantic import ConfigDict, Field, WithJsonSchema
-from typing import TYPE_CHECKING, List, Annotated, Optional
+from typing import TYPE_CHECKING, List, Annotated
 
 if TYPE_CHECKING:
     from submit_ce.api.submit import SubmitApi
 
 from . import validators
-from .base import Event, EventWithSideEffect
+from .base import EventWithSideEffect
 from ..submission import Submission
-from ..uploads import SourceFormat, SubmitFile
-from ..exceptions import InvalidEvent
+from ..uploads import SubmitFile
 
 import logging
 logger = logging.getLogger(__name__)
 
 def _common_file_change_project(submission: Submission) -> None:
-    """Common changes to submission when any file change happens."""
+    """Common changes during `project` to submission when any file change happens."""
     submission.submitter_confirmed_preview = False
+
+
+def _common_file_change_execute(api: SubmitApi, submission: Submission) -> None:
+    """Common changes during `execute` when any file change happens."""
+    file_store = api.get_file_store()
+    file_store.delete_preflight(str(submission.submission_id))
+    file_store.delete_preview(str(submission.submission_id))
 
 
 class UploadArchive(EventWithSideEffect):
@@ -28,24 +34,20 @@ class UploadArchive(EventWithSideEffect):
     file: Annotated[SubmitFile, WithJsonSchema({'type': 'object'})] = Field(exclude=True)
     """File to upload."""
 
-    uncompressed_size: int = 0
+    bytes_added: int = 0
+    """Bytes added by uploading this archive."""
 
     def validate(self, submission: Submission) -> None:
         validators.submission_is_not_finalized(self, submission)
 
     def execute(self, api: SubmitApi, submission: Submission) -> None:
         """Upload the new files using the file store."""
-        api.get_file_store().store_source_package(str(submission.submission_id), self.file, 4098)
-        workspace = api.get_file_store().get_workspace(str(submission.submission_id))
-        if workspace is None:
-            raise RuntimeError("Workspace was None during UploadArchive")
-        elif workspace.size and workspace.size > 0:
-            self.uncompressed_size = workspace.size
-        else:
-            self.uncompressed_size = 0
+        files = api.get_file_store().store_source_package(str(submission.submission_id), self.file, 4098)
+        self.bytes_added = sum([file.bytes for file in files])
+        _common_file_change_execute(api, submission)
 
     def project(self, submission: Submission) -> Submission:
-        submission.uncompressed_size = self.uncompressed_size
+        submission.uncompressed_size += self.bytes_added
         _common_file_change_project(submission)
         return submission
 
@@ -73,9 +75,10 @@ class UploadFiles(EventWithSideEffect):
         for f in self.files:
             stat=file_store.store_source_file(str(submission.submission_id), f, chunk_size=4096)
             self.bytes_added += stat.bytes
+        _common_file_change_execute(api, submission)
 
     def project(self, submission: Submission) -> Submission:
-        submission.uncompressed_size = submission.uncompressed_size + self.bytes_added
+        submission.uncompressed_size += self.bytes_added
         _common_file_change_project(submission)
         return submission
 
@@ -91,21 +94,25 @@ class RemoveFiles(EventWithSideEffect):
     """name of files to remove."""
 
     bytes_removed:int = 0
+    """Bytes removed by removing these files."""
 
     def validate(self, submission: Submission) -> None:
         validators.submission_is_not_finalized(self, submission)
 
     def execute(self, api: SubmitApi, submission: Submission) -> None:
         """Remove the specified files from the file store."""
+
         file_store = api.get_file_store()
         for filename in self.files:
-            file_store.delete_source_file(str(submission.submission_id), filename)
-            # TODO Will need to accumulate the size of the files removed and update the uncompressed_size
-            # self.bytes_removed += f.size Not surehow to get size!
+            file = file_store.delete_source_file(str(submission.submission_id), filename)
+            if file:
+                self.bytes_removed += file.bytes
+
+        _common_file_change_execute(api, submission)
 
     def project(self, submission: Submission) -> Submission:
-        #submission.uncompressed_size = submission.uncompressed_size - self.bytes_removed
-        submission.submitter_confirmed_preview = False
+        submission.uncompressed_size -= self.bytes_removed
+        _common_file_change_project(submission)
         return submission
 
 
@@ -122,7 +129,7 @@ class RemoveAllFiles(EventWithSideEffect):
         """Remove the entire upload workspace using the file store."""
         file_store = api.get_file_store()
         file_store.delete_all_source_files(str(submission.submission_id))
-        file_store.delete_preview(str(submission.submission_id))
+        _common_file_change_execute(api, submission)
 
     def project(self, submission: Submission) -> Submission:
         submission.source_format = None

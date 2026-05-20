@@ -13,7 +13,6 @@ import os
 import pytest
 import unittest
 from pathlib import Path
-import requests
 import time
 
 from requests_toolbelt.multipart.encoder import MultipartEncoder

@@ -14,7 +14,6 @@ from submit_ce.domain.agent import InternalClient
 from submit_ce.domain.event import FinalizeSubmission
 
 
-@pytest.mark.skip(reason="source_format not yet persisted")
 @pytest.mark.usefixtures("app")
 def test_workflow_processor_paths(sub_metadata, authorized_user, app):
     """

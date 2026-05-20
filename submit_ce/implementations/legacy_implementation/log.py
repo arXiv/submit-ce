@@ -4,8 +4,7 @@ from typing import Optional, Callable
 
 from sqlalchemy.orm import Session as SQLAlchemySession
 
-from submit_ce.domain.agent import System
-from submit_ce.domain.event import Event, UnFinalizeSubmission, AddSecondaryClassification, AddContentFlag, AddClassifierResults
+from submit_ce.domain.event import Event, UnFinalizeSubmission, AddContentFlag, AddClassifierResults
 from submit_ce.domain.flag import ContentFlag
 from submit_ce.domain.submission import Submission
 from . import models
