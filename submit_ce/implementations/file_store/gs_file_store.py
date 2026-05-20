@@ -7,6 +7,7 @@ from typing import IO, List, Optional
 import json
 import io
 import logging
+import posixpath
 import tarfile
 import zipfile
 from typing_extensions import override
@@ -69,6 +70,8 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
 
         if self.gs_prefix.startswith("/"):
             self.gs_prefix = self.gs_prefix[1:]
+        if self.gs_prefix is None:
+            self.gs_prefix = ""
 
         self.storage_client = client if client is not None else storage.Client()
         self.bucket = self.storage_client.bucket(self.gs_bucket)
@@ -77,16 +80,16 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
 
     @override
     def get_source_file_info(self, submission_id: str, path: Path|str) -> FileStatus:
-        get_path = self._source_path(submission_id) / path
+        get_path = posixpath.join(self._source_path(submission_id), str(path))
         self._check_path_safe(submission_id, get_path)
-        blob = self.bucket.get_blob(str(get_path))
+        blob = self.bucket.get_blob(get_path)
         if blob is None:
             raise FileNotFoundError(f"File {path} does not exist in source for submission {submission_id}")
         return self._blob_to_file_status(submission_id, blob)
 
     @override
     def delete_source_file(self, submission_id: str, path: Path|str) -> Optional[FileStatus]:
-        del_path = str(self._source_path(submission_id) / path)
+        del_path = posixpath.join(self._source_path(submission_id), str(path))
         self._check_path_safe(submission_id, del_path)
         blob = self.bucket.get_blob(del_path)
         if blob is not None:
@@ -124,7 +127,7 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
                      content: SubmitFile,
                      chunk_size: int) -> FileStatus:
         """Stores a file for a submission."""
-        store_at = str(self._source_path(submission_id) / content.filename)
+        store_at = posixpath.join(self._source_path(submission_id), content.filename)
         self._check_path_safe(submission_id, store_at)
         blob = self.bucket.blob(store_at)
         blob.upload_from_file(content.stream, content_type=content.content_type)
@@ -142,7 +145,7 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
         # - the legacy code seems to keep the gz current, and
         # - tex2pdf-api/preflight needs a path to a zip in a bucket.
         package_path = self._source_package_path(submission_id)
-        package_blob = self.bucket.blob(str(package_path))
+        package_blob = self.bucket.blob(package_path)
         content.stream.seek(0)
         package_blob.upload_from_file(content.stream, content_type=content.content_type)
 
@@ -158,7 +161,7 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
                 for info in zf.infolist():
                     if info.is_dir():
                         continue
-                    store_at = str(src_dir / info.filename)
+                    store_at = posixpath.join(src_dir, info.filename)
                     self._check_path_safe(submission_id, store_at)
                     with zf.open(info) as file:
                         blob = self.bucket.blob(store_at)
@@ -169,8 +172,11 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
                 for member in tar.getmembers():
                     if not member.isfile():
                         continue
-                    with tar.extractfile(member) as file:
-                        store_at = str(src_dir / member.name)
+                    extracted = tar.extractfile(member)
+                    if extracted is None:
+                        continue
+                    with extracted as file:
+                        store_at = posixpath.join(src_dir, member.name)
                         self._check_path_safe(submission_id, store_at)
                         blob = self.bucket.blob(store_at)
                         blob.upload_from_file(file, size=member.size)
@@ -183,11 +189,11 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
     @override
     def get_preview(self, submission_id: str) -> FileObj:
         preview_path = self._preview_path(submission_id)
-        preview = self.bucket.blob(str(preview_path))
+        preview = self.bucket.blob(preview_path)
         if preview.exists():
             return preview
         else:
-            return FileDoesNotExist(str(preview_path))
+            return FileDoesNotExist(preview_path)
 
     @override
     def store_preview(self, submission_id: str,
@@ -195,7 +201,7 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
                       chunk_size: int = 4096) -> str:
         """Store a preview PDF for a submission."""
         preview_path = self._preview_path(submission_id)
-        blob = self.bucket.blob(str(preview_path))
+        blob = self.bucket.blob(preview_path)
         blob.upload_from_file(content)
         blob.reload()
         return blob.crc32c
@@ -204,7 +210,7 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
     def store_directives(self, submission_id: str, content: dict) -> str:
         """Store directives.json for a submission."""
         directives_path = self._directives_path(submission_id)
-        blob = self.bucket.blob(str(directives_path))
+        blob = self.bucket.blob(directives_path)
         data = json.dumps(content).encode('utf-8')
         blob.upload_from_file(io.BytesIO(data), content_type='application/json')
         blob.reload()
@@ -217,7 +223,7 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
     @override
     def does_source_exist(self, submission_id: str) -> bool:
         """Determine whether source has been deposited for a submission."""
-        return self.bucket.blob(str(self._source_package_path(submission_id))).exists()
+        return self.bucket.blob(self._source_package_path(submission_id)).exists()
 
     @override
     def get_preview_checksum(self, submission_id: str) -> str:
@@ -227,25 +233,21 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
     @override
     def does_preview_exist(self, submission_id: str) -> bool:
         """Determine whether a preview has been deposited for a submission."""
-        return self.bucket.blob(str(self._preview_path(submission_id))).exists()
+        return self.bucket.blob(self._preview_path(submission_id)).exists()
 
     @override
     def get_source_file(self, submission_id: str, path: Path|str) -> FileObj:
-        src_path = str(self._source_path(submission_id) / path)
+        src_path = posixpath.join(self._source_path(submission_id), str(path))
         self._check_path_safe(submission_id, src_path)
         blob = self.bucket.blob(src_path)
         if blob.exists():
             return blob
         else:
-            return FileDoesNotExist(str(src_path))
-
-    @override
-    def get_source_pacakge_checksum(self, submission_id: str) -> str:
-        return self.get_source_checksum(submission_id)
+            return FileDoesNotExist(src_path)
 
     @override
     def delete_workspace(self, submission_id: str) -> None:
-        blobs = self.bucket.list_blobs(prefix=str(self._source_path(submission_id)))
+        blobs = self.bucket.list_blobs(prefix=self._source_path(submission_id))
         for blob in blobs:
             blob.delete()
 
@@ -260,26 +262,26 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
 
     @override
     def delete_all_source_files(self, submission_id: str) -> None:
-        blobs = self.bucket.list_blobs(prefix=str(self._source_path(submission_id)))
+        blobs = self.bucket.list_blobs(prefix=self._source_path(submission_id))
         for blob in blobs:
             blob.delete()
 
     @override
     def delete_preview(self, submission_id: str) -> None:
         preview_path = self._preview_path(submission_id)
-        blob = self.bucket.blob(str(preview_path))
+        blob = self.bucket.blob(preview_path)
         if blob.exists():
             blob.delete()
 
     @override
     def get_directives(self, submission_id: str) -> FileObj:
         path = self._directives_path(submission_id)
-        blob = self.bucket.blob(str(path))
-        return blob if blob.exists() else FileDoesNotExist(str(path))
+        blob = self.bucket.blob(path)
+        return blob if blob.exists() else FileDoesNotExist(path)
 
     @override
     def delete_directives(self, submission_id: str) -> None:
-        blob = self.bucket.blob(str(self._directives_path(submission_id)))
+        blob = self.bucket.blob(self._directives_path(submission_id))
         if blob.exists():
             blob.delete()
 
@@ -289,11 +291,11 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
 
     @override
     def does_directives_exist(self, submission_id: str) -> bool:
-        return self.bucket.blob(str(self._directives_path(submission_id))).exists()
+        return self.bucket.blob(self._directives_path(submission_id)).exists()
 
     @override
     def store_user_decisions(self, submission_id: str, content: dict) -> str:
-        blob = self.bucket.blob(str(self._user_decisions_path(submission_id)))
+        blob = self.bucket.blob(self._user_decisions_path(submission_id))
         data = json.dumps(content).encode('utf-8')
         blob.upload_from_file(io.BytesIO(data), content_type='application/json')
         blob.reload()
@@ -302,12 +304,12 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
     @override
     def get_user_decisions(self, submission_id: str) -> FileObj:
         path = self._user_decisions_path(submission_id)
-        blob = self.bucket.blob(str(path))
-        return blob if blob.exists() else FileDoesNotExist(str(path))
+        blob = self.bucket.blob(path)
+        return blob if blob.exists() else FileDoesNotExist(path)
 
     @override
     def delete_user_decisions(self, submission_id: str) -> None:
-        blob = self.bucket.blob(str(self._user_decisions_path(submission_id)))
+        blob = self.bucket.blob(self._user_decisions_path(submission_id))
         if blob.exists():
             blob.delete()
 
@@ -317,17 +319,17 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
 
     @override
     def does_user_decisions_exist(self, submission_id: str) -> bool:
-        return self.bucket.blob(str(self._user_decisions_path(submission_id))).exists()
+        return self.bucket.blob(self._user_decisions_path(submission_id)).exists()
 
     @override
     def get_compile_log(self, submission_id: str) -> FileObj:
         path = self._compile_log_path(submission_id)
-        blob = self.bucket.blob(str(path))
-        return blob if blob.exists() else FileDoesNotExist(str(path))
+        blob = self.bucket.blob(path)
+        return blob if blob.exists() else FileDoesNotExist(path)
 
     @override
     def delete_compile_log(self, submission_id: str) -> None:
-        blob = self.bucket.blob(str(self._compile_log_path(submission_id)))
+        blob = self.bucket.blob(self._compile_log_path(submission_id))
         if blob.exists():
             blob.delete()
 
@@ -337,17 +339,17 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
 
     @override
     def does_compile_log_exist(self, submission_id: str) -> bool:
-        return self.bucket.blob(str(self._compile_log_path(submission_id))).exists()
+        return self.bucket.blob(self._compile_log_path(submission_id)).exists()
 
     @override
     def get_compile_json(self, submission_id: str) -> FileObj:
         path = self._compile_json_path(submission_id)
-        blob = self.bucket.blob(str(path))
-        return blob if blob.exists() else FileDoesNotExist(str(path))
+        blob = self.bucket.blob(path)
+        return blob if blob.exists() else FileDoesNotExist(path)
 
     @override
     def delete_compile_json(self, submission_id: str) -> None:
-        blob = self.bucket.blob(str(self._compile_json_path(submission_id)))
+        blob = self.bucket.blob(self._compile_json_path(submission_id))
         if blob.exists():
             blob.delete()
 
@@ -357,17 +359,17 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
 
     @override
     def does_compile_json_exist(self, submission_id: str) -> bool:
-        return self.bucket.blob(str(self._compile_json_path(submission_id))).exists()
+        return self.bucket.blob(self._compile_json_path(submission_id)).exists()
 
     @override
     def get_preflight(self, submission_id: str) -> FileObj:
         path = self._preflight_path(submission_id)
-        blob = self.bucket.blob(str(path))
-        return blob if blob.exists() else FileDoesNotExist(str(path))
+        blob = self.bucket.blob(path)
+        return blob if blob.exists() else FileDoesNotExist(path)
 
     @override
     def delete_preflight(self, submission_id: str) -> None:
-        blob = self.bucket.blob(str(self._preflight_path(submission_id)))
+        blob = self.bucket.blob(self._preflight_path(submission_id))
         if blob.exists():
             blob.delete()
 
@@ -377,17 +379,17 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
 
     @override
     def does_preflight_exist(self, submission_id: str) -> bool:
-        return self.bucket.blob(str(self._preflight_path(submission_id))).exists()
+        return self.bucket.blob(self._preflight_path(submission_id)).exists()
 
     @override
     def get_request_log(self, submission_id: str) -> FileObj:
         path = self._request_log_path(submission_id)
-        blob = self.bucket.blob(str(path))
-        return blob if blob.exists() else FileDoesNotExist(str(path))
+        blob = self.bucket.blob(path)
+        return blob if blob.exists() else FileDoesNotExist(path)
 
     @override
     def delete_request_log(self, submission_id: str) -> None:
-        blob = self.bucket.blob(str(self._request_log_path(submission_id)))
+        blob = self.bucket.blob(self._request_log_path(submission_id))
         if blob.exists():
             blob.delete()
 
@@ -397,17 +399,17 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
 
     @override
     def does_request_log_exist(self, submission_id: str) -> bool:
-        return self.bucket.blob(str(self._request_log_path(submission_id))).exists()
+        return self.bucket.blob(self._request_log_path(submission_id)).exists()
 
     @override
     def get_source_log(self, submission_id: str) -> FileObj:
         path = self._source_log_path(submission_id)
-        blob = self.bucket.blob(str(path))
-        return blob if blob.exists() else FileDoesNotExist(str(path))
+        blob = self.bucket.blob(path)
+        return blob if blob.exists() else FileDoesNotExist(path)
 
     @override
     def delete_source_log(self, submission_id: str) -> None:
-        blob = self.bucket.blob(str(self._source_log_path(submission_id)))
+        blob = self.bucket.blob(self._source_log_path(submission_id))
         if blob.exists():
             blob.delete()
 
@@ -417,95 +419,102 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
 
     @override
     def does_source_log_exist(self, submission_id: str) -> bool:
-        return self.bucket.blob(str(self._source_log_path(submission_id))).exists()
+        return self.bucket.blob(self._source_log_path(submission_id)).exists()
 
     def _get_checksum(self, path: str) -> str:
         item = self.bucket.blob(path)
         return item.crc32c
 
-    def _submission_path(self, submission_id: str) -> Path:
+    def _submission_path(self, submission_id: str) -> str:
         """Gets GS filesystem structure ex /{rootdir}/{first 4 digits of submission id}/{submission id}"""
-        shard_dir = self.gs_prefix
-        return shard_dir / Path(submission_id)
+        return posixpath.join(self.gs_prefix, submission_id)
 
-    def _source_path(self, submission_id: str) -> Path:
+    def _source_path(self, submission_id: int|str) -> str:
         """Get the source path for the submission_id"""
-        return self._submission_path(str(submission_id)) / self.source_prefix
+        return posixpath.join(self._submission_path(str(submission_id)), self.source_prefix)
 
-    def _source_package_path(self, submission_id: str) -> Path:
-        return self._submission_path(submission_id) / f'{submission_id}.tar.gz'
+    def _source_package_path(self, submission_id: str) -> str:
+        return posixpath.join(self._submission_path(submission_id), f'{submission_id}.tar.gz')
 
-    def _preview_path(self, submission_id: str) -> Path:
-        return self._submission_path(submission_id) / f'{submission_id}.pdf'
+    def _preview_path(self, submission_id: str) -> str:
+        return posixpath.join(self._submission_path(submission_id), f'{submission_id}.pdf')
 
-    def _preflight_path(self, submission_id: str) -> Path:
-        return self._submission_path(submission_id) / 'gcp_preflight.json'
+    def _preflight_path(self, submission_id: str) -> str:
+        return posixpath.join(self._submission_path(submission_id), 'gcp_preflight.json')
 
-    def _directives_path(self, submission_id: str) -> Path:
-        return self._submission_path(submission_id) / 'directives.json'
+    def _directives_path(self, submission_id: str) -> str:
+        return posixpath.join(self._submission_path(submission_id), 'directives.json')
 
-    def _user_decisions_path(self, submission_id: str) -> Path:
-        return self._submission_path(submission_id) / 'user_decisions.json'
+    def _user_decisions_path(self, submission_id: str) -> str:
+        return posixpath.join(self._submission_path(submission_id), 'user_decisions.json')
 
-    def _compile_log_path(self, submission_id: str) -> Path:
-        return self._submission_path(submission_id) / 'gcp_compile.log'
+    def _compile_log_path(self, submission_id: str) -> str:
+        return posixpath.join(self._submission_path(submission_id), 'gcp_compile.log')
 
+    @override
     def get_source_package_checksum(self, submission_id: str) -> str:
         return self.get_source_checksum(submission_id)
 
-    def _compile_json_path(self, submission_id: str) -> Path:
-        return self._submission_path(submission_id) / 'gcp_compile.json'
+    def _compile_json_path(self, submission_id: str) -> str:
+        return posixpath.join(self._submission_path(submission_id), 'gcp_compile.json')
 
-    def _full_base_path(self):
+    def _full_base_path(self) -> str:
         return f'gs://{self.gs_bucket}'
 
     @override
-    def get_full_submission_path(self, submission_id: str) -> Path:
+    def get_full_submission_path(self, submission_id: str) -> str:
         return f'{self._full_base_path()}/{self._submission_path(submission_id)}'
 
+    @override
     def get_full_source_package_path(self, submission_id: str) -> str:
         return f'{self._full_base_path()}/{self._source_package_path(submission_id)}'
 
+    @override
     def get_full_preflight_package_path(self, submission_id: str) -> str:
         return f'{self._full_base_path()}/{self._preflight_path(submission_id)}'
 
+    @override
     def get_full_directives_package_path(self, submission_id: str) -> str:
         return f'{self._full_base_path()}/{self._directives_path(submission_id)}'
 
-    def _request_log_path(self, submission_id: str) -> Path:
-        return self._submission_path(submission_id) / 'gcp_request.log'
+    def _request_log_path(self, submission_id: str) -> str:
+        return posixpath.join(self._submission_path(submission_id), 'gcp_request.log')
 
-    def _source_log_path(self, submission_id: str) -> Path:
-        return self._submission_path(submission_id) / 'source.log'
+    def _source_log_path(self, submission_id: str) -> str:
+        return posixpath.join(self._submission_path(submission_id), 'source.log')
 
+    @override
     def store_zzrm(self, submission_id: str, content: dict) -> None:
-        path = self._source_path(submission_id) / '00README.json'
-        blob = self.bucket.blob(str(path))
+        path = posixpath.join(self._source_path(submission_id), '00README.json')
+        blob = self.bucket.blob(path)
         data = json.dumps(content).encode('utf-8')
         blob.upload_from_file(io.BytesIO(data), content_type='application/json')
 
-    def _blob_to_file_status(self, submission_id, blob) -> FileStatus:
+    def _blob_to_file_status(self, submission_id: str, blob: Blob) -> FileStatus:
         src_dir = self._source_path(submission_id)
-        anc_dir = src_dir / "anc"
-        file_path = Path(blob.name)
-        return FileStatus(path=str(file_path.relative_to(src_dir)),
-                   name=file_path.name,
+        anc_dir = posixpath.join(src_dir, "anc")
+        # TODO blob.name is Optional[str]; figure out when it can actually be None
+        if blob.name is None:
+            raise ValueError(f"Blob has no name for submission {submission_id}")
+        file_path = blob.name
+        return FileStatus(path=file_path.removeprefix(src_dir + '/'),
+                   name=posixpath.basename(file_path),
                    content_type=blob.content_type or 'application/octet-stream',
                    bytes=blob.size,
                    crc32c=blob.crc32c,
                    modified=blob.updated,
-                   ancillary=anc_dir in file_path.parent.parents,
+                   ancillary=file_path.startswith(anc_dir + '/'),
                    url=URL(f"gs://{blob.bucket.name}/{blob.name}#{blob.generation}"),
                    is_versioned=True,
                    errors=[])  # TODO not sure where to get errors from
 
-    def _check_path_safe(self, submission_id: int|str, path: str|Path) -> None:
+    def _check_path_safe(self, submission_id: int|str, path: str) -> None:
         """Checks if a path is safely part of the files for `submission_id`.
 
         Raises an error if the path is not under the `self._source_path()` for
         `submission_id`
         """
-        if not str(path).startswith(str(self._source_path(submission_id))):
+        if not path.startswith(self._source_path(submission_id)):
             raise RuntimeError(f"Path {path} not part of submission_id {submission_id}")
 
     def __repr__(self) -> str:

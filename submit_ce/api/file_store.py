@@ -34,17 +34,17 @@ if TYPE_CHECKING:
 
 class SubmissionFileStore(metaclass=ABCMeta):
     @abstractmethod
-    def get_full_submission_path(self, submission_id: str) -> Path:
-        """Returns bucket name and full path to submission directory."""
+    def get_full_submission_path(self, submission_id: str) -> str:
+        """Returns full path to submission directory."""
         pass
 
     @abstractmethod
-    def get_workspace(self, submission_id: str) -> Optional[Workspace]:
+    def get_workspace(self, submission_id: str) -> Workspace:
         """Returns information about the source of a submission."""
         pass
 
     @abstractmethod
-    def delete_workspace(self, submission_id: str):
+    def delete_workspace(self, submission_id: str) -> None:
         """Deletes the source."""
         pass
 
@@ -108,7 +108,7 @@ class SubmissionFileStore(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def store_preview(self, submission_id: str, content: IO[bytes], chunk_size: int) -> str:
+    def store_preview(self, submission_id: str, content: IO[bytes], chunk_size: int = 4096) -> str:
         """Store a preview PDF for a submission.
 
         Returns checksum"""
