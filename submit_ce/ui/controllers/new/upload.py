@@ -37,7 +37,7 @@ from submit_ce.domain import Client, User, Event
 from submit_ce.domain.event.file import UploadArchive, UploadFiles
 from submit_ce.domain.submission import Submission
 from submit_ce.domain.uploads import SourceFormat
-from submit_ce.domain.uploads import Workspace, FileStatus, UploadStatus, is_file_tgz
+from submit_ce.domain.uploads import Workspace, FileStatus, UploadStatus, is_file_tgz, is_file_zip
 from submit_ce.domain.exceptions import SaveError
 
 from submit_ce.ui.auth import user_and_client_from_session
@@ -68,11 +68,11 @@ _TARGZ_MIMETYPES = frozenset({
 
 
 def _single_file_archive(files: MultiDict) -> bool:
-    """Return True if the uploaded file is a tar.gz archive."""
+    """Return True if the uploaded file is a tar.gz or zip archive."""
     pointer = files.get('file')
     if pointer is None:
         return False
-    return is_file_tgz(pointer)
+    return is_file_tgz(pointer) or is_file_zip(pointer)
 
 
 class AddfilesForm(csrf.CSRFForm):
@@ -154,23 +154,19 @@ def upload_files(method: str, params: MultiDict, session: Session,
             alerts.flash_failure("No file was uploaded; please try again.")
             return stay_on_this_stage((rdata, status.OK, {}))
 
-        is_archive = "ARCHIVE" if is_file_tgz(file) else "NONARCHIVE"
-        # TODO not sure if has_files is useful any more. _upload_files can upload with or without files,
-        has_files = submission.uncompressed_size > 0
+        is_archive = "ARCHIVE" if (is_file_tgz(file) or is_file_zip(file)) else "NONARCHIVE"
         try:
-            match (file, params.get('action'), has_files, is_archive):
-                case (_, 'next', _, _):
+            match (file, params.get('action'), is_archive):
+                case (_, 'next', _):
                     return ready_for_next((rdata, status.OK, {}))
-                case (_, action, _, _) if action:  # trying to go back to previous page
+                case (_, action, _) if action:  # trying to go back to previous page
                     return {}, status.SEE_OTHER, {}
-                case (None, _,  _, _):
+                case (None, _, _):
                     logger.debug('No files on request')
                     return stay_on_this_stage(_get_upload(params, session, submission, rdata, token))
-                case (_, _, False, "ARCHIVE"):
+                case (_, _, "ARCHIVE"):
                     return _upload_archive(form, file, submitter, client, submission, rdata, token)
-                case (_, _, True, "ARCHIVE"):
-                    raise BadRequest(description="Archive upload with existing files not yet supported.")
-                case (_, _, _, "NONARCHIVE"):
+                case (_, _, "NONARCHIVE"):
                     return _upload_files(form, file, submitter, client, submission, rdata, token)
                 case unhandled:
                     assert_never(unhandled)

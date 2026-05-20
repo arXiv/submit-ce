@@ -8,6 +8,7 @@ import json
 import io
 import logging
 import tarfile
+import zipfile
 from typing_extensions import override
 
 from arxiv.files import FileObj, FileDoesNotExist
@@ -18,7 +19,7 @@ from yarl import URL
 from submit_ce.api import SubmissionFileStore
 from submit_ce.domain import Workspace
 from submit_ce.domain.uploads import UploadLifecycleStates, UploadStatus, FileStatus
-from submit_ce.domain.uploads import SubmitFile
+from submit_ce.domain.uploads import SubmitFile, is_file_tgz
 
 from google.cloud import storage
 
@@ -142,19 +143,36 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
         package_blob.upload_from_file(content.stream, content_type=content.content_type)
 
         content.stream.seek(0)
-        files=[]
+        files = []
         src_dir = self._source_path(submission_id)
 
-        with tarfile.open(fileobj=content.stream, mode="r:*") as tar:
-            for member in tar.getmembers():
-                if not member.isfile():
-                    continue
-                with tar.extractfile(member) as file:
-                    store_at = str(src_dir / member.name)
-                    self._check_path_safe(submission_id, store_at)  # TODO this will be strange, what to do?
-                    blob = self.bucket.blob(store_at)
-                    blob.upload_from_file(file, size=member.size)
-                    files.append({"file": member.name, "bytes": member.size})
+        is_zip = (content.content_type in ('application/zip', 'application/x-zip-compressed', 'application/x-zip')
+                  or (content.filename and content.filename.endswith('.zip')))
+
+        if is_zip:
+            with zipfile.ZipFile(content.stream) as zf:
+                for info in zf.infolist():
+                    if info.is_dir():
+                        continue
+                    store_at = str(src_dir / info.filename)
+                    self._check_path_safe(submission_id, store_at)
+                    with zf.open(info) as file:
+                        blob = self.bucket.blob(store_at)
+                        blob.upload_from_file(file, size=info.file_size)
+                        files.append({"file": info.filename, "bytes": info.file_size})
+        elif is_file_tgz(content):
+            with tarfile.open(fileobj=content.stream, mode="r:*") as tar:
+                for member in tar.getmembers():
+                    if not member.isfile():
+                        continue
+                    with tar.extractfile(member) as file:
+                        store_at = str(src_dir / member.name)
+                        self._check_path_safe(submission_id, store_at)
+                        blob = self.bucket.blob(store_at)
+                        blob.upload_from_file(file, size=member.size)
+                        files.append({"file": member.name, "bytes": member.size})
+        else:
+            raise ValueError(f"Unsupported source package content type: {content.content_type!r}")
 
         return files
 
