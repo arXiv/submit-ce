@@ -33,7 +33,7 @@ from werkzeug.exceptions import (
 )
 from wtforms import BooleanField, FileField
 
-from submit_ce.domain import Client, User
+from submit_ce.domain import Client, Event, User
 from submit_ce.domain.event.file import UploadArchive, UploadFiles
 from submit_ce.domain.submission import Submission
 from submit_ce.domain.uploads import SourceFormat
@@ -130,7 +130,7 @@ def upload_files(method: str, params: MultiDict, session: Session,
         add_immediate_alert(rdata, alerts.FAILURE, 'Missing auth files or token')
         return stay_on_this_stage((rdata, status.OK, {}))
 
-    submission, _ = get_submission(submission_id)
+    submission, events = get_submission(submission_id)
     rdata.update({'submission_id': submission_id,
                   'submission': submission,
                   'form': AddfilesForm()})
@@ -138,7 +138,7 @@ def upload_files(method: str, params: MultiDict, session: Session,
     if method not in ['GET', 'POST']:
         raise MethodNotAllowed()
     elif method == 'GET':
-        return _get_upload(params, session, submission, rdata, token)
+        return _get_upload(params, session, submission, events, rdata, token)
     elif method == 'POST':
         file_list = files.getlist('file') if files else []
         if len(file_list) > 1:
@@ -162,7 +162,7 @@ def upload_files(method: str, params: MultiDict, session: Session,
                     return {}, status.SEE_OTHER, {}
                 case (None, _, _):
                     logger.debug('No files on request')
-                    return stay_on_this_stage(_get_upload(params, session, submission, rdata, token))
+                    return stay_on_this_stage(_get_upload(params, session, submission, events, rdata, token))
                 case (_, _, "ARCHIVE"):
                     return _upload_archive(form, file, submitter, client, submission, rdata, token)
                 case (_, _, "NONARCHIVE"):
@@ -179,11 +179,12 @@ def upload_files(method: str, params: MultiDict, session: Session,
             logger.exception('Problem POSTing upload')
             alerts.flash_failure(Markup('There was a problem uploading your file. ' + SUPPORT))
 
-        return stay_on_this_stage(_get_upload(params, session, submission, rdata, token))
+        return stay_on_this_stage(_get_upload(params, session, submission, events, rdata, token))
 
 
 
 def _get_upload(params: MultiDict, session: Session, submission: Submission,
+                events: List[Event],
                 rdata: Dict[str, Any], token) -> Response:
     """
     Get the current state of the upload workspace, and prepare a response.
@@ -209,7 +210,7 @@ def _get_upload(params: MultiDict, session: Session, submission: Submission,
     """
     rdata.update({'status': None, 'form': AddfilesForm()})
 
-    if not conditions.has_files(submission):
+    if not conditions.has_files(submission, events):
         return rdata, status.OK, {}  # Nothing to show; generate a blank-slate upload page
 
     status_data = alerts.get_hidden_alerts('_status')
