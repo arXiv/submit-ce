@@ -18,13 +18,14 @@ import time
 from requests_toolbelt.multipart.encoder import MultipartEncoder
 
 from http import HTTPStatus as status
-from submit_ce.ui.conftest import mocked_compile_service
+from submit_ce.ui.conftest import mocked_compile_service, mocked_file_store
 from submit_ce.ui.tests.csrf_util import parse_csrf_token
 
 
 @pytest.fixture
 def client(request, app, authorized_client):
     mocked_compile_service(app)
+    mocked_file_store(app)
     request.cls.client = authorized_client
     yield authorized_client
 
@@ -253,7 +254,6 @@ class TestSubmissionIntegration(unittest.TestCase):
         self.assertIn('success', res.text)
 
 
-    @pytest.mark.skip(reason="process_page mock compilation not working with NullFileStore")
     def test_submission_system_basic(self):
         """Create, upload files, process TeX and submit_ce a submission."""
         for page_test in [getattr(self, methname) for methname in self.page_test_names]:

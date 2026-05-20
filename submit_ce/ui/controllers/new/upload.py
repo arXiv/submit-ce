@@ -145,7 +145,7 @@ def upload_files(method: str, params: MultiDict, session: Session,
             raise BadRequest(description="Multi file upload not yet supported. Use a zip or tgz file.")
 
         file = file_list[0] if file_list else None
-        params['file'] = file_list[0]
+        params['file'] = file
         form = AddfilesForm(params)
         rdata.update({'form': form, 'submission': submission})
         if not form.validate():

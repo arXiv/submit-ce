@@ -3,6 +3,7 @@ from typing import Optional, Tuple, List, IO
 from pathlib import Path
 
 from arxiv.files import FileObj
+from yarl import URL
 
 from submit_ce.api import SubmitApi, SubmissionFileStore
 from submit_ce.api.compile_service import CompileService
@@ -214,6 +215,37 @@ class NullFileStore(SubmissionFileStore):
 
     def is_available(self) -> bool:
         return False
+
+
+def _fake_file_status(content: SubmitFile) -> FileStatus:
+    return FileStatus(
+        path=content.filename,
+        name=content.filename,
+        content_type=content.content_type,
+        bytes=1024,
+        crc32c="",
+        url=URL("file:///mock"),
+        is_versioned=False,
+        modified=datetime.now(),
+    )
+
+
+class MockFileStore(NullFileStore):
+    """A NullFileStore variant that succeeds on store_* calls for tests.
+
+    Use with `mocked_file_store(app)` from conftest. Does NOT actually retain
+    file content — returns minimal FileStatus objects so the workflow can
+    continue past the upload step.
+    """
+
+    def store_source_package(self, submission_id: str, content: SubmitFile, chunk_size: int) -> list[FileStatus]:
+        return [_fake_file_status(content)]
+
+    def store_source_file(self, submission_id: str, content: SubmitFile, chunk_size: int) -> FileStatus:
+        return _fake_file_status(content)
+
+    def is_available(self) -> bool:
+        return True
 
 
 class NullImplementation(SubmitApi):

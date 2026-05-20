@@ -30,6 +30,36 @@ class MockCompileMimesisPdf(CompileService):
         return None
 
     @override
+    def start_directives(self,
+            submission: Submission,
+            user: User,
+            client: Client,
+            api: SubmitApi,
+            source_package_id: Optional[str] = None,
+    ) -> Result:
+        api.get_file_store().store_directives(str(submission.submission_id), {})
+        return Result(
+            status=ProcessStatus(
+                status=ProcessStatus.Status.SUCCEEDED,
+                creator=user,
+                created=datetime.now(timezone.utc),
+                details={"no_details": f"test object from {__file__}"}
+            ),
+            duration_sec=0,
+            utc_start_time=datetime.now(timezone.utc),
+            url=f"FAKE_URL_{__file__}"
+        )
+
+    @override
+    def check_directives(self, process_id: str, user: User, client: Client) -> ProcessStatus:
+        return ProcessStatus(
+            status=ProcessStatus.Status.SUCCEEDED,
+            creator=user,
+            created=datetime.now(timezone.utc),
+            details={"no_details": f"test object from {__file__}"}
+        )
+
+    @override
     def start_compile(
         self,
         submission: Submission,
