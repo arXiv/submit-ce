@@ -1,5 +1,4 @@
 """Tests for :mod:`submit_ce.controllers.metadata`."""
-import pytest
 from submit_ce.domain.submission import Submission
 from submit_ce.ui.tests import gets
 from submit_ce.ui.tests.csrf_util import parse_csrf_token

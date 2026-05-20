@@ -1,10 +1,7 @@
 import json
 import logging
-from collections import OrderedDict
 from http import HTTPStatus as status
-from locale import strxfrm
-from pathlib import Path
-from typing import Tuple, Dict, Any, Optional, List, Union
+from typing import Tuple, Dict, Any, Optional, List
 
 from flask import current_app
 from arxiv.auth.domain import Session
@@ -12,9 +9,8 @@ from arxiv.base import alerts
 from submit_ce.domain.event.process import StartPreflight, StartDirectives  # noqa: F401 (StartDirectives used below)
 from submit_ce.domain.event import SetSourceFormat
 from ...auth import user_and_client_from_session
-from arxiv.files import FileObj, FileDoesNotExist
+from arxiv.files import FileDoesNotExist
 from arxiv.forms import csrf
-from markupsafe import Markup
 from werkzeug.datastructures import MultiDict
 from werkzeug.exceptions import (
     InternalServerError,
@@ -23,11 +19,9 @@ from werkzeug.exceptions import (
 from wtforms import SelectField
 from wtforms.validators import DataRequired
 
-from submit_ce.domain import Client, User, Event
-from submit_ce.domain.submission import Submission
-from submit_ce.domain.uploads import Workspace, FileStatus, UploadStatus
+from submit_ce.domain.uploads import Workspace
 from submit_ce.domain.exceptions import SaveError
-from submit_ce.ui.controllers.util import add_immediate_alert, validate_command
+from submit_ce.ui.controllers.util import validate_command
 from submit_ce.ui.routes.flow_control import stay_on_this_stage, ready_for_next, return_to_parent_stage
 from submit_ce.ui.backend import get_submission
 from submit_ce.ui import SUPPORT
@@ -266,7 +260,7 @@ def _load_or_create_preflight(submission_id: str, params: MultiDict, session: Se
     # If there is no zzrm found above, then check if there is a user decisions file,
     #   which may have been created already, if the user has made selections before.
     user_decisions_data = None
-    if zzrm_data == None:
+    if zzrm_data is None:
         user_decisions_data = _get_user_decisions_data(submission_id)
 
     return preflight_data, user_decisions_data or zzrm_data

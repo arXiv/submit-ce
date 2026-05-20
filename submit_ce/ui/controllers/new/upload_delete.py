@@ -6,23 +6,18 @@ from http import HTTPStatus as status
 from typing import Tuple, Dict, Any, Optional
 import logging
 
-from arxiv.base import alerts
 from arxiv.forms import csrf
-from markupsafe import Markup
 from flask import current_app
 
 from submit_ce.domain.event.file import RemoveAllFiles, RemoveFiles
 from submit_ce.ui.auth import user_and_client_from_session
-from submit_ce.domain.uploads import Workspace
-from submit_ce.domain.exceptions import SaveError
 from arxiv.auth.domain import Session
 from werkzeug.datastructures import MultiDict
 from wtforms import BooleanField, HiddenField
 from wtforms.validators import DataRequired
 from submit_ce.ui.backend import get_submission
 from submit_ce.ui.routes.flow_control import stay_on_this_stage, return_to_parent_stage
-from submit_ce.ui.controllers.util import add_immediate_alert, validate_command
-from submit_ce.ui import SUPPORT
+from submit_ce.ui.controllers.util import validate_command
 
 
 #from arxiv.submission.services import Filemanager

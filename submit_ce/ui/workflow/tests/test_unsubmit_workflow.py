@@ -1,5 +1,4 @@
 """Tests for the submission application as a whole."""
-import pytest
 from http import HTTPStatus as status
 
 

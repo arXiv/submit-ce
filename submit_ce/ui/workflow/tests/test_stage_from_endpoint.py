@@ -5,7 +5,8 @@ from submit_ce.ui.workflow import WorkflowDefinition
 from submit_ce.ui.workflow.stages import Stage
 
 class P(Stage):
-    endpoint = "p"; label = "P"
+    endpoint = "p"
+    label = "P"
     def is_complete(self, sub): return True
     def incomplete(self, sub): return []
 
