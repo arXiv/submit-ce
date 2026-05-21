@@ -2,15 +2,24 @@
 
 {% block title -%}Add or Edit Metadata{%- endblock title %}
 
-{% block important_text_box %}
-  <div class="message">
-    <div class="message-body">
-        {{svg.info(klass="icon filter-dark_grey")}} If this article has not yet
-        been published elsewhere, this information can be <a href="{{ ('help_jref') }}">
-        added at any later time</a> without submitting a new version.
-    </div>
+{% block info_container_middle -%}
+  <div class="message-body">
+    <h2>Editing metadata after submitting:</h2>
+    <p>Once your submission has been announced, amendments to the
+       <em>core metadata</em> may only be made through
+       <a href="{{ url_for('help_replace') }}">replacement</a> or
+       <a href="{{ url_for('help_withdraw') }}">withdrawal</a>.</p>
+    <p>Non-core metadata <a href="{{ url_for('help_jref') }}">can be edited at
+       any time</a> after announcement and without a new revision:</p>
+    <ul>
+      <li>Journal reference</li>
+      <li>DOI</li>
+      <li>MSC or ACM classification</li>
+      <li>Report number</li>
+    </ul>
   </div>
-  {% endblock important_text_box %}
+{%- endblock info_container_middle %}
+
 {% set help_url=url_for('help_metadata') %}
 {% set texism_help_text="Unicode, TeX accent characters, and MathJax are supported. Click for detailed information." %}
 {% set author_help_text="Click for detailed information on author name formatting." %}

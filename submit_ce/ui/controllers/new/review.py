@@ -31,6 +31,7 @@ from submit_ce.domain.compilation import Compilation
 from submit_ce.implementations.compile.directive_manager import DirectiveManager as dm 
 
 logger = logging.getLogger(__name__)
+#logging.basicConfig(level=logging.DEBUG)
 
 Response = Tuple[Dict[str, Any], int, Dict[str, Any]]  # pylint: disable=C0103
 

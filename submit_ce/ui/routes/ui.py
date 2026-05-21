@@ -11,10 +11,11 @@ from markupsafe import Markup
 from werkzeug import Response as WResponse
 from werkzeug.datastructures import MultiDict
 from submit_ce.ui import controllers as cntrls
+from submit_ce.ui.controllers.debug import debug_events
 from submit_ce.ui.controllers.new import upload
 from submit_ce.ui.controllers.new import review
 from submit_ce.ui.controllers.new import upload_delete
-from ..auth import is_owner
+from ..auth import is_owner, is_admin_or_dev
 from submit_ce.ui.workflow.processor import WorkflowProcessor
 from submit_ce.ui.workflow.stages import FileUpload
 from .flow_control import flow_control, get_workflow, endpoint_name
@@ -500,6 +501,14 @@ def testalerts() -> Response:
     add_immediate_alert(tc, 'WARNING', 'This is a warning to you from the normal submission alert system.', "SUBMISSION ALERT TITLE")
     alerts.flash_failure('This is one of those alerts from base alert(): you failed', 'BASE ALERT')
     return make_response(render_template('submit/testalerts.html', **tc), 200)
+
+@UI.route('/debug/<submission_id>/events', methods=["GET"])
+@scoped(scopes.VIEW_SUBMISSION, authorizer=is_admin_or_dev,
+        unauthorized=redirect_to_login)
+def get_debug_events(submission_id: Optional[str] = None) -> Response:
+    return handle(debug_events.debug_events, 'debug/debug_events.html',
+                  'Debug Events', submission_id,
+                  token=request.environ['token'])
 
 
 @UI.app_template_filter()
