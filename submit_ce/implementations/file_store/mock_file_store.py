@@ -183,6 +183,17 @@ class MockFileStore(NullFileStore):
     def delete_preview(self, submission_id: str) -> None:
         self._preview.pop(submission_id, None)
 
+    def store_preflight(self, submission_id: str, content: dict) -> str:
+        """Mock-only: directly inject a preflight blob.
+
+        In production the compile service writes `gcp_preflight.json`
+        out-of-band (e.g. to GCS); the abstract FileStore has no
+        `store_preflight`. Tests use this hook so a `MockCompileMimesisPdf`
+        can simulate preflight output.
+        """
+        self._preflight[submission_id] = json.dumps(content).encode('utf-8')
+        return ""
+
     def get_preflight(self, submission_id: str) -> FileObj:
         data = self._preflight.get(submission_id)
         return _InMemoryFileObj("gcp_preflight.json", data) if data is not None else FileDoesNotExist(submission_id)

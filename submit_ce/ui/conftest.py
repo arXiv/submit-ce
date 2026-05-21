@@ -22,7 +22,7 @@ from sqlalchemy import desc, select
 import submit_ce
 from submit_ce.domain.event.file import UploadFiles
 from submit_ce.domain.event.process import StartDirectives
-from submit_ce.implementations.compile import MockCompileMimesisPdf
+from submit_ce.implementations.compile.mock_compile_mimesis_pdf import MockCompileMimesisPdf
 import submit_ce.ui.auth
 from submit_ce.domain import Author
 from submit_ce.domain.uploads import SourceFormat
