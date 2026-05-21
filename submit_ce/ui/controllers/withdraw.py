@@ -83,6 +83,34 @@ def request_withdrawal(method: str, params: MultiDict, session: Session,
         try:
             # Save the events created during form validation.
             submission, _ = current_app.api.save(cmd, submission_id=submission_id)
+
+            #TODO Make sure that the withdraw command puts the submission in a state similar to a legacy wdr
+
+            # From Submit.pm
+            # status should be 8
+            # should be submitted
+            # needs to do "submit_source # will create auto-ignore file"
+            # submit_source does:
+            """
+            $self->must_process(0);
+            $self->submit_withdrawal_source if $self->type eq 'wdr';
+            $self->pack_source;
+            $self->set_source_size;
+            """
+            """
+            submit_withdrawal_source does:
+            my $self = shift;
+            # write to auto_ignore file
+            my $content = '%auto-ignore';
+            my $file    = $self->files->sub_src_dir . 'withdrawn';
+            io($file)->assert->print($content);
+            chmod( 0664, $file );
+            $self->is_withdrawn(1);
+            $self->is_single_file(1);
+            $self->source_format('withdrawn');
+            $self->update;
+            """
+
             # Success! Send user back to the submission page.
             alerts.flash_success("Withdrawal request submitted.")
             status_url = url_for('ui.create_submission')
