@@ -212,11 +212,13 @@ def _update_preflight(params: MultiDict, submission_id: str, workspace: Workspac
     if not has_changes:
         return False
 
-    file_store = current_app.api.get_file_store()
-    file_store.delete_preflight(submission_id)
-    file_store.store_user_decisions(submission_id, new_decisions)
-    for path in files_to_delete:
-        file_store.delete_source_file(submission_id, path)
+    api = current_app.api
+    file_store = api.get_file_store()
+    with api.lock_submission(submission_id):
+        file_store.delete_preflight(submission_id)
+        file_store.store_user_decisions(submission_id, new_decisions)
+        for path in files_to_delete:
+            file_store.delete_source_file(submission_id, path)
 
     return True
 
@@ -248,17 +250,23 @@ def _load_or_create_preflight(submission_id: str, params: MultiDict, session: Se
     preflight_data = _get_preflight_data(submission_id)
     zzrm_data = None
     if preflight_data is None:
-        file_store = current_app.api.get_file_store()
+        api = current_app.api
+        file_store = api.get_file_store()
         # if there is no preflight, then there wouldn't be a user decisions file.
         #   check if there is a zzrm, and use that as initial user decisions.
         zzrm_data = _get_zzrm_data(workspace, submission_id)
-        if zzrm_data is not None:
-            zzrm_data = dm.convert_zzrm_to_user_decisions(zzrm_data)
-            file_store.store_user_decisions(submission_id, zzrm_data)
-            file_store.delete_source_file(submission_id, '00README.json')
+        # Lock around the direct file_store mutations only. The
+        # subsequent start_preflight() goes through api.save(), which
+        # takes its own row lock from a separate session — re-entering
+        # the lock from here would deadlock on the same row.
+        with api.lock_submission(submission_id):
+            if zzrm_data is not None:
+                zzrm_data = dm.convert_zzrm_to_user_decisions(zzrm_data)
+                file_store.store_user_decisions(submission_id, zzrm_data)
+                file_store.delete_source_file(submission_id, '00README.json')
 
-        # user_decisions + preflight + compile logs -> directives.json
-        file_store.delete_directives(submission_id)
+            # user_decisions + preflight + compile logs -> directives.json
+            file_store.delete_directives(submission_id)
 
         start_preflight(params, session, submission_id, token)
         preflight_data = _get_preflight_data(submission_id)

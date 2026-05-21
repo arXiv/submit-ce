@@ -4,6 +4,7 @@ from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
 from typing import IO, List, Optional
+import gzip
 import json
 import io
 import logging
@@ -133,6 +134,51 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
         blob.upload_from_file(content.stream, content_type=content.content_type)
         blob.reload()
         return self._blob_to_file_status(submission_id, blob)
+
+    @override
+    def rebuild_source_package(self, submission_id: str) -> None:
+        """Regenerate `{submission_id}.tar.gz` from the current `src/`.
+
+        Caller must hold the per-submission lock. Output is
+        byte-deterministic for identical input: members are sorted by
+        GCS object name, gzip header carries mtime=0, and TarInfo
+        fields other than name/size are zeroed.
+        """
+        src_dir = self._source_path(submission_id)
+        list_prefix = str(src_dir).rstrip("/") + "/"
+        package_path = str(self._source_package_path(submission_id))
+        package_blob = self.bucket.blob(package_path)
+
+        blobs = sorted(
+            (
+                b
+                for b in self.bucket.client.list_blobs(
+                    self.bucket, prefix=list_prefix
+                )
+                if not b.name.endswith("/") and b.size is not None
+            ),
+            key=lambda b: b.name,
+        )
+
+        buf = io.BytesIO()
+        # gzip mtime=0 + sorted listing + zeroed TarInfo fields keep the
+        # archive byte-stable across rebuilds of identical input.
+        with gzip.GzipFile(fileobj=buf, mode="wb", mtime=0) as gz, \
+             tarfile.open(fileobj=gz, mode="w") as tar:
+            for blob in blobs:
+                relname = blob.name[len(list_prefix):]
+                info = tarfile.TarInfo(name=relname)
+                info.size = blob.size
+                info.mtime = 0
+                info.uid = info.gid = 0
+                info.uname = info.gname = ""
+                info.mode = 0o644
+                data = blob.download_as_bytes()
+                tar.addfile(info, io.BytesIO(data))
+        buf.seek(0)
+        package_blob.upload_from_file(
+            buf, content_type="application/gzip"
+        )
 
     @override
     def store_source_package(self,

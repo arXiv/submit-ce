@@ -4,11 +4,13 @@ from typing import Optional
 
 from flask.logging import default_handler
 from flask import Flask, request
+from werkzeug.exceptions import Conflict
 
 from arxiv.base import Base
 from arxiv.config import settings as base_settings
 from arxiv import db
 
+from submit_ce.domain.exceptions import SubmissionLocked
 from .auth import request_auth
 from .config import settings
 from . import backend, filters
@@ -57,5 +59,15 @@ def create_web_app(config: Optional[dict]=None) -> Flask:
     @app.teardown_appcontext
     def shutdown_session(exception=None):
         db.Session.remove()
+
+    @app.errorhandler(SubmissionLocked)
+    def _handle_submission_locked(exc: SubmissionLocked):
+        # Return (do not raise) the Conflict so Flask renders it
+        # through its standard HTTPException path. Raising here would
+        # turn the original exception into a fresh unhandled one.
+        return Conflict(description=(
+            "Another operation is in progress for this submission; "
+            "please retry."
+        ))
 
     return app

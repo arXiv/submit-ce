@@ -98,6 +98,24 @@ class SubmissionFileStore(metaclass=ABCMeta):
         pass
 
     @abstractmethod
+    def rebuild_source_package(self, submission_id: str) -> None:
+        """Regenerate the canonical source tar.gz from the current
+        contents of `src/`.
+
+        Callers must hold the per-submission lock for this submission
+        (see `SubmitApi.lock_submission`) — either by going through
+        `api.save()` (which already holds the row lock) or by wrapping
+        the call in `with api.lock_submission(submission_id):`.
+        Without that, a concurrent upload could land between this
+        rebuild and the downstream consumer of the package.
+
+        Used by `CompileApiService` before posting to tex2pdf-api so
+        that the package handed to the compiler reflects the live
+        `src/`, not whatever `store_source_package` last wrote.
+        """
+        pass
+
+    @abstractmethod
     def get_source_package_checksum(self, submission_id: str) -> str:
         """Get the checksum of the source package for a submission."""
         pass
