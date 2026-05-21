@@ -1,4 +1,3 @@
-submit_ce/ui/controllers/new/tests/test_review.py
 """Tests for :mod:`submit_ce.ui.controllers.new.review`."""
 
 from http import HTTPStatus as status
