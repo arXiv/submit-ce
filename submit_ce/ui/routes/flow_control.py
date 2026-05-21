@@ -2,7 +2,7 @@
 
 from http import HTTPStatus as status
 from functools import wraps
-from typing import Optional, Callable, Union, Dict, Tuple
+from typing import Optional, Callable, Union, Dict, List, Tuple
 from typing_extensions import Literal
 import logging
 
@@ -12,7 +12,7 @@ from werkzeug import Response as WResponse
 from werkzeug.exceptions import BadRequest
 
 from arxiv.base import alerts
-from submit_ce.domain import Submission
+from submit_ce.domain import Submission, Event
 
 from submit_ce.ui.workflow import NewSubmissionWorkflow, ReplacementWorkflow
 from submit_ce.ui.workflow.stages import Stage
@@ -100,14 +100,15 @@ def put_seen(seen: Dict[str, bool]) -> None:
     session['steps_seen'] = seen
 
 
-def get_workflow(submission: Optional[Submission]) -> WorkflowProcessor:
+def get_workflow(submission: Optional[Submission],
+                 events: List[Event]) -> WorkflowProcessor:
     """Guesses the workflow based on the submission and its version."""
     if submission is None:
         raise RuntimeError("Cannot figure out workflow without a submission")
     if submission.version > 1:
-        return WorkflowProcessor(ReplacementWorkflow, submission, get_seen())
+        return WorkflowProcessor(ReplacementWorkflow, submission, events, get_seen())
     else:
-        return WorkflowProcessor(NewSubmissionWorkflow, submission, get_seen())
+        return WorkflowProcessor(NewSubmissionWorkflow, submission, events, get_seen())
     # todo need cross workflow
     # todo need jref workflow
     # todo need doi workflow

@@ -103,7 +103,7 @@ class LegacySubmitImplementation(SubmitApi):
         if not submission:
             raise NoSuchSubmission()
         else:
-            return (to_submission(submission), [])
+            return (to_submission(submission), db.get_events(session, submission_id))
 
 
     @override

@@ -1041,23 +1041,27 @@ class DBEvent(Base):  # type: ignore
         :class:`.Event`
 
         """
-        _skip = ['creator', 'proxy', 'client', 'submission_id', 'created',
-                 'event_type', 'event_version']
-        data = {
-            key: value for key, value in self.data.items()
-            if key not in _skip
-        }
-        data['committed'] = True     # Since we're loading from the DB.
-        return event_factory(
-            event_type=self.event_type,
-            creator=agent_factory(**self.creator),
-            event_version=self.event_version,
-            proxy=agent_factory(**self.proxy) if self.proxy else None,
-            client=agent_factory(**self.client) if self.client else None,
-            submission_id=self.submission_id,
-            created=self.get_created(),
-            **data
-        )
+        import json
+        from submit_ce.domain.event.base import Event, _get_subclasses
+        # data/creator/client/proxy columns are LargeBinary holding JSON bytes
+        # written by `_new_dbevent` (see db.py). The discriminated unions
+        # (User / Client) are resolved by pydantic when the Event subclass
+        # is validated, so we pass them as raw dicts.
+        merged = json.loads(self.data.decode('utf-8'))
+        merged['creator'] = json.loads(self.creator.decode('utf-8'))
+        if self.client:
+            merged['client'] = json.loads(self.client.decode('utf-8'))
+        if self.proxy:
+            merged['proxy'] = json.loads(self.proxy.decode('utf-8'))
+        merged['submission_id'] = str(self.submission_id) if self.submission_id is not None else None
+        merged['created'] = self.get_created()
+        merged['committed'] = True
+
+        etypes = {k.get_event_type(): k for k in _get_subclasses(Event)}
+        event_cls = etypes.get(self.event_type)
+        if event_cls is None:
+            raise RuntimeError(f'Unknown event type: {self.event_type}')
+        return event_cls.model_validate(merged)
 
     def get_created(self) -> datetime:
         """Get the UTC-localized creation time for this event."""

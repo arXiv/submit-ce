@@ -2,11 +2,15 @@
 
 from typing import Callable, List
 from . import conditions
-from submit_ce.domain import Submission
+from submit_ce.domain import Submission, Event
 
 
-SubmissionCheck = Callable[[Submission], (bool)]
-"""Function type that can be used to check if a submission meets a condition."""
+SubmissionCheck = Callable[[Submission, List[Event]], bool]
+"""Function type that can be used to check if a submission meets a condition.
+
+Receives the projected `Submission` and the full event history so that
+conditions can be defined either as a state predicate or as a history
+predicate (e.g. "has a StartDirectives event been dispatched")."""
 
 
 class Stage:
@@ -33,14 +37,14 @@ class Stage:
         self.required = required
         self.must_see = must_see
 
-    def is_complete(self, submission: Submission) -> bool:
-        return all([fn(submission) for fn in self.completed])
+    def is_complete(self, submission: Submission, events: List[Event]) -> bool:
+        return all([fn(submission, events) for fn in self.completed])
 
-    def incomplete(self, submission: Submission) -> list[str]:
+    def incomplete(self, submission: Submission, events: List[Event]) -> list[str]:
         """Returns names of conditions that caused incomplete, or empty list if completed."""
         return [done_check.__name__ for
                 done_check in self.completed
-                if not done_check(submission)]
+                if not done_check(submission, events)]
 
 
 class VerifyUser(Stage):
@@ -104,7 +108,7 @@ class ReviewFiles(Stage):
     title = "Review Files"
     display = "Review Files"
     always_check = True
-    completed = [conditions.has_primary]
+    completed = [conditions.has_directives_started]
 
 class Process(Stage):
     """Uploaded files are processed; this is primarily to compile LaTeX."""

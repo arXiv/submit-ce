@@ -18,14 +18,17 @@ import time
 from requests_toolbelt.multipart.encoder import MultipartEncoder
 
 from http import HTTPStatus as status
-from submit_ce.ui.conftest import mocked_compile_service
+from submit_ce.domain.event.file import UploadArchive
+from submit_ce.ui.conftest import mocked_compile_service, mocked_file_store
 from submit_ce.ui.tests.csrf_util import parse_csrf_token
 
 
 @pytest.fixture
 def client(request, app, authorized_client):
     mocked_compile_service(app)
+    mocked_file_store(app)
     request.cls.client = authorized_client
+    request.cls.app = app
     yield authorized_client
 
 
@@ -149,6 +152,26 @@ class TestSubmissionIntegration(unittest.TestCase):
         self.assertEqual(res.status_code, 200)
         self.assertIn('Upload successful', res.text, "upload should succeed")
 
+        # Verify the upload was actually saved on the submission.
+        # The submission_id is the first path segment of the upload URL,
+        # e.g. '/1/file_upload' -> '1'.
+        submission_id = self.next_page.strip('/').split('/')[0]
+        with self.app.app_context():
+            from flask import current_app
+            _, history = current_app.api.get_with_history(submission_id)
+            self.assertTrue(
+                any(isinstance(e, UploadArchive) for e in history),
+                "An UploadArchive event should be in submission history")
+
+            sub = current_app.api.get(submission_id)
+            self.assertGreater(sub.uncompressed_size, 0,
+                               "submission.uncompressed_size should reflect the upload")
+
+            workspace = current_app.api.get_file_store().get_workspace(
+                submission_id=submission_id)
+            self.assertGreater(len(workspace.files), 0,
+                               "workspace should contain the unpacked files")
+
         res = self.client.post(self.next_page, # should still be file upload page
                             data={'action':'next', 'csrf_token': parse_csrf_token(res)})
         self.check_response(res)
@@ -253,7 +276,6 @@ class TestSubmissionIntegration(unittest.TestCase):
         self.assertIn('success', res.text)
 
 
-    @pytest.mark.skip(reason="process_page mock compilation not working with NullFileStore")
     def test_submission_system_basic(self):
         """Create, upload files, process TeX and submit_ce a submission."""
         for page_test in [getattr(self, methname) for methname in self.page_test_names]:

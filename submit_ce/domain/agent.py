@@ -20,7 +20,7 @@ __all__ = ("User", "Client", "ServiceAgent", "HttpClient", "InternalClient", "us
            "PublicUser", "StaffUser", "System", "agent_factory")
 
 from arxiv.auth import auth
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, TypeAdapter
 
 
 class PublicUser(BaseModel):
@@ -124,9 +124,12 @@ Client = Annotated[
     Field(discriminator="tool")]
 
 
+_USER_ADAPTER = TypeAdapter(User)
+
+
 def agent_factory(**data: dict) -> User:
     """Instantiate a subclass of :class:`.Agent`."""
-    return User.model_validate(data)
+    return _USER_ADAPTER.validate_python(data)
 
 
 def user_from_session(session: auth.domain.Session, include_name=False) -> User:

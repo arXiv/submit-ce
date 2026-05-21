@@ -1,6 +1,6 @@
 from __future__ import annotations
 from pydantic import ConfigDict, Field, WithJsonSchema
-from typing import TYPE_CHECKING, List, Annotated
+from typing import TYPE_CHECKING, List, Annotated, Optional
 
 if TYPE_CHECKING:
     from submit_ce.api.submit import SubmitApi
@@ -31,8 +31,8 @@ class UploadArchive(EventWithSideEffect):
     NAME = "upload and unpack archive"
     NAMED = "archive unpacked and added"
 
-    file: Annotated[SubmitFile, WithJsonSchema({'type': 'object'})] = Field(exclude=True)
-    """File to upload."""
+    file: Optional[Annotated[SubmitFile, WithJsonSchema({'type': 'object'})]] = Field(default=None, exclude=True)
+    """File to upload. Excluded from serialization, so `None` after replay from event history."""
 
     bytes_added: int = 0
     """Bytes added by uploading this archive."""
