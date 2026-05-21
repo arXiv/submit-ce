@@ -94,4 +94,4 @@ def test_get_files_from_preflight_with_testdata():
 
 def test_get_lang_from_preflight_with_testdata():
     preflight = json.loads((_TESTDATA / "gcp_preflight.json").read_text())
-    assert dm.get_lang_from_preflight(preflight) == "latex"
+    assert dm.get_lang_from_preflight(preflight) == "tex"
