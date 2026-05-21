@@ -1,5 +1,7 @@
+from contextlib import contextmanager
 from datetime import datetime
-from typing import Optional, Tuple, List, IO
+from io import BytesIO
+from typing import Iterator, Optional, Tuple, List, IO, Union
 from pathlib import Path
 
 from arxiv.files import FileObj
@@ -81,6 +83,10 @@ class NullFileStore(SubmissionFileStore):
 
     def store_source_package(self, submission_id: str, content: SubmitFile, chunk_size: int) -> list[FileStatus]:
         raise RuntimeError("Not stored, this is from a NullFileStore")
+
+    def rebuild_source_package(self, submission_id: str) -> None:
+        # NullFileStore has nothing to rebuild from.
+        pass
 
     def get_source_package_checksum(self, submission_id: str) -> str:
         return ""
@@ -252,3 +258,8 @@ class NullImplementation(SubmitApi):
             submission = event.apply(submission)
 
         return submission, events
+
+    @contextmanager
+    def lock_submission(self, submission_id: Union[int, str]) -> Iterator[None]:
+        # NullImplementation has no real persistence; the lock is a no-op.
+        yield

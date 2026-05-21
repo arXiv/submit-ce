@@ -1,6 +1,7 @@
 import logging
+from contextlib import contextmanager
 from datetime import datetime, UTC
-from typing import Optional, List, Tuple, Callable
+from typing import Iterator, Optional, List, Tuple, Callable, Union
 from sqlalchemy.exc import OperationalError, ProgrammingError
 from typing_extensions import override
 
@@ -24,9 +25,23 @@ from . import models
 from ...domain.event.base import Event, EventWithSideEffect
 from ...domain.util import get_tzaware_utc_now
 
-from ...domain.event import CreateSubmission
-from ...domain.exceptions import NoSuchSubmission, NothingToDo
+from ...domain.event import CreateSubmission, UploadFiles
+from ...domain.exceptions import NoSuchSubmission, NothingToDo, SubmissionLocked
 from . import db
+
+
+# MySQL error code for ER_LOCK_WAIT_TIMEOUT. Surfaces when an InnoDB
+# row lock cannot be acquired within `innodb_lock_wait_timeout`.
+_MYSQL_LOCK_WAIT_TIMEOUT = 1205
+
+
+def _is_lock_wait_timeout(exc: OperationalError) -> bool:
+    """True if the OperationalError originates from MySQL errno 1205."""
+    orig = getattr(exc, "orig", None)
+    if orig is None:
+        return False
+    args = getattr(orig, "args", ())
+    return bool(args) and args[0] == _MYSQL_LOCK_WAIT_TIMEOUT
 
 
 logger = logging.getLogger(__name__)
@@ -99,11 +114,49 @@ class LegacySubmitImplementation(SubmitApi):
         stmt = select(Submission).where(Submission.submission_id == int(submission_id))
         if lock_row:  # row will be locked until .commit() or use .flush() to get auto inc ids without unlocking
             stmt = stmt.with_for_update()
-        submission = session.scalars(stmt).first()
+        try:
+            submission = session.scalars(stmt).first()
+        except OperationalError as exc:
+            if lock_row and _is_lock_wait_timeout(exc):
+                raise SubmissionLocked(submission_id) from exc
+            raise
         if not submission:
             raise NoSuchSubmission()
         else:
             return (to_submission(submission), db.get_events(session, submission_id))
+
+    @override
+    @contextmanager
+    def lock_submission(self, submission_id: Union[int, str]) -> Iterator[None]:
+        """Acquire SELECT ... FOR UPDATE on the submission row for the
+        duration of the `with` block.
+
+        Use only from controller code paths that mutate submission state
+        directly (e.g. review.py); paths going through `save()` already
+        hold this lock and must not re-enter from a separate session.
+        """
+        with self.get_session() as session:
+            try:
+                # `.unique()` is required because the `Submission` ORM has
+                # joined eager loads on collections; without it
+                # `scalar_one()` raises InvalidRequestError. Same pattern
+                # as `load_submissions_for_user`.
+                session.execute(
+                    select(Submission)
+                        .where(Submission.submission_id == int(submission_id))
+                        .with_for_update()
+                ).unique().scalar_one()
+            except OperationalError as exc:
+                session.rollback()
+                if _is_lock_wait_timeout(exc):
+                    raise SubmissionLocked(submission_id) from exc
+                raise
+            try:
+                yield
+                session.commit()
+            except Exception:
+                session.rollback()
+                raise
 
 
     @override

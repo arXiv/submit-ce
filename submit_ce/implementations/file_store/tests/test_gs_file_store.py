@@ -255,3 +255,75 @@ def test_artifact_delete(store, sub_id, upload_artifact, resource, content):
     upload_artifact(sub_id, resource, content)
     getattr(store, f'delete_{resource}')(sub_id)
     assert not getattr(store, f'does_{resource}_exist')(sub_id)
+
+
+# ---------------------------------------------------------------------------
+# rebuild_source_package: deterministic tar built from live src/
+# ---------------------------------------------------------------------------
+
+def _read_package(store, sub_id) -> dict[str, bytes]:
+    """Download the canonical source tar.gz and return {member: bytes}."""
+    blob = store.bucket.blob(str(store._source_package_path(sub_id)))
+    raw = blob.download_as_bytes()
+    members: dict[str, bytes] = {}
+    with tarfile.open(fileobj=BytesIO(raw), mode="r:gz") as tar:
+        for m in tar.getmembers():
+            f = tar.extractfile(m)
+            members[m.name] = f.read() if f else b""
+    return members
+
+
+def test_rebuild_source_package_contains_live_src(store, sub_id):
+    store.store_source_file(sub_id, FakeFile("a.tex", b"AAA"), chunk_size=4096)
+    store.store_source_file(sub_id, FakeFile("b.tex", b"BBB"), chunk_size=4096)
+
+    store.rebuild_source_package(sub_id)
+
+    members = _read_package(store, sub_id)
+    assert members == {"a.tex": b"AAA", "b.tex": b"BBB"}
+
+
+def test_rebuild_source_package_reflects_subsequent_changes(store, sub_id):
+    store.store_source_file(sub_id, FakeFile("a.tex", b"AAA"), chunk_size=4096)
+    store.rebuild_source_package(sub_id)
+    assert _read_package(store, sub_id) == {"a.tex": b"AAA"}
+
+    # Add a file, then a delete; rebuild must reflect both.
+    store.store_source_file(sub_id, FakeFile("c.tex", b"CCC"), chunk_size=4096)
+    store.delete_source_file(sub_id, "a.tex")
+    store.rebuild_source_package(sub_id)
+
+    assert _read_package(store, sub_id) == {"c.tex": b"CCC"}
+
+
+def test_rebuild_source_package_is_byte_deterministic(store, sub_id):
+    store.store_source_file(sub_id, FakeFile("a.tex", b"AAA"), chunk_size=4096)
+    store.store_source_file(sub_id, FakeFile("b.tex", b"BBB"), chunk_size=4096)
+
+    store.rebuild_source_package(sub_id)
+    pkg_blob = store.bucket.blob(str(store._source_package_path(sub_id)))
+    first = pkg_blob.download_as_bytes()
+
+    store.rebuild_source_package(sub_id)
+    second = pkg_blob.download_as_bytes()
+
+    assert first == second, "rebuild must be byte-deterministic for identical src/"
+
+
+def test_rebuild_source_package_no_directory_placeholders(store, sub_id):
+    # Create a nested file; the listing may include the directory blob
+    # on some uploads. Either way, the tar must not contain a "subdir/"
+    # entry with size=0 — that would be a directory placeholder, and
+    # extracting it can break downstream consumers.
+    store.store_source_file(
+        sub_id, FakeFile("subdir/nested.tex", b"NESTED"), chunk_size=4096
+    )
+    store.rebuild_source_package(sub_id)
+
+    blob = store.bucket.blob(str(store._source_package_path(sub_id)))
+    raw = blob.download_as_bytes()
+    with tarfile.open(fileobj=BytesIO(raw), mode="r:gz") as tar:
+        names = [m.name for m in tar.getmembers()]
+        for m in tar.getmembers():
+            assert not m.name.endswith("/"), f"unexpected directory entry: {m.name!r}"
+    assert "subdir/nested.tex" in names

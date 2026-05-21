@@ -28,5 +28,21 @@ class SaveError(RuntimeError):
     """Failed to persist event state."""
 
 
+class SubmissionLocked(RuntimeError):
+    """The submission row is locked by another in-flight operation.
+
+    Intentionally NOT a subclass of `SaveError` so that the existing
+    `except SaveError` handlers in UI controllers do not swallow it
+    and convert it into HTTP 500. A dedicated Flask error handler
+    surfaces this as HTTP 409.
+    """
+
+    def __init__(self, submission_id: int | str | None = None) -> None:
+        self.submission_id = submission_id
+        super().__init__(
+            f"submission {submission_id} is locked by another operation"
+        )
+
+
 class NothingToDo(RuntimeError):
     """There is nothing to do."""

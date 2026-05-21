@@ -107,15 +107,18 @@ class CompileApiService(CompileService):
            &dest=gs://arxiv-sync-test-01/api-test/junk.json'
         '''
 
-        # This tgz may be older than the files in the src dir, 
-        #   since submit 2.0 does not yet regenerate after file changes.
-        # We could:
-        #   - update tex2pdf-api to build from the src dir
-        #   - update tex2pdf-api to support rezip
-        #   - check file dates and rezip locally, maybe on user request
-        source_path = current_app.api.get_file_store().get_full_source_package_path(submission.submission_id)
+        # Rebuild the source tar from the live src/ so the package
+        # handed to tex2pdf-api reflects the most recent uploads /
+        # deletes, not whatever store_source_package last wrote.
+        # We are inside event.execute(), which runs under the row lock
+        # taken by api.save()'s _load(..., lock_row=True); no concurrent
+        # upload can mutate src/ between the rebuild and tex2pdf-api
+        # fetching the package.
+        file_store = current_app.api.get_file_store()
+        file_store.rebuild_source_package(submission.submission_id)
+        source_path = file_store.get_full_source_package_path(submission.submission_id)
 
-        preflight_path = current_app.api.get_file_store().get_full_preflight_package_path(submission.submission_id)
+        preflight_path = file_store.get_full_preflight_package_path(submission.submission_id)
 
         query_params = {
             'source': source_path,

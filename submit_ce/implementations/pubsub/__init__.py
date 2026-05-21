@@ -1,7 +1,8 @@
 """submit-ce API implementation that sends pubsub events."""
 
+from contextlib import AbstractContextManager
 from datetime import datetime
-from typing import Optional, Tuple, List
+from typing import Optional, Tuple, List, Union
 import logging
 
 from google.cloud import pubsub_v1
@@ -63,6 +64,12 @@ class PubsubEventSubmitImplementation(SubmitApi):
 
     def healthy(self) -> tuple[bool,str]:
         return self.inner_api.healthy()
+
+    def lock_submission(
+        self, submission_id: Union[int, str]
+    ) -> AbstractContextManager[None]:
+        # Lock state lives in the inner API's database; delegate.
+        return self.inner_api.lock_submission(submission_id)
 
     @staticmethod
     def serialize_msg(*events: Event) -> bytes:

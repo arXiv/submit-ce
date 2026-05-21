@@ -60,8 +60,9 @@ Ideas after talking with Jonathan:
 """
 
 from abc import ABC, abstractmethod
+from contextlib import AbstractContextManager
 from datetime import datetime
-from typing import Tuple, List, Optional
+from typing import Tuple, List, Optional, Union
 
 from submit_ce.api.compile_service import CompileService
 from submit_ce.domain import Submission, Event, License
@@ -151,6 +152,27 @@ class SubmitApi(ABC):
         -------
             `SubmissionFileStore`
 
+        """
+        ...
+
+    @abstractmethod
+    def lock_submission(
+        self, submission_id: Union[int, str]
+    ) -> AbstractContextManager[None]:
+        """Acquire an exclusive lock on a submission for the duration of
+        the `with` block.
+
+        Use this from controller code paths that mutate submission state
+        directly via the file store (e.g. review.py) and therefore
+        bypass `save()`. Events dispatched through `save()` already run
+        under this lock and must NOT re-enter it from a separate
+        session.
+
+        Raises
+        ------
+        :class:`.SubmissionLocked`
+            If the lock cannot be acquired within the configured wait
+            time (e.g. MySQL `innodb_lock_wait_timeout`).
         """
         ...
 
