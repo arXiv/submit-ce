@@ -181,6 +181,7 @@ def start_compilation(params: MultiDict, session: Session, submission_id: str,
     if not form.validate():
         return stay_on_this_stage((response_data, status.OK, {}))
 
+    # TODO not clear where source_content_id should come from
     command = StartCompileSource(creator=submitter,
                                  client=client,
                                  source_content_id="BOGUS")
