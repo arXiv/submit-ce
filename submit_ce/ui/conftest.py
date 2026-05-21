@@ -71,7 +71,7 @@ def mocked_compile_service(app: Flask) -> None:
 
 def mocked_file_store(app: Flask) -> None:
     """Alter `app.api` to use a MockFileStore that accepts uploads in tests."""
-    from submit_ce.implementations import MockFileStore
+    from submit_ce.implementations.file_store.mock_file_store import MockFileStore
     app.api.store = MockFileStore()
 
 
