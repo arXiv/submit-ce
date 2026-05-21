@@ -1,0 +1,42 @@
+{% extends "base/base.html" %}
+
+{% block addl_head %}
+{% endblock addl_head %}
+
+{% block content %}
+<h1>Debug Events for Submission {{ submission_id }}</h1>
+
+{% if events %}
+<table class="table is-striped is-fullwidth">
+  <thead>
+    <tr>
+      <th>Event</th>
+      <th>Proxy</th>
+      <th>Client</th>
+      <th>Data</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for e in events | reverse %}
+    <tr>
+      <td>
+        <div><b>{{ e.event_type }}</b></div>
+        <div>{{ e.created }}</div>
+        <div>{{ e.event_id }}</div>
+        {% if e.creator %}
+        <div>{{ e.creator.name }}</div>
+        <div>{{ e.creator.email }}</div>
+        <div>{{ e.creator.user_id }}</div>
+        {% endif %}
+      </td>
+      <td><pre>{{ e.proxy | tojson(indent=2) }}</pre></td>
+      <td><pre>{{ e.client | tojson(indent=2) }}</pre></td>
+      <td><pre>{{ e.data | tojson(indent=2) }}</pre></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p>No events found for this submission.</p>
+{% endif %}
+{% endblock content %}
