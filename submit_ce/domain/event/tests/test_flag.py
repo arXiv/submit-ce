@@ -5,7 +5,7 @@ from datetime import datetime
 from pytz import UTC
 from pydantic import ValidationError
 
-from submit_ce.domain import agent, submission, meta
+from submit_ce.domain import agent
 from submit_ce.domain.event.flag import (
     AddFlag, RemoveFlag, AddContentFlag, AddMetadataFlag, AddUserFlag,
     AddHold, RemoveHold, AddWaiver

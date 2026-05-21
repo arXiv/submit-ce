@@ -1,6 +1,5 @@
 import io
 from datetime import timezone, datetime
-from pathlib import Path
 from typing import Optional
 from typing_extensions import override
 from submit_ce.api.compile_service import CompileService

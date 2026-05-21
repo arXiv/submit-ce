@@ -1,5 +1,3 @@
-import sys
-from collections import OrderedDict
 from typing import Optional
 
 
@@ -7,13 +5,21 @@ class DirectiveManager:
     '''This class is used for simple tasks related to the compiler.
     See compile_api_service.py for endpoints called in tex2pdf-api.'''
 
-    def get_lang_from_preflight(preflight_data: dict) -> Optional[str]:
-        '''Return the `lang` value from gcp_preflight.json.
+    _PREFLIGHT_LANG_TO_SOURCE_FORMAT = {
+        "tex": "tex",
+        "pdf": "pdf",
+        "latex": "tex",
+        "html": "html",
+    }
 
-        Looks at detected_toplevel_files[0].process.compiler.lang.
-        Possible values: "pdf", "latex", "html". Returns None if not
-        present. detected_toplevel_files is an array; we use the first
-        element.
+    def get_lang_from_preflight(preflight_data: dict) -> Optional[str]:
+        '''Return a SourceFormat value derived from gcp_preflight.json.
+
+        Looks at detected_toplevel_files[0].process.compiler.lang and maps
+        it to a valid `submit_ce.domain.uploads.SourceFormat` value:
+        "pdf" -> "pdf", "latex" -> "tex", "html" -> "html". Returns None
+        if preflight data is missing or the lang isn't one of those.
+        detected_toplevel_files is an array; we use the first element.
         '''
         if not preflight_data:
             return None
@@ -22,7 +28,8 @@ class DirectiveManager:
             return None
         process = toplevel[0].get('process') or {}
         compiler = process.get('compiler') or {}
-        return compiler.get('lang')
+        lang = compiler.get('lang')
+        return DirectiveManager._PREFLIGHT_LANG_TO_SOURCE_FORMAT.get(lang)
 
     def convert_zzrm_to_user_decisions(zzrm: dict) -> dict:
         '''Example user_decisions.json:

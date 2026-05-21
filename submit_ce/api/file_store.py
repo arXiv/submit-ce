@@ -34,17 +34,17 @@ if TYPE_CHECKING:
 
 class SubmissionFileStore(metaclass=ABCMeta):
     @abstractmethod
-    def get_full_submission_path(self, submission_id: str) -> Path:
-        """Returns bucket name and full path to submission directory."""
+    def get_full_submission_path(self, submission_id: str) -> str:
+        """Returns full path to submission directory."""
         pass
 
     @abstractmethod
-    def get_workspace(self, submission_id: str) -> Optional[Workspace]:
+    def get_workspace(self, submission_id: str) -> Workspace:
         """Returns information about the source of a submission."""
         pass
 
     @abstractmethod
-    def delete_workspace(self, submission_id: str):
+    def delete_workspace(self, submission_id: str) -> None:
         """Deletes the source."""
         pass
 
@@ -64,8 +64,12 @@ class SubmissionFileStore(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def delete_source_file(self, submission_id: str, path: Path|str) -> None:
-        """Deletes a file from the source."""
+    def delete_source_file(self, submission_id: str, path: Path|str) -> Optional[FileStatus]:
+        """Deletes a file from the source.
+
+        Returns `FileStatus` with info about the deleted file if
+        successful. Returns `None` if the file at `path` did not exist
+        """
         pass
 
     @abstractmethod
@@ -87,10 +91,10 @@ class SubmissionFileStore(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def store_source_package(self, submission_id: str, content: SubmitFile, chunk_size: int) -> str:
+    def store_source_package(self, submission_id: str, content: SubmitFile, chunk_size: int) -> list[FileStatus]:
         """Store a source package (tgz, tar, gzip or zip) for a submission.
 
-        Returns checksum"""
+        Returns `list[FileStatus]`"""
         pass
 
     @abstractmethod
@@ -104,7 +108,7 @@ class SubmissionFileStore(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def store_preview(self, submission_id: str, content: IO[bytes], chunk_size: int) -> str:
+    def store_preview(self, submission_id: str, content: IO[bytes], chunk_size: int = 4096) -> str:
         """Store a preview PDF for a submission.
 
         Returns checksum"""

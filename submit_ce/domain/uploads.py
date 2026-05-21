@@ -20,6 +20,8 @@ class SourceFormat(Enum):
     POSTSCRIPT = "ps"
     HTML = "html"
     PDF = "pdf"
+    WITHDRAWN = "withdrawn"
+    DOCX = "docx"
 
 
 class FileErrorLevels(Enum):

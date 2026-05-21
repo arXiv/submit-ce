@@ -86,7 +86,6 @@ def verify(method: str, params: MultiDict, session: Session,
     # if submission.submitter_contact_verified:
     #    return ready_for_next((response_data, status.OK,{}))
 
-    new_proxy = None
     if may_proxy and (form.proxy_name.data or form.proxy_email.data):
 
         proxied_name=form.proxy_name.data.strip()

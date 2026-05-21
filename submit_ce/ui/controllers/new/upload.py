@@ -33,12 +33,11 @@ from werkzeug.exceptions import (
 )
 from wtforms import BooleanField, FileField
 
-from submit_ce.domain import Client, User, Event
+from submit_ce.domain import Client, User
 from submit_ce.domain.event.file import UploadArchive, UploadFiles
 from submit_ce.domain.submission import Submission
 from submit_ce.domain.uploads import SourceFormat
 from submit_ce.domain.uploads import Workspace, FileStatus, UploadStatus, is_file_tgz, is_file_zip
-from submit_ce.domain.exceptions import SaveError
 
 from submit_ce.ui.auth import user_and_client_from_session
 from submit_ce.ui.controllers.util import add_immediate_alert, validate_command

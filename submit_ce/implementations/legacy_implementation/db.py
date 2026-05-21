@@ -31,7 +31,6 @@ See also :ref:`legacy-integration`.
 """
 
 import copy
-import json
 import traceback
 from datetime import datetime
 from functools import wraps

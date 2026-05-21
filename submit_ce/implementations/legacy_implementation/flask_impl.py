@@ -1,4 +1,3 @@
-from pathlib import Path
 from arxiv.db import Session
 
 from . import LegacySubmitImplementation

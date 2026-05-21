@@ -1,6 +1,3 @@
-import pytest
-
-@pytest.mark.skip(reason="source_format not yet persisted")
 def test_user_page(authorized_client, published_submission, sub_created, submitted_submission):
     """User page with published, submitted and unsubmitted."""
     resp = authorized_client.get("/")

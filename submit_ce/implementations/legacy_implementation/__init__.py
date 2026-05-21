@@ -6,13 +6,11 @@ from typing_extensions import override
 
 from arxiv.auth.domain import User as AuthDomainUser
 from arxiv.auth.legacy.endorsements import get_endorsements
-from fastapi import HTTPException, status
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session as SqlalchemySession, Session
 
 from submit_ce.api import SubmitApi
 from submit_ce.api.file_store import SubmissionFileStore
-from submit_ce.domain.uploads import SubmitFile
 from submit_ce.domain.agent import Client, User
 from submit_ce.domain.meta import License
 from ...api.compile_service import CompileService
@@ -23,11 +21,10 @@ from .db import to_submission
 from .models import Submission
 from . import models
 
-from ...domain.uploads import Workspace
 from ...domain.event.base import Event, EventWithSideEffect
 from ...domain.util import get_tzaware_utc_now
 
-from ...domain.event import CreateSubmission, UploadFiles
+from ...domain.event import CreateSubmission
 from ...domain.exceptions import NoSuchSubmission, NothingToDo
 from . import db
 
@@ -164,8 +161,8 @@ class LegacySubmitImplementation(SubmitApi):
         before = submission
         committed: List[Event] = []
         for event in events:
-            if event.submission_id is None and submission and submission.submission_id is not None:
-                event.submission_id = submission.submission_id
+            if event.submission_id is None and before and before.submission_id is not None:
+                event.submission_id = before.submission_id
 
             # The created timestamp should be roughly when the event was committed.
             # Since the event may refer to its own ID which in future versions should be based on the
@@ -176,7 +173,7 @@ class LegacySubmitImplementation(SubmitApi):
                     raise RuntimeError("Must not save and execute an already executed event. "
                                        "{event.event_id} {event.NAME} executed {event.executed}")
                 logger.debug('Execute event %s: %s', event.event_id, event.NAME)
-                event.execute(self, submission)
+                event.execute(self, before)
                 if not event.executed:
                     event.executed = get_tzaware_utc_now()
 
