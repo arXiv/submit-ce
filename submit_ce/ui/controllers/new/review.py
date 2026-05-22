@@ -6,7 +6,7 @@ from typing import Tuple, Dict, Any, Optional, List
 from flask import current_app
 from arxiv.auth.domain import Session
 from arxiv.base import alerts
-from submit_ce.domain.event.process import StartPreflight, StartDirectives  # noqa: F401 (StartDirectives used below)
+from submit_ce.domain.event.process import SetDecisions, StartPreflight, StartDirectives  # noqa: F401 (StartDirectives used below)
 from submit_ce.domain.event import SetSourceFormat
 from ...auth import user_and_client_from_session
 from arxiv.files import FileDoesNotExist
@@ -123,6 +123,7 @@ def review_files(method: str, params: MultiDict, session: Session,
     MethodNotAllowed
         If ``method`` is anything other than 'GET' or 'POST'.
     """
+    submitter, client = user_and_client_from_session(session)
     if method not in ['GET', 'POST']:
         raise MethodNotAllowed()
 
@@ -159,7 +160,7 @@ def review_files(method: str, params: MultiDict, session: Session,
         return stay_on_this_stage((rdata, status.OK, {}))
 
     elif method == 'POST':
-        has_changes = _update_preflight(params, submission_id, workspace)
+        has_changes = _update_preflight(params, submission_id, workspace, submitter, client)
 
         if has_changes:
             return return_to_parent_stage((rdata, status.OK, {}))
@@ -188,7 +189,7 @@ def _get_user_decisions_data(submission_id: str) -> Optional[dict]:
         return None
     return json.loads(blob.download_as_text())
 
-def _update_preflight(params: MultiDict, submission_id: str, workspace: Workspace) -> bool:
+def _update_preflight(params: MultiDict, submission_id: str, workspace: Workspace, submitter, client) -> bool:
     existing_paths = {f.path for f in workspace.files}
     files_to_delete = [p for p in params.getlist('selected_files') if p in existing_paths]
 
@@ -212,13 +213,13 @@ def _update_preflight(params: MultiDict, submission_id: str, workspace: Workspac
     if not has_changes:
         return False
 
-    file_store = current_app.api.get_file_store()
-    file_store.delete_preflight(submission_id)
-    file_store.store_user_decisions(submission_id, new_decisions)
-    for path in files_to_delete:
-        file_store.delete_source_file(submission_id, path)
-
-    return True
+    try:
+        cmd = SetDecisions(creator=submitter, client=client,
+                           decisions=new_decisions, files_to_delete=files_to_delete)
+        current_app.api.save(cmd)
+        return True
+    finally:
+        return False
 
 
 def _populate_form(form: ReviewForm, preflight_data: Optional[dict], user_decisions_data: Optional[dict]) -> list:

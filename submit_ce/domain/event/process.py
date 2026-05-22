@@ -1,9 +1,11 @@
 """Events related to external or long-running processes."""
 from datetime import datetime
+import json
 from typing import Optional
 
 from dataclasses import field
 
+from arxiv.files.object_store import FileDoesNotExist
 from pydantic import BaseModel
 
 from ..exceptions import InvalidEvent
@@ -13,8 +15,7 @@ from .base import Event, EventWithSideEffect
 
 from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from ... import SubmitApi
+from submit_ce.api import SubmitApi
 
 
 class ProcessInfo(BaseModel):
@@ -223,3 +224,48 @@ class PreflightStatus(Event):
             result=self.result,
         ))
         return submission
+
+
+class SetDecisions(EventWithSideEffect):
+    """Add the status of a preflight process to a submission."""
+
+    NAME = "set compile decisions"
+    NAMED = "set compile decisions"
+
+    # TODO make this a pydantic class
+    decisions: dict
+
+    files_to_delete: list[str]
+
+    bytes_removed: int = 0
+
+    def validate(self, submission: Submission) -> None:
+        if not self.decisions:
+            raise InvalidEvent(self, "Must include decisions information")
+        # TODO better validation of preflight data or just handled by pydantic?
+        # Maybe have the prefight be a dict on self then validate it here and raise errors?
+
+    def pre_execute_validation(self, api: SubmitApi, submission: Submission) -> None:
+        blob = api.get_file_store().get_user_decisions(submission.submission_id)
+        if isinstance(blob, FileDoesNotExist):
+            return
+
+        existing_preflight = json.loads(blob.download_as_text())
+        decisions_changed = self.decisions != existing_preflight
+        has_changes = bool(self.files_to_delete) or decisions_changed
+        # TODO we could check if the files_to_delete actually exist
+        if not has_changes:
+            raise InvalidEvent(self, "No changes to save")
+
+    def execute(self, api: SubmitApi, submission: Submission) -> None:
+        file_store = api.get_file_store()
+        file_store.delete_preflight(submission.submission_id)
+        file_store.store_user_decisions(submission.submission_id, self.decisions)
+        for path in self.files_to_delete:
+            file = file_store.delete_source_file(submission.submission_id, path)
+            if file:
+                self.bytes_removed += file.bytes
+
+    def project(self, submission: Submission) -> Submission:
+        submission -= self.bytes_removed
+        return Submisison
