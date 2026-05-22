@@ -20,7 +20,7 @@ from wtforms import SelectField
 from wtforms.validators import DataRequired
 
 from submit_ce.domain.uploads import Workspace
-from submit_ce.domain.exceptions import SaveError
+from submit_ce.domain.exceptions import InvalidEvent, SaveError
 from submit_ce.ui.controllers.util import validate_command
 from submit_ce.ui.routes.flow_control import stay_on_this_stage, ready_for_next, return_to_parent_stage
 from submit_ce.ui.backend import get_submission
@@ -218,7 +218,8 @@ def _update_preflight(params: MultiDict, submission_id: str, workspace: Workspac
                            decisions=new_decisions, files_to_delete=files_to_delete)
         current_app.api.save(cmd)
         return True
-    finally:
+    except InvalidEvent:
+        # TODO Somehow inform the user
         return False
 
 

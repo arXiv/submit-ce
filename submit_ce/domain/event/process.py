@@ -227,7 +227,7 @@ class PreflightStatus(Event):
 
 
 class SetDecisions(EventWithSideEffect):
-    """Add the status of a preflight process to a submission."""
+    """Sets the decisions for the submission."""
 
     NAME = "set compile decisions"
     NAMED = "set compile decisions"
@@ -267,5 +267,5 @@ class SetDecisions(EventWithSideEffect):
                 self.bytes_removed += file.bytes
 
     def project(self, submission: Submission) -> Submission:
-        submission -= self.bytes_removed
-        return Submisison
+        submission.uncompressed_size -= self.bytes_removed
+        return submission
