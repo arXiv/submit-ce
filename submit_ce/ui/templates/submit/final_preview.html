@@ -1,87 +1,312 @@
 {% extends "submit/base_edit.html" %}
 
-{% block title -%}Review and Approve Your Submission{%- endblock title %}
-{% block important_text_box %}
-{#<a href="{{ url_for('ui.delete_submission', submission_id=submission_id) }}" name="cancel" class="button" style="border:0" value="cancel" aria-label="Cancel submission" title="Cancel submission">
-  {{svg.trashcan()}}
-  Cancel and Delete
-</a>#}
-{% endblock important_text_box %}
+{% block title -%}Confirm and Submit{%- endblock title %}
+
+{# Submit button is "Submit" here, not "Continue". It's disabled until
+   `preview_ready` is true. The controller computes preview_ready as
+   (submission.submitter_confirmed_preview AND the PDF actually exists in
+   the file store), so the gate stays closed if the PDF was removed
+   out-of-band even when the persisted flag still says "viewed". A
+   client-side handler further disables Submit until the proceed
+   checkbox is also ticked. #}
+{% set _submit_disabled = not preview_ready %}
+
+{% block submit_nav_top %}
+  {{ submit_macros.submit_nav(submission_id,
+       next_label="Submit",
+       next_aria="Submit",
+       next_disabled=_submit_disabled,
+       next_id="submit-button-top") }}
+{% endblock %}
+
+{% block submit_nav_bottom %}
+  {{ submit_macros.submit_nav(submission_id,
+       next_label="Submit",
+       next_aria="Submit",
+       next_disabled=_submit_disabled,
+       next_id="submit-button-bottom") }}
+{% endblock %}
+
+{% block info_container_middle -%}
+  <div class="message-body">
+    <p>Download a copy of your submission agreement:</p>
+    <div class="buttons">
+      <a href="{{ url_for('ui.submission_agreement_pdf', submission_id=submission_id) }}"
+         class="button button-secondary"
+         target="_blank"
+         rel="noopener">Download Submission Agreement</a>
+    </div>
+    <p>Note that a citation link with your final arxiv identifier is not
+       available until after the submission is accepted and published.</p>
+
+    <h2>Editing after submitting:</h2>
+    <p>Once your submission has been announced, amendments to the files or
+       core metadata may only be made through
+       <a href="{{ url_for('help_replace') }}">replacement</a> or
+       <a href="{{ url_for('help_withdraw') }}">withdrawal</a>.
+       The license selection is permanent for this version and cannot be
+       amended.</p>
+    <p>Content that <a href="{{ url_for('help_jref') }}">can be edited at
+       any time</a> after announcement and without a new revision:</p>
+    <ul>
+      <li>Journal reference</li>
+      <li>DOI</li>
+      <li>MSC or ACM classification</li>
+      <li>Report number</li>
+    </ul>
+  </div>
+{%- endblock info_container_middle %}
 
 {% block within_content %}
-<div class="columns">
-  <div class="column">
-    <div class="message is-warning">
-      <div class="message-body">
-        <p>{{svg.info(klass="icon filter-orange")}} <span class="has-text-weight-bold">Review your submission carefully!</span>
-          Editing your submission after clicking "confirm and submit" will remove your paper from the queue.
-          A new timestamp will be assigned after resubmitting.</p>
-        <p>Note that a citation link with your final arxiv identifier is not available until after the submission is accepted and published.</p>
-        <p>Once your submission has been announced, amendments to files or core metadata may only be made through
-          <a href="{{ url_for('help_replace') }}">replacement</a> or <a href="{{ url_for('help_withdraw')}}">withdrawal</a>.
-          <em>Exception: You will be able to update <a href="{{ url_for('help_jref')}}">journal reference, DOI, MSC or ACM classification, or report number information</a> at any time without a new revision.</em></p>
+  {# PDF-preview gating banner. Three states:
+       preview_ready              -> no banner (submit gate open)
+       preview_exists and not gate -> "preview your PDF"
+       not preview_exists         -> "PDF not available, reprocess"
+  #}
+  {% if not preview_ready %}
+    <div class="columns">
+      <div class="column">
+        <div class="message is-danger preview-required">
+          <div class="message-body">
+            {% if preview_exists %}
+              <p>
+                {{ svg.exclamation(klass="icon filter-red") }}
+                <span class="has-text-weight-bold">Preview your PDF!</span>
+                You are required to preview your PDF before submitting.
+                <a href="{{ url_for('ui.file_preview', submission_id=submission_id) }}"
+                   target="_blank"
+                   rel="noopener"
+                   id="preview-pdf-required-link"
+                   data-pdf-preview="required">Click here to open your PDF</a>
+                in a new browser tab. This page will refresh automatically
+                when you return.
+              </p>
+            {% else %}
+              <p>
+                {{ svg.exclamation(klass="icon filter-red") }}
+                <span class="has-text-weight-bold">PDF preview is not
+                  available.</span>
+                The compiled PDF for your submission is missing. You
+                must return to the
+                <a href="{{ url_for('ui.file_process', submission_id=submission_id) }}">Process
+                Files</a> step to regenerate it before you can submit.
+              </p>
+            {% endif %}
+          </div>
+        </div>
       </div>
     </div>
-  </div>
-</div>
+  {% endif %}
 
-{% if submission.version > 1 %}
-  {% set arxiv_id = submission.arxiv_id %}
-{% else %}
-  {% set arxiv_id = "0000.00000" %}
-{% endif %}
-
-<div class="content-container">
-{{ macros.abs(
-  arxiv_id or "0000.00000",
-  submission.metadata.title,
-  submission.metadata.authors_display|tex2utf,
-  submission.metadata.abstract,
-  submission.created,
-  submission.primary_classification,
-  comments = submission.metadata.comments,
-  msc_class = submission.metadata.msc_class,
-  acm_class = submission.metadata.acm_class,
-  journal_ref = submission.metadata.journal_ref,
-  doi = submission.metadata.doi,
-  report_num = submission.metadata.report_num,
-  version = submission.version,
-  submission_history = submission_history,
-  secondary_categories = submission.secondary_classification) }}
-</div>
-
-
-<form id="form" method="POST" action="{{ url_for('ui.final_preview', submission_id=submission_id) }}">
+  {# Abstract preview - same domain data as before, same macro. #}
+  {% if submission.version > 1 %}
+    {% set arxiv_id = submission.arxiv_id %}
+  {% else %}
+    {% set arxiv_id = "0000.00000" %}
+  {% endif %}
 
   <div class="content-container">
-    <a href="{{ url_for('ui.add_metadata', submission_id=submission_id) }}" class="button is-small is-link is-outlined">
-      {{svg.pencil()}}<span class="has-text-weight-normal">Edit Metadata</span>
-    </a>
-    <a href="{{ url_for('ui.file_upload', submission_id=submission_id) }}" class="button is-small is-link is-outlined">
-      {{svg.pencil()}}<span class="has-text-weight-normal">Edit Uploaded Files</span>
-    </a>
-    <a href="{{ url_for('ui.file_preview', submission_id=submission_id) }}" target="_blank" class="button is-small is-link">
-      <span>View PDF</span>
-      {{svg.exclamation(klass="icon filter-white", title="PDF will open in new tab")}}
-    </a>
+    {{ macros.abs(
+        arxiv_id or "0000.00000",
+        submission.metadata.title,
+        submission.metadata.authors_display|tex2utf,
+        submission.metadata.abstract,
+        submission.created,
+        submission.primary_classification,
+        comments=submission.metadata.comments,
+        msc_class=submission.metadata.msc_class,
+        acm_class=submission.metadata.acm_class,
+        journal_ref=submission.metadata.journal_ref,
+        doi=submission.metadata.doi,
+        report_num=submission.metadata.report_num,
+        version=submission.version,
+        submission_history=submission_history,
+        secondary_categories=submission.secondary_classification) }}
   </div>
 
+  {# Proceed checkbox + reminder copy. #}
   <div class="action-container">
-    {{ form.csrf_token }}
-    {% if form.proceed.errors %}<div class="notification is-danger">{% endif %}
-    <div class="field">
-      <div class="control">
-        <div class="checkbox">
-          {{ form.proceed }}
-          {{ form.proceed.label }}
+    <p>Review your submission and make any edits before submitting to arXiv.
+       Making edits after submitting will remove your paper from the
+       announcement queue and a new timestamp will be assigned after
+       resubmitting.</p>
+
+    <form id="form" method="POST"
+          action="{{ url_for('ui.final_preview', submission_id=submission_id) }}">
+      {{ form.csrf_token }}
+      {% if form.proceed.errors %}<div class="notification is-danger">{% endif %}
+      <div class="field" id="proceed-field">
+        <div class="control">
+          <div class="checkbox proceed-checkbox" id="proceed-wrapper">
+            {{ form.proceed(id="proceed") }}
+            {{ form.proceed.label }}
+          </div>
+          {% for error in form.proceed.errors %}
+            <p class="help is-danger field-error">{{ error }}</p>
+          {% endfor %}
         </div>
-        {% for error in form.proceed.errors %}
-          <p class="help is-danger field-error">{{ error }}</p>
-        {% endfor %}
+      </div>
+      {% if form.proceed.errors %}</div>{% endif %}
+    </form>
+  </div>
+
+  {# Preview & editing shortcuts (mockup's bottom section). #}
+  <div class="shortcuts">
+    <h3>Preview and Editing Shortcuts</h3>
+    <div class="action-buttons">
+      <div class="buttons">
+        {# Preview PDF button styling tracks the three states from the
+           gating banner above:
+             preview_ready                         -> regular secondary
+             preview_exists and not gate           -> is-danger (red)
+             not preview_exists                    -> is-light (deemphasized)
+        #}
+        <a href="{{ url_for('ui.file_preview', submission_id=submission_id) }}"
+           target="_blank"
+           rel="noopener"
+           data-pdf-preview="shortcut"
+           class="button button-secondary
+                  {% if preview_ready %}{# regular #}
+                  {% elif preview_exists %}is-danger
+                  {% else %}is-light{% endif %}"
+           {% if not preview_exists %}
+             title="No PDF available - return to Process step to regenerate"
+             aria-disabled="true"
+           {% endif %}>
+          <span>Preview PDF</span>
+          {% if preview_exists and not preview_ready %}
+            <span class="is-sr-only">Required before submitting</span>
+          {% elif not preview_exists %}
+            <span class="is-sr-only">PDF not available</span>
+          {% endif %}
+        </a>
+        {# TODO: Preview HTML endpoint not yet implemented. Linking placeholder. #}
+        <a href="#"
+           target="_blank"
+           rel="noopener"
+           class="button button-secondary"
+           aria-disabled="true"
+           title="HTML preview is not yet available">
+          <span class="has-text-weight-normal">Preview HTML</span>
+        </a>
+        <a href="{{ url_for('ui.add_metadata', submission_id=submission_id) }}"
+           class="button is-text">Edit Metadata</a>
+        <a href="{{ url_for('ui.file_upload', submission_id=submission_id) }}"
+           class="button is-text">Edit Files</a>
+        <a href="{{ url_for('ui.license', submission_id=submission_id) }}"
+           class="button is-text">Edit License</a>
       </div>
     </div>
-    {% if form.proceed.errors %}</div>{% endif %}
   </div>
 
-</form>
+  {# Confirm-page client-side behavior:
+     1. Auto-refresh on tab return after a PDF preview link is clicked.
+        This way the server-side ConfirmPreview event (fired when the
+        PDF was served) is picked up without the user manually reloading.
+        We poll the server in addition to tab-focus heuristics, because
+        focus/visibility events are unreliable across browsers and don't
+        fire at all if the PDF opens in a popup that the user dismisses
+        without ever returning focus to the original tab.
+     2. Toggle Submit button disabled state based on the proceed checkbox,
+        but only when the server-side PDF-preview gate is already passed.
+  #}
+  <script>
+  (function () {
+    var DEBUG = true;  // flip to false once the flow is verified
+    function log() {
+      if (!DEBUG || !window.console) return;
+      console.log.apply(console, ['[confirm]'].concat([].slice.call(arguments)));
+    }
+
+    // State machine. The PDF preview opens in a new tab; we want to
+    // reload exactly once when the user returns to this tab. We can't
+    // just listen for focus, because some browsers don't fire focus on
+    // tab return; we can't just listen for visibilitychange either,
+    // because some setups never hide the tab (e.g., the PDF opens in a
+    // popup window). The state machine tolerates either signal.
+    //   IDLE       -> click on a PDF link -> CLICKED
+    //   CLICKED    -> tab becomes hidden  -> AWAY
+    //   AWAY       -> tab becomes visible -> reload (then back to IDLE)
+    //   CLICKED    -> manual reload by user (we never get to AWAY) -> no-op
+    var state = 'IDLE';
+
+    function reloadNow(why) {
+      log('reloading because', why);
+      window.location.reload();
+    }
+
+    document.querySelectorAll('a[data-pdf-preview]').forEach(function (a) {
+      a.addEventListener('click', function () {
+        state = 'CLICKED';
+        log('PDF link clicked', a.getAttribute('data-pdf-preview'),
+            '-> state=CLICKED');
+      });
+    });
+
+    function onMaybeBack(eventName) {
+      log('event', eventName, 'state=', state, 'hidden=', document.hidden);
+      if (document.hidden) {
+        if (state === 'CLICKED') {
+          state = 'AWAY';
+          log('-> state=AWAY');
+        }
+        return;
+      }
+      // Visible. If we previously left the tab after a PDF click, reload.
+      if (state === 'AWAY') {
+        state = 'IDLE';
+        reloadNow(eventName);
+      }
+    }
+    window.addEventListener('focus',
+      function () { onMaybeBack('focus'); });
+    document.addEventListener('visibilitychange',
+      function () { onMaybeBack('visibilitychange'); });
+    // pageshow fires on bfcache restore where visibility/focus events
+    // are inconsistent. If a click was registered and the page is being
+    // shown from bfcache, reload to get fresh state from the server.
+    window.addEventListener('pageshow',
+      function (e) {
+        log('pageshow persisted=', e.persisted, 'state=', state);
+        if (e.persisted && state !== 'IDLE') reloadNow('pageshow bfcache');
+      });
+
+    // Wire the proceed checkbox to enable/disable Submit (only meaningful
+    // when the server-side gate is already passed - otherwise the buttons
+    // are already disabled at render time). Also highlight the checkbox
+    // row when ticking it is the only remaining gate to Submit, so the
+    // user's eye is drawn to it instead of wandering around the page.
+    var proceed = document.getElementById('proceed');
+    var topBtn = document.getElementById('submit-button-top');
+    var botBtn = document.getElementById('submit-button-bottom');
+    var proceedWrapper = document.getElementById('proceed-wrapper');
+    var pdfGatePassed = {{ 'true' if preview_ready else 'false' }};
+    log('initial pdfGatePassed=', pdfGatePassed);
+
+    function syncSubmitButtons() {
+      var checked = proceed && proceed.checked;
+      var allow = pdfGatePassed && checked;
+      [topBtn, botBtn].forEach(function (b) {
+        if (!b) return;
+        if (allow) { b.removeAttribute('disabled'); }
+        else { b.setAttribute('disabled', 'disabled'); }
+      });
+      // Highlight when the checkbox is the next step (preview already
+      // viewed, just needs the confirmation tick). Drop the highlight as
+      // soon as the user ticks it - we don't want to keep nagging once
+      // they've done what we asked.
+      if (proceedWrapper) {
+        if (pdfGatePassed && !checked) {
+          proceedWrapper.classList.add('proceed-highlight');
+        } else {
+          proceedWrapper.classList.remove('proceed-highlight');
+        }
+      }
+    }
+    if (proceed) {
+      proceed.addEventListener('change', syncSubmitButtons);
+      syncSubmitButtons();
+    }
+  })();
+  </script>
 {% endblock within_content %}
