@@ -504,7 +504,7 @@ def add_metadata(submission_id: str) -> Response:
 def final_preview(submission_id: str) -> Response:
     """Render step 10, preview."""
     return handle(cntrls.finalize, 'submit/final_preview.html',
-                  'Preview and Approve', submission_id, flow_controlled=True)
+                  'Confirm and Submit', submission_id, flow_controlled=True)
 
 
 @UI.route('/<submission_id>/confirmation', methods=['GET', 'POST'])
