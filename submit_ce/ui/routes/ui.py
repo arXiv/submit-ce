@@ -10,17 +10,19 @@ from flask import Response as FResponse
 from markupsafe import Markup
 from werkzeug import Response as WResponse
 from werkzeug.datastructures import MultiDict
+from werkzeug.exceptions import NotFound
 from submit_ce.ui import controllers as cntrls
 from submit_ce.ui.controllers.debug import debug_events
 from submit_ce.ui.controllers.new import upload
 from submit_ce.ui.controllers.new import review
 from submit_ce.ui.controllers.new import upload_delete
+
 from ..auth import is_owner, is_admin_or_dev
+from submit_ce.ui.controllers.new import submission_agreement
 from submit_ce.ui.workflow.processor import WorkflowProcessor
 from submit_ce.ui.workflow.stages import FileUpload
 from .flow_control import flow_control, get_workflow, endpoint_name
 from ..backend import get_submission
-
 
 
 
@@ -390,17 +392,81 @@ def file_process(submission_id: str) -> Response:
                         unauthorized=redirect_to_login)
 # TODO @flow_control(Process)?
 def file_preview(submission_id: str) -> Response:
-    data, code, headers = cntrls.new.process.file_preview(
+    try:
+        data, code, headers = cntrls.new.process.file_preview(
+            MultiDict(request.args.items(multi=True)),
+            request.auth,
+            submission_id,
+            request.environ['token']
+        )
+    except NotFound:
+        # The PDF doesn't exist yet (e.g., Process step incomplete or
+        # tex2pdf unavailable). Redirect to a non-.pdf URL so the browser
+        # stops trying to render the response with its built-in PDF viewer,
+        # which would otherwise display a blank tab. The destination
+        # endpoint shows a friendly explanation and links back to the
+        # Process and Confirm steps.
+        return redirect(url_for('ui.preview_not_available',
+                                submission_id=submission_id))
+    # TODO This needs to have range request handling like arxiv-browse
+    rv = send_file(data.open('rb'), mimetype=headers['Content-Type'])
+    # ETag / Content-Length are best-effort. If the store could not provide
+    # them (e.g., a blob whose metadata isn't populated for some reason)
+    # we'd rather omit those headers than crash with TypeError. The PDF
+    # itself still streams to the browser.
+    etag = headers.get('ETag')
+    if etag:
+        rv.set_etag(etag)
+    size = getattr(data, 'size', None)
+    if size is not None:
+        rv.headers['Content-Length'] = str(size)
+    rv.headers['Cache-Control'] = 'no-store'
+    return rv
+
+
+@UI.route('/<submission_id>/preview_not_available', methods=["GET"])
+@scoped(scopes.VIEW_SUBMISSION, authorizer=is_owner,
+        unauthorized=redirect_to_login)
+def preview_not_available(submission_id: str) -> Response:
+    """Render a friendly HTML page when no preview PDF exists.
+
+    Reached via a 302 redirect from the ``/preview.pdf`` endpoint when the
+    file store has no preview for this submission. Lives at a non-.pdf
+    URL so the browser renders it as a normal HTML page instead of
+    invoking the built-in PDF viewer.
+    """
+    rv = make_response(render_template(
+        'submit/preview_not_available.html',
+        submission_id=submission_id,
+        pagetitle="PDF Preview Not Available",
+    ), 404)
+    rv.headers['Content-Type'] = 'text/html; charset=utf-8'
+    rv.headers['Cache-Control'] = 'no-store'
+    return rv
+
+
+@UI.route('/<submission_id>/submission_agreement.pdf', methods=["GET"])
+@scoped(scopes.VIEW_SUBMISSION, authorizer=is_owner,
+        unauthorized=redirect_to_login)
+def submission_agreement_pdf(submission_id: str) -> Response:
+    """Serve a personalized PDF of the accepted submission agreement.
+
+    The PDF is generated on the fly and stamped with the submission ID,
+    submitter, submission date, license, and agreement_id. Linked from
+    the Confirm page's sidebar ('Download Submission Agreement').
+    """
+    stream, code, headers = submission_agreement.download_submission_agreement(
+        request.method,
         MultiDict(request.args.items(multi=True)),
         request.auth,
         submission_id,
-        request.environ['token']
     )
-    # TODO This needs to have range request handling like arxiv-browse
-    rv = send_file(data.open('rb'), mimetype=headers['Content-Type'])
-    rv.set_etag(headers['ETag'])
-    rv.headers['Content-Length'] = str(data.size)
-    rv.headers['Cache-Control'] = 'no-store'
+    rv = send_file(stream, mimetype=headers['Content-Type'],
+                   download_name=headers.get('Content-Disposition', '')
+                                        .split('filename="')[-1].rstrip('"')
+                                  or f"arxiv-submission-agreement-{submission_id}.pdf",
+                   as_attachment=True)
+    rv.headers['Cache-Control'] = headers.get('Cache-Control', 'no-store')
     return rv
 
 
