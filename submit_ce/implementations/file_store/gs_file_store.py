@@ -191,6 +191,18 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
         preview_path = self._preview_path(submission_id)
         preview = self.bucket.blob(preview_path)
         if preview.exists():
+            # bucket.blob() returns a local reference with empty _properties;
+            # .exists() does a HEAD but doesn't populate metadata. Without
+            # reload(), preview.size and preview.crc32c are both None and
+            # the route layer's set_etag()/Content-Length header crash on
+            # None. This matters in particular for PDFs that arrived in
+            # the bucket via something other than our store_preview() path
+            # (e.g., hand-copied for testing).
+            try:
+                preview.reload()
+            except Exception as exc:
+                logger.debug("preview reload failed for %s: %s",
+                             preview_path, exc)
             return preview
         else:
             return FileDoesNotExist(preview_path)
@@ -422,8 +434,30 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
         return self.bucket.blob(self._source_log_path(submission_id)).exists()
 
     def _get_checksum(self, path: str) -> str:
+        """Return the crc32c checksum of the blob at ``path``.
+
+        ``bucket.blob(path)`` creates a *local* Blob reference whose
+        ``crc32c`` attribute is ``None`` until metadata is fetched from
+        GCS via ``reload()``. The upload paths (e.g. ``store_preview``)
+        call ``reload()`` immediately after upload so the local Blob has
+        a populated checksum, but reads of *pre-existing* blobs (for
+        example, a PDF copied into the bucket by hand, or any blob
+        whose metadata we haven't otherwise hydrated) would otherwise
+        return ``None``. Callers in the route layer feed this value
+        into ``Response.set_etag()`` and ``Content-Length`` headers,
+        both of which crash on ``None``.
+
+        Returns an empty string when the blob doesn't exist or has no
+        crc32c (rather than ``None``) so callers don't have to special
+        case it.
+        """
         item = self.bucket.blob(path)
-        return item.crc32c
+        try:
+            item.reload()
+        except Exception as exc:  # google.cloud.exceptions.NotFound, etc.
+            logger.debug("checksum reload failed for %s: %s", path, exc)
+            return ""
+        return item.crc32c or ""
 
     def _submission_path(self, submission_id: str) -> str:
         """Gets GS filesystem structure ex /{rootdir}/{first 4 digits of submission id}/{submission id}"""
