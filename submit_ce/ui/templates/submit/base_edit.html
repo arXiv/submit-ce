@@ -40,14 +40,14 @@
   <div class="layout-container">
     <div class="info-container">
       <div class="info-container-top">
-        {{ submit_macros.submit_nav(submission_id) }}
+        {% block submit_nav_top %}{{ submit_macros.submit_nav(submission_id) }}{% endblock %}
       </div>
       <div class="info-container-middle">
         {%block info_container_middle %}{% endblock %}
         {% block important_text_box %}{% endblock %}
       </div>
       <div class="info-container-bottom">
-        {{ submit_macros.submit_nav(submission_id) }}
+        {% block submit_nav_bottom %}{{ submit_macros.submit_nav(submission_id) }}{% endblock %}
       </div>
     </div>
 
