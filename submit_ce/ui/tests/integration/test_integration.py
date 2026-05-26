@@ -234,7 +234,7 @@ class TestSubmissionIntegration(unittest.TestCase):
 
         res = self.client.get(self.next_page)
         self.assertEqual(res.status_code, 200)
-        self.assertIn('Review and Approve Your Submission', res.text)
+        self.assertIn('Confirm and Submit', res.text)
 
         res = self.client.post(self.next_page,
                             data= {
