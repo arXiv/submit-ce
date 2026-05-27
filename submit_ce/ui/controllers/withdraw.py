@@ -8,13 +8,14 @@ from arxiv.auth.domain import Session
 from flask import url_for, current_app
 from markupsafe import Markup
 from werkzeug.datastructures import MultiDict
-from werkzeug.exceptions import InternalServerError
+from werkzeug.exceptions import InternalServerError, NotFound
 from wtforms.fields import TextAreaField, BooleanField
-from wtforms.validators import DataRequired
+from wtforms.validators import DataRequired, Length
 
 from arxiv.base import alerts
 from arxiv.forms import csrf
-from submit_ce.domain.event import RequestWithdrawal
+from submit_ce.domain.event import FinalizeSubmission
+from submit_ce.domain.event.legacy import Withdraw
 
 from .util import FieldMixin, validate_command
 from submit_ce.ui.backend import get_submission
@@ -30,26 +31,36 @@ Response = Tuple[Dict[str, Any], int, Dict[str, Any]]  # pylint: disable=C0103
 class WithdrawalForm(csrf.CSRFForm, FieldMixin):
     """Submit a withdrawal request."""
 
-    withdrawal_reason = TextAreaField(
-        'Reason for withdrawal',
-        validators=[DataRequired()],
-        description=f'Limit {RequestWithdrawal.MAX_LENGTH} characters'
+    comment = TextAreaField(
+        'Comment',
+        validators=[DataRequired(), Length(min=10, max=400)],
+        description='Limit 400 characters'
+    )
+    abstract = TextAreaField(
+        'Abstract',
+        validators=[DataRequired(), Length(min=10, max=1920)],
+        description='Limit 1920 characters'
     )
     confirmed = BooleanField('Confirmed',
                              false_values=('false', False, 0, '0', ''))
 
 
+def _stay_on_page(submission_to_wdr):
+    loc = url_for('ui.withdraw', submission_id=submission_to_wdr.submission_id)
+    return {}, status.SEE_OTHER, {'Location': loc}
+
+
 def request_withdrawal(method: str, params: MultiDict, session: Session,
                        submission_id: str, **kwargs) -> Response:
     """Request withdrawal of a paper."""
+
     submitter, client = user_and_client_from_session(session)
     logger.debug(f'method: {method}, submission: {submission_id}. {params}')
 
     # Will raise NotFound if there is no such submission.
-    submission, _ = get_submission(submission_id)
-
+    submission_to_wdr, _ = get_submission(submission_id)
     # The submission must be announced for this to be a withdrawal request.
-    if not submission.is_announced:
+    if not submission_to_wdr.is_announced:
         alerts.flash_failure(Markup(
             "Submission must first be announced. See "
             "<a href='https://arxiv.org/help/withdraw'>the arXiv help pages"
@@ -58,66 +69,40 @@ def request_withdrawal(method: str, params: MultiDict, session: Session,
         loc = url_for('ui.create_submission')
         return {}, status.SEE_OTHER, {'Location': loc}
 
-    # The form should be prepopulated based on the current state of the
-    # submission.
+    if method != 'GET' and method != 'POST':
+        return {}, status.OK
+
+    submission = submission_to_wdr
     if method == 'GET':
-        params = MultiDict({})
+        params.setdefault("confirmed", False)
+        params.setdefault("abstract", submission.metadata.abstract)
+        params.setdefault("comments", submission.metadata.comments)
 
-
-    params.setdefault("confirmed", False)
     form = WithdrawalForm(params)
     response_data = {
-        'submission_id': submission_id,
+        'submission_id': submission.submission_id,
         'submission': submission,
         'form': form,
-        'submission_history': [], # abs macro expects this
     }
-    if method == 'GET':
-        return response_data, status.OK, {}
-
-    cmd = RequestWithdrawal(reason=form.withdrawal_reason.data,
-                            creator=submitter, client=client)
-    if method == 'POST' and form.validate() \
-       and form.confirmed.data \
-       and validate_command(form, cmd, submission, 'withdrawal_reason'):
-        try:
-            # Save the events created during form validation.
-            submission, _ = current_app.api.save(cmd, submission_id=submission_id)
-
-            #TODO Make sure that the withdraw command puts the submission in a state similar to a legacy wdr
-
-            # From Submit.pm
-            # status should be 8
-            # should be submitted
-            # needs to do "submit_source # will create auto-ignore file"
-            # submit_source does:
-            """
-            $self->must_process(0);
-            $self->submit_withdrawal_source if $self->type eq 'wdr';
-            $self->pack_source;
-            $self->set_source_size;
-            """
-            """
-            submit_withdrawal_source does:
-            my $self = shift;
-            # write to auto_ignore file
-            my $content = '%auto-ignore';
-            my $file    = $self->files->sub_src_dir . 'withdrawn';
-            io($file)->assert->print($content);
-            chmod( 0664, $file );
-            $self->is_withdrawn(1);
-            $self->is_single_file(1);
-            $self->source_format('withdrawn');
-            $self->update;
-            """
-
-            # Success! Send user back to the submission page.
-            alerts.flash_success("Withdrawal request submitted.")
-            status_url = url_for('ui.create_submission')
-            return {}, status.SEE_OTHER, {'Location': status_url}
-        except SaveError as ex:
-            raise InternalServerError(response_data) from ex
-    else:
+    if method == 'GET' or \
+       (method =='POST' and not form.validate()) or \
+       (method =='POST' and form.validate() and not form.data['confirmed']):
         response_data['require_confirmation'] = True
 
-    return response_data, status.OK, {}
+        return response_data, status.OK, {}
+    elif method == 'POST' and form.validate() and form.data['confirmed']:
+        cmd = Withdraw(paper_id=submission_to_wdr.arxiv_id,
+                       comments=form.comment.data, abstract=form.abstract.data,
+                       creator=submitter, client=client)
+        if validate_command(form, cmd, submission_to_wdr):
+            try:
+                submission_to_wdr, _ = current_app.api.save(cmd)
+                response_data['require_confirmation'] = True
+                alerts.flash_success("Withdrawal request submitted.")
+                status_url = url_for('ui.create_submission')
+                return {}, status.SEE_OTHER, {'Location': status_url}
+            except SaveError as ex:
+                raise InternalServerError(response_data) from ex
+    else:
+        # kind of unexpected, we should not get here?
+        return response_data, status.OK, {}

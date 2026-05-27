@@ -42,7 +42,7 @@ import logging
 from arxiv.license import LICENSES
 from pydantic import RootModel
 from retry import retry as _retry
-from sqlalchemy import or_
+from sqlalchemy import or_, func
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session as SQLAlchemySession
 from sqlalchemy.orm.exc import NoResultFound
@@ -56,6 +56,7 @@ from .patch import patch_cross, patch_hold, patch_jref, patch_withdrawal
 from submit_ce import domain
 from submit_ce.domain.uploads import SourceFormat
 from submit_ce.domain import Event, Submission, User, WithdrawalRequest, CrossListClassificationRequest,  License
+from submit_ce.domain.submission import SubmissionType
 from submit_ce.domain.event import SetJournalReference, SetDOI, SetReportNumber, CreateSubmission, Rollback
 from submit_ce.domain.exceptions import NoSuchSubmission
 
@@ -403,13 +404,14 @@ def _cancel_request(session: SQLAlchemySession, event: CancelRequest, before: Su
 
 
 def _load_document_id(session: SQLAlchemySession, paper_id: str, version: int) -> int:
-    logger.debug('get document ID with %s and %s', paper_id, version)
     document_id = session.query(models.Submission.document_id) \
         .filter(models.Submission.doc_paper_id == paper_id) \
         .filter(models.Submission.version == version) \
+        .filter(models.Submission.document_id.isnot(None)) \
+        .order_by(models.Submission.submission_id.desc()) \
         .first()
-    if document_id is None:
-        raise NoSuchSubmission("No submission row matches those parameters")
+    if document_id is None or document_id[0] is None:
+        raise NoSuchSubmission(f"No submission row with paper_id {paper_id} and version {version}")
     return int(document_id[0])
 
 
@@ -462,6 +464,59 @@ def _create_withdrawal(document_id: int, reason: str, paper_id: str,
                             )
     dbs.update_withdrawal(submission, reason, paper_id, version, created)
     return dbs
+
+
+def load_latest_announced(session: SQLAlchemySession, paper_id: str) \
+        -> models.Submission:
+    """Load the most recent announced version row for ``paper_id``.
+
+    Used to seed a withdrawal from the metadata of the latest version.
+    """
+    max_version = session.query(func.max(models.Submission.version)) \
+        .filter(models.Submission.doc_paper_id == paper_id) \
+        .filter(models.Submission.type.in_([models.Submission.NEW_SUBMISSION,
+                                            models.Submission.REPLACEMENT])) \
+        .scalar()
+    if max_version is None:
+        raise NoSuchSubmission(f"No announced submission for paper {paper_id}")
+    return _load(session, paper_id=paper_id, version=max_version)
+
+
+def store_withdrawal(session: SQLAlchemySession, event: Event,
+                     seed: Submission) -> Tuple[Event, Submission]:
+    """Create a new ``wdr`` submission row from a `Withdraw` event.
+
+    Unlike :func:`store_event`, a withdrawal is a side-effecting event that
+    *creates* a new row. We create and flush the row here so the new
+    submission id exists, then hand the projected `after` (carrying the new id)
+    back so the caller can run ``execute()`` against the new workspace.
+    """
+    if event.committed:
+        raise ValueError(f'{event.event_type} {event.event_id} already committed')
+    if event.created is None:
+        raise ValueError('Event creation timestamp not set')
+
+    after = event.apply(seed)
+    doc_id = _load_document_id(session, event.paper_id, after.version)
+    dbs = _create_withdrawal(doc_id, event.comments, event.paper_id,
+                             after.version, after, event.created)
+    dbs.is_withdrawn = 1
+
+    # Flush to assign the autoincrement submission id for the new row.
+    session.add(dbs)
+    session.flush([dbs])
+
+    # The new row owns its own workspace, keyed by the new submission id.
+    after.submission_id = str(dbs.submission_id)
+    dbs.package = str(dbs.submission_id)
+    event.submission_id = str(dbs.submission_id)
+
+    db_event = _new_dbevent(event)
+    session.add(db_event)
+    event.committed = True
+
+    log.handle(session, event, seed, after)
+    return event, after
 
 
 def _create_crosslist(document_id: int, categories: List[str], paper_id: str,
@@ -644,6 +699,7 @@ def to_submission(row: models.Submission,
         secondary_classification=secondary_clsn,
         arxiv_id=row.doc_paper_id,
         version=row.version,
+        submission_type=SubmissionType(row.type) if row.type else None,
         proxy=proxy
     )
     if row.sticky_status == row.ON_HOLD or row.status == row.ON_HOLD:

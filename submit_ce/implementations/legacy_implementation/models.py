@@ -256,6 +256,7 @@ class Submission(Base):    # type: ignore
         self.status = Submission.PROCESSING_SUBMISSION
         reason = f"{Submission.WDR_DELIMETER}{reason}"
         self.comments = self.comments.rstrip('. ') + reason
+        self.source_flags = '1'
 
     def update_cross(self, submission: domain.Submission,
                      categories: List[str], paper_id: str, version: int,

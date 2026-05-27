@@ -1,13 +1,11 @@
 """Tests for the withdraw submission UI controller."""
 from http import HTTPStatus as status
 
-from flask import current_app
-import pytest
-
 import arxiv.db.models as classic
 from arxiv.db import Session
 
 from submit_ce.ui.tests.csrf_util import parse_csrf_token
+from submit_ce.ui.conftest import mocked_file_store
 
 
 def test_wdr_no_submission(app, authorized_client):
@@ -56,6 +54,9 @@ def test_wdr_published_submission_succeeds(app, authorized_client, published_sub
     submission, paper_id = published_submission
     sid = submission.submission_id
 
+    # Use an in-memory store that actually retains the withdrawn source file.
+    mocked_file_store(app)
+
     get1 = authorized_client.get(f'/{sid}/withdraw')
     assert get1.status_code == status.OK
     assert b'withdrawal' in get1.data.lower() or b'Withdraw' in get1.data
@@ -64,7 +65,8 @@ def test_wdr_published_submission_succeeds(app, authorized_client, published_sub
         f'/{sid}/withdraw',
         data={
             'csrf_token': parse_csrf_token(get1),
-            'withdrawal_reason': f'Test WDR from {__file__}, found a serious error in section 3.',
+            'comment': f'Test WDR from {__file__}, found a serious error in section 3.',
+            'abstract': 'This is the updated abstract for the withdrawal notice.',
             'confirmed': 'y',
         },
     )
@@ -85,13 +87,14 @@ def test_wdr_published_submission_succeeds(app, authorized_client, published_sub
                 "withdrawal row should be a new row, not the original submission"
             assert wdr.is_withdrawn == 1
             assert wdr.must_process == 0
-            assert wdr.is_single_file == 1
+            assert wdr.source_flags == '1'
             assert wdr.source_format == 'withdrawn'
 
-            workspace = app.api.get_file_store().get_workspace(wdr.submission_id)
+            wdr_sid = str(wdr.submission_id)
+            workspace = app.api.get_file_store().get_workspace(wdr_sid)
             assert workspace
             assert workspace.file_count == 1
             file = workspace.files[0]
             assert file.name == "withdrawn"
-            with app.api.get_file_store().get_source_file(wdr.submission_id, file.path) as fh:
-                assert fh.read() == '%auto-ignore'
+            with app.api.get_file_store().get_source_file(wdr_sid, file.path).open() as fh:
+                assert fh.read() == b'%auto-ignore'
