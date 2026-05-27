@@ -51,50 +51,70 @@
 
 {% block title -%}Upload Files{%- endblock title %}
 
+{# v5 mockup sidebar: lead with "Avoid common causes of delay" as the
+   primary heading, then accepted formats / figures / file properties as
+   sub-sections. Uses info_container_middle (not important_text_box) so
+   it follows the same sidebar pattern as Metadata and Confirm. #}
+{% block info_container_middle %}
+  <div class="message-body">
+    <h2>Avoid common causes of delay</h2>
+    <p>Make sure included files match the filenames exactly (it is case
+      sensitive), and verify your references, citations and captions.</p>
 
+    <h3>Accepted formats, in order of preference</h3>
+    <ul>
+      <li><a href="{{ url_for('help_submit_tex') }}">(La)TeX or PDFLaTeX</a>
+        | <a href="{{ url_for('help_submit_pdf') }}">PDF</a>
+        | <a href="{{ url_for('help_submit_html') }}">HTML</a>
+        (for proceedings index only)</li>
+      <li>PDF documents created from TeX are not typically accepted.
+        <a href="{{ url_for('help_whytex') }}">Why?</a></li>
+    </ul>
+
+    <h3>Accepted formats for figures</h3>
+    <ul>
+      <li>(La)TeX: Postscript</li>
+      <li>PDFLaTeX: JPG, GIF, PNG, or PDF</li>
+    </ul>
+
+    <h3>Accepted file properties</h3>
+    <ul>
+      <li>Names containing a-z A-Z 0-9 . , - _</li>
+      <li>Total compressed package size limit is 6MB, and uncompressed is
+        18MB</li>
+      <li>More information about
+        <a href="{{ url_for('help_submit_sizes') }}">submission size and
+        exemptions to size limits</a></li>
+    </ul>
+  </div>
+{% endblock info_container_middle %}
+
+{% block within_content %}
+{# Main-area intro copy (moved from the sidebar to match v5 mockup). #}
+<p>TeX and (La)TeX submissions are highly encouraged. This format is the
+  most likely to retain readability and high-quality output in the future.
+  TeX source uploaded to arXiv will be made publicly available.</p>
+
+<p>You can upload all your files at once as a single .zip or .tar.gz
+  file, or upload individual files as needed.</p>
+
+{# Upload-result notifications (success/warning/error). Previously this
+   block sat outside any {% block %} in the template, so Jinja's extends
+   mechanic silently dropped it -- the notifications never rendered.
+   Moved into within_content so they appear above the form as the v5
+   mockup shows. #}
 {% if immediate_notifications %}
   {% for notification in immediate_notifications %}
-  <div class="notification is-{{ notification.severity }}" role="alert" aria-atomic="true">
-    {% if notification.title %}<h2 class="is-size-5 is-marginless">{{ notification.title }}</h2>{% endif %}
-    <p>
-      {{ notification.body}}
-    </p>
-  </div>
+    <div class="notification is-{{ notification.severity }}"
+         role="alert" aria-atomic="true">
+      {% if notification.title %}
+        <h2 class="is-size-5 is-marginless">{{ notification.title }}</h2>
+      {% endif %}
+      <p>{{ notification.body }}</p>
+    </div>
   {% endfor %}
 {% endif %}
 
-{% block important_text_box %}
-
-  <p>TeX and (La)TeX submissions are highly encouraged. This format is the most likely to retain readability and high-quality output in the future. TeX source uploaded to arXiv will be made publicly available.</p>
-
-  <p>You can upload all your files at once as a single .zip or .tar.gz file, or upload individual files as needed.</p>
-<p><strong>Avoid common causes of delay:</strong> Make sure included files match the filenames exactly (it is case sensitive), and verify your references, citations and captions.</p>
-                
-<p class="has-text-weight-semibold">
-  {{svg.info(klass="icon filter-dark_grey")}}Accepted formats, in order of preference
-</p>
-<ul>
-  <li><a href="{{ url_for('help_submit_tex') }}">(La)TeX or PDFLaTeX</a> | <a href="{{ url_for('help_submit_pdf') }}">PDF</a> | <a href="{{ url_for('help_submit_html') }}">HTML</a> (for proceedings index only)</li>
-  <li>PDF documents created from TeX are not typically accepted. <a href="{{ url_for('help_whytex') }}">Why?</a></li>
-</ul>
-<p class="has-text-weight-semibold">
-  {{svg.info(klass="icon filter-dark_grey")}}Accepted formats for figures
-</p>
-<ul>
-  <li>(La)TeX: Postscript</li>
-  <li>PDFLaTeX: JPG, GIF, PNG, or PDF</li>
-</ul>
-<p class="has-text-weight-semibold">
-  {{svg.info(klass="icon filter-dark_grey")}}Accepted file properties
-</p>
-<ul>
-  <li>Names containing a-z A-Z 0-9 . , - _</li>
-  <li>Total compressed package size limit is 6MB, and uncompressed is 18MB</li>
-  <li>More information about <a href="{{ url_for('help_submit_sizes') }}">submission size and exemptions to size limits</a></li>
-</ul>
-   {% endblock important_text_box %}
-
-{% block within_content %}
 <form id="form" class="form" action="{{ url_for('ui.file_upload', submission_id=submission_id) }}" method="POST" enctype="multipart/form-data">
   <div class="columns action-container">
 

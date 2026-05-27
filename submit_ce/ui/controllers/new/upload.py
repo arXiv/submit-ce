@@ -314,28 +314,14 @@ def _get_notifications(stat: Workspace) -> List[Dict[str, str]]:
                     ' that these issues may cause delays in processing'
                     ' and/or announcement.'
         })
-    if stat.source_format is SourceFormat.UNKNOWN:
-        notifications.append({
-            'title': 'Unknown submission type',
-            'severity': 'warning',
-            'body': 'We could not determine the source type of your'
-                    ' submission. Please check your files carefully. We may'
-                    ' not be able to process your files.'
-        })
-    elif stat.source_format is SourceFormat.INVALID:
-        notifications.append({
-            'title': 'Unsupported submission type',
-            'severity': 'danger',
-            'body': 'It is likely that your submission content is not'
-                    ' supported. Please check your files carefully. We may not'
-                    ' be able to process your files.'
-        })
-    else:
-        notifications.append({
-            'title': f'Detected {stat.source_format.value.upper()}',
-            'severity': 'success',
-            'body': 'Your submission content is supported.'
-        })
+    # Source-format detection happens later, on the Review Files step
+    # (preflight dispatches SetSourceFormat from the detected lang -- see
+    # review.py::_record_source_format_from_preflight). At the Upload
+    # step the workspace.source_format is always SourceFormat.UNKNOWN, so
+    # the old "Unknown submission type" warning fired on every single
+    # upload regardless of content. Don't show format-detection
+    # notifications here; the Review Files step is where the user sees
+    # whether their format was recognized.
     return notifications
 
 
