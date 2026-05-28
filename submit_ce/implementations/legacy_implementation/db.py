@@ -48,6 +48,7 @@ from sqlalchemy.orm import Session as SQLAlchemySession
 from sqlalchemy.orm.exc import NoResultFound
 
 from submit_ce.domain.agent import Client, HttpClient
+from submit_ce.domain.event.legacy import Withdraw
 from submit_ce.domain.event.request import CancelRequest, RequestCrossList, RequestWithdrawal
 
 from . import models, interpolate, log
@@ -482,7 +483,7 @@ def load_latest_announced(session: SQLAlchemySession, paper_id: str) \
     return _load(session, paper_id=paper_id, version=max_version)
 
 
-def store_withdrawal(session: SQLAlchemySession, event: Event,
+def store_withdrawal(session: SQLAlchemySession, event: Withdraw,
                      seed: Submission) -> Tuple[Event, Submission]:
     """Create a new ``wdr`` submission row from a `Withdraw` event.
 

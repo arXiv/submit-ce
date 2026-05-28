@@ -26,7 +26,7 @@ from ...domain.util import get_tzaware_utc_now
 
 from ...domain.event import CreateSubmission
 from ...domain.event.legacy import Withdraw
-from ...domain.exceptions import NoSuchSubmission, NothingToDo
+from ...domain.exceptions import NoSuchSubmission, NothingToDo, SaveError
 from . import db
 
 
@@ -112,8 +112,12 @@ class LegacySubmitImplementation(SubmitApi):
         if not events:
             raise NothingToDo()
         if isinstance(events[0], Withdraw):
-            with self.get_session() as session:
-                return self._save_withdrawal(events[0], session)
+            # BDC I don't love how the Withdraw is handled. I'd perfer if it were done in a side effect
+            if len(events) > 1:
+                raise SaveError("Must save Withdraw as the only item in the list of Events")
+            else:
+                with self.get_session() as session:
+                    return self._save_withdrawal(events[0], session)
         with self.get_session() as session:
             before: Optional[Submission] = None
             existing_events: List[Event] = []
