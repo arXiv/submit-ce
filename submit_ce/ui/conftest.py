@@ -478,7 +478,7 @@ def published_submission(app, authorized_user):
             else:
                 paper_id = "1234.56789"
 
-            db_submission = session.query(classic.Submission).get(submission.submission_id)
+            db_submission = session.get(classic.Submission, submission.submission_id)
             if not db_submission:
                 raise RuntimeError(f"No db row for {submission.submission_id}")
             db_submission.status = 7  # published

@@ -249,3 +249,18 @@ exclude = [
     ".git",
 ]
 
+[tool.pytest.ini_options]
+# Suppress deprecation warnings we cannot fix from this repo. Each filter is
+# scoped to a specific upstream module so deprecations originating in our own
+# code still surface.
+filterwarnings = [
+    # arxiv-base still uses Pydantic v1 idioms (`.dict()`, `parse_obj`).
+    "ignore::pydantic.PydanticDeprecatedSince20:arxiv.auth.domain",
+    # arxiv-base CSRF helper deprecates itself on import + first use; we have
+    # ~20 in-repo importers, so removing the import path is out of scope here.
+    # (pytest filter syntax splits on ':' so we match by category+module only.)
+    "ignore::DeprecationWarning:arxiv.forms.csrf",
+    # `fire` (transitive dep) imports the removed-in-3.13 stdlib `pipes` module.
+    "ignore::DeprecationWarning:fire.core",
+]
+

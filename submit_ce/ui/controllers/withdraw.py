@@ -45,11 +45,6 @@ class WithdrawalForm(csrf.CSRFForm, FieldMixin):
                              false_values=('false', False, 0, '0', ''))
 
 
-def _stay_on_page(submission_to_wdr):
-    loc = url_for('ui.withdraw', submission_id=submission_to_wdr.submission_id)
-    return {}, status.SEE_OTHER, {'Location': loc}
-
-
 def request_withdrawal(method: str, params: MultiDict, session: Session,
                        submission_id: str, **kwargs) -> Response:
     """Request withdrawal of a paper."""
@@ -70,7 +65,7 @@ def request_withdrawal(method: str, params: MultiDict, session: Session,
         return {}, status.SEE_OTHER, {'Location': loc}
 
     if method != 'GET' and method != 'POST':
-        return {}, status.OK
+        return {}, status.OK, {}
 
     submission = submission_to_wdr
     if method == 'GET':

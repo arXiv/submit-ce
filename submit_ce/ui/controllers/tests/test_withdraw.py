@@ -37,7 +37,7 @@ def test_wdr_submission_not_owned_by_user(app, authorized_client, published_subm
 
     with app.app_context():
         with Session() as session:
-            row = session.query(classic.Submission).get(sid)
+            row = session.get(classic.Submission, sid)
             row.submitter_id = 99999  # not the test user (user_id=10)
             session.add(row)
             session.commit()
@@ -74,7 +74,7 @@ def test_wdr_published_submission_succeeds(app, authorized_client, published_sub
 
     with app.app_context():
         with Session() as session:
-            original = session.query(classic.Submission).get(sid)
+            original = session.get(classic.Submission, sid)
             assert original is not None, "original submission row should still exist"
             wdr_rows = session.query(classic.Submission).filter(
                 classic.Submission.doc_paper_id == paper_id,
