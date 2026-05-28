@@ -17,7 +17,7 @@ class Withdraw(EventWithSideEffect):
     paper_id: str
     """Announced arXiv id of the paper being withdrawn."""
 
-    comments: str = Field(min_length=10, max_length=400)
+    comment: str = Field(min_length=10, max_length=400)
     """Reason for the withdrawal; appended to the row's Comments."""
 
     abstract: str = Field(min_length=10, max_length=1920)
@@ -25,7 +25,7 @@ class Withdraw(EventWithSideEffect):
 
     def validate(self, submission: Submission) -> None:
         """Make sure that a reason was provided and the paper is announced."""
-        if not self.comments:
+        if not self.comment:
             raise InvalidEvent(self, "Provide a reason for the withdrawal")
         if not submission.is_announced:
             raise InvalidEvent(self, "Submission must already be announced")

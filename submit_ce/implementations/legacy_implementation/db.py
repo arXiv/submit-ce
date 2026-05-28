@@ -498,7 +498,7 @@ def store_withdrawal(session: SQLAlchemySession, event: Event,
 
     after = event.apply(seed)
     doc_id = _load_document_id(session, event.paper_id, after.version)
-    dbs = _create_withdrawal(doc_id, event.comments, event.paper_id,
+    dbs = _create_withdrawal(doc_id, event.comment, event.paper_id,
                              after.version, after, event.created)
     dbs.is_withdrawn = 1
 

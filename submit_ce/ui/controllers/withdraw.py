@@ -71,7 +71,7 @@ def request_withdrawal(method: str, params: MultiDict, session: Session,
     if method == 'GET':
         params.setdefault("confirmed", False)
         params.setdefault("abstract", submission.metadata.abstract)
-        params.setdefault("comments", submission.metadata.comments)
+        params.setdefault("comment", submission.metadata.comments)
 
     form = WithdrawalForm(params)
     response_data = {
@@ -87,9 +87,11 @@ def request_withdrawal(method: str, params: MultiDict, session: Session,
         return response_data, status.OK, {}
     elif method == 'POST' and form.validate() and form.data['confirmed']:
         cmd = Withdraw(paper_id=submission_to_wdr.arxiv_id,
-                       comments=form.comment.data, abstract=form.abstract.data,
+                       comment=form.comment.data, abstract=form.abstract.data,
                        creator=submitter, client=client)
-        if validate_command(form, cmd, submission_to_wdr):
+        if not validate_command(form, cmd, submission_to_wdr):
+            return response_data, status.BAD_REQUEST, {}
+        else:
             try:
                 submission_to_wdr, _ = current_app.api.save(cmd)
                 response_data['require_confirmation'] = True
