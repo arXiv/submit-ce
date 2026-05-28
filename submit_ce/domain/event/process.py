@@ -269,3 +269,51 @@ class SetDecisions(EventWithSideEffect):
     def project(self, submission: Submission) -> Submission:
         submission.uncompressed_size -= self.bytes_removed
         return submission
+
+
+class SetDirectivesAndCleanup(EventWithSideEffect):
+    """Prepare the submission for a (re)run of preflight.
+
+    Performed atomically under the submission row lock taken by
+    `SubmitApi.save()`:
+
+    1. If a 00README.json ("zzrm") was found and converted to
+       user_decisions before this event was dispatched, persist
+       those user_decisions and delete the source 00README.json.
+    2. Delete the stale directives.json so the upcoming preflight
+       produces a fresh set.
+
+    This event is invoked from review.py's `_load_or_create_preflight`
+    immediately before triggering `StartPreflight`, so the cleanup
+    cannot interleave with a concurrent upload on the same
+    submission.
+    """
+
+    NAME = "set directives and cleanup"
+    NAMED = "directives reset and cleaned up"
+
+    # If provided, the value is written as user_decisions.json and
+    # the source 00README.json is deleted. If None, user_decisions
+    # and 00README.json are left untouched.
+    user_decisions_from_zzrm: Optional[dict] = None
+
+    def validate(self, submission: Submission) -> None:
+        # No input invariants: the event is always safe to dispatch
+        # from `_load_or_create_preflight`; an absent zzrm just means
+        # "skip the user_decisions seed step."
+        pass
+
+    def execute(self, api: SubmitApi, submission: Submission) -> None:
+        file_store = api.get_file_store()
+        if self.user_decisions_from_zzrm is not None:
+            file_store.store_user_decisions(
+                submission.submission_id, self.user_decisions_from_zzrm
+            )
+            file_store.delete_source_file(
+                submission.submission_id, '00README.json'
+            )
+        # user_decisions + preflight + compile logs -> directives.json
+        file_store.delete_directives(submission.submission_id)
+
+    def project(self, submission: Submission) -> Submission:
+        return submission

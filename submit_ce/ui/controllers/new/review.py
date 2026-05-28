@@ -6,7 +6,12 @@ from typing import Tuple, Dict, Any, Optional, List
 from flask import current_app
 from arxiv.auth.domain import Session
 from arxiv.base import alerts
-from submit_ce.domain.event.process import SetDecisions, StartPreflight, StartDirectives  # noqa: F401 (StartDirectives used below)
+from submit_ce.domain.event.process import (
+    SetDecisions,
+    SetDirectivesAndCleanup,
+    StartPreflight,
+    StartDirectives,  # noqa: F401 (StartDirectives used below)
+)
 from submit_ce.domain.event import SetSourceFormat
 from ...auth import user_and_client_from_session
 from arxiv.files import FileDoesNotExist
@@ -146,7 +151,9 @@ def review_files(method: str, params: MultiDict, session: Session,
         return return_to_parent_stage((rdata, status.OK, {}))
 
     if method == 'GET':
-        preflight_data, user_decisions_data = _load_or_create_preflight(submission_id, params, session, token, workspace)
+        preflight_data, user_decisions_data = _load_or_create_preflight(
+            submission_id, params, session, token, workspace, submitter, client
+        )
 
         if preflight_data is None:
             alerts.flash_warning(
@@ -216,7 +223,7 @@ def _update_preflight(params: MultiDict, submission_id: str, workspace: Workspac
     try:
         cmd = SetDecisions(creator=submitter, client=client,
                            decisions=new_decisions, files_to_delete=files_to_delete)
-        current_app.api.save(cmd)
+        current_app.api.save(cmd, submission_id=submission_id)
         return True
     except InvalidEvent:
         # TODO Somehow inform the user
@@ -245,22 +252,42 @@ def _populate_form(form: ReviewForm, preflight_data: Optional[dict], user_decisi
     )
 
 
-def _load_or_create_preflight(submission_id: str, params: MultiDict, session: Session, token: str, workspace) -> tuple[Optional[dict], Optional[dict]]:
+def _load_or_create_preflight(
+    submission_id: str,
+    params: MultiDict,
+    session: Session,
+    token: str,
+    workspace,
+    submitter,
+    client,
+) -> tuple[Optional[dict], Optional[dict]]:
     """Returns preflight and user_decisions"""
     preflight_data = _get_preflight_data(submission_id)
     zzrm_data = None
     if preflight_data is None:
-        file_store = current_app.api.get_file_store()
         # if there is no preflight, then there wouldn't be a user decisions file.
         #   check if there is a zzrm, and use that as initial user decisions.
-        zzrm_data = _get_zzrm_data(workspace, submission_id)
-        if zzrm_data is not None:
-            zzrm_data = dm.convert_zzrm_to_user_decisions(zzrm_data)
-            file_store.store_user_decisions(submission_id, zzrm_data)
-            file_store.delete_source_file(submission_id, '00README.json')
+        raw_zzrm = _get_zzrm_data(workspace, submission_id)
+        zzrm_data = (
+            dm.convert_zzrm_to_user_decisions(raw_zzrm)
+            if raw_zzrm is not None else None
+        )
 
-        # user_decisions + preflight + compile logs -> directives.json
-        file_store.delete_directives(submission_id)
+        # Cleanup (seed user_decisions, drop 00README, clear stale
+        # directives.json) runs through api.save so the mutations
+        # happen inside the per-submission row lock — no concurrent
+        # upload can interleave between cleanup and start_preflight.
+        try:
+            current_app.api.save(
+                SetDirectivesAndCleanup(
+                    creator=submitter,
+                    client=client,
+                    user_decisions_from_zzrm=zzrm_data,
+                ),
+                submission_id=submission_id,
+            )
+        except InvalidEvent:
+            pass  # nothing actionable in cleanup is fine
 
         start_preflight(params, session, submission_id, token)
         preflight_data = _get_preflight_data(submission_id)
