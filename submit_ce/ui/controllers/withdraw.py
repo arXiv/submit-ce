@@ -8,13 +8,12 @@ from arxiv.auth.domain import Session
 from flask import url_for, current_app
 from markupsafe import Markup
 from werkzeug.datastructures import MultiDict
-from werkzeug.exceptions import InternalServerError, NotFound
+from werkzeug.exceptions import InternalServerError
 from wtforms.fields import TextAreaField, BooleanField
 from wtforms.validators import DataRequired, Length
 
 from arxiv.base import alerts
 from arxiv.forms import csrf
-from submit_ce.domain.event import FinalizeSubmission
 from submit_ce.domain.event.legacy import Withdraw
 
 from .util import FieldMixin, validate_command
@@ -52,9 +51,8 @@ def request_withdrawal(method: str, params: MultiDict, session: Session,
     submitter, client = user_and_client_from_session(session)
     logger.debug(f'method: {method}, submission: {submission_id}. {params}')
 
-    # Will raise NotFound if there is no such submission.
     submission_to_wdr, _ = get_submission(submission_id)
-    # The submission must be announced for this to be a withdrawal request.
+
     if not submission_to_wdr.is_announced:
         alerts.flash_failure(Markup(
             "Submission must first be announced. See "
@@ -79,12 +77,15 @@ def request_withdrawal(method: str, params: MultiDict, session: Session,
         'submission': submission,
         'form': form,
     }
-    if method == 'GET' or \
-       (method =='POST' and not form.validate()) or \
+
+    if method == 'GET':
+        return response_data, status.OK, {}
+
+    elif (method =='POST' and not form.validate()) or \
        (method =='POST' and form.validate() and not form.data['confirmed']):
         response_data['require_confirmation'] = True
-
         return response_data, status.OK, {}
+
     elif method == 'POST' and form.validate() and form.data['confirmed']:
         cmd = Withdraw(paper_id=submission_to_wdr.arxiv_id,
                        comment=form.comment.data, abstract=form.abstract.data,
