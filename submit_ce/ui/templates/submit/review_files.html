@@ -29,9 +29,58 @@
 
 {% block title -%}Review Files{%- endblock title %}
 
-{% block important_text_box %}
-  <p>Review Files sidebar information goes here</p>
-{% endblock important_text_box %}
+{# v5-style sidebar carried forward from Submit 1.5's addfiles/reviewfiles
+   sidebar.tt. Same content as 1.5 (Did you know..., Accepted Formats,
+   Important, Read more about v1.5 changes) but laid out in the v5
+   heading hierarchy (h2 lead + h3 subsections, wrapped in message-body).
+   Adds two action buttons absent from the v5 Upload mockup:
+     - Download Package (new on-the-fly source_package endpoint)
+     - Back to upload step (go back without invalidating preflight,
+       e.g. when the user needs to add a missing file)
+#}
+{% block info_container_middle %}
+  <div class="message-body">
+    <h2>Did you know you can simplify your submission?</h2>
+    <p>Upload a single .tar.gz or zip file.</p>
+
+    <h3>Accepted Formats</h3>
+    <ul>
+      <li><a href="{{ url_for('help_submit_tex') }}">(La)TeX,
+        AMS(La)TeX, PDFLaTeX</a></li>
+      <li><a href="{{ url_for('help_submit_pdf') }}">PDF (not
+        generated from TeX)</a></li>
+      <li><a href="{{ url_for('help_submit_html') }}">HTML for
+        conference proceeding indexes</a></li>
+    </ul>
+
+    <h3>Important</h3>
+    <p>If your submission is (La)TeX, then you must submit the source
+      (plus necessary macros and figures), not derivative dvi,
+      Postscript, or PDF (see
+      <a href="{{ url_for('help_whytex') }}">Why TeX?</a>). For more
+      information on formats and other submission details see
+      <a href="{{ url_for('help_submit') }}">Submission Help</a>. TeX
+      source uploaded to arXiv will be made publicly available.</p>
+
+    <p>Read more about the new changes in
+      <a href="{{ url_for('help_submit_tex') }}#latex-processing-changes-april-2025">Submission
+      v1.5</a>.</p>
+
+    {% if submission_id %}
+      <div class="buttons" style="margin-top: 1rem;">
+        <a href="{{ url_for('ui.source_package_tar_gz', submission_id=submission_id) }}"
+           class="button button-secondary"
+           download>
+          Download Package
+        </a>
+        <a href="{{ url_for('ui.file_upload', submission_id=submission_id) }}"
+           class="button button-secondary">
+          Back to upload step
+        </a>
+      </div>
+    {% endif %}
+  </div>
+{% endblock info_container_middle %}
 
 {% block within_content %}
 {% if immediate_notifications %}
