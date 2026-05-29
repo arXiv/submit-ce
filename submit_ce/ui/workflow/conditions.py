@@ -34,6 +34,12 @@ def has_secondary(submission: Submission, events: List[Event]) -> bool:
     return len(submission.secondary_classification) > 0
 
 
+def has_abstract(submission: Submission, events: List[Event]) -> bool:
+    return bool(submission.metadata.abstract)
+
+def has_comment(submission: Submission, events: List[Event]) -> bool:
+    return bool(submission.metadata.comments)
+
 def has_files(submission: Submission, events: List[Event]) -> bool:
     """Determine if the submission has any files."""
     return submission.uncompressed_size > 0

@@ -97,9 +97,6 @@ class SubmitApi(ABC):
         """
         Load a submission and its history.
 
-        This loads all events for the submission, and generates the most up-to-date representation based on
-        those events.
-
         Parameters
         ----------
         submission_id : str
