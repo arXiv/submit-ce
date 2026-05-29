@@ -25,7 +25,8 @@ from ...domain.event.base import Event, EventWithSideEffect
 from ...domain.util import get_tzaware_utc_now
 
 from ...domain.event import CreateSubmission
-from ...domain.exceptions import NoSuchSubmission, NothingToDo
+from ...domain.event.legacy import Withdraw
+from ...domain.exceptions import NoSuchSubmission, NothingToDo, SaveError
 from . import db
 
 
@@ -103,13 +104,20 @@ class LegacySubmitImplementation(SubmitApi):
         if not submission:
             raise NoSuchSubmission()
         else:
-            return (to_submission(submission), [])
+            return (to_submission(submission), db.get_events(session, submission_id))
 
 
     @override
     def save(self, *events: Event, submission_id: Optional[str] = None) -> Tuple[Submission, List[Event]]:
         if not events:
             raise NothingToDo()
+        if isinstance(events[0], Withdraw):
+            # BDC I don't love how the Withdraw is handled. I'd perfer if it were done in a side effect
+            if len(events) > 1:
+                raise SaveError("Must save Withdraw as the only item in the list of Events")
+            else:
+                with self.get_session() as session:
+                    return self._save_withdrawal(events[0], session)
         with self.get_session() as session:
             before: Optional[Submission] = None
             existing_events: List[Event] = []
@@ -188,6 +196,29 @@ class LegacySubmitImplementation(SubmitApi):
         all_ = sorted(existing_events + committed, key=lambda e: e.created)
         session.commit()
         return after, list(all_)
+
+    def _save_withdrawal(self, event: Withdraw, session) \
+            -> Tuple[Submission, List[Event]]:
+        """Save a `Withdraw`, creating a new ``wdr`` submission.
+
+        A withdrawal creates a brand-new submission seeded from the most recent
+        announced version of ``event.paper_id``. The new row (and its id) must
+        exist before ``execute()`` runs, since the withdrawn source file is
+        written to the new submission's workspace.
+        """
+        event.created = datetime.now(UTC)
+        seed = db.to_submission(db.load_latest_announced(session, event.paper_id))
+
+        # Creates the wdr row and assigns the new submission id onto `after`.
+        consequent, after = db.store_withdrawal(session, event, seed)
+
+        # Now that the new id exists, write the `withdrawn` source file to it.
+        event.execute(self, after)
+        if not event.executed:
+            event.executed = get_tzaware_utc_now()
+
+        session.commit()
+        return after, [consequent]
 
     @override
     def get_service_status(self, impl_data: dict):

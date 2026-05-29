@@ -1,6 +1,7 @@
 """Provides the base event class."""
 from __future__ import annotations
 import copy
+import functools
 import hashlib
 from datetime import datetime
 from typing import TYPE_CHECKING, Optional, Callable, Tuple, Iterable, List, ClassVar, \
@@ -150,6 +151,7 @@ class Event(BaseModel):
         raise NotImplementedError('Must be implemented by subclass')
 
 
+@functools.cache
 def _get_subclasses(klass: Type[Event]) -> List[Type[Event]]:
     _subclasses = klass.__subclasses__()
     if _subclasses:

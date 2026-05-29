@@ -21,7 +21,8 @@ from sqlalchemy import desc, select
 
 import submit_ce
 from submit_ce.domain.event.file import UploadFiles
-from submit_ce.implementations.compile import MockCompileMimesisPdf
+from submit_ce.domain.event.process import StartDirectives
+from submit_ce.implementations.compile.mock_compile_mimesis_pdf import MockCompileMimesisPdf
 import submit_ce.ui.auth
 from submit_ce.domain import Author
 from submit_ce.domain.uploads import SourceFormat
@@ -66,6 +67,12 @@ def mocked_compile_service(app: Flask) -> None:
     """Alter the `app.api` to have a `CompileService` that always returns success and a PDF"""
     api = app.api
     api.compiler = MockCompileMimesisPdf()
+
+
+def mocked_file_store(app: Flask) -> None:
+    """Alter `app.api` to use a MockFileStore that accepts uploads in tests."""
+    from submit_ce.implementations.file_store.mock_file_store import MockFileStore
+    app.api.store = MockFileStore()
 
 
 @pytest.fixture(scope='session')
@@ -293,8 +300,20 @@ def sub_files(app, authorized_user, sub_cross, mocker):
 
 @pytest.fixture(scope="function")
 def sub_reviewfiles(app, authorized_user, sub_files):
-    # TODO what needs to be done here to make a submission that has the review files stage done?
-    return sub_files
+    """A submission that has passed through the review-files stage."""
+    with app.app_context():
+        user = authorized_user
+        ua = InternalClient(name=f"test_client_{__file__}")
+        original_compiler = current_app.api.compiler
+        current_app.api.compiler = MockCompileMimesisPdf()
+        try:
+            submission, _ = current_app.api.save(
+                StartDirectives(creator=user, client=ua),
+                submission_id=sub_files.submission_id,
+            )
+        finally:
+            current_app.api.compiler = original_compiler
+        return submission
 
 
 @pytest.fixture(scope="function")
@@ -459,7 +478,7 @@ def published_submission(app, authorized_user):
             else:
                 paper_id = "1234.56789"
 
-            db_submission = session.query(classic.Submission).get(submission.submission_id)
+            db_submission = session.get(classic.Submission, submission.submission_id)
             if not db_submission:
                 raise RuntimeError(f"No db row for {submission.submission_id}")
             db_submission.status = 7  # published

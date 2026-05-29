@@ -15,8 +15,8 @@ def test_no_sub(app, authorized_client):
     resp = authorized_client.get("/93489292/preview.pdf")
     assert resp.status_code == status.NOT_FOUND
 
-def test_process(app, authorized_client, sub_files):
-    sub = sub_files
+def test_process(app, authorized_client, sub_reviewfiles):
+    sub = sub_reviewfiles
     url = f"/{sub.submission_id}/file_process"
     resp = authorized_client.get(url)
     assert resp.status_code == status.OK and \

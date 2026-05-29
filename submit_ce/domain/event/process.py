@@ -50,8 +50,8 @@ class StartCompileSource(EventWithSideEffect):
 
     def validate(self, submission: Submission) -> None:
         """Verify that we have a :class:`.ProcessStatus`."""
-        if not submission.uncompressed_size <= 0:
-            raise InvalidEvent("Compile source for the submission is empty.")
+        if submission.uncompressed_size <= 0:
+            raise InvalidEvent(self, "Compile source for the submission is empty.")
 
     def execute(self, api: 'SubmitApi', submission: Submission) -> None:
         """Do the actual compile."""
@@ -95,7 +95,7 @@ class StartPreflight(EventWithSideEffect):
 
     def validate(self, submission: Submission) -> None:
         if not submission.submission_id:
-            raise InvalidEvent("Source content for preflight is empty.")
+            raise InvalidEvent(self, "Source content for preflight is empty.")
 
     def execute(self, api: 'SubmitApi', submission: Submission) -> None:
         """Run preflight checks."""
@@ -135,7 +135,7 @@ class StartDirectives(EventWithSideEffect):
 
     def validate(self, submission: Submission) -> None:
         if not submission.submission_id:
-            raise InvalidEvent("Source content for directives is empty.")
+            raise InvalidEvent(self, "Source content for directives is empty.")
 
     def execute(self, api: 'SubmitApi', submission: Submission) -> None:
         result = api.get_compiler().start_directives(

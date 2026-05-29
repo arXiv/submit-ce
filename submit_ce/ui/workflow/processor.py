@@ -3,7 +3,7 @@
 from typing import List, Optional, Dict, Tuple
 import logging
 
-from submit_ce.domain import Submission
+from submit_ce.domain import Submission, Event
 from dataclasses import field, dataclass
 from . import WorkflowDefinition, Stage
 
@@ -20,6 +20,7 @@ class WorkflowProcessor:
     """
     workflow: WorkflowDefinition
     submission: Submission
+    events: List[Event] = field(default_factory=list)
     seen: Dict[str, bool] = field(default_factory=dict)
 
     def is_complete(self) -> bool:
@@ -84,7 +85,7 @@ class WorkflowProcessor:
 
         return ((not stage.must_see or self.is_seen(stage))
                 and
-                (not stage.required or stage.is_complete(self.submission)))
+                (not stage.required or stage.is_complete(self.submission, self.events)))
 
     def not_done(self, stage: Optional[Stage]) -> list[str]:
         """Returns list of conditons causing stage to be not done.
@@ -95,7 +96,7 @@ class WorkflowProcessor:
         not_dones=[]
         if stage.must_see and not self.is_seen(stage):
             not_dones.append(f"{stage.__class__.__name__} must be seen")
-        incomplete_fns = stage.incomplete(self.submission)
+        incomplete_fns = stage.incomplete(self.submission, self.events)
         if stage.required and incomplete_fns:
             not_dones.extend(incomplete_fns)
         return not_dones

@@ -7,6 +7,7 @@ import arxiv.db.models as classic
 
 
 from submit_ce.ui.tests.csrf_util import parse_csrf_token
+from submit_ce.ui.conftest import mocked_file_store
 
 
 def test_withdrawl_workflow(app, authorized_client, published_submission):
@@ -14,6 +15,8 @@ def test_withdrawl_workflow(app, authorized_client, published_submission):
     client = authorized_client
     submission, paper_id = published_submission
     submission_id = submission.submission_id
+    # In-memory store so the withdrawn source file can actually be written.
+    mocked_file_store(app)
     def _parse_csrf_token(response):
         return parse_csrf_token(response)
 
@@ -26,16 +29,18 @@ def test_withdrawl_workflow(app, authorized_client, published_submission):
     assert b'Request withdrawal' in response.data
     token = _parse_csrf_token(response)
 
-    # Set the withdrawal reason, but make it huge.
-    request_data = {'withdrawal_reason': 'This is the reason' * 400,
+    # Set the withdrawal comment, but make it too long.
+    request_data = {'comment': 'This is the reason' * 400,
+                    'abstract': 'This is the updated abstract.',
                     'csrf_token': token}
     response = client.post(endpoint, data=request_data,
                                 )
     assert response.status_code == status.OK
     token = _parse_csrf_token(response)
 
-    # Set the withdrawal reason to something reasonable (ha).
-    request_data = {'withdrawal_reason': 'This is the reason',
+    # Set the withdrawal comment and abstract to something reasonable (ha).
+    request_data = {'comment': 'This is the reason',
+                    'abstract': 'This is the updated abstract.',
                     'csrf_token': token}
     response = client.post(endpoint, data=request_data,
                                 )

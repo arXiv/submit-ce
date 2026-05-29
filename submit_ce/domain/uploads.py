@@ -4,6 +4,7 @@ from typing import Protocol, runtime_checkable, Any
 from typing import List, Optional
 from datetime import datetime
 from enum import Enum
+from io import BytesIO
 
 from pydantic import BaseModel
 from pydantic_core import core_schema
@@ -133,6 +134,19 @@ class SubmitFile(Protocol):
         cls, source_type: Any, handler: Any
     ) -> core_schema.CoreSchema:
         return core_schema.any_schema()
+
+
+class InMemorySubmitFile:
+    """A `SubmitFile` whose contents are held in memory.
+
+    Useful when the system needs to write a file to a workspace without it
+    having been uploaded by a client."""
+
+    def __init__(self, filename: str, content: bytes,
+                 content_type: str = "text/plain") -> None:
+        self.filename = filename
+        self.content_type = content_type
+        self.stream: Any = BytesIO(content)
 
 
 TARGZ_MIMETYPES = frozenset({
