@@ -86,6 +86,20 @@
         <a href="{{ url_for('help_submit_sizes') }}">submission size and
         exemptions to size limits</a></li>
     </ul>
+
+    {# Download a fresh .tar.gz of the submission's current source files.
+       Built on the fly by source_package.download_source_package; mirrors
+       the Submit 1.5 "Download Package" sidebar button. Anchor + download
+       attribute is enough -- no JS required. #}
+    {% if submission_id %}
+      <div class="buttons" style="margin-top: 1rem;">
+        <a href="{{ url_for('ui.source_package_tar_gz', submission_id=submission_id) }}"
+           class="button button-secondary"
+           download>
+          Download Package
+        </a>
+      </div>
+    {% endif %}
   </div>
 {% endblock info_container_middle %}
 

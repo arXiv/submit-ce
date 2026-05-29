@@ -19,6 +19,7 @@ from submit_ce.ui.controllers.new import upload_delete
 
 from ..auth import is_owner, is_admin_or_dev
 from submit_ce.ui.controllers.new import submission_agreement
+from submit_ce.ui.controllers.new import source_package
 from submit_ce.ui.workflow.processor import WorkflowProcessor
 from submit_ce.ui.workflow.stages import FileUpload
 from .flow_control import flow_control, get_workflow, endpoint_name
@@ -465,6 +466,35 @@ def submission_agreement_pdf(submission_id: str) -> Response:
                    download_name=headers.get('Content-Disposition', '')
                                         .split('filename="')[-1].rstrip('"')
                                   or f"arxiv-submission-agreement-{submission_id}.pdf",
+                   as_attachment=True)
+    rv.headers['Cache-Control'] = headers.get('Cache-Control', 'no-store')
+    return rv
+
+
+@UI.route('/<submission_id>/source_package.tar.gz', methods=["GET"])
+@scoped(scopes.VIEW_SUBMISSION, authorizer=is_owner,
+        unauthorized=redirect_to_login)
+def source_package_tar_gz(submission_id: str) -> Response:
+    """Serve the submission's current source files as a fresh .tar.gz.
+
+    Mirrors Submit 1.5's 'Download Package' button: bundles the current
+    individual source files on the fly. The persisted
+    ``<submission_id>.tar.gz`` in the bucket is only updated after a
+    successful compile (see ``compile_at_gcp.py``), so it doesn't
+    reliably represent the user's current working source. Linked from
+    the sidebar of the Upload Files and Review Files pages.
+    """
+    stream, code, headers = source_package.download_source_package(
+        request.method,
+        MultiDict(request.args.items(multi=True)),
+        request.auth,
+        submission_id,
+    )
+    download_name = (headers.get('Content-Disposition', '')
+                            .split('filename="')[-1].rstrip('"')
+                     or f"submission_{submission_id}.tar.gz")
+    rv = send_file(stream, mimetype=headers['Content-Type'],
+                   download_name=download_name,
                    as_attachment=True)
     rv.headers['Cache-Control'] = headers.get('Cache-Control', 'no-store')
     return rv
