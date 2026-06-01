@@ -94,12 +94,21 @@
   {% endfor %}
 {% endif %}
 
+{# The form below depends entirely on preflight output: source_file
+   choices come from preflight's detected TeX files, compiler choices
+   come from preflight-detected language, and the file table is
+   driven by file_notes. When preflight is unavailable we have nothing
+   to populate any of it with, so we hide the form sections and render
+   a clear placeholder instead of a row of empty dropdowns + a
+   misleading "No files uploaded yet" message. The submit_alerts flash
+   at the top of base_edit.html already tells the user *why*. #}
+{% if file_notes %}
 <form id="form" class="form" action="{{ url_for('ui.review_files', submission_id=submission_id) }}" method="POST" enctype="multipart/form-data">
   <div class="columns action-container">
 
     <div class="column is-one-half-desktop is-one-half-tablet">
       {{ form.csrf_token }}
-      
+
       <div class="field">
         <label class="label">{{ form.source_file.label }}</label>
         <div class="control">
@@ -149,7 +158,6 @@
 
       <hr />
 
-      {% if file_notes %}
       <table class="table is-fullwidth">
         <thead>
           <tr>
@@ -168,14 +176,29 @@
           {% endfor %}
         </tbody>
       </table>
-      {% else %}
-      <p class="title is-4 breathe-vertical has-text-centered">
-        No files have been uploaded yet.
-      </p>
-      {% endif %}
 
     </div>
   </div>
 </form>
+{% else %}
+  <div class="notification is-warning" role="alert">
+    <h2 class="is-size-5 is-marginless">
+      {{ svg.exclamation(klass="icon filter-orange") }}
+      File analysis is unavailable
+    </h2>
+    <p>We couldn't analyze your submission's files right now because the
+      preflight service is temporarily unavailable.</p>
+    <p><strong>What to try:</strong></p>
+    <ul>
+      <li>Refresh this page in a moment &mdash; transient outages
+        typically resolve quickly.</li>
+      <li>If the problem persists after several minutes, please contact
+        <a href="mailto:help@arxiv.org">arXiv support</a> and include
+        your submission ID.</li>
+    </ul>
+    <p class="is-marginless">Your uploaded files have not been lost
+      &mdash; this step just couldn't read them for analysis.</p>
+  </div>
+{% endif %}
 
 {% endblock within_content %}
