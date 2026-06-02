@@ -21,4 +21,9 @@ def test_review_files_get_warning_via_http(app, authorized_client, sub_files,
 
     assert resp.status_code == status.OK
     assert mock_flash.called
-    assert "couldn't load preflight data" in mock_flash.call_args[0][0]
+    # Flash text changed when the page was redesigned to show a clearer
+    # placeholder instead of bare empty form controls. Assert on the
+    # title and a stable substring of the body.
+    assert mock_flash.call_args[1].get('title') == 'Preflight unavailable'
+    assert "preflight service is temporarily unavailable" in str(
+        mock_flash.call_args[0][0])
