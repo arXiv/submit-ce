@@ -1,6 +1,5 @@
 """Controllers for process-related requests, ex. compile PDF."""
 
-import io
 from http import HTTPStatus as status
 from typing import Tuple, Dict, Any
 import logging
@@ -68,6 +67,7 @@ def file_process(method: str, params: MultiDict, session: Session,
             return _check_status(params, session, submission_id, token)
         else:
             start_compilation(params, session, submission_id, token)
+            current_app.api.get_file_store().uncompress(submission_id)
             return compile_status(params, session, submission_id, token)
     raise MethodNotAllowed('Unsupported request')
 
@@ -147,6 +147,10 @@ def compile_status(params: MultiDict, session: Session, submission_id: str,
     if file and file.exists():
         response_data['status']="succeeded"
 
+    log = file_store.get_compile_log(str(submission_id))
+    if log and log.exists():
+        response_data['compile_log'] = log.download_as_text()
+
     # Determine whether the current state of the uploaded source content has been compiled.
     #
     # result: Optional[process_source.CheckResult] = None
@@ -215,19 +219,6 @@ def start_compilation(params: MultiDict, session: Session, submission_id: str,
     #     )
     #
     #
-
-# TODO move file_preview to its own controller
-def file_preview(params, session: Session, submission_id: str, token: str,
-                 **kwargs: Any) -> Tuple[io.BytesIO, int, Dict[str, str]]:
-    """Serve the PDF preview for a submission."""
-    submitter, client = user_and_client_from_session(session)
-    submission, submission_events = get_submission(submission_id)
-    fstore = current_app.api.get_file_store()
-    stream = fstore.get_preview(submission.submission_id)
-    pdf_checksum = fstore.get_preview_checksum(submission.submission_id)
-    headers = {'Content-Type': 'application/pdf', 'ETag': pdf_checksum}
-    return stream, status.OK, headers
-
 
 def compilation_log(params, session: Session, submission_id: str, token: str,
                     **kwargs: Any) -> Response:

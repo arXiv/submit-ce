@@ -176,14 +176,49 @@ class CompileApiService(CompileService):
                       user: User, client: Client,
                       api: SubmitApi,
                       source_package_id: Optional[str] = None) -> Result:
+        logger.info("start_compile, submission %s", submission.submission_id)
 
-        logger.info("Compilation started for submission %s", submission.submission_id)
+        file_store = current_app.api.get_file_store()
+        source_path = f"{file_store.get_full_submission_path(submission.submission_id)}/src/"
+        outcome_path = file_store.get_full_outcome_path(submission.submission_id)
+
+        query_params = {
+            'source': source_path,
+            'dest': outcome_path,
+        }
+        headers = _auth_headers()
+
+        url = f'{settings.COMPILE_API_URL}/convert?{urllib.parse.urlencode(query_params)}'
+
+        response = None
+        for retry_attempt in range(settings.COMPILE_API_MAX_RETRIES):
+            try:
+                with httpx.Client(timeout=settings.COMPILE_API_CONVERT_TIMEOUT) as client:
+                    response = client.post(url, headers=headers)
+                    if response.status_code == 500:
+                        time.sleep(settings.COMPILE_API_RETRY_DELAY)
+                    else:
+                        break
+            except httpx.HTTPStatusError as exc:
+                logger.error(f"HTTPX error occurred: {exc.response.text}")
+                raise exc
+            except httpx.RequestError as exc:
+                logger.error(f"Request error occurred: {exc}")
+
+        if response is None:
+            raise RuntimeError("response is unexpectedly None")
+
+        if response.status_code == 500:
+            raise httpx.HTTPStatusError(f"HTTP error {response.status_code}", request=response.request, response=response)
+
+        response.raise_for_status()
+
         return Result(
             status=ProcessStatus(
                 status=ProcessStatus.Status.SUCCEEDED,
                 creator=user,
                 created=datetime.now(timezone.utc),
-                details={'message': 'Local compilation completed'}
+                details={'message': 'Compile completed'}
             ),
             duration_sec=0,
             utc_start_time=datetime.now(timezone.utc),

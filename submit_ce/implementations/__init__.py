@@ -91,8 +91,17 @@ class NullFileStore(SubmissionFileStore):
     def get_full_submission_path(self, submission_id: str) -> str:
         return ""
 
+    def get_full_outcome_path(self, submission_id: str) -> str:
+        return ""
+
     def store_preview(self, submission_id: str, content: IO[bytes], chunk_size: int) -> str:
         return "not really stored, NullFileStore"
+
+    def store_compile_log(self, submission_id: str, content: IO[bytes], chunk_size: int = 4096) -> str:
+        return "not really stored, NullFileStore"
+
+    def uncompress(self, submission_id: str) -> None:
+        pass
 
     def store_directives(self, submission_id: str, content: dict) -> str:
         return "not really stored, NullFileStore"
@@ -159,7 +168,8 @@ class NullFileStore(SubmissionFileStore):
         return False
 
     def get_compile_log(self, submission_id: str) -> FileObj:
-        raise RuntimeError("No compile log")
+        from arxiv.files import FileDoesNotExist
+        return FileDoesNotExist(submission_id)
 
     def delete_compile_log(self, submission_id: str) -> None:
         pass

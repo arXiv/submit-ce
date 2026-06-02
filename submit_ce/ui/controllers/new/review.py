@@ -28,7 +28,10 @@ from submit_ce.ui import SUPPORT
 
 from submit_ce.domain.compilation import Compilation
 
-from submit_ce.implementations.compile.directive_manager import DirectiveManager as dm 
+from submit_ce.implementations.compile.directive_manager import DirectiveManager as dm
+
+from tex2pdf_tools.zerozeroreadme import ZeroZeroReadMe
+from tex2pdf_tools.preflight import PreflightResponse
 
 logger = logging.getLogger(__name__)
 #logging.basicConfig(level=logging.DEBUG)
@@ -156,6 +159,7 @@ def review_files(method: str, params: MultiDict, session: Session,
         rdata['file_notes'] = dm.get_files_from_preflight(preflight_data)
         _populate_form(form, preflight_data, user_decisions_data)
         rdata['immediate_notifications'] = _get_notifications(submission_id, preflight_data)
+
         return stay_on_this_stage((rdata, status.OK, {}))
 
     elif method == 'POST':
@@ -165,6 +169,22 @@ def review_files(method: str, params: MultiDict, session: Session,
             return return_to_parent_stage((rdata, status.OK, {}))
         else:
             _load_or_create_directives(params, session, submission_id, token)
+
+            preflight_data, user_decisions_data = _load_or_create_preflight(submission_id, params, session, token, workspace)
+
+            if preflight_data is None:
+                alerts.flash_warning(
+                    f"Preflight data is not available for this submission. {SUPPORT}",
+                    title="Cannot generate directives")
+                return stay_on_this_stage((rdata, status.OK, {}))
+
+            zzrm = ZeroZeroReadMe()
+            if user_decisions_data:
+                zzrm.from_dict(user_decisions_data)
+            zzrm.update_from_preflight(PreflightResponse(**preflight_data))
+            logger.warning("ZeroZeroReadMe after update_from_preflight: %s", zzrm.to_json())
+            current_app.api.get_file_store().store_zzrm(submission_id, zzrm.to_dict())
+
             return ready_for_next((rdata, status.OK, {}))
 
 

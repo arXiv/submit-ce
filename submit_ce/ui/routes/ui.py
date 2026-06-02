@@ -391,7 +391,7 @@ def file_process(submission_id: str) -> Response:
                         unauthorized=redirect_to_login)
 # TODO @flow_control(Process)?
 def file_preview(submission_id: str) -> Response:
-    data, code, headers = cntrls.new.process.file_preview(
+    data, code, headers = cntrls.new.preview.file_preview(
         MultiDict(request.args.items(multi=True)),
         request.auth,
         submission_id,

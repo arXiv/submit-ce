@@ -182,6 +182,11 @@ class SubmissionFileStore(metaclass=ABCMeta):
         pass
 
     @abstractmethod
+    def get_full_outcome_path(self, submission_id: str) -> str:
+        """Returns bucket name and full path to the compile outcome tarball."""
+        pass
+
+    @abstractmethod
     def get_directives_checksum(self, submission_id: str) -> str:
         """Get the checksum of the directives file for a submission."""
         pass
@@ -214,6 +219,20 @@ class SubmissionFileStore(metaclass=ABCMeta):
     @abstractmethod
     def does_user_decisions_exist(self, submission_id: str) -> bool:
         """Determine whether a user_decisions.json has been deposited for a submission."""
+        pass
+
+    @abstractmethod
+    def store_compile_log(self, submission_id: str, content: IO[bytes], chunk_size: int = 4096) -> str:
+        """Store the compile log for a submission.
+
+        Returns checksum"""
+        pass
+
+    @abstractmethod
+    def uncompress(self, submission_id: str) -> None:
+        """Download the compile outcome tarball and store its main.log and src.pdf.
+
+        main.log -> store_compile_log, src.pdf -> store_preview."""
         pass
 
     @abstractmethod
