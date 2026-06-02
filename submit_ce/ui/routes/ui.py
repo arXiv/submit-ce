@@ -49,10 +49,11 @@ def load_submission() -> None:
         return
     submission_id = request.view_args['submission_id']
     submission, events = get_submission(submission_id)  # this may throw NotFound
-    wfp = get_workflow(submission)
+    wfp = get_workflow(submission, events)
 
     # These should probably be moved to flask.g since reqeust doesn't always work well
     request.submission = submission
+    request.events = events
     request.workflow = wfp
     request.current_stage = wfp.current_stage()
     request.this_stage = wfp.workflow[endpoint_name()]
@@ -585,7 +586,7 @@ def request_cross(submission_id: Optional[str] = None) -> Response:
 def testalerts() -> Response:
     tc = {}
     request.submission, request.events = get_submission(1)
-    wfp = get_workflow(request.submission)
+    wfp = get_workflow(request.submission, request.events)
     request.workflow = wfp
     request.current_stage = wfp.current_stage()
     request.this_stage = wfp.workflow[endpoint_name()]

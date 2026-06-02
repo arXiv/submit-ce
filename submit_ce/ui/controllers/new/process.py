@@ -183,7 +183,11 @@ def start_compilation(params: MultiDict, session: Session, submission_id: str,
     if not form.validate():
         return stay_on_this_stage((response_data, status.OK, {}))
 
-    command = StartCompileSource(creator=submitter, client=client, source_id=submission.source_content.identifier)
+    # TODO not clear where source_content_id should come from
+    command = StartCompileSource(creator=submitter,
+                                 client=client,
+                                 source_content_id="BOGUS")
+
     if validate_command(form, command, submission):
         try:
             current_app.api.save(command, submission_id=submission.submission_id)  # The api implementation will call CompileSource.execute()

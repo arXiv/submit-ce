@@ -5,8 +5,8 @@ from .event import Event
 from .annotation import Comment
 from .meta import License, Classification
 from .preview import Preview
-from .submission import Submission, SubmissionMetadata, Author, Hold, \
-    WithdrawalRequest, UserRequest, CrossListClassificationRequest
+from .submission import Submission, SubmissionMetadata, SubmissionType, Author, \
+    Hold, WithdrawalRequest, UserRequest, CrossListClassificationRequest
 from .uploads import Workspace
 
 __all__ = [
@@ -27,6 +27,7 @@ __all__ = [
     Preview,
     Submission,
     SubmissionMetadata,
+    SubmissionType,
     Author,
     Hold,
     WithdrawalRequest,

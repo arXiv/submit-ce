@@ -43,7 +43,10 @@ def test_workflow_processor_paths(sub_metadata, authorized_user, app):
 
     submission = sub_metadata  # Not finalized yet
 
-    proc = WorkflowProcessor(workflow=wf, submission=submission)
+    with app.app_context():
+        _, events = current_app.api.get_with_history(str(submission.submission_id))
+
+    proc = WorkflowProcessor(workflow=wf, submission=submission, events=events)
 
     # Workflow should not be complete
     assert proc.is_complete() is False
@@ -60,7 +63,8 @@ def test_workflow_processor_paths(sub_metadata, authorized_user, app):
             FinalizeSubmission(creator=creator, client=client),
             submission_id=submission.submission_id,
         )
+        _, events = current_app.api.get_with_history(str(submission.submission_id))
 
     # Now workflow should be complete
-    proc2 = WorkflowProcessor(workflow=wf, submission=submission)
+    proc2 = WorkflowProcessor(workflow=wf, submission=submission, events=events)
     assert proc2.is_complete() is True

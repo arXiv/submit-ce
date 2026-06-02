@@ -18,14 +18,17 @@ import time
 from requests_toolbelt.multipart.encoder import MultipartEncoder
 
 from http import HTTPStatus as status
-from submit_ce.ui.conftest import mocked_compile_service
+from submit_ce.domain.event.file import UploadArchive
+from submit_ce.ui.conftest import mocked_compile_service, mocked_file_store
 from submit_ce.ui.tests.csrf_util import parse_csrf_token
 
 
 @pytest.fixture
 def client(request, app, authorized_client):
     mocked_compile_service(app)
+    mocked_file_store(app)
     request.cls.client = authorized_client
+    request.cls.app = app
     yield authorized_client
 
 
@@ -135,23 +138,66 @@ class TestSubmissionIntegration(unittest.TestCase):
         self.assertEqual(res.status_code, 200)
         self.assertIn('Upload Files', res.text)
 
-        upload_path = Path(os.path.abspath(__file__)).parent / 'upload2.tar.gz'
-        with open(upload_path, 'rb') as upload_file:
-            multipart = MultipartEncoder(fields={
-                'file': ('upload2.tar.gz', upload_file, 'application/gzip'),
-                'csrf_token' : parse_csrf_token(res),
-            })
+        res = self._post_archive(res, 'upload2.tar.gz', 'application/gzip')
 
-            res = self.client.post(self.next_page,
-                                    data=multipart,
-                                    headers={'Content-Type': multipart.content_type})
+        # Clear the submission source via the file_delete_all route, then
+        # confirm we are redirected back to the upload page and start fresh.
+        submission_id = self.next_page.strip('/').split('/')[0]
+        delete_url = f"/{submission_id}/file_delete_all"
+        res = self.client.post(delete_url,
+                               data={'csrf_token': parse_csrf_token(res),
+                                     'confirmed': 'true'})
+        self.assertEqual(res.status_code, status.SEE_OTHER,
+                         "delete_all should redirect after confirmation")
+        self.assertEqual(res.headers['Location'], f"/{submission_id}/file_upload")
 
+        res = self.client.get(self.next_page)
         self.assertEqual(res.status_code, 200)
-        self.assertIn('Upload successful', res.text, "upload should succeed")
+        self.assertIn('Upload Files', res.text)
+
+        res = self._post_archive(res, 'upload2.zip', 'application/zip')
+
+        # Verify the upload was actually saved on the submission.
+        # The submission_id is the first path segment of the upload URL,
+        # e.g. '/1/file_upload' -> '1'.
+        submission_id = self.next_page.strip('/').split('/')[0]
+        with self.app.app_context():
+            from flask import current_app
+            _, history = current_app.api.get_with_history(submission_id)
+            self.assertTrue(
+                any(isinstance(e, UploadArchive) for e in history),
+                "An UploadArchive event should be in submission history")
+
+            sub = current_app.api.get(submission_id)
+            self.assertGreater(sub.uncompressed_size, 0,
+                               "submission.uncompressed_size should reflect the upload")
+
+            workspace = current_app.api.get_file_store().get_workspace(
+                submission_id=submission_id)
+            self.assertGreater(len(workspace.files), 0,
+                               "workspace should contain the unpacked files")
 
         res = self.client.post(self.next_page, # should still be file upload page
                             data={'action':'next', 'csrf_token': parse_csrf_token(res)})
         self.check_response(res)
+
+    def _post_archive(self, prior_res, filename, content_type):
+        """POST an archive fixture from this directory to the upload page."""
+        upload_path = Path(os.path.abspath(__file__)).parent / filename
+        with open(upload_path, 'rb') as upload_file:
+            multipart = MultipartEncoder(fields={
+                'file': (filename, upload_file, content_type),
+                'csrf_token': parse_csrf_token(prior_res),
+            })
+
+            res = self.client.post(self.next_page,
+                                   data=multipart,
+                                   headers={'Content-Type': multipart.content_type})
+
+        self.assertEqual(res.status_code, 200)
+        self.assertIn('Upload successful', res.text,
+                      f"upload of {filename} should succeed")
+        return res
 
     def review_files(self):
         # TODO test more review_files when it is written
@@ -253,7 +299,6 @@ class TestSubmissionIntegration(unittest.TestCase):
         self.assertIn('success', res.text)
 
 
-    @pytest.mark.skip(reason="process_page mock compilation not working with NullFileStore")
     def test_submission_system_basic(self):
         """Create, upload files, process TeX and submit_ce a submission."""
         for page_test in [getattr(self, methname) for methname in self.page_test_names]:

@@ -2,7 +2,7 @@
 
 from http import HTTPStatus as status
 from functools import wraps
-from typing import Optional, Callable, Union, Dict, Tuple
+from typing import Optional, Callable, Union, Dict, List, Tuple, assert_never
 from typing_extensions import Literal
 import logging
 
@@ -12,8 +12,9 @@ from werkzeug import Response as WResponse
 from werkzeug.exceptions import BadRequest
 
 from arxiv.base import alerts
-from submit_ce.domain import Submission
+from submit_ce.domain import Submission, Event
 
+from submit_ce.domain.submission import SubmissionType
 from submit_ce.ui.workflow import NewSubmissionWorkflow, ReplacementWorkflow
 from submit_ce.ui.workflow.stages import Stage
 from submit_ce.ui.workflow.processor import WorkflowProcessor
@@ -100,17 +101,33 @@ def put_seen(seen: Dict[str, bool]) -> None:
     session['steps_seen'] = seen
 
 
-def get_workflow(submission: Optional[Submission]) -> WorkflowProcessor:
+def get_workflow(submission: Optional[Submission],
+                 events: List[Event]) -> WorkflowProcessor:
     """Guesses the workflow based on the submission and its version."""
     if submission is None:
-        raise RuntimeError("Cannot figure out workflow without a submission")
-    if submission.version > 1:
-        return WorkflowProcessor(ReplacementWorkflow, submission, get_seen())
-    else:
-        return WorkflowProcessor(NewSubmissionWorkflow, submission, get_seen())
-    # todo need cross workflow
-    # todo need jref workflow
-    # todo need doi workflow
+          raise RuntimeError("Cannot figure out workflow without a submission")
+
+    match submission.submission_type:
+        case SubmissionType.NEW:
+            if submission.version > 1:
+                raise RuntimeError(
+                    "Cannot do a new submission on a submission with version > 1")
+            return WorkflowProcessor(NewSubmissionWorkflow, submission, events, get_seen())
+        case SubmissionType.REPLACEMENT:
+            return WorkflowProcessor(ReplacementWorkflow, submission, events, get_seen())
+        case SubmissionType.WITHDRAWAL:
+            raise RuntimeError("Withdraw is not workflow controlled.")
+        case SubmissionType.JOURNAL_REFERENCE:
+            # todo need jref workflow
+            # todo need doi workflow
+            raise RuntimeError("Journal ref workflow not yet implemented")
+        case SubmissionType.CROSS_LIST:
+            # todo need cross workflow
+            raise RuntimeError("Cross-list workflow not yet implemented")
+        case None:
+            raise RuntimeError("Submission has no submission_type")
+        case _:
+            assert_never(submission.submission_type)
 
 
 def to_stage(stage: Optional[Stage], ident: str) -> Response:

@@ -6,20 +6,20 @@ from submit_ce.ui.workflow.stages import Stage
 class A(Stage):
     label = "A"
     endpoint = "ep_a"        # <-- add this
-    def is_complete(self, sub): return False
-    def incomplete(self, sub): return ["A incomplete"]
+    def is_complete(self, sub, events): return False
+    def incomplete(self, sub, events): return ["A incomplete"]
 
 class B(Stage):
     label = "B"
     endpoint = "ep_b"        # <-- add this
-    def is_complete(self, sub): return True
-    def incomplete(self, sub): return []
+    def is_complete(self, sub, events): return True
+    def incomplete(self, sub, events): return []
 
 class C(Stage):
     label = "C"
     endpoint = "ep_c"        # <-- add this
-    def is_complete(self, sub): return True
-    def incomplete(self, sub): return []
+    def is_complete(self, sub, events): return True
+    def incomplete(self, sub, events): return []
 
 @pytest.mark.usefixtures("app")
 def test_workflow_definition_core_apis():

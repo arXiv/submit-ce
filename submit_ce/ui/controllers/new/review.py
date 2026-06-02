@@ -202,6 +202,13 @@ def _update_preflight(params: MultiDict, submission_id: str, workspace: Workspac
     existing_paths = {f.path for f in workspace.files}
     files_to_delete = [p for p in params.getlist('selected_files') if p in existing_paths]
 
+    # If the POST carries none of the review-form fields, the user clicked
+    # "next" without changing anything; don't invalidate preflight.
+    form_fields_present = any(params.get(k) for k in
+                              ('source_file', 'compiler', 'compiler_version'))
+    if not form_fields_present and not files_to_delete:
+        return False
+
     new_decisions = {
         'sources': [{'filename': params.get('source_file', '')}],
         'texlive_version': params.get('compiler_version', ''),

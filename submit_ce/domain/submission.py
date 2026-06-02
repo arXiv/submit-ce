@@ -242,6 +242,16 @@ class CrossListClassificationRequest(UserRequest):
         return [c.category for c in self.classifications]
 
 
+class SubmissionType(str, Enum):
+    """Submission type; mirrors classic ``arXiv_submissions.type``."""
+
+    NEW = 'new'
+    REPLACEMENT = 'rep'
+    JOURNAL_REFERENCE = 'jref'
+    WITHDRAWAL = 'wdr'
+    CROSS_LIST = 'cross'
+
+
 @dataclass
 class Submission:
     """
@@ -302,6 +312,9 @@ class Submission:
 
     version: int = field(default=1)
 
+    submission_type: Optional[SubmissionType] = field(default=SubmissionType.NEW)
+    """Submission type, mirrors classic arXiv_submissions.type (new/rep/jref/wdr/cross)."""
+
     reason_for_withdrawal: Optional[str] = field(default=None)
     """If an e-print is withdrawn, the submitter is asked to explain why."""
 
@@ -331,6 +344,11 @@ class Submission:
 
     waivers: Dict[str, Waiver] = field(default_factory=dict)
     """Quality control waivers."""
+
+    def __post_init__(self) -> None:
+        """Normalize ``submission_type`` to a :class:`.SubmissionType`."""
+        if self.submission_type is not None:
+            self.submission_type = SubmissionType(self.submission_type)
 
     # Derived / presentation
     #     These should eventually replace creator, since creator
