@@ -172,12 +172,12 @@ class LegacySubmitImplementation(SubmitApi):
                 if event.executed:
                     raise RuntimeError("Must not save and execute an already executed event. "
                                        "{event.event_id} {event.NAME} executed {event.executed}")
-                # pre_execute_validation runs inside the locked
+                # validate_under_lock runs inside the locked
                 # transaction so it can inspect on-disk / FileStore
                 # state without racing against another writer. Raising
                 # InvalidEvent here rolls the transaction back; the
                 # caller's `except InvalidEvent` decides UX.
-                event.pre_execute_validation(self, before)
+                event.validate_under_lock(self, before)
                 logger.debug('Execute event %s: %s', event.event_id, event.NAME)
                 event.execute(self, before)
                 if not event.executed:

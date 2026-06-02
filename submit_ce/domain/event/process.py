@@ -245,7 +245,7 @@ class SetDecisions(EventWithSideEffect):
         # TODO better validation of preflight data or just handled by pydantic?
         # Maybe have the prefight be a dict on self then validate it here and raise errors?
 
-    def pre_execute_validation(self, api: SubmitApi, submission: Submission) -> None:
+    def validate_under_lock(self, api: SubmitApi, submission: Submission) -> None:
         blob = api.get_file_store().get_user_decisions(submission.submission_id)
         if isinstance(blob, FileDoesNotExist):
             return
