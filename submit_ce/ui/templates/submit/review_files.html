@@ -5,24 +5,42 @@
  <script src="{{ url_for('static', filename='js/filewidget.js') }}"></script>
 {% endblock addl_head %}
 
-{% macro display_preflight_tree(key, item) %}
+{# Renders one row of the Review Files table for a preflight-detected file,
+   or recurses into a subdirectory listing. The third argument
+   ``top_level_filename`` is the currently-selected top-level TeX file
+   (form.source_file.data) so we can render "Used: top-level file" for it.
+   00README.json gets a dedicated label and a disabled delete checkbox --
+   it's a build-directives file, not a candidate for deletion. #}
+{% macro display_preflight_tree(key, item, top_level_filename) %}
   {% if 'filename' in item %}
   <tr>
-    <td>
+    <td class="has-text-centered">
       <input type="hidden" name="all_files" value="{{ item.filename }}">
-      <input type="checkbox" name="selected_files" value="{{ item.filename }}">
+      {% if item.filename == '00README.json' %}
+        <input type="checkbox" name="selected_files" value="{{ item.filename }}"
+               disabled
+               title="00README.json contains build directives and cannot be deleted from this step">
+      {% else %}
+        <input type="checkbox" name="selected_files" value="{{ item.filename }}">
+      {% endif %}
     </td>
     <td>{{ item.filename }}</td>
     <td>
-      {% if item.used_by %}used by: {{ item.used_by | join(', ') }}<br>{% endif %}
-      {% if item.used_by_tex %}used tex: {{ item.used_by_tex | join(', ') }}<br>{% endif %}
-      {% if item.used_by_bib %}used bib: {{ item.used_by_bib | join(', ') }}{% endif %}
+      {% if item.filename == '00README.json' %}
+        Build directives file
+      {% elif item.filename == top_level_filename %}
+        Used: top-level file
+      {% else %}
+        {% if item.used_by %}Used by: {{ item.used_by | join(', ') }}<br>{% endif %}
+        {% if item.used_by_tex %}Used by (TeX): {{ item.used_by_tex | join(', ') }}<br>{% endif %}
+        {% if item.used_by_bib %}Used by (bib): {{ item.used_by_bib | join(', ') }}{% endif %}
+      {% endif %}
     </td>
   </tr>
   {% else %}
   <tr><td colspan="3"><em>{{ key }}/</em></td></tr>
   {% for k, subitem in item.items() %}
-    {{ display_preflight_tree(k, subitem) }}
+    {{ display_preflight_tree(k, subitem, top_level_filename) }}
   {% endfor %}
   {% endif %}
 {% endmacro %}
@@ -103,81 +121,94 @@
    misleading "No files uploaded yet" message. The submit_alerts flash
    at the top of base_edit.html already tells the user *why*. #}
 {% if file_notes %}
-<form id="form" class="form" action="{{ url_for('ui.review_files', submission_id=submission_id) }}" method="POST" enctype="multipart/form-data">
-  <div class="columns action-container">
+<form id="form" class="form"
+      action="{{ url_for('ui.review_files', submission_id=submission_id) }}"
+      method="POST" enctype="multipart/form-data">
+  {{ form.csrf_token }}
 
-    <div class="column is-one-half-desktop is-one-half-tablet">
-      {{ form.csrf_token }}
+  {# Section 1: Select Compiler -- compiler engine + TeX Live version,
+     auto-selected from preflight, but the user can override. #}
+  <div class="action-container review-section">
+    <h2 class="title is-5">Select Compiler</h2>
 
-      <div class="field">
-        <label class="label">{{ form.source_file.label }}</label>
-        <div class="control">
-          <div class="select is-fullwidth">
-            {{ form.source_file }}
-          </div>
-        </div>
-        {% if form.source_file.errors %}
-          {% for error in form.source_file.errors %}
-            <p class="help is-danger">{{ error }}</p>
-          {% endfor %}
-        {% endif %}
-      </div>
-
-      <div class="columns">
-        <div class="column">
-          <div class="field">
-            <label class="label">{{ form.compiler.label }}</label>
-            <div class="control">
-              <div class="select is-fullwidth">
-                {{ form.compiler }}
-              </div>
-            </div>
-            {% if form.compiler.errors %}
-              {% for error in form.compiler.errors %}
-                <p class="help is-danger">{{ error }}</p>
-              {% endfor %}
-            {% endif %}
-          </div>
-        </div>
-        <div class="column">
-          <div class="field">
-            <label class="label">{{ form.compiler_version.label }}</label>
-            <div class="control">
-              <div class="select is-fullwidth">
-                {{ form.compiler_version }}
-              </div>
-            </div>
-            {% if form.compiler_version.errors %}
-              {% for error in form.compiler_version.errors %}
-                <p class="help is-danger">{{ error }}</p>
-              {% endfor %}
-            {% endif %}
-          </div>
+    <div class="field">
+      <label class="label" for="compiler">Compiler</label>
+      <p class="help">Our automated scan tries to identify the correct
+        compiler. You can change it here or keep the auto-selection.</p>
+      <div class="control">
+        <div class="select is-fullwidth">
+          {{ form.compiler }}
         </div>
       </div>
-
-      <hr />
-
-      <table class="table is-fullwidth">
-        <thead>
-          <tr>
-            <th>
-              Delete
-              <br>
-              <a href="#" onclick="document.querySelectorAll('input[name=selected_files]').forEach(cb => cb.checked = false); return false;">keep all</a>
-            </th>
-            <th>File Name</th>
-            <th>Auto-detected Notes</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for k, item in (file_notes | group_preflight_files).items() %}
-            {{ display_preflight_tree(k, item) }}
-          {% endfor %}
-        </tbody>
-      </table>
-
+      {% for error in form.compiler.errors %}
+        <p class="help is-danger">{{ error }}</p>
+      {% endfor %}
     </div>
+
+    <div class="field">
+      <label class="label" for="compiler_version">TeX Live version</label>
+      <p class="help">arXiv currently uses TeX Live 2025 by default. You
+        can also select TeX Live 2023 as an alternative.</p>
+      <div class="control">
+        <div class="select is-fullwidth">
+          {{ form.compiler_version }}
+        </div>
+      </div>
+      {% for error in form.compiler_version.errors %}
+        <p class="help is-danger">{{ error }}</p>
+      {% endfor %}
+    </div>
+  </div>
+
+  {# Section 2: Select Top-Level TeX File -- the file that will be the
+     compilation entry point. Submit 2.0 supports a single top-level
+     file, unlike legacy 1.5 which allowed multiple with reordering. #}
+  <div class="action-container review-section">
+    <h2 class="title is-5">Select Top-Level TeX File</h2>
+
+    <div class="field">
+      <label class="label" for="source_file">Top-level TeX file</label>
+      <p class="help">Our automated scan tries to identify the top-level
+        TeX file. You can change it here or keep the auto-selection.</p>
+      <div class="control">
+        <div class="select is-fullwidth">
+          {{ form.source_file }}
+        </div>
+      </div>
+      {% for error in form.source_file.errors %}
+        <p class="help is-danger">{{ error }}</p>
+      {% endfor %}
+    </div>
+  </div>
+
+  {# Section 3: Review Files -- list of all source files with
+     preflight-derived notes. Files checked for deletion will be
+     removed when the user clicks Continue, invalidating preflight
+     and routing back to Upload Files (see _update_preflight). #}
+  <div class="action-container review-section">
+    <h2 class="title is-5">Review Files</h2>
+    <p>The automated scan tries to identify issues and unused files
+      that can be deleted. You can make changes below or leave
+      auto-selections in place.</p>
+
+    <table class="table is-fullwidth is-striped review-files-table">
+      <thead>
+        <tr>
+          <th class="has-text-centered" style="width: 6rem;">
+            Delete<br>
+            <a href="#" class="is-size-7 keep-all-link"
+               onclick="document.querySelectorAll('input[name=selected_files]:not([disabled])').forEach(cb => cb.checked = false); return false;">Keep All</a>
+          </th>
+          <th>File Name</th>
+          <th>Auto-detected Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for k, item in (file_notes | group_preflight_files).items() %}
+          {{ display_preflight_tree(k, item, form.source_file.data) }}
+        {% endfor %}
+      </tbody>
+    </table>
   </div>
 </form>
 {% else %}
