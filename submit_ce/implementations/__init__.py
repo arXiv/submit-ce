@@ -91,6 +91,9 @@ class NullFileStore(SubmissionFileStore):
     def get_full_submission_path(self, submission_id: str) -> str:
         return ""
 
+    def get_full_submission_source_path(self, submission_id: str) -> str:
+        return ""
+
     def get_full_outcome_path(self, submission_id: str) -> str:
         return ""
 
@@ -100,7 +103,7 @@ class NullFileStore(SubmissionFileStore):
     def store_compile_log(self, submission_id: str, content: IO[bytes], chunk_size: int = 4096) -> str:
         return "not really stored, NullFileStore"
 
-    def uncompress(self, submission_id: str) -> None:
+    def uncompress_compile_tarball(self, submission_id: str) -> None:
         pass
 
     def store_directives(self, submission_id: str, content: dict) -> str:

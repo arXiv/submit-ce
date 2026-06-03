@@ -179,7 +179,7 @@ class CompileApiService(CompileService):
         logger.info("start_compile, submission %s", submission.submission_id)
 
         file_store = current_app.api.get_file_store()
-        source_path = f"{file_store.get_full_submission_path(submission.submission_id)}/src/"
+        source_path = f"{file_store.get_full_submission_source_path(submission.submission_id)}"
         outcome_path = file_store.get_full_outcome_path(submission.submission_id)
 
         query_params = {
@@ -207,9 +207,6 @@ class CompileApiService(CompileService):
 
         if response is None:
             raise RuntimeError("response is unexpectedly None")
-
-        if response.status_code == 500:
-            raise httpx.HTTPStatusError(f"HTTP error {response.status_code}", request=response.request, response=response)
 
         response.raise_for_status()
 

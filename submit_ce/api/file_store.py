@@ -39,6 +39,11 @@ class SubmissionFileStore(metaclass=ABCMeta):
         pass
 
     @abstractmethod
+    def get_full_submission_source_path(self, submission_id: str) -> str:
+        """Returns full path to submission subdirectory containing the user's source file, and includes a trailing slash."""
+        pass
+
+    @abstractmethod
     def get_workspace(self, submission_id: str) -> Workspace:
         """Returns information about the source of a submission."""
         pass
@@ -229,7 +234,7 @@ class SubmissionFileStore(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def uncompress(self, submission_id: str) -> None:
+    def uncompress_compile_tarball(self, submission_id: str) -> None:
         """Download the compile outcome tarball and store its main.log and src.pdf.
 
         main.log -> store_compile_log, src.pdf -> store_preview."""

@@ -67,7 +67,7 @@ def file_process(method: str, params: MultiDict, session: Session,
             return _check_status(params, session, submission_id, token)
         else:
             start_compilation(params, session, submission_id, token)
-            current_app.api.get_file_store().uncompress(submission_id)
+            current_app.api.get_file_store().uncompress_compile_tarball(submission_id)
             return compile_status(params, session, submission_id, token)
     raise MethodNotAllowed('Unsupported request')
 

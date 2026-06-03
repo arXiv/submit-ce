@@ -333,18 +333,32 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
         return blob.crc32c
 
     @override
-    def uncompress(self, submission_id: str) -> None:
-        """Download outcome.tgz, extract main.log and src.pdf, store via this file_store."""
+    def uncompress_compile_tarball(self, submission_id: str) -> None:
+        """Download outcome tarball, read outcome-src.json for pdf and main.log filenames, then store them."""
         blob = self.bucket.blob(self._outcome_path(submission_id))
 
         with tarfile.open(fileobj=io.BytesIO(blob.download_as_bytes()), mode='r:gz') as tar:
+            outcome_member = next(
+                (m for m in tar.getmembers() if posixpath.basename(m.name) == 'outcome-src.json'),
+                None,
+            )
+            if outcome_member is None:
+                raise FileNotFoundError(f"outcome-src.json not found in outcome tarball for submission {submission_id}")
+            extracted = tar.extractfile(outcome_member)
+            if extracted is None:
+                raise RuntimeError(f"Could not extract outcome-src.json for submission {submission_id}")
+            outcome = json.load(extracted)
+
+            pdf_name = outcome.get("pdf_file")
+            log_name = outcome["out_files"]["main.log"]["name"]
+
             for member in tar.getmembers():
                 name = posixpath.basename(member.name)
-                if name == 'main.log':
+                if name == log_name:
                     extracted = tar.extractfile(member)
                     if extracted is not None:
                         self.store_compile_log(submission_id, extracted)
-                elif name == 'src.pdf':
+                elif pdf_name and name == pdf_name:
                     extracted = tar.extractfile(member)
                     if extracted is not None:
                         self.store_preview(submission_id, extracted)
@@ -495,6 +509,11 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
     @override
     def get_full_submission_path(self, submission_id: str) -> str:
         return f'{self._full_base_path()}/{self._submission_path(submission_id)}'
+
+    @override
+    def get_full_submission_source_path(self, submission_id: str) -> str:
+        # The trailing slash is needed.
+        return f'{self._full_base_path()}/{self._submission_path(submission_id)}/{self.source_prefix}/'
 
     @override
     def get_full_source_package_path(self, submission_id: str) -> str:
