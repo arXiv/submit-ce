@@ -275,5 +275,12 @@
     {% endif %}
   </div>
 </div>
+
+{% if compile_log %}
+<div class="box compile-log-box">
+  <h3>Compile Log</h3>
+  <pre>{{ compile_log }}</pre>
+</div>
+{% endif %}
 </form>
 {% endblock within_content %}
