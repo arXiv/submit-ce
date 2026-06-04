@@ -30,7 +30,7 @@
       submission.metadata.abstract,
       submission.created,
       submission.primary_classification,
-      comments = comments_preview(submission.metadata.comments, form.withdrawal_reason.data),
+      comments = comments_preview(submission.metadata.comments, form.comment.data),
       msc_class = submission.metadata.msc_class,
       acm_class = submission.metadata.acm_class,
       journal_ref = submission.metadata.journal_ref,
@@ -61,10 +61,10 @@
     <div class="columns">
       <div class="column">
         {{ form.csrf_token }}
-        {% with field = form.withdrawal_reason %}
+        {% for field in [form.comment, form.abstract] %}
         <div class="field">
           <div class="control">
-            <label class="label" for="withdrawal_reason">{{ field.label.text }} (required) <a class="help-bubble" href="{{ url_for('help_withdraw') }}"><i class="fa fa-question-circle is-info"></i><div class="bubble-text">Specific reason for withdrawal will be placed in the Comments display for your article.</div></a></label>
+            <label class="label" for="{{ field.id }}">{{ field.label.text }} (required) <a class="help-bubble" href="{{ url_for('help_withdraw') }}"><i class="fa fa-question-circle is-info"></i><div class="bubble-text">Specific reason for withdrawal will be placed in the Comments display for your article.</div></a></label>
             {% if field.errors %}
               <div class="help is-danger field-error">
                 {% for error in field.errors %}
@@ -84,7 +84,7 @@
             {% endif %}
           </div>
         </div>
-        {% endwith %}
+        {% endfor %}
 
       </div>
       <div class="column" style="align-self: flex-end">
