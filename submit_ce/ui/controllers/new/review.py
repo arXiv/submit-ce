@@ -178,7 +178,7 @@ def review_files(method: str, params: MultiDict, session: Session,
         else:
             _load_or_create_directives(params, session, submission_id, token)
 
-            preflight_data, user_decisions_data = _load_or_create_preflight(submission_id, params, session, token, workspace)
+            preflight_data, user_decisions_data = _load_or_create_preflight(submission_id, params, session, token, workspace, submitter, client)
 
             if preflight_data is None:
                 alerts.flash_warning(
