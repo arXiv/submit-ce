@@ -1,9 +1,7 @@
 """Tests for :mod:`submit_ce.ui.controllers.new.review`."""
 
 from http import HTTPStatus as status
-from unittest.mock import MagicMock
 
-from werkzeug.datastructures import MultiDict
 
 from submit_ce.ui.controllers.new import review
 

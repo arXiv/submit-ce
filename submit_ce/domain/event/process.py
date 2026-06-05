@@ -13,7 +13,6 @@ from ..submission import Submission
 from ..process import ProcessStatus
 from .base import Event, EventWithSideEffect
 
-from typing import TYPE_CHECKING
 
 from submit_ce.api import SubmitApi
 
@@ -259,6 +258,8 @@ class SetDecisions(EventWithSideEffect):
 
     def execute(self, api: SubmitApi, submission: Submission) -> None:
         file_store = api.get_file_store()
+        # TODO If something fails here, preflight/user_decisions are already changed/deleted.
+        # Delete files and only delete preflight and user_decisions if at least one file is deleted
         file_store.delete_preflight(submission.submission_id)
         file_store.store_user_decisions(submission.submission_id, self.decisions)
         for path in self.files_to_delete:
