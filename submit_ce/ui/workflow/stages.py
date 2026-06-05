@@ -118,8 +118,7 @@ class Process(Stage):
     title = "File process"
     display = "Process Files"
     """We need to re-process every time the source is updated."""
-    completed = []
-    #completed = [conditions.is_source_processed]
+    completed = [conditions.is_source_processed]
 
 
 class Metadata(Stage):
