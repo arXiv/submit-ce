@@ -3,7 +3,10 @@
 from http import HTTPStatus as status
 from unittest.mock import MagicMock
 
+import pytest
 from werkzeug.datastructures import MultiDict
+
+from submit_ce.ui.tests.csrf_util import parse_csrf_token
 
 from submit_ce.domain.compilation import Compilation
 from submit_ce.domain.event import SetSourceFormat
@@ -25,6 +28,111 @@ def test_review_files_get_warning_via_http(app, authorized_client, sub_files,
     assert resp.status_code == status.OK
     assert mock_flash.called
     assert "couldn't load preflight data" in mock_flash.call_args[0][0]
+
+
+
+def test_review_files_empty_workspace_skips_preflight(
+        app, authorized_client, sub_files, mocker):
+    """End-to-end: when get_workspace returns None, the controller short-circuits
+    via return_to_parent_stage and never calls _load_or_create_preflight."""
+    mock_store = MagicMock()
+    mock_store.get_workspace.return_value = None
+    mocker.patch.object(app.api, 'get_file_store', return_value=mock_store)
+    mock_load = mocker.patch.object(review, '_load_or_create_preflight')
+
+    url = f"/{sub_files.submission_id}/review_files"
+    resp = authorized_client.get(url)
+
+    assert resp.status_code == status.OK
+    mock_load.assert_not_called()
+
+
+def test_review_files_unsupported_method_raises(mocker):
+    """Controller raises MethodNotAllowed for methods other than GET/POST."""
+    mocker.patch.object(review, 'user_and_client_from_session',
+                        return_value=(MagicMock(), None))
+    with pytest.raises(review.MethodNotAllowed):
+        review.review_files('PUT', MultiDict(), MagicMock(),
+                            'sub1', 'tok')
+
+
+def _get_csrf(authorized_client, url, mocker):
+    """GET the review page (with preflight stubbed out) and pull the CSRF token."""
+    mocker.patch.object(review, '_load_or_create_preflight',
+                        return_value=(None, None))
+    resp = authorized_client.get(url)
+    return parse_csrf_token(resp)
+
+
+def test_review_files_post_with_changes_redirects_to_parent(
+        app, authorized_client, sub_files, mocker):
+    """End-to-end POST: when _update_preflight reports changes, the controller
+    marks STAGE_PARENT and the flow redirects (303 SEE_OTHER)."""
+    url = f"/{sub_files.submission_id}/review_files"
+    csrf = _get_csrf(authorized_client, url, mocker)
+
+    mock_update = mocker.patch.object(review, '_update_preflight',
+                                      return_value=True)
+    mock_load_dir = mocker.patch.object(review, '_load_or_create_directives')
+
+    resp = authorized_client.post(url, data={'csrf_token': csrf, 'action': 'next'})
+
+    assert resp.status_code == status.SEE_OTHER
+    mock_update.assert_called_once()
+    mock_load_dir.assert_not_called()
+
+
+def test_review_files_post_no_changes_no_preflight_flashes(
+        app, authorized_client, sub_files, mocker):
+    """End-to-end POST: when there are no changes but preflight is still
+    unavailable, the controller flashes a warning and stays on the stage."""
+    url = f"/{sub_files.submission_id}/review_files"
+    csrf = _get_csrf(authorized_client, url, mocker)
+
+    mocker.patch.object(review, '_update_preflight', return_value=False)
+    mocker.patch.object(review, '_load_or_create_directives')
+    # Re-patch _load_or_create_preflight: GET used (None, None) for CSRF, POST
+    # needs the same so we hit the "preflight unavailable" branch.
+    mocker.patch.object(review, '_load_or_create_preflight',
+                        return_value=(None, None))
+    mock_flash = mocker.patch.object(review.alerts, 'flash_warning')
+
+    resp = authorized_client.post(url, data={'csrf_token': csrf, 'action': 'next'})
+
+    assert resp.status_code == status.OK
+    assert mock_flash.called
+    assert "Preflight data is not available" in mock_flash.call_args[0][0]
+
+
+def test_review_files_post_no_changes_stores_zzrm_and_advances(
+        app, authorized_client, sub_files, mocker):
+    """End-to-end POST: when there are no changes and preflight is present,
+    the controller stores the merged zzrm and advances to the next stage."""
+    url = f"/{sub_files.submission_id}/review_files"
+    csrf = _get_csrf(authorized_client, url, mocker)
+
+    mocker.patch.object(review, '_update_preflight', return_value=False)
+    mocker.patch.object(review, '_load_or_create_directives')
+    mocker.patch.object(review, '_load_or_create_preflight',
+                        return_value=({'tex_files': []}, {'sources': []}))
+
+    # Stub the external preflight/zzrm types to avoid building real fixtures.
+    mocker.patch.object(review, 'PreflightResponse')
+    fake_zzrm = MagicMock()
+    fake_zzrm.to_dict.return_value = {'merged': True}
+    mocker.patch.object(review, 'ZeroZeroReadMe', return_value=fake_zzrm)
+
+    mock_store = MagicMock()
+    mocker.patch.object(app.api, 'get_file_store', return_value=mock_store)
+
+    resp = authorized_client.post(url, data={'csrf_token': csrf, 'action': 'next'})
+
+    assert resp.status_code == status.SEE_OTHER
+    fake_zzrm.from_dict.assert_called_once_with({'sources': []})
+    fake_zzrm.update_from_preflight.assert_called_once()
+    mock_store.store_zzrm.assert_called_once_with(
+        str(sub_files.submission_id), {'merged': True}
+    )
 
 
 def _make_workspace(*paths):
