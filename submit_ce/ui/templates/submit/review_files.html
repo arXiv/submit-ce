@@ -122,14 +122,16 @@
    at the top of base_edit.html already tells the user *why*. #}
 {% if file_notes %}
 {# Flat layout matching the Metadata page (per UI designer feedback):
-   no card framing, no red section headings. Form fields stack
-   vertically with their own labels and help text. The three logical
-   groupings (compiler, top-level file, file table) are still present
-   as ordinary <div class="field"> blocks. #}
+   no per-section card framing, no red section headings. The whole
+   form is wrapped in a single <div class="action-container"> so the
+   page has the same outline/container look as add_metadata.html. The
+   three logical groupings (compiler, top-level file, file table) are
+   still present as ordinary <div class="field"> blocks. #}
 <form id="form" class="form"
       action="{{ url_for('ui.review_files', submission_id=submission_id) }}"
       method="POST" enctype="multipart/form-data">
-  {{ form.csrf_token }}
+  <div class="action-container">
+    {{ form.csrf_token }}
 
   {# Compiler engine + TeX Live version (auto-selected from preflight) #}
   <div class="field">
@@ -204,6 +206,7 @@
       </tbody>
     </table>
   </div>
+  </div>{# /.action-container #}
 </form>
 {% else %}
   <div class="notification is-warning" role="alert">
