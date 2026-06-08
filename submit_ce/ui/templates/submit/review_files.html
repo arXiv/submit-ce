@@ -121,75 +121,69 @@
    misleading "No files uploaded yet" message. The submit_alerts flash
    at the top of base_edit.html already tells the user *why*. #}
 {% if file_notes %}
+{# Flat layout matching the Metadata page (per UI designer feedback):
+   no card framing, no red section headings. Form fields stack
+   vertically with their own labels and help text. The three logical
+   groupings (compiler, top-level file, file table) are still present
+   as ordinary <div class="field"> blocks. #}
 <form id="form" class="form"
       action="{{ url_for('ui.review_files', submission_id=submission_id) }}"
       method="POST" enctype="multipart/form-data">
   {{ form.csrf_token }}
 
-  {# Section 1: Select Compiler -- compiler engine + TeX Live version,
-     auto-selected from preflight, but the user can override. #}
-  <div class="action-container review-section">
-    <h2 class="title is-5">Select Compiler</h2>
-
-    <div class="field">
-      <label class="label" for="compiler">Compiler</label>
-      <p class="help">Our automated scan tries to identify the correct
-        compiler. You can change it here or keep the auto-selection.</p>
-      <div class="control">
-        <div class="select is-fullwidth">
-          {{ form.compiler }}
-        </div>
+  {# Compiler engine + TeX Live version (auto-selected from preflight) #}
+  <div class="field">
+    <label class="label" for="compiler">Compiler</label>
+    <p class="help">Our automated scan tries to identify the correct
+      compiler. You can change it here or keep the auto-selection.</p>
+    <div class="control">
+      <div class="select is-fullwidth">
+        {{ form.compiler }}
       </div>
-      {% for error in form.compiler.errors %}
-        <p class="help is-danger">{{ error }}</p>
-      {% endfor %}
     </div>
-
-    <div class="field">
-      <label class="label" for="compiler_version">TeX Live version</label>
-      <p class="help">arXiv currently uses TeX Live 2025 by default. You
-        can also select TeX Live 2023 as an alternative.</p>
-      <div class="control">
-        <div class="select is-fullwidth">
-          {{ form.compiler_version }}
-        </div>
-      </div>
-      {% for error in form.compiler_version.errors %}
-        <p class="help is-danger">{{ error }}</p>
-      {% endfor %}
-    </div>
+    {% for error in form.compiler.errors %}
+      <p class="help is-danger">{{ error }}</p>
+    {% endfor %}
   </div>
 
-  {# Section 2: Select Top-Level TeX File -- the file that will be the
-     compilation entry point. Submit 2.0 supports a single top-level
-     file, unlike legacy 1.5 which allowed multiple with reordering. #}
-  <div class="action-container review-section">
-    <h2 class="title is-5">Select Top-Level TeX File</h2>
-
-    <div class="field">
-      <label class="label" for="source_file">Top-level TeX file</label>
-      <p class="help">Our automated scan tries to identify the top-level
-        TeX file. You can change it here or keep the auto-selection.</p>
-      <div class="control">
-        <div class="select is-fullwidth">
-          {{ form.source_file }}
-        </div>
+  <div class="field">
+    <label class="label" for="compiler_version">TeX Live version</label>
+    <p class="help">arXiv currently uses TeX Live 2025 by default. You
+      can also select TeX Live 2023 as an alternative.</p>
+    <div class="control">
+      <div class="select is-fullwidth">
+        {{ form.compiler_version }}
       </div>
-      {% for error in form.source_file.errors %}
-        <p class="help is-danger">{{ error }}</p>
-      {% endfor %}
     </div>
+    {% for error in form.compiler_version.errors %}
+      <p class="help is-danger">{{ error }}</p>
+    {% endfor %}
   </div>
 
-  {# Section 3: Review Files -- list of all source files with
-     preflight-derived notes. Files checked for deletion will be
-     removed when the user clicks Continue, invalidating preflight
-     and routing back to Upload Files (see _update_preflight). #}
-  <div class="action-container review-section">
-    <h2 class="title is-5">Review Files</h2>
-    <p>The automated scan tries to identify issues and unused files
-      that can be deleted. You can make changes below or leave
-      auto-selections in place.</p>
+  {# Top-level TeX file. Submit 2.0 supports a single top-level file
+     (unlike legacy 1.5 which allowed multiple with reordering). #}
+  <div class="field">
+    <label class="label" for="source_file">Top-level TeX file</label>
+    <p class="help">Our automated scan tries to identify the top-level
+      TeX file. You can change it here or keep the auto-selection.</p>
+    <div class="control">
+      <div class="select is-fullwidth">
+        {{ form.source_file }}
+      </div>
+    </div>
+    {% for error in form.source_file.errors %}
+      <p class="help is-danger">{{ error }}</p>
+    {% endfor %}
+  </div>
+
+  {# Review Files list. Files checked for deletion will be removed when
+     the user clicks Continue, invalidating preflight and routing back
+     to Upload Files (see _update_preflight). #}
+  <div class="field">
+    <label class="label">Files</label>
+    <p class="help">The automated scan tries to identify issues and
+      unused files that can be deleted. You can make changes below or
+      leave auto-selections in place.</p>
 
     <table class="table is-fullwidth is-striped review-files-table">
       <thead>
