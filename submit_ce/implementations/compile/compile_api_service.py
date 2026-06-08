@@ -235,10 +235,10 @@ class CompileApiService(CompileService):
     @override
     def is_available(self) -> bool:
         try:
-            resp = httpx.get(self.tex2pdf_url, timeout=1)
+            resp = httpx.get(settings.COMPILE_API_URL, timeout=1)
             return resp.status_code == 200
         except httpx.RequestError as exc:
-            logger.error(f"Local compile service at '{self.tex2pdf_url}' is not available: {exc}")
+            logger.error(f"Local compile service at '{settings.COMPILE_API_URL}' is not available: {exc}")
             return False
 
     @override
