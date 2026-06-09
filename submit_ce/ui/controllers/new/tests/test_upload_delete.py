@@ -40,6 +40,11 @@ def test_delete_file_post_confirmed(app, authorized_client, sub_files, mocker):
 
     mock_store = mocker.patch.object(app.api, 'store')
     mock_store.delete_source_file.return_value.bytes = 1
+    # RemoveFiles re-evaluates the size limits, which reads the workspace.
+    ws = mocker.MagicMock()
+    ws.size = 0
+    ws.files = []
+    mock_store.get_workspace.return_value = ws
 
     resp = authorized_client.post(url, data={
         'csrf_token': csrf,
