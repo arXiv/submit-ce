@@ -52,6 +52,7 @@
 {% block title -%}Upload Files{%- endblock title %}
 
 
+{% block more_notifications %}
 {% if immediate_notifications %}
   {% for notification in immediate_notifications %}
   <div class="notification is-{{ notification.severity }}" role="alert" aria-atomic="true">
@@ -62,6 +63,7 @@
   </div>
   {% endfor %}
 {% endif %}
+{% endblock more_notifications %}
 
 {% block important_text_box %}
 
