@@ -211,7 +211,7 @@ def start_compilation(params: MultiDict, session: Session, submission_id: str,
     #     if 'reason' in result.extra and "produced from TeX source" in result.extra['reason']:
     #         alerts.flash_failure(TEX_PRODUCED_MARKUP)
     #     elif 'reason' in result.extra and 'docker' in result.extra['reason']:
-    #         alerts.flash_failure(DOCKER_ERROR_MARKUOP)
+    #         alerts.flash_failure(DOCKER_ERROR_MARKUP)
     #     else:
     #         alerts.flash_failure(f"Processing failed")
     # else:
@@ -262,7 +262,7 @@ TEX_PRODUCED_MARKUP = \
            "submission is TeX produced is incorrect, you should send " \
            "e-mail with your submission ID to " \
            '<a href="mailto:help@arxiv.org">arXiv administrators.</a></p>')
-DOCKER_ERROR_MARKUOP = \
+DOCKER_ERROR_MARKUP = \
     Markup("Our automatic TeX processing system has failed to launch. " \
            "There is a good chance we are aware of the issue, but if the " \
            "problem persists you should send e-mail with your submission " \
