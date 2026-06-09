@@ -158,7 +158,7 @@ class CompileApiService(CompileService):
             ),
             duration_sec=0,
             utc_start_time=datetime.now(timezone.utc),
-            url="FAKE_URL_LOCAL_PREFLIGHT"
+            url="FAKE_URL_PREFLIGHT"
         )
 
     @override
@@ -219,17 +219,17 @@ class CompileApiService(CompileService):
             ),
             duration_sec=0,
             utc_start_time=datetime.now(timezone.utc),
-            url="FAKE_URL_LOCAL_COMPILE"
+            url="FAKE_URL_COMPILE"
         )
 
     @override
     def check(self, process_id: str, user: User, client: Client) -> ProcessStatus:
-        logger.info("Checking local compilation for process %s", process_id)
+        logger.info("Checking compilation for process %s", process_id)
         return ProcessStatus(
             status=ProcessStatus.Status.SUCCEEDED,
             creator=user,
             created=datetime.now(timezone.utc),
-            details={'message': 'Local compilation check completed'}
+            details={'message': 'Compilation check completed'}
         )
 
     @override
@@ -238,7 +238,7 @@ class CompileApiService(CompileService):
             resp = httpx.get(settings.COMPILE_API_URL, timeout=1)
             return resp.status_code == 200
         except httpx.RequestError as exc:
-            logger.error(f"Local compile service at '{settings.COMPILE_API_URL}' is not available: {exc}")
+            logger.error(f"Compile service at '{settings.COMPILE_API_URL}' is not available: {exc}")
             return False
 
     @override
@@ -297,7 +297,7 @@ class CompileApiService(CompileService):
             ),
             duration_sec=0,
             utc_start_time=datetime.now(timezone.utc),
-            url="FAKE_URL_LOCAL_DIRECTIVES"
+            url="FAKE_URL_DIRECTIVES"
 
         )
     @override
