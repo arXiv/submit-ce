@@ -19,10 +19,41 @@ def _common_file_change_project(submission: Submission) -> None:
 
 
 def _common_file_change_execute(api: SubmitApi, submission: Submission) -> None:
-    """Common changes during `execute` when any file change happens."""
+    """Common changes during `execute` when any file change happens.
+
+    Any change to the source workspace invalidates the analysis chain
+    that was built from the previous state of the files:
+
+    * **preflight** -- the per-file scan that detects compiler, top-level
+      TeX, issues, etc. Must be re-run against the new file list.
+    * **user_decisions** -- captures the user's selections (source_file,
+      compiler, marked-for-deletion) made on the Review Files step.
+      Those selections may reference files that no longer exist after
+      the change, so we drop them and let the user re-select.
+    * **directives** -- the combined preflight + user_decisions output
+      that drives compilation. With both of its inputs invalidated,
+      this is also stale.
+    * **preview** -- the compiled PDF that was produced from the
+      previous source.
+
+    Submit 1.5 had separate ``clear_preflight`` and
+    ``clear_directives_data`` routines in ``Submit.pm`` that were
+    called from various file-change paths; this is the 2.0 equivalent
+    consolidated into one place so all four file events
+    (UploadArchive / UploadFiles / RemoveFiles / RemoveAllFiles) get
+    consistent invalidation. Skipping any of these leads to stale data
+    being shown on Review Files even though the workspace itself is
+    current. The submission-package ``<id>.tar.gz`` is intentionally
+    NOT deleted here -- it represents the source that last successfully
+    compiled, and gets overwritten by ``compile_at_gcp.py`` on the next
+    successful compile.
+    """
     file_store = api.get_file_store()
-    file_store.delete_preflight(str(submission.submission_id))
-    file_store.delete_preview(str(submission.submission_id))
+    sid = str(submission.submission_id)
+    file_store.delete_preflight(sid)
+    file_store.delete_user_decisions(sid)
+    file_store.delete_directives(sid)
+    file_store.delete_preview(sid)
 
 
 class UploadArchive(EventWithSideEffect):
