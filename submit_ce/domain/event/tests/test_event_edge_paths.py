@@ -21,6 +21,7 @@ import pytest
 from submit_ce.domain import submission as submod, agent
 from submit_ce.domain.preview import Preview
 from submit_ce.domain.submission import Submission
+from submit_ce.domain.uploads import SourceFormat
 
 # Event classes (and exception)
 from submit_ce.domain.event import (
@@ -73,20 +74,25 @@ def _announced_submission(uid: str = "u1", arxiv_id: str = "2501.01234"):
 # ConfirmPreview: three cases (no preview / mismatch / ok)
 # -------------------------------------------------------
 
-def test_confirm_preview_fails_when_no_preview():
+def test_confirm_preview_fails_when_no_preview_for_tex():
     """
-    ConfirmPreview should fail if submission.preview is None.
+    ConfirmPreview should fail for TeX submissions if submission.preview
+    is None -- TeX requires a separately-compiled preview produced by the
+    Process step's ConfirmSourceProcessed event.
     """
     s = _working_submission()
+    s.source_format = SourceFormat.TEX
     e = ConfirmPreview(creator=s.creator, created=_now(), preview_checksum="abc123")
     with pytest.raises(InvalidEvent):
         e.validate(s)
 
-def test_confirm_preview_fails_on_checksum_mismatch():
+def test_confirm_preview_fails_on_checksum_mismatch_for_tex():
     """
-    ConfirmPreview should fail if provided preview_checksum != submission.preview.preview_checksum.
+    For TeX submissions, ConfirmPreview should fail if provided
+    preview_checksum != submission.preview.preview_checksum.
     """
     s = _working_submission()
+    s.source_format = SourceFormat.TEX
     s.preview = Preview(
         source_id=1,
         source_checksum="SRC",
@@ -98,11 +104,13 @@ def test_confirm_preview_fails_on_checksum_mismatch():
     with pytest.raises(InvalidEvent):
         e.validate(s)
 
-def test_confirm_preview_succeeds_on_checksum_match_sets_flag():
+def test_confirm_preview_succeeds_on_checksum_match_sets_flag_for_tex():
     """
-    ConfirmPreview should pass when checksums match and set submitter_confirmed_preview.
+    For TeX submissions, ConfirmPreview should pass when checksums match
+    and set submitter_confirmed_preview.
     """
     s = _working_submission()
+    s.source_format = SourceFormat.TEX
     s.preview = Preview(
         source_id=1,
         source_checksum="SRC",
@@ -116,6 +124,63 @@ def test_confirm_preview_succeeds_on_checksum_match_sets_flag():
     # apply should toggle the flag
     after = e.apply(s)
     assert after.submitter_confirmed_preview is True
+
+
+# -------------------------------------------------------
+# ConfirmPreview: PDF / HTML / POSTSCRIPT cases
+# These cover the validator's source-format branching. The validator
+# only requires submission.preview for source formats that go through
+# the compile pipeline (TEX, POSTSCRIPT). For PDF / HTML / other
+# non-processing formats the source IS the preview, so confirmation
+# can succeed without submission.preview ever being set. This mirrors
+# the workflow's has_non_processing_content condition in
+# submit_ce/ui/workflow/conditions.py.
+# -------------------------------------------------------
+
+def test_confirm_preview_pdf_no_preview_passes():
+    """
+    For PDF-only submissions, ConfirmPreview should pass even when
+    submission.preview is None -- the source PDF IS the preview, no
+    separate compilation step runs.
+    """
+    s = _working_submission()
+    s.source_format = SourceFormat.PDF
+    e = ConfirmPreview(
+        creator=s.creator, created=_now(),
+        preview_checksum="anything-since-not-checked",
+    )
+    # Should not raise
+    e.validate(s)
+    after = e.apply(s)
+    assert after.submitter_confirmed_preview is True
+
+def test_confirm_preview_html_no_preview_passes():
+    """
+    For HTML submissions, ConfirmPreview should pass without
+    submission.preview -- same rationale as PDF: no compile step.
+    """
+    s = _working_submission()
+    s.source_format = SourceFormat.HTML
+    e = ConfirmPreview(
+        creator=s.creator, created=_now(),
+        preview_checksum="anything",
+    )
+    e.validate(s)
+    after = e.apply(s)
+    assert after.submitter_confirmed_preview is True
+
+def test_confirm_preview_postscript_requires_preview():
+    """
+    PostScript submissions go through the compile pipeline the same way
+    TeX does, so ConfirmPreview should still require submission.preview
+    for PostScript -- mirrors has_non_processing_content() which excludes
+    both TEX and POSTSCRIPT from the "non-processing" set.
+    """
+    s = _working_submission()
+    s.source_format = SourceFormat.POSTSCRIPT
+    e = ConfirmPreview(creator=s.creator, created=_now(), preview_checksum="abc")
+    with pytest.raises(InvalidEvent):
+        e.validate(s)
 
 
 # -------------------------------------------------------
