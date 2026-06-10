@@ -47,6 +47,13 @@ class Event(BaseModel):
     NAME: ClassVar[str] = 'base event'
     NAMED: ClassVar[str] = 'base event'
 
+    CONSEQUENCE_TYPES: ClassVar[frozenset] = frozenset()
+    """Event types this event may emit from :meth:`consequences`.
+
+    Declared statically so the consequence graph over event types can be
+    checked for cycles. Empty means this event has no consequences.
+    """
+
     creator: User
     """
     The agent responsible for the operation represented by this event.
@@ -149,6 +156,34 @@ class Event(BaseModel):
 
         This is how the `Event` changes the `submission`."""
         raise NotImplementedError('Must be implemented by subclass')
+
+    def consequences(self, submission: Submission) -> List['Event']:
+        """Follow-on events implied by this event given the resulting state.
+
+        Called by the `SubmitApi.save()` loop with the submission state *after*
+        this event's projection. The types of the returned instances must be a
+        subset of :attr:`CONSEQUENCE_TYPES`. This is enforced at runtime in the
+        `save()`. Default: no consequences.
+
+        This is intended to be explicit and traceable: an event names the events
+        it may spawn, and those types form a directed graph that is checked for
+        cycles by a test, so consequence chains are guaranteed to terminate.
+        """
+        return []
+
+    def get_consequences(self, submission: Submission) -> List['Event']:
+        """Return :meth:`consequences`, enforcing the :attr:`CONSEQUENCE_TYPES` contract.
+
+        Raises if an event emits a consequence type it did not declare; this
+        keeps the static consequence graph honest at runtime.
+        """
+        events = self.consequences(submission)
+        for event in events:
+            if type(event) not in self.CONSEQUENCE_TYPES:
+                raise RuntimeError(
+                    f"{self.event_type} emitted undeclared consequence "
+                    f"{type(event).__name__}; add it to CONSEQUENCE_TYPES")
+        return events
 
 
 @functools.cache

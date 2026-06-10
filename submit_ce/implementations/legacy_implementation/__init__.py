@@ -168,7 +168,15 @@ class LegacySubmitImplementation(SubmitApi):
         """Internal save for when submission is already read from the db."""
         before = submission
         committed: List[Event] = []
-        for event in events:
+        # A work-queue since events may imply consequent events (see
+        # Event.consequences) that need to be processed in this same locked
+        # session/transaction. They are inserted at the front of the queue so a
+        # consequence applies to the state immediately after its parent, before
+        # any remaining sibling events. The consequence type-graph is acyclic
+        # (enforced by test), so this terminates.
+        queue: List[Event] = list(events)
+        while queue:
+            event = queue.pop(0)
             if event.submission_id is None and before and before.submission_id is not None:
                 event.submission_id = before.submission_id
 
@@ -192,6 +200,10 @@ class LegacySubmitImplementation(SubmitApi):
                 committed.append(consequent_event)
 
             before = after  # Prepare for the next event.
+
+            # Queue any follow-on events implied by this one, given the new state.
+            for consequence in reversed(event.get_consequences(after)):
+                queue.insert(0, consequence)
 
         all_ = sorted(existing_events + committed, key=lambda e: e.created)
         session.commit()

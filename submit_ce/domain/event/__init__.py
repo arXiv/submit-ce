@@ -72,7 +72,7 @@ from ..annotation import Feature, ClassifierResults, \
     ClassifierResult
 from ..preview import Preview
 from ..submission import Submission, Author, \
-    Classification, License
+    Classification, License, Hold
 from ..uploads import SourceFormat
 from ..exceptions import InvalidEvent
 
@@ -978,6 +978,8 @@ class FinalizeSubmission(Event):
     ]
     REQUIRED_METADATA: ClassVar[str] = ['title', 'abstract', 'authors_display']
 
+    CONSEQUENCE_TYPES = frozenset({AddHold})
+
     def validate(self, submission: Submission) -> None:
         """Ensure that all required data/steps are complete."""
         if submission.is_finalized:
@@ -991,6 +993,21 @@ class FinalizeSubmission(Event):
         submission.status = Submission.SUBMITTED
         submission.submitted = datetime.now(UTC)
         return submission
+
+    def consequences(self, submission: Submission) -> List[Event]:
+        """Place an oversize submission on hold when it is finalized.
+
+        Recording a `SOURCE_OVERSIZE` hold (while status stays `SUBMITTED`) is
+        what makes :attr:`Submission.is_on_hold` report true; there is no
+        separate hold status in this model. Skipped if a waiver already exists.
+        """
+        if submission.is_oversize \
+                and not submission.has_waiver_for(Hold.Type.SOURCE_OVERSIZE):
+            return [AddHold(creator=System(name=__name__),
+                            submission_id=submission.submission_id,
+                            hold_type=Hold.Type.SOURCE_OVERSIZE,
+                            hold_reason="source is oversize")]
+        return []
 
     def _required_fields_are_complete(self, submission: Submission) -> None:
         """Verify that all required fields are complete."""
