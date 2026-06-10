@@ -3,6 +3,7 @@ import logging
 from http import HTTPStatus as status
 from typing import Tuple, Dict, Any, Optional, List
 
+import httpx
 from flask import current_app
 from arxiv.auth.domain import Session
 from arxiv.base import alerts
@@ -24,10 +25,13 @@ from werkzeug.exceptions import (
 from wtforms import SelectField
 from wtforms.validators import DataRequired
 
-from submit_ce.domain.uploads import Workspace
+from submit_ce.domain.uploads import Workspace, SourceFormat
 from submit_ce.domain.exceptions import InvalidEvent, SaveError
 from submit_ce.ui.controllers.util import validate_command
-from submit_ce.ui.routes.flow_control import stay_on_this_stage, ready_for_next, return_to_parent_stage
+from submit_ce.ui.routes.flow_control import (
+    stay_on_this_stage, ready_for_next, return_to_parent_stage,
+    return_to_previous_stage, advance_to_current,
+)
 from submit_ce.ui.backend import get_submission
 from submit_ce.ui import SUPPORT
 
@@ -152,6 +156,12 @@ def review_files(method: str, params: MultiDict, session: Session,
 
     if not workspace:
         return return_to_parent_stage((rdata, status.OK, {}))
+
+    if submission.source_format == SourceFormat.PDF:
+        return advance_to_current((rdata, status.OK, {}))
+
+    if submission.source_format != SourceFormat.TEX:
+        return return_to_previous_stage((rdata, status.OK, {}))
 
     if method == 'GET':
         preflight_data, user_decisions_data = _load_or_create_preflight(
@@ -417,4 +427,12 @@ def start_directives(params: MultiDict, session: Session, submission_id: str,
             current_app.api.save(command, submission_id=submission.submission_id)
         except SaveError as e:
             alerts.flash_failure(f"We couldn't start directives. {SUPPORT}", title="Directives failed")
+            raise InternalServerError(response_data) from e
+        except httpx.HTTPError as e:
+            logger.error('Compile service error during StartDirectives for %s: %s',
+                         submission_id, e)
+            alerts.flash_failure(
+                f"We couldn't start directives because the compile service"
+                f" is unavailable. {SUPPORT}",
+                title="Directives failed")
             raise InternalServerError(response_data) from e

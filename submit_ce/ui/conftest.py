@@ -299,6 +299,22 @@ def sub_files(app, authorized_user, sub_cross, mocker):
 
 
 @pytest.fixture(scope="function")
+def sub_files_tex(app, authorized_user, sub_files):
+    """sub_files with source_format set to TEX, so review_files runs its
+    normal preflight/review flow rather than redirecting on the source_format
+    guard."""
+    with app.app_context():
+        user = authorized_user
+        ua = InternalClient(name=f"test_client_{__file__}")
+        submission, _ = current_app.api.save(
+            SetSourceFormat(creator=user, client=ua,
+                            source_format=SourceFormat.TEX.value),
+            submission_id=sub_files.submission_id,
+        )
+        return submission
+
+
+@pytest.fixture(scope="function")
 def sub_reviewfiles(app, authorized_user, sub_files):
     """A submission that has passed through the review-files stage."""
     with app.app_context():

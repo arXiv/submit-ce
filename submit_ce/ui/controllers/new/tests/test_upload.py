@@ -32,6 +32,7 @@ def test_upload(app, authorized_client, sub_cross):
         b"<title>Upload" in resp.data \
         and b"<form " in resp.data
 
+
 class TestUpload(CtrlBase):
     """Tests for :func:`submit_ce.controllers.upload`."""
 
@@ -160,8 +161,8 @@ class TestUpload(CtrlBase):
                 data, code, _ = upload.upload_files('POST', params, self.session,
                                                     submission_id, files=files,
                                                     token='footoken')
-            self.assertEqual(mock_api.save.call_count, 1,
-                             'Saves the upload command via the api')
+            self.assertEqual(mock_api.save.call_count, 2,
+                             'Saves UploadFiles and SetSourceFormat via the api')
         self.assertEqual(code, status.OK)
         self.assertEqual(get_controllers_desire(data), STAGE_RESHOW,
                          'Successful upload and reshow form')
@@ -229,8 +230,10 @@ class TestDelete(CtrlBase):
                                                           self.session,
                                                           submission_id,
                                                           'footoken')
-            self.assertEqual(mock_api.save.call_count, 1,
-                             'Saves the remove-files command via the api')
+            self.assertEqual(mock_api.save.call_count, 2,
+                             'Saves RemoveFiles and SetSourceFormat via the api')
         self.assertEqual(code, status.OK)
         self.assertEqual(get_controllers_desire(data), STAGE_PARENT,
                          'Confirmed delete returns to the parent stage')
+
+
