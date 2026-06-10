@@ -9,8 +9,10 @@ import logging
 from arxiv.forms import csrf
 from flask import current_app
 
+from submit_ce.domain.event import SetSourceFormat
 from submit_ce.domain.event.file import RemoveAllFiles, RemoveFiles
 from submit_ce.ui.auth import user_and_client_from_session
+from submit_ce.ui.controllers.new.upload import _infer_source_format
 from arxiv.auth.domain import Session
 from werkzeug.datastructures import MultiDict
 from wtforms import BooleanField, HiddenField
@@ -77,7 +79,12 @@ def delete_all(method: str, params: MultiDict, session: Session,
 
         command = RemoveAllFiles(creator=submitter, client=client)
         if validate_command(form, command, submission, 'add_files'):
-            current_app.api.save(command, submission_id=submission.submission_id)
+            submission, _ = current_app.api.save(command, submission_id=submission.submission_id)
+            if submission.source_format is not None:
+                current_app.api.save(
+                    SetSourceFormat(creator=submitter, client=client, source_format=None),
+                    submission_id=submission.submission_id,
+                )
             return return_to_parent_stage((rdata, status.OK, {}))
 
     return return_to_parent_stage((rdata, status.BAD_REQUEST, {}))
@@ -146,7 +153,17 @@ def delete_file(method: str, params: MultiDict, session: Session,
 
         command = RemoveFiles(creator=submitter, client=client, files=[form.file_path.data])
         if validate_command(form, command, submission, 'add_files'):
-            current_app.api.save(command, submission_id=submission.submission_id)
+            submission, _ = current_app.api.save(command, submission_id=submission.submission_id)
+            workspace = current_app.api.get_file_store().get_workspace(
+                submission_id=str(submission.submission_id))
+            if workspace is not None:
+                inferred = _infer_source_format(workspace.files)
+                if submission.source_format != inferred:
+                    target = inferred.value if inferred is not None else None
+                    current_app.api.save(
+                        SetSourceFormat(creator=submitter, client=client, source_format=target),
+                        submission_id=submission.submission_id,
+                    )
             return return_to_parent_stage((rdata, status.OK, {}))
 
     return return_to_parent_stage((rdata, status.BAD_REQUEST, {}))

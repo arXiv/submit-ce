@@ -14,7 +14,7 @@ from submit_ce.domain.exceptions import InvalidEvent, SaveError
 from submit_ce.ui.controllers.new import review
 
 
-def test_review_files_get_warning_via_http(app, authorized_client, sub_files,
+def test_review_files_get_warning_via_http(app, authorized_client, sub_files_tex,
                                            mocker):
     """End-to-end: GET /<id>/review_files triggers flash_warning when
     _load_or_create_preflight yields no preflight data."""
@@ -22,7 +22,7 @@ def test_review_files_get_warning_via_http(app, authorized_client, sub_files,
                         return_value=(None, None))
     mock_flash = mocker.patch.object(review.alerts, 'flash_warning')
 
-    url = f"/{sub_files.submission_id}/review_files"
+    url = f"/{sub_files_tex.submission_id}/review_files"
     resp = authorized_client.get(url)
 
     assert resp.status_code == status.OK
@@ -65,10 +65,10 @@ def _get_csrf(authorized_client, url, mocker):
 
 
 def test_review_files_post_with_changes_redirects_to_parent(
-        app, authorized_client, sub_files, mocker):
+        app, authorized_client, sub_files_tex, mocker):
     """End-to-end POST: when _update_preflight reports changes, the controller
     marks STAGE_PARENT and the flow redirects (303 SEE_OTHER)."""
-    url = f"/{sub_files.submission_id}/review_files"
+    url = f"/{sub_files_tex.submission_id}/review_files"
     csrf = _get_csrf(authorized_client, url, mocker)
 
     mock_update = mocker.patch.object(review, '_update_preflight',
@@ -83,10 +83,10 @@ def test_review_files_post_with_changes_redirects_to_parent(
 
 
 def test_review_files_post_no_changes_no_preflight_flashes(
-        app, authorized_client, sub_files, mocker):
+        app, authorized_client, sub_files_tex, mocker):
     """End-to-end POST: when there are no changes but preflight is still
     unavailable, the controller flashes a warning and stays on the stage."""
-    url = f"/{sub_files.submission_id}/review_files"
+    url = f"/{sub_files_tex.submission_id}/review_files"
     csrf = _get_csrf(authorized_client, url, mocker)
 
     mocker.patch.object(review, '_update_preflight', return_value=False)
@@ -105,10 +105,10 @@ def test_review_files_post_no_changes_no_preflight_flashes(
 
 
 def test_review_files_post_no_changes_stores_zzrm_and_advances(
-        app, authorized_client, sub_files, mocker):
+        app, authorized_client, sub_files_tex, mocker):
     """End-to-end POST: when there are no changes and preflight is present,
     the controller stores the merged zzrm and advances to the next stage."""
-    url = f"/{sub_files.submission_id}/review_files"
+    url = f"/{sub_files_tex.submission_id}/review_files"
     csrf = _get_csrf(authorized_client, url, mocker)
 
     mocker.patch.object(review, '_update_preflight', return_value=False)
@@ -131,7 +131,7 @@ def test_review_files_post_no_changes_stores_zzrm_and_advances(
     fake_zzrm.from_dict.assert_called_once_with({'sources': []})
     fake_zzrm.update_from_preflight.assert_called_once()
     mock_store.store_zzrm.assert_called_once_with(
-        str(sub_files.submission_id), {'merged': True}
+        str(sub_files_tex.submission_id), {'merged': True}
     )
 
 

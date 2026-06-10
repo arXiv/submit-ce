@@ -34,6 +34,7 @@ from werkzeug.exceptions import (
 from wtforms import BooleanField, FileField
 
 from submit_ce.domain import Client, Event, User
+from submit_ce.domain.event import SetSourceFormat
 from submit_ce.domain.event.file import UploadArchive, UploadFiles
 from submit_ce.domain.submission import Submission
 from submit_ce.domain.uploads import SourceFormat
@@ -72,6 +73,25 @@ def _single_file_archive(files: MultiDict) -> bool:
     if pointer is None:
         return False
     return is_file_tgz(pointer) or is_file_zip(pointer)
+
+
+def _infer_source_format(files: List["FileStatus"]) -> Optional[SourceFormat]:
+    """Infer source_format from workspace files.
+
+    If any .tex file is present, the submission is TEX (legacy arXiv permits
+    .pdf files, e.g. figures, inside a TeX submission, including in
+    subdirectories). If the workspace is a single lone .pdf, the submission
+    is PDF. Any other non-empty file set falls back to TEX, matching the
+    legacy default for multi-file submissions. Returns None for an empty
+    workspace.
+    """
+    if not files:
+        return None
+    if any(f.name.lower().endswith('.tex') for f in files):
+        return SourceFormat.TEX
+    if len(files) == 1 and files[0].name.lower().endswith('.pdf'):
+        return SourceFormat.PDF
+    return SourceFormat.TEX
 
 
 class AddfilesForm(csrf.CSRFForm):
@@ -135,6 +155,9 @@ def upload_files(method: str, params: MultiDict, session: Session,
                   'submission': submission,
                   'form': AddfilesForm()})
 
+    logger.error(f'BRIANM: Submission {submission.submission_id}, {submission.source_format}, {type(submission.source_format)}')
+
+
     if method not in ['GET', 'POST']:
         raise MethodNotAllowed()
     elif method == 'GET':
@@ -149,7 +172,7 @@ def upload_files(method: str, params: MultiDict, session: Session,
         form = AddfilesForm(params)
         rdata.update({'form': form, 'submission': submission})
         if not form.validate():
-            logger.error('Submission %s Invalid upload form: %s %s', submission.submission_id, form.errors)
+            logger.error('Submission %s Invalid upload form: %s', submission.submission_id, form.errors)
             alerts.flash_failure("No file was uploaded; please try again.")
             return stay_on_this_stage((rdata, status.OK, {}))
 
@@ -157,6 +180,12 @@ def upload_files(method: str, params: MultiDict, session: Session,
         try:
             match (file, params.get('action'), is_archive):
                 case (_, 'next', _):
+                    if submission.source_format is None:
+                        alerts.flash_warning(
+                            "Cannot proceed: please upload a single PDF, or"
+                            " one or more .tex files.",
+                            title='Source format required')
+                        return stay_on_this_stage(_get_upload((rdata, status.OK, {}, token)))
                     return ready_for_next((rdata, status.OK, {}))
                 case (_, action, _) if action:  # trying to go back to previous page
                     return {}, status.SEE_OTHER, {}
@@ -219,11 +248,12 @@ def _get_upload(params: MultiDict, session: Session, submission: Submission,
     else:
         workspace = current_app.api.get_file_store().get_workspace(submission_id=str(submission.submission_id))
 
+    logger.error(f'BRIANM.2: Submission {submission.submission_id}, {submission.source_format}, {type(submission.source_format)}')
+
     rdata.update({'status': workspace})
     if workspace:
-        rdata.update({'immediate_notifications': _get_notifications(workspace)})
+        rdata.update({'immediate_notifications': _get_notifications(submission, workspace)})
     return rdata, status.OK, {}
-
 
 
 def _upload_archive(form: AddfilesForm, file: FileStorage,
@@ -236,6 +266,14 @@ def _upload_archive(form: AddfilesForm, file: FileStorage,
     submission, _ = current_app.api.save(command, submission_id=submission.submission_id)
     workspace = current_app.api.get_file_store().get_workspace(submission_id=str(submission.submission_id))
     converted_size = tidy_filesize(workspace.size)
+
+    inferred = _infer_source_format(workspace.files)
+    if submission.source_format != inferred:
+        target = inferred.value if inferred is not None else None
+        submission, _ = current_app.api.save(
+            SetSourceFormat(creator=submitter, client=client, source_format=target),
+            submission_id=submission.submission_id,
+        )
     if workspace.status is UploadStatus.READY:
         alerts.flash_success(
             f'Unpacked {workspace.file_count} files. Total submission'
@@ -270,6 +308,15 @@ def _upload_files(form: AddfilesForm, file: FileStorage,
     submission, _ = current_app.api.save(command, submission_id=submission.submission_id)
     workspace = current_app.api.get_file_store().get_workspace(submission_id=str(submission.submission_id))
     converted_size = tidy_filesize(workspace.size)
+
+    inferred = _infer_source_format(workspace.files)
+    if submission.source_format != inferred:
+        target = inferred.value if inferred is not None else None
+        submission, _ = current_app.api.save(
+            SetSourceFormat(creator=submitter, client=client, source_format=target),
+            submission_id=submission.submission_id,
+        )
+
     if workspace.status is UploadStatus.READY:
         alerts.flash_success(
             f'Uploaded file. Total submission'
@@ -294,11 +341,11 @@ def _upload_files(form: AddfilesForm, file: FileStorage,
     return stay_on_this_stage((rdata, status.OK, {}))
 
 
-def _get_notifications(stat: Workspace) -> List[Dict[str, str]]:
+def _get_notifications(submission: Submission, workspace: Workspace) -> List[Dict[str, str]]:
     notifications = []
-    if not stat.files:   # Nothing in the upload workspace.
+    if not workspace.files:   # Nothing in the upload workspace.
         return notifications
-    if stat.status is UploadStatus.ERRORS:
+    if workspace.status is UploadStatus.ERRORS:
         notifications.append({
             'title': 'Unresolved errors',
             'severity': 'danger',
@@ -306,7 +353,7 @@ def _get_notifications(stat: Workspace) -> List[Dict[str, str]]:
                     ' files. Please correct the errors below before'
                     ' proceeding.'
         })
-    elif stat.status is UploadStatus.READY_WITH_WARNINGS:
+    elif workspace.status is UploadStatus.READY_WITH_WARNINGS:
         notifications.append({
             'title': 'Warnings',
             'severity': 'warning',
@@ -315,15 +362,20 @@ def _get_notifications(stat: Workspace) -> List[Dict[str, str]]:
                     ' that these issues may cause delays in processing'
                     ' and/or announcement.'
         })
-    if stat.source_format is SourceFormat.UNKNOWN:
+    has_tex = any(f.name.lower().endswith('.tex') for f in workspace.files)
+    if has_tex:
         notifications.append({
-            'title': 'Unknown submission type',
-            'severity': 'warning',
-            'body': 'We could not determine the source type of your'
-                    ' submission. Please check your files carefully. We may'
-                    ' not be able to process your files.'
+            'title': 'Detected TEX',
+            'severity': 'success',
+            'body': 'Your submission content is supported.'
         })
-    elif stat.source_format is SourceFormat.INVALID:
+    elif submission.source_format == SourceFormat.PDF:
+        notifications.append({
+            'title': 'Detected PDF',
+            'severity': 'success',
+            'body': 'Your submission content is supported.'
+        })
+    elif submission.source_format == SourceFormat.INVALID:
         notifications.append({
             'title': 'Unsupported submission type',
             'severity': 'danger',
@@ -333,9 +385,11 @@ def _get_notifications(stat: Workspace) -> List[Dict[str, str]]:
         })
     else:
         notifications.append({
-            'title': f'Detected {stat.source_format.value.upper()}',
-            'severity': 'success',
-            'body': 'Your submission content is supported.'
+            'title': 'Unknown submission type',
+            'severity': 'warning',
+            'body': 'We could not determine the source type of your'
+                    ' submission. Please check your files carefully. We may'
+                    ' not be able to process your files.'
         })
     return notifications
 

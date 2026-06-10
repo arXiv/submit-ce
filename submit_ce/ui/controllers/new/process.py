@@ -10,6 +10,7 @@ from markupsafe import Markup
 
 from submit_ce.domain.event.process import StartCompileSource
 from submit_ce.domain.exceptions import SaveError
+from submit_ce.domain.uploads import SourceFormat
 from submit_ce.api.file_store import SubmissionFileStore
 from submit_ce.ui import SUPPORT
 
@@ -21,7 +22,9 @@ from werkzeug.exceptions import InternalServerError, MethodNotAllowed
 from wtforms import SelectField
 
 from ..util import validate_command
-from submit_ce.ui.routes.flow_control import ready_for_next, stay_on_this_stage
+from submit_ce.ui.routes.flow_control import (
+    ready_for_next, stay_on_this_stage, advance_to_current,
+)
 from submit_ce.ui.backend import get_submission
 
 
@@ -60,6 +63,10 @@ def file_process(method: str, params: MultiDict, session: Session,
         applicable.
 
     """
+    submission, _ = get_submission(submission_id)
+    if submission.source_format == SourceFormat.PDF:
+        return advance_to_current(({}, status.OK, {}))
+
     if method == "GET":
         return compile_status(params, session, submission_id, token)
     elif method == "POST":
