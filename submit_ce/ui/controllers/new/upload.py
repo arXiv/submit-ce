@@ -155,9 +155,6 @@ def upload_files(method: str, params: MultiDict, session: Session,
                   'submission': submission,
                   'form': AddfilesForm()})
 
-    logger.error(f'BRIANM: Submission {submission.submission_id}, {submission.source_format}, {type(submission.source_format)}')
-
-
     if method not in ['GET', 'POST']:
         raise MethodNotAllowed()
     elif method == 'GET':
@@ -247,8 +244,6 @@ def _get_upload(params: MultiDict, session: Session, submission: Submission,
         workspace = Workspace.model_validate(status_data)
     else:
         workspace = current_app.api.get_file_store().get_workspace(submission_id=str(submission.submission_id))
-
-    logger.error(f'BRIANM.2: Submission {submission.submission_id}, {submission.source_format}, {type(submission.source_format)}')
 
     rdata.update({'status': workspace})
     if workspace:
