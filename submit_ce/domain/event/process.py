@@ -1,9 +1,11 @@
 """Events related to external or long-running processes."""
 from datetime import datetime
+import json
 from typing import Optional
 
 from dataclasses import field
 
+from arxiv.files.object_store import FileDoesNotExist
 from pydantic import BaseModel
 
 from ..exceptions import InvalidEvent
@@ -11,10 +13,8 @@ from ..submission import Submission
 from ..process import ProcessStatus
 from .base import Event, EventWithSideEffect
 
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from ... import SubmitApi
+from submit_ce.api import SubmitApi
 
 
 class ProcessInfo(BaseModel):
@@ -222,4 +222,99 @@ class PreflightStatus(Event):
             process=self.process,
             result=self.result,
         ))
+        return submission
+
+
+class SetDecisions(EventWithSideEffect):
+    """Sets the decisions for the submission."""
+
+    NAME = "set compile decisions"
+    NAMED = "set compile decisions"
+
+    # TODO make this a pydantic class
+    decisions: dict
+
+    files_to_delete: list[str]
+
+    bytes_removed: int = 0
+
+    def validate(self, submission: Submission) -> None:
+        if not self.decisions:
+            raise InvalidEvent(self, "Must include decisions information")
+        # TODO better validation of preflight data or just handled by pydantic?
+        # Maybe have the prefight be a dict on self then validate it here and raise errors?
+
+    def validate_under_lock(self, api: SubmitApi, submission: Submission) -> None:
+        blob = api.get_file_store().get_user_decisions(submission.submission_id)
+        if isinstance(blob, FileDoesNotExist):
+            return
+
+        existing_preflight = json.loads(blob.download_as_text())
+        decisions_changed = self.decisions != existing_preflight
+        has_changes = bool(self.files_to_delete) or decisions_changed
+        # TODO we could check if the files_to_delete actually exist
+        if not has_changes:
+            raise InvalidEvent(self, "No changes to save")
+
+    def execute(self, api: SubmitApi, submission: Submission) -> None:
+        file_store = api.get_file_store()
+        # TODO If something fails here, preflight/user_decisions are already changed/deleted.
+        # Delete files and only delete preflight and user_decisions if at least one file is deleted
+        file_store.delete_preflight(submission.submission_id)
+        file_store.store_user_decisions(submission.submission_id, self.decisions)
+        for path in self.files_to_delete:
+            file = file_store.delete_source_file(submission.submission_id, path)
+            if file:
+                self.bytes_removed += file.bytes
+
+    def project(self, submission: Submission) -> Submission:
+        submission.uncompressed_size -= self.bytes_removed
+        return submission
+
+
+class SetDirectivesAndCleanup(EventWithSideEffect):
+    """Prepare the submission for a (re)run of preflight.
+
+    Performed atomically under the submission row lock taken by
+    `SubmitApi.save()`:
+
+    1. If a 00README.json ("zzrm") was found and converted to
+       user_decisions before this event was dispatched, persist
+       those user_decisions and delete the source 00README.json.
+    2. Delete the stale directives.json so the upcoming preflight
+       produces a fresh set.
+
+    This event is invoked from review.py's `_load_or_create_preflight`
+    immediately before triggering `StartPreflight`, so the cleanup
+    cannot interleave with a concurrent upload on the same
+    submission.
+    """
+
+    NAME = "set directives and cleanup"
+    NAMED = "directives reset and cleaned up"
+
+    # If provided, the value is written as user_decisions.json and
+    # the source 00README.json is deleted. If None, user_decisions
+    # and 00README.json are left untouched.
+    user_decisions_from_zzrm: Optional[dict] = None
+
+    def validate(self, submission: Submission) -> None:
+        # No input invariants: the event is always safe to dispatch
+        # from `_load_or_create_preflight`; an absent zzrm just means
+        # "skip the user_decisions seed step."
+        pass
+
+    def execute(self, api: SubmitApi, submission: Submission) -> None:
+        file_store = api.get_file_store()
+        if self.user_decisions_from_zzrm is not None:
+            file_store.store_user_decisions(
+                submission.submission_id, self.user_decisions_from_zzrm
+            )
+            file_store.delete_source_file(
+                submission.submission_id, '00README.json'
+            )
+        # user_decisions + preflight + compile logs -> directives.json
+        file_store.delete_directives(submission.submission_id)
+
+    def project(self, submission: Submission) -> Submission:
         return submission

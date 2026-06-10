@@ -102,7 +102,6 @@ class Workspace(BaseModel):
     lifecycle: UploadLifecycleStates
     locked: bool
     identifier: str
-    source_format: SourceFormat = SourceFormat.UNKNOWN
     checksum: Optional[str] = None
     size: Optional[int] = None
     """Size in bytes of the uncompressed upload workspace."""

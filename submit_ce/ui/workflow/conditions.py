@@ -42,7 +42,9 @@ def has_comment(submission: Submission, events: List[Event]) -> bool:
 
 def has_files(submission: Submission, events: List[Event]) -> bool:
     """Determine if the submission has any files."""
-    return submission.uncompressed_size > 0
+    return (submission.uncompressed_size > 0
+            and submission.source_format not in [SourceFormat.INVALID, SourceFormat.UNKNOWN]
+            )
 
 def has_valid_content(submission: Submission, events: List[Event]) -> bool:
     """Determine whether the submitter has uploaded files."""
@@ -90,4 +92,6 @@ def has_directives_started(submission: Submission, events: List[Event]) -> bool:
     saved and the compile service writes `directives.json`. The event
     history is the authoritative record that this happened.
     """
-    return any(isinstance(e, StartDirectives) for e in events)
+    return (submission.source_format == SourceFormat.PDF
+            or any(isinstance(e, StartDirectives) for e in events)
+            )

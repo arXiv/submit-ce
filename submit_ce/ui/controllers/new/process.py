@@ -1,6 +1,5 @@
 """Controllers for process-related requests, ex. compile PDF."""
 
-import io
 from http import HTTPStatus as status
 from typing import Tuple, Dict, Any
 import logging
@@ -11,6 +10,7 @@ from markupsafe import Markup
 
 from submit_ce.domain.event.process import StartCompileSource
 from submit_ce.domain.exceptions import SaveError
+from submit_ce.domain.uploads import SourceFormat
 from submit_ce.api.file_store import SubmissionFileStore
 from submit_ce.ui import SUPPORT
 
@@ -22,7 +22,9 @@ from werkzeug.exceptions import InternalServerError, MethodNotAllowed
 from wtforms import SelectField
 
 from ..util import validate_command
-from submit_ce.ui.routes.flow_control import ready_for_next, stay_on_this_stage
+from submit_ce.ui.routes.flow_control import (
+    ready_for_next, stay_on_this_stage, advance_to_current,
+)
 from submit_ce.ui.backend import get_submission
 
 
@@ -61,6 +63,10 @@ def file_process(method: str, params: MultiDict, session: Session,
         applicable.
 
     """
+    submission, _ = get_submission(submission_id)
+    if submission.source_format == SourceFormat.PDF:
+        return advance_to_current(({}, status.OK, {}))
+
     if method == "GET":
         return compile_status(params, session, submission_id, token)
     elif method == "POST":
@@ -68,6 +74,7 @@ def file_process(method: str, params: MultiDict, session: Session,
             return _check_status(params, session, submission_id, token)
         else:
             start_compilation(params, session, submission_id, token)
+            current_app.api.get_file_store().uncompress_compile_tarball(submission_id)
             return compile_status(params, session, submission_id, token)
     raise MethodNotAllowed('Unsupported request')
 
@@ -147,6 +154,10 @@ def compile_status(params: MultiDict, session: Session, submission_id: str,
     if file and file.exists():
         response_data['status']="succeeded"
 
+    log = file_store.get_compile_log(str(submission_id))
+    if log and log.exists():
+        response_data['compile_log'] = log.download_as_text()
+
     # Determine whether the current state of the uploaded source content has been compiled.
     #
     # result: Optional[process_source.CheckResult] = None
@@ -207,7 +218,7 @@ def start_compilation(params: MultiDict, session: Session, submission_id: str,
     #     if 'reason' in result.extra and "produced from TeX source" in result.extra['reason']:
     #         alerts.flash_failure(TEX_PRODUCED_MARKUP)
     #     elif 'reason' in result.extra and 'docker' in result.extra['reason']:
-    #         alerts.flash_failure(DOCKER_ERROR_MARKUOP)
+    #         alerts.flash_failure(DOCKER_ERROR_MARKUP)
     #     else:
     #         alerts.flash_failure(f"Processing failed")
     # else:
@@ -215,19 +226,6 @@ def start_compilation(params: MultiDict, session: Session, submission_id: str,
     #     )
     #
     #
-
-# TODO move file_preview to its own controller
-def file_preview(params, session: Session, submission_id: str, token: str,
-                 **kwargs: Any) -> Tuple[io.BytesIO, int, Dict[str, str]]:
-    """Serve the PDF preview for a submission."""
-    submitter, client = user_and_client_from_session(session)
-    submission, submission_events = get_submission(submission_id)
-    fstore = current_app.api.get_file_store()
-    stream = fstore.get_preview(submission.submission_id)
-    pdf_checksum = fstore.get_preview_checksum(submission.submission_id)
-    headers = {'Content-Type': 'application/pdf', 'ETag': pdf_checksum}
-    return stream, status.OK, headers
-
 
 def compilation_log(params, session: Session, submission_id: str, token: str,
                     **kwargs: Any) -> Response:
@@ -271,7 +269,7 @@ TEX_PRODUCED_MARKUP = \
            "submission is TeX produced is incorrect, you should send " \
            "e-mail with your submission ID to " \
            '<a href="mailto:help@arxiv.org">arXiv administrators.</a></p>')
-DOCKER_ERROR_MARKUOP = \
+DOCKER_ERROR_MARKUP = \
     Markup("Our automatic TeX processing system has failed to launch. " \
            "There is a good chance we are aware of the issue, but if the " \
            "problem persists you should send e-mail with your submission " \
