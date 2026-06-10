@@ -65,10 +65,19 @@ from typing import Tuple, List, Optional
 
 from submit_ce.api.compile_service import CompileService
 from submit_ce.domain import Submission, Event, License
+from submit_ce.domain.size_limits import SizeLimits
 from submit_ce.api.file_store import SubmissionFileStore
 
 
 class SubmitApi(ABC):
+
+    def get_size_limits(self) -> SizeLimits:
+        """The size limits used to flag oversize submissions.
+
+        Defaults to the built-in 50 MB limits. Implementations with access to
+        application config (e.g. the Flask implementation) override this to
+        honor the configured ``MAX_*_KB`` values."""
+        return SizeLimits.defaults()
 
     @abstractmethod
     def get(self, submission_id: str) -> Submission:

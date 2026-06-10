@@ -320,6 +320,8 @@ class Submission(Base):    # type: ignore
 
         self.source_size = submission.uncompressed_size
 
+        self.is_oversize = 1 if submission.is_oversize else 0
+
         if submission.source_format:
             self.source_format = submission.source_format.value
         else:

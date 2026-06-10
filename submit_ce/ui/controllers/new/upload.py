@@ -251,6 +251,23 @@ def _get_upload(params: MultiDict, session: Session, submission: Submission,
     return rdata, status.OK, {}
 
 
+def _flash_oversize_warning(submission: Submission) -> None:
+    """Warn the submitter that an oversize submission will be held for review.
+
+    The submission is not rejected: the size check is a soft gate. The flag is
+    persisted during event save; the auto-hold is applied when the submission is
+    finalized."""
+    if not submission.is_oversize:
+        return
+    alerts.flash_warning(
+        Markup(
+            'This submission exceeds the arXiv size guideline. You can still '
+            'submit, but it will be placed on hold for moderator review. See '
+            '<a href="/help/sizes">arxiv.org/help/sizes</a> for ways to reduce '
+            'the size, or to request a size exception.'),
+        title='Submission is oversize')
+
+
 def _upload_archive(form: AddfilesForm, file: FileStorage,
                     submitter: User, client: Client,
                     submission: Submission, rdata: Dict[str, Any], token: str) \
@@ -287,6 +304,7 @@ def _upload_archive(form: AddfilesForm, file: FileStorage,
             f' package size is {converted_size}. See below for errors.',
             title='Upload complete, with errors'
         )
+    _flash_oversize_warning(submission)
     alerts.flash_hidden(workspace.model_dump(), '_status')
 
     rdata.update({'status': workspace})
@@ -330,6 +348,7 @@ def _upload_files(form: AddfilesForm, file: FileStorage,
             f' package size is {converted_size}. See below for errors.',
             title='Upload complete, with errors'
         )
+    _flash_oversize_warning(submission)
     alerts.flash_hidden(workspace.model_dump(), '_status')
 
     rdata.update({'status': workspace})
