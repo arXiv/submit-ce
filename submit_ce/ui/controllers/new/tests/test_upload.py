@@ -1,28 +1,27 @@
 """Tests for :mod:`submit_ce.controllers.upload`."""
 
-import pytest
 
-from datetime import timedelta, datetime
+from datetime import datetime
 from http import HTTPStatus as status
-from pytz import timezone
-from unittest import TestCase, mock
+from unittest import mock
 
 from werkzeug.datastructures import MultiDict
-from werkzeug.exceptions import BadRequest
 
-from arxiv.auth import auth, domain
 
 from submit_ce.domain.uploads import FileStatus, UploadLifecycleStates, UploadStatus, Workspace
 from submit_ce.ui.controllers.new import upload
 
 
 from submit_ce.domain.uploads import SourceFormat
-import submit_ce.domain
 
 from submit_ce.ui.controllers.new import upload_delete
 from submit_ce.ui.tests import CtrlBase
 
-from submit_ce.ui.routes.flow_control import STAGE_SUCCESS, get_controllers_desire, STAGE_RESHOW
+from submit_ce.ui.routes.flow_control import (
+    get_controllers_desire,
+    STAGE_RESHOW,
+    STAGE_PARENT,
+)
 
 
 def test_upload(app, authorized_client, sub_cross):
@@ -33,113 +32,41 @@ def test_upload(app, authorized_client, sub_cross):
         b"<title>Upload" in resp.data \
         and b"<form " in resp.data
 
+
 class TestUpload(CtrlBase):
     """Tests for :func:`submit_ce.controllers.upload`."""
 
-    @pytest.mark.skip
-    @mock.patch(f'{upload.__name__}.UploadForm.Meta.csrf', False)
-    @mock.patch('submit_ce.ui.backend.api.get_with_history')
-    def test_get_no_upload(self, mock_load):
+    @mock.patch(f'{upload.__name__}.AddfilesForm.Meta.csrf', False)
+    def test_get_no_upload(self):
         """GET request for submission with no upload package."""
         submission_id = 2
-        subm = mock.MagicMock(submission_id=submission_id, source_content=None,
+        subm = mock.MagicMock(submission_id=submission_id, uncompressed_size=0,
                               is_finalized=False, is_announced=False,
                               arxiv_id=None, version=1)
-        mock_load.return_value = (subm, [])
         params = MultiDict({})
         files = MultiDict({})
-        data, code, _ = upload.upload_files('GET', params, files, self.session,
-                                            submission_id, 'footoken')
+        with self.app.app_context():
+            mock_api = mock.MagicMock()
+            mock_api.get_with_history.return_value = (subm, [])
+            with mock.patch.object(self.app, 'api', mock_api):
+                data, code, _ = upload.upload_files('GET', params, self.session,
+                                                    submission_id, files=files,
+                                                    token='footoken')
         self.assertEqual(code, status.OK, 'Returns 200 OK')
         self.assertIn('submission_id', data, 'Submission is in response')
         self.assertIn('submission_id', data, 'ID is in response')
 
-    @pytest.mark.skip("Currently broken")
-    @mock.patch(f'{upload.__name__}.UploadForm.Meta.csrf', False)
+    @mock.patch(f'{upload.__name__}.AddfilesForm.Meta.csrf', False)
     @mock.patch(f'{upload.__name__}.alerts', mock.MagicMock())
-    @mock.patch(f'{upload.__name__}.Filemanager')
-    @mock.patch('submit_ce.ui.backend.api.get_with_history')
-    def test_get_upload(self, mock_load, mock_Filemanager):
+    def test_get_upload(self):
         """GET request for submission with an existing upload package."""
         submission_id = 2
-        mock_load.return_value = (
-            mock.MagicMock(
-                submission_id=submission_id,
-                source_content=SubmissionContent(
-                    identifier='5433',
-                    checksum='a1s2d3f4',
-                    uncompressed_size=593920,
-                    compressed_size=1000,
-                    source_format=SourceFormat.TEX
-                ),
-                is_finalized=False, is_announced=False, arxiv_id=None,
-                version=1
-            ), []
-        )
-        mock_filemanager = mock.MagicMock()
-        mock_filemanager.get_upload_status.return_value = (
-            Workspace(
-                identifier=25,
-                checksum='a1s2d3f4',
-                size=593920,
-                started=datetime.now(),
-                completed=datetime.now(),
-                created=datetime.now(),
-                modified=datetime.now(),
-                status=UploadStatus.READY,
-                lifecycle=UploadLifecycleStates.ACTIVE,
-                locked=False,
-                files=[FileStatus(
-                    path='',
-                    name='thebestfile.pdf',
-                    file_type='PDF',
-                    modified=datetime.now(),
-                    size=20505,
-                    ancillary=False,
-                    errors=[]
-                )],
-                errors=[]
-            )
-        )
-        mock_Filemanager.current_session.return_value = mock_filemanager
-        params = MultiDict({})
-        files = MultiDict({})
-        data, code, _ = upload.upload_files('GET', params, self.session,
-                                            submission_id, files=files,
-                                            token='footoken')
-        self.assertEqual(code, status.OK, 'Returns 200 OK')
-        self.assertEqual(mock_filemanager.get_upload_status.call_count, 1,
-                         'Calls the file management service')
-        self.assertIn('status', data, 'Upload status is in response')
-        self.assertIn('submission', data, 'Submission is in response')
-        self.assertIn('submission_id', data, 'ID is in response')
-        
-    @pytest.mark.skip("Currently broken")
-    @mock.patch(f'{upload.__name__}.UploadForm.Meta.csrf', False)
-    @mock.patch(f'{upload.__name__}.alerts', mock.MagicMock())
-    @mock.patch(f'{upload.__name__}.url_for', mock.MagicMock(return_value='/'))
-    @mock.patch(f'{upload.__name__}.Filemanager')
-    @mock.patch('submit_ce.ui.backend.api.save')
-    @mock.patch('submit_ce.ui.backend.api.get_with_history')
-    def test_post_upload(self, mock_load, mock_save, mock_filemanager):
-        """POST request for submission with an existing upload package."""
-        submission_id = 2
-        mock_submission = mock.MagicMock(
-            submission_id=submission_id,
-            source_content=SubmissionContent(
-                identifier='5433',
-                checksum='a1s2d3f4',
-                uncompressed_size=593920,
-                compressed_size=1000,
-                source_format=SourceFormat.TEX
-            ),
-            is_finalized=False, is_announced=False, arxiv_id=None, version=1
-        )
-        mock_load.return_value = (mock_submission, [])
-        mock_save.return_value = (mock_submission, [])
-        mock_fm = mock.MagicMock()
-        mock_fm.add_file.return_value = Workspace(
-            identifier=25,
+        subm = mock.MagicMock(submission_id=submission_id,
+                              uncompressed_size=593920,
+                              is_finalized=False, is_announced=False,
+                              arxiv_id=None, version=1)
+        workspace = Workspace(
+            identifier='25',
             checksum='a1s2d3f4',
             size=593920,
             started=datetime.now(),
@@ -147,173 +74,166 @@ class TestUpload(CtrlBase):
             created=datetime.now(),
             modified=datetime.now(),
             status=UploadStatus.READY,
+            source_format=SourceFormat.TEX,
             lifecycle=UploadLifecycleStates.ACTIVE,
             locked=False,
             files=[FileStatus(
                 path='',
                 name='thebestfile.pdf',
-                file_type='PDF',
+                content_type='application/pdf',
+                bytes=20505,
+                crc32c='fakecrc',
+                url='https://example.com/thebestfile.pdf',
+                is_versioned=True,
                 modified=datetime.now(),
-                size=20505,
                 ancillary=False,
                 errors=[]
             )],
             errors=[]
         )
-        mock_filemanager.current_session.return_value = mock_fm
         params = MultiDict({})
-        mock_file = mock.MagicMock()
-        files = MultiDict({'file': mock_file})
-        data, code, _ = upload.upload_files('POST', params, self.session,
-                                            submission_id, files=files,
-                                            token='footoken')
+        files = MultiDict({})
+        with self.app.app_context():
+            mock_api = mock.MagicMock()
+            mock_api.get_with_history.return_value = (subm, [])
+            mock_api.get_file_store.return_value.get_workspace.return_value = \
+                workspace
+            with mock.patch.object(self.app, 'api', mock_api):
+                data, code, _ = upload.upload_files('GET', params, self.session,
+                                                    submission_id, files=files,
+                                                    token='footoken')
+            self.assertEqual(
+                mock_api.get_file_store.return_value.get_workspace.call_count, 1,
+                'Calls the file store service')
+        self.assertEqual(code, status.OK, 'Returns 200 OK')
+        self.assertIn('status', data, 'Upload status is in response')
+        self.assertIn('submission', data, 'Submission is in response')
+        self.assertIn('submission_id', data, 'ID is in response')
         
-        self.assertEqual(code, status.OK)        
+    @mock.patch(f'{upload.__name__}.AddfilesForm.Meta.csrf', False)
+    @mock.patch(f'{upload.__name__}.alerts', mock.MagicMock())
+    def test_post_upload(self):
+        """POST request for submission with an existing upload package."""
+        submission_id = 2
+        mock_submission = mock.MagicMock(
+            submission_id=submission_id, uncompressed_size=593920,
+            is_finalized=False, is_announced=False, arxiv_id=None, version=1
+        )
+        workspace = Workspace(
+            identifier='25',
+            checksum='a1s2d3f4',
+            size=593920,
+            started=datetime.now(),
+            completed=datetime.now(),
+            created=datetime.now(),
+            modified=datetime.now(),
+            status=UploadStatus.READY,
+            source_format=SourceFormat.TEX,
+            lifecycle=UploadLifecycleStates.ACTIVE,
+            locked=False,
+            files=[FileStatus(
+                path='',
+                name='thebestfile.pdf',
+                content_type='application/pdf',
+                bytes=20505,
+                crc32c='fakecrc',
+                url='https://example.com/thebestfile.pdf',
+                is_versioned=True,
+                modified=datetime.now(),
+                ancillary=False,
+                errors=[]
+            )],
+            errors=[]
+        )
+        params = MultiDict({})
+        # A non-archive file: real filename/content_type so it is not
+        # misclassified as a tgz/zip archive by is_file_tgz/is_file_zip.
+        mock_file = mock.MagicMock(filename='thebestfile.pdf',
+                                   content_type='application/pdf')
+        files = MultiDict({'file': mock_file})
+        with self.app.app_context():
+            mock_api = mock.MagicMock()
+            mock_api.get_with_history.return_value = (mock_submission, [])
+            mock_api.save.return_value = (mock_submission, [])
+            mock_api.get_file_store.return_value.get_workspace.return_value = \
+                workspace
+            with mock.patch.object(self.app, 'api', mock_api):
+                data, code, _ = upload.upload_files('POST', params, self.session,
+                                                    submission_id, files=files,
+                                                    token='footoken')
+            self.assertEqual(mock_api.save.call_count, 2,
+                             'Saves UploadFiles and SetSourceFormat via the api')
+        self.assertEqual(code, status.OK)
         self.assertEqual(get_controllers_desire(data), STAGE_RESHOW,
                          'Successful upload and reshow form')
-        self.assertEqual(mock_fm.add_file.call_count, 1,
-                         'Calls the file management service')
-        self.assertTrue(mock_filemanager.add_file.called_with(mock_file))
 
-@pytest.mark.skip("Currently broken")
-class TestDelete(TestCase):
+class TestDelete(CtrlBase):
     """Tests for :func:`submit_ce.controllers.upload.delete`."""
 
-    def setUp(self):
-        """Create an authenticated session."""
-        # Specify the validity period for the session.
-        start = datetime.now(tz=timezone('US/Eastern'))
-        end = start + timedelta(seconds=36000)
-        self.session = domain.Session(
-            session_id='123-session-abc',
-            start_time=start, end_time=end,
-            user=domain.User(
-                user_id='235678',
-                email='foo@foo.com',
-                username='foouser',
-                name=domain.UserFullName('Jane', 'Bloggs', 'III'),
-                profile=domain.UserProfile(
-                    affiliation='FSU',
-                    rank=3,
-                    country='de',
-                    default_category=domain.Category('astro-ph.GA'),
-                    submission_groups=['grp_physics']
-                )
-            ),
-            authorizations=domain.Authorizations(
-                scopes=[auth.scopes.CREATE_SUBMISSION,
-                        auth.scopes.EDIT_SUBMISSION,
-                        auth.scopes.VIEW_SUBMISSION],
-                endorsements=[submit_ce.domain.Category('astro-ph.CO'),
-                              submit_ce.domain.Category('astro-ph.GA')]
-            )
-        )
-
     @mock.patch(f'{upload_delete.__name__}.DeleteFileForm.Meta.csrf', False)
-    @mock.patch(f'{upload_delete.__name__}.Filemanager')
-    @mock.patch('submit_ce.ui.backend.api.get_with_history')
-    def test_get_delete(self, mock_load, mock_filemanager):
+    def test_get_delete(self):
         """GET request to delete a file."""
         submission_id = 2
-        mock_load.return_value = (
-            mock.MagicMock(
-                submission_id=submission_id,
-                source_content=SubmissionContent(
-                    identifier='5433',
-                    checksum='a1s2d3f4',
-                    uncompressed_size=593920,
-                    compressed_size=1000,
-                    source_format=SourceFormat.TEX
-                ),
-                is_finalized=False, is_announced=False, arxiv_id=None,
-                version=1
-            ), []
-        )
+        subm = mock.MagicMock(submission_id=submission_id,
+                              is_finalized=False, is_announced=False,
+                              arxiv_id=None, version=1)
         file_path = 'anc/foo.jpeg'
         params = MultiDict({'path': file_path})
-        data, code, _ = upload_delete.delete_file('GET', params, self.session,
-                                                  submission_id, 'footoken')
+        with self.app.app_context():
+            mock_api = mock.MagicMock()
+            mock_api.get_with_history.return_value = (subm, [])
+            with mock.patch.object(self.app, 'api', mock_api):
+                data, code, _ = upload_delete.delete_file('GET', params,
+                                                          self.session,
+                                                          submission_id,
+                                                          'footoken')
         self.assertEqual(code, status.OK, "Returns 200 OK")
         self.assertIn('form', data, "Returns a form in response")
         self.assertEqual(data['form'].file_path.data, file_path, 'Path is set')
 
-    @mock.patch(f'{upload_delete.__name__}.alerts', mock.MagicMock())
     @mock.patch(f'{upload_delete.__name__}.DeleteFileForm.Meta.csrf', False)
-    @mock.patch(f'{upload_delete.__name__}.Filemanager')
-    @mock.patch('submit_ce.ui.backend.api.get_with_history')
-    def test_post_delete(self, mock_load, mock_filemanager):
-        """POST request to delete a file without confirmation."""
+    def test_post_delete(self):
+        """POST without confirmation stays on the stage and deletes nothing."""
         submission_id = 2
-        mock_load.return_value = (
-            mock.MagicMock(
-                submission_id=submission_id,
-                source_content=SubmissionContent(
-                    identifier='5433',
-                    checksum='a1s2d3f4',
-                    uncompressed_size=593920,
-                    compressed_size=1000,
-                    source_format=SourceFormat.TEX
-                ),
-                is_finalized=False, is_announced=False, arxiv_id=None,
-                version=1
-            ), []
-        )
+        subm = mock.MagicMock(submission_id=submission_id, is_finalized=False,
+                              is_announced=False, arxiv_id=None, version=1)
         file_path = 'anc/foo.jpeg'
         params = MultiDict({'file_path': file_path})
-        try:
-            upload_delete.delete_file('POST', params, self.session, submission_id, 'tok')
-        except BadRequest as e:
-            data = e.description
-            self.assertIn('form', data, "Returns a form in response")
+        with self.app.app_context():
+            mock_api = mock.MagicMock()
+            mock_api.get_with_history.return_value = (subm, [])
+            with mock.patch.object(self.app, 'api', mock_api):
+                data, code, _ = upload_delete.delete_file('POST', params,
+                                                          self.session,
+                                                          submission_id, 'tok')
+            self.assertEqual(mock_api.save.call_count, 0,
+                             'Does not delete without confirmation')
+        self.assertEqual(code, status.OK)
+        self.assertEqual(get_controllers_desire(data), STAGE_RESHOW,
+                         'Unconfirmed delete reshows the form')
+        self.assertIn('form', data, "Returns a form in response")
 
-    @mock.patch(f'{upload_delete.__name__}.alerts', mock.MagicMock())
     @mock.patch(f'{upload_delete.__name__}.DeleteFileForm.Meta.csrf', False)
-    @mock.patch(f'{upload_delete.__name__}.url_for')
-    @mock.patch(f'{upload_delete.__name__}.Filemanager')
-    @mock.patch(f'{upload_delete.__name__}.save')
-    @mock.patch('submit_ce.ui.backend.api.get_with_history')
-    def test_post_delete_confirmed(self, mock_load, mock_save,
-                                   mock_filemanager, mock_url_for):
-        """POST request to delete a file without confirmation."""
-        redirect_uri = '/foo'
-        mock_url_for.return_value = redirect_uri
-        upload_id = '5433'
+    def test_post_delete_confirmed(self):
+        """POST with confirmation deletes the file and returns to parent."""
         submission_id = 2
-        mock_load.return_value = (
-            mock.MagicMock(
-                submission_id=submission_id,
-                source_content=SubmissionContent(
-                    identifier=upload_id,
-                    checksum='a1s2d3f4',
-                    uncompressed_size=593920,
-                    compressed_size=1000,
-                    source_format=SourceFormat.TEX
-                ),
-                is_finalized=False, is_announced=False, arxiv_id=None,
-                version=1
-            ), []
-        )
-        mock_save.return_value = (
-            mock.MagicMock(
-                submission_id=submission_id,
-                source_content=SubmissionContent(
-                    identifier=upload_id,
-                    checksum='a1s2d3f4',
-                    uncompressed_size=593920,
-                    compressed_size=1000,
-                    source_format=SourceFormat.TEX
-                ),
-                is_finalized=False, is_announced=False, arxiv_id=None,
-                version=1
-            ), []
-        )
+        subm = mock.MagicMock(submission_id=submission_id, is_finalized=False,
+                              is_announced=False, arxiv_id=None, version=1)
         file_path = 'anc/foo.jpeg'
         params = MultiDict({'file_path': file_path, 'confirmed': True})
-        data, code, _ = upload_delete.delete_file('POST', params, self.session, submission_id,
-                                               'footoken')
-        self.assertTrue(
-            mock_filemanager.delete_file.called_with(upload_id, file_path),
-            "Delete file method of file manager service is called"
-        )
+        with self.app.app_context():
+            mock_api = mock.MagicMock()
+            mock_api.get_with_history.return_value = (subm, [])
+            mock_api.save.return_value = (subm, [])
+            with mock.patch.object(self.app, 'api', mock_api):
+                data, code, _ = upload_delete.delete_file('POST', params,
+                                                          self.session,
+                                                          submission_id,
+                                                          'footoken')
+            self.assertEqual(mock_api.save.call_count, 2,
+                             'Saves RemoveFiles and SetSourceFormat via the api')
         self.assertEqual(code, status.OK)
-        self.assertTrue(get_controllers_desire(data), STAGE_SUCCESS)
+        self.assertEqual(get_controllers_desire(data), STAGE_PARENT,
+                         'Confirmed delete returns to the parent stage')
+
+

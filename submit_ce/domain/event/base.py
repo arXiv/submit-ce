@@ -229,8 +229,14 @@ class EventWithSideEffect(Event):
     executed: Optional[datetime] = None  # timezone aware utc
     """Should only be set when `execute` is called."""
 
-    def pre_execute_validation(self, api: SubmitApi, submission: Submission) -> None:
-        """Check if is acceptable for `execute` to be called."""
+    def validate_under_lock(self, api: SubmitApi, submission: Submission) -> None:
+        """Validate that `execute` may proceed; called inside the locked transaction.
+
+        Runs while the submission row lock is held, so it can safely inspect
+        on-disk / FileStore state without racing against a concurrent writer.
+        Raise :class:`~submit_ce.domain.exceptions.InvalidEvent` to abort the
+        transaction; the caller's ``except InvalidEvent`` block decides the UX.
+        """
         pass
 
     def execute(self, api: SubmitApi, submission: Submission) -> None:

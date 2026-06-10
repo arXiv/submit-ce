@@ -10,8 +10,6 @@ from sqlalchemy.orm import relationship, declarative_base
 from sqlalchemy.types import Integer, LargeBinary, SmallInteger, String
 from submit_ce import domain
 from submit_ce.domain.agent import PublicUser
-from submit_ce.domain.agent import agent_factory
-from submit_ce.domain.event.base import event_factory
 
 # class SQLiteJSON(types.TypeDecorator):
 #     """A SQLite-friendly JSON data type."""

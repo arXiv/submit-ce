@@ -122,6 +122,8 @@ class Settings(ArxivBaseSettings):
 
     COMPILE_API_PREFLIGHT_TIMEOUT: int = 840
 
+    COMPILE_API_CONVERT_TIMEOUT: int = 840
+
     COMPILE_API_IMPERSONATE_SA: str = ""
     """Service account email to impersonate when minting ID tokens for the
     tex2pdf-api Cloud Run service. Leave empty in production (the attached
