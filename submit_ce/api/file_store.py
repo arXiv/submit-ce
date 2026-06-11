@@ -108,6 +108,39 @@ class SubmissionFileStore(metaclass=ABCMeta):
         pass
 
     @abstractmethod
+    def build_source_package(self, submission_id: str) -> bytes:
+        """Build a fresh .tar.gz of the current source files in memory.
+
+        Returns the gzipped tarball bytes for the current contents of
+        the submission's ``src/`` directory, without touching the
+        persisted ``<submission_id>.tar.gz``. Intended for callers that
+        need the bytes themselves (e.g., the Download Source Package
+        controller).
+        """
+        pass
+
+    @abstractmethod
+    def write_source_package(self, submission_id: str) -> None:
+        """Build the source package and write it to the canonical path.
+
+        Overwrites any existing ``<submission_id>.tar.gz`` with a fresh
+        archive built from the current source files. Intended for
+        callers that need the canonical path on the bucket to point at
+        current source (e.g., the preflight API call).
+        """
+        pass
+
+    @abstractmethod
+    def delete_source_package(self, submission_id: str) -> None:
+        """Delete the persisted ``<submission_id>.tar.gz`` if it exists.
+
+        Used to invalidate the cached archive when source files
+        change, so a downstream service can't be handed a stale
+        snapshot.
+        """
+        pass
+
+    @abstractmethod
     def store_preview(self, submission_id: str, content: IO[bytes], chunk_size: int = 4096) -> str:
         """Store a preview PDF for a submission.
 
