@@ -149,8 +149,25 @@ def upload_files(method: str, params: MultiDict, session: Session,
         form = AddfilesForm(params)
         rdata.update({'form': form, 'submission': submission})
         if not form.validate():
-            logger.error('Submission %s Invalid upload form: %s %s', submission.submission_id, form.errors)
-            alerts.flash_failure("No file was uploaded; please try again.")
+            # Fix the format-string mismatch (was 3 %s placeholders with 2
+            # args, which fired a noisy "--- Logging error ---" traceback
+            # from Python's logging module and obscured the real error).
+            logger.error(
+                'Submission %s invalid upload form: %s',
+                submission.submission_id, form.errors,
+            )
+            # CSRF expiry is a common cause when the page has been open
+            # for a while. Surface that case explicitly so the user knows
+            # to refresh the page rather than just clicking Upload again
+            # with the same (still expired) token.
+            errors = form.errors or {}
+            if 'csrf_token' in errors:
+                alerts.flash_failure(
+                    "Your session token has expired. Please refresh "
+                    "this page and try the upload again."
+                )
+            else:
+                alerts.flash_failure("No file was uploaded; please try again.")
             return stay_on_this_stage((rdata, status.OK, {}))
 
         is_archive = "ARCHIVE" if (is_file_tgz(file) or is_file_zip(file)) else "NONARCHIVE"
