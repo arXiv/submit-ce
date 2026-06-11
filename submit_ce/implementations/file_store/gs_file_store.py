@@ -334,6 +334,48 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
         return self.bucket.blob(self._user_decisions_path(submission_id)).exists()
 
     @override
+    def store_compile_log(self, submission_id: str,
+                          content: IO[bytes],
+                          chunk_size: int = 4096) -> str:
+        """Store the compile log for a submission."""
+        path = self._compile_log_path(submission_id)
+        blob = self.bucket.blob(path)
+        blob.upload_from_file(content)
+        blob.reload()
+        return blob.crc32c
+
+    @override
+    def uncompress_compile_tarball(self, submission_id: str) -> None:
+        """Download outcome tarball, read outcome-src.json for pdf and main.log filenames, then store them."""
+        blob = self.bucket.blob(self._outcome_path(submission_id))
+
+        with tarfile.open(fileobj=io.BytesIO(blob.download_as_bytes()), mode='r:gz') as tar:
+            outcome_member = next(
+                (m for m in tar.getmembers() if posixpath.basename(m.name) == 'outcome-src.json'),
+                None,
+            )
+            if outcome_member is None:
+                raise FileNotFoundError(f"outcome-src.json not found in outcome tarball for submission {submission_id}")
+            extracted = tar.extractfile(outcome_member)
+            if extracted is None:
+                raise RuntimeError(f"Could not extract outcome-src.json for submission {submission_id}")
+            outcome = json.load(extracted)
+
+            pdf_name = outcome.get("pdf_file")
+            log_name = outcome["out_files"]["main.log"]["name"]
+
+            for member in tar.getmembers():
+                name = posixpath.basename(member.name)
+                if name == log_name:
+                    extracted = tar.extractfile(member)
+                    if extracted is not None:
+                        self.store_compile_log(submission_id, extracted)
+                elif pdf_name and name == pdf_name:
+                    extracted = tar.extractfile(member)
+                    if extracted is not None:
+                        self.store_preview(submission_id, extracted)
+
+    @override
     def get_compile_log(self, submission_id: str) -> FileObj:
         path = self._compile_log_path(submission_id)
         blob = self.bucket.blob(path)
@@ -436,28 +478,16 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
     def _get_checksum(self, path: str) -> str:
         """Return the crc32c checksum of the blob at ``path``.
 
-        ``bucket.blob(path)`` creates a *local* Blob reference whose
-        ``crc32c`` attribute is ``None`` until metadata is fetched from
-        GCS via ``reload()``. The upload paths (e.g. ``store_preview``)
-        call ``reload()`` immediately after upload so the local Blob has
-        a populated checksum, but reads of *pre-existing* blobs (for
-        example, a PDF copied into the bucket by hand, or any blob
-        whose metadata we haven't otherwise hydrated) would otherwise
-        return ``None``. Callers in the route layer feed this value
-        into ``Response.set_etag()`` and ``Content-Length`` headers,
-        both of which crash on ``None``.
-
         Returns an empty string when the blob doesn't exist or has no
-        crc32c (rather than ``None``) so callers don't have to special
-        case it.
+        crc32c (rather than ``None``), so callers feeding the value
+        into ``Response.set_etag()`` and ``Content-Length`` headers
+        don't crash. This matters in particular for blobs that arrived
+        in the bucket via something other than our upload paths (e.g.
+        hand-copied for testing), which may lack a crc32c on the
+        object.
         """
-        item = self.bucket.blob(path)
-        try:
-            item.reload()
-        except Exception as exc:  # google.cloud.exceptions.NotFound, etc.
-            logger.debug("checksum reload failed for %s: %s", path, exc)
-            return ""
-        return item.crc32c or ""
+        item = self.bucket.get_blob(path)
+        return (item.crc32c or "") if item is not None else ""
 
     def _submission_path(self, submission_id: str) -> str:
         """Gets GS filesystem structure ex /{rootdir}/{first 4 digits of submission id}/{submission id}"""
@@ -485,6 +515,9 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
     def _compile_log_path(self, submission_id: str) -> str:
         return posixpath.join(self._submission_path(submission_id), 'gcp_compile.log')
 
+    def _outcome_path(self, submission_id: str) -> str:
+        return posixpath.join(self._submission_path(submission_id), 'outcome.tgz')
+
     @override
     def get_source_package_checksum(self, submission_id: str) -> str:
         return self.get_source_checksum(submission_id)
@@ -500,6 +533,11 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
         return f'{self._full_base_path()}/{self._submission_path(submission_id)}'
 
     @override
+    def get_full_submission_source_path(self, submission_id: str) -> str:
+        # The trailing slash is needed.
+        return f'{self._full_base_path()}/{self._submission_path(submission_id)}/{self.source_prefix}/'
+
+    @override
     def get_full_source_package_path(self, submission_id: str) -> str:
         return f'{self._full_base_path()}/{self._source_package_path(submission_id)}'
 
@@ -510,6 +548,10 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
     @override
     def get_full_directives_package_path(self, submission_id: str) -> str:
         return f'{self._full_base_path()}/{self._directives_path(submission_id)}'
+
+    @override
+    def get_full_outcome_path(self, submission_id: str) -> str:
+        return f'{self._full_base_path()}/{self._outcome_path(submission_id)}'
 
     def _request_log_path(self, submission_id: str) -> str:
         return posixpath.join(self._submission_path(submission_id), 'gcp_request.log')

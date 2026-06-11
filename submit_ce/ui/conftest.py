@@ -4,6 +4,7 @@ import shutil
 import tempfile
 import uuid
 import logging
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import arxiv.db.models as classic
@@ -284,6 +285,11 @@ def sub_files(app, authorized_user, sub_cross, mocker):
 
         mock_store = MagicMock()
         mock_store.store_source_file.return_value = fake_stat
+        # The upload events read the workspace to evaluate the size limits.
+        small_ws = MagicMock()
+        small_ws.size = 10_000
+        small_ws.files = []
+        mock_store.get_workspace.return_value = small_ws
 
         original_store = current_app.api.store
         current_app.api.store = mock_store
@@ -295,6 +301,61 @@ def sub_files(app, authorized_user, sub_cross, mocker):
         finally:
             current_app.api.store = original_store
 
+        return submission
+
+
+@pytest.fixture(scope="function")
+def sub_files_oversize(app, authorized_user, sub_cross):
+    """A submission whose uploaded files exceed the size limit.
+
+    The submission is flagged ``is_oversize`` but is NOT yet on hold; the
+    auto-hold is only applied at finalize time."""
+    with app.app_context():
+        user = authorized_user
+        ua = InternalClient(name=f"test_client_{__file__}")
+        big = 60 * 1024 * 1024  # 60 MB, over the 50 MB default limit
+
+        class _FakePdf:
+            filename = "huge.pdf"
+            content_type = "application/pdf"
+            stream = io.BytesIO(b"%PDF-1.4\n%%EOF\n")
+
+        fake_stat = MagicMock()
+        fake_stat.bytes = big
+
+        mock_store = MagicMock()
+        mock_store.store_source_file.return_value = fake_stat
+        big_ws = MagicMock()
+        big_ws.size = big
+        big_ws.files = [SimpleNamespace(path="huge.pdf", bytes=big)]
+        mock_store.get_workspace.return_value = big_ws
+
+        original_store = current_app.api.store
+        current_app.api.store = mock_store
+        try:
+            submission, _ = current_app.api.save(
+                UploadFiles(creator=user, client=ua, files=[_FakePdf()]),
+                submission_id=sub_cross.submission_id,
+            )
+        finally:
+            current_app.api.store = original_store
+
+        return submission
+
+
+@pytest.fixture(scope="function")
+def sub_files_tex(app, authorized_user, sub_files):
+    """sub_files with source_format set to TEX, so review_files runs its
+    normal preflight/review flow rather than redirecting on the source_format
+    guard."""
+    with app.app_context():
+        user = authorized_user
+        ua = InternalClient(name=f"test_client_{__file__}")
+        submission, _ = current_app.api.save(
+            SetSourceFormat(creator=user, client=ua,
+                            source_format=SourceFormat.TEX.value),
+            submission_id=sub_files.submission_id,
+        )
         return submission
 
 

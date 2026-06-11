@@ -99,6 +99,18 @@ class Settings(ArxivBaseSettings):
     """If true, only admin users can use the system. Intended to
     allowe closed to the public dev or beta system."""
 
+    MAX_UNCOMPRESSED_TOTAL_KB: int = 50_000
+    """Max total uncompressed submission size, in KB, before the submission is
+    flagged oversize (default 50 MB; the legacy arXiv size guideline)."""
+
+    MAX_UNCOMPRESSED_PER_FILE_KB: int = 50_000
+    """Max uncompressed size of any single file, in KB, before the submission
+    is flagged oversize (default 50 MB)."""
+
+    MAX_COMPRESSED_KB: int = 50_000
+    """Max compressed upload size, in KB. Defined for completeness; not
+    currently enforced (matches legacy check_sizes)."""
+
     COMPILE_API_URL: str = "https://tex2pdf-api-default-874717964009.us-central1.run.app"
     """The tex2pdf-api url.
     Do not end with a /.
@@ -109,6 +121,8 @@ class Settings(ArxivBaseSettings):
     COMPILE_API_RETRY_DELAY: int = 10
 
     COMPILE_API_PREFLIGHT_TIMEOUT: int = 840
+
+    COMPILE_API_CONVERT_TIMEOUT: int = 840
 
     COMPILE_API_IMPERSONATE_SA: str = ""
     """Service account email to impersonate when minting ID tokens for the

@@ -289,6 +289,12 @@ class Submission:
 
     source_format: Optional[SourceFormat] = field(default=None)
     uncompressed_size: int = field(default=0)
+    is_oversize: bool = field(default=False)
+    """Canonical oversize flag, set from the size check when files change.
+
+    This is the flag, set at upload time; the auto-hold is a separate effect
+    applied at finalize.
+    """
     preview: Optional[Preview] = field(default=None)
 
     metadata: SubmissionMetadata = field(default_factory=SubmissionMetadata)
