@@ -9,6 +9,7 @@ from google.cloud import pubsub_v1
 from submit_ce.api import SubmitApi, SubmissionFileStore
 from submit_ce.domain import Event, Submission
 from submit_ce.api.compile_service import CompileService
+from submit_ce.api.email_service import EmailService
 from submit_ce.domain.event.base import EventList
 from submit_ce.domain.meta import License
 
@@ -48,6 +49,9 @@ class PubsubEventSubmitImplementation(SubmitApi):
 
     def get_compiler(self) -> CompileService:
         return self.inner_api.get_compiler()
+
+    def get_email_service(self) -> EmailService:
+        return self.inner_api.get_email_service()
 
     def categories_for_user(self, user_id: str) -> list[str]:
         return self.inner_api.categories_for_user(user_id)

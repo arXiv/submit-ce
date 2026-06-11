@@ -64,6 +64,7 @@ from datetime import datetime
 from typing import Tuple, List, Optional
 
 from submit_ce.api.compile_service import CompileService
+from submit_ce.api.email_service import EmailService
 from submit_ce.domain import Submission, Event, License
 from submit_ce.domain.size_limits import SizeLimits
 from submit_ce.api.file_store import SubmissionFileStore
@@ -173,6 +174,22 @@ class SubmitApi(ABC):
         Returns
         -------
             `CompileService`
+        """
+        ...
+
+    @abstractmethod
+    def get_email_service(self) -> EmailService:
+        """
+        Gets an `EmailService` implementation object.
+
+        Used by `Events` with side effects to send email.
+
+        Intended to allow code with access to the SubmitApi to also have
+        access to the email service.
+
+        Returns
+        -------
+            `EmailService`
         """
         ...
 

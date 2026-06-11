@@ -10,6 +10,7 @@ from sqlalchemy import select, text
 from sqlalchemy.orm import Session as SqlalchemySession, Session
 
 from submit_ce.api import SubmitApi
+from submit_ce.api.email_service import EmailService
 from submit_ce.api.file_store import SubmissionFileStore
 from submit_ce.domain.agent import Client, User
 from submit_ce.domain.meta import License
@@ -46,9 +47,30 @@ def check_user_authorized(
 
 
 class LegacySubmitImplementation(SubmitApi):
-    """
-    Implementation of `SubmitApi` that interoperates with legacy submission by writing to SFS and DB.
+    """Implementation of `SubmitApi` that interoperates with legacy submission.
 
+    Persists submissions and their events to the classic arXiv database and
+    the submission file store (SFS), bridging the event-sourced domain model
+    onto the legacy ``arXiv_submissions`` tables.
+
+    Parameters
+    ----------
+    store : SubmissionFileStore
+        File store used to persist and retrieve submission source packages,
+        previews and related artifacts.
+    compiler : CompileService
+        Service used to compile submission sources (e.g. to PDF).
+    email_service : EmailService, optional
+        Service used to send notification email. If ``None``, no email
+        service is configured.
+    get_session : Callable[[], SqlalchemySession], optional
+        Factory returning a SQLAlchemy session for database access.
+    serialize_file_operations : bool, optional
+        If ``True``, serialize file operations rather than allowing them to
+        run concurrently. Defaults to ``False``.
+
+    Notes
+    -----
     TODO success response objects (similar to modapi? {msg: success, updated_fields:[]})
     TODO failure to validate response objects (which field caused the problem?)
     TODO Failure response object (general failure message)
@@ -58,17 +80,20 @@ class LegacySubmitImplementation(SubmitApi):
     def __init__(self,
                  store: SubmissionFileStore,
                  compiler: CompileService,
+                 email_service: EmailService = None,
                  get_session:Callable[[],SqlalchemySession] = None,
                  serialize_file_operations:bool = False):
         self.get_session = get_session
         self.serialize_file_operations = serialize_file_operations
         self.compiler = compiler
         self.store = store
+        self.email_service = email_service
 
     def __repr__(self) -> str:
         return (f"{self.__class__.__name__}("
                 f"store={self.store.__repr__()},"
                 f"compiler={self.compiler.__repr__()},"
+                f"email_service={self.email_service.__repr__()},"
                 f"serialize_file_operations={self.serialize_file_operations}"
                 ")")
 
@@ -250,6 +275,10 @@ class LegacySubmitImplementation(SubmitApi):
     @override
     def get_compiler(self) -> CompileService:
         return self.compiler
+
+    @override
+    def get_email_service(self) -> EmailService:
+        return self.email_service
 
     @override
     def next_announcement_time(self, reference: Optional[datetime] = None) -> datetime:
