@@ -49,8 +49,8 @@ class NullEmailService(EmailService):  # pragma: no cover
                    subject: str,
                    body: str,
                    reply_to: str,
-                   cc: str = "",
-                   bcc: str = "",
+                   cc: list[str] | None = None,
+                   bcc: list[str] | None = None,
                    message_id: str = "",
                    references: str = "") -> None:
         pass

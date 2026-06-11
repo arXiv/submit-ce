@@ -124,6 +124,22 @@ class Settings(ArxivBaseSettings):
 
     COMPILE_API_CONVERT_TIMEOUT: int = 840
 
+    EMAIL_SMTP_HOST: str = "mailh.arxiv.org"
+    """Hostname of the Halon SMTP server used to send mail (SMTP over SSL)."""
+
+    EMAIL_SMTP_PORT: int = 465
+    """Port for the SMTP-over-SSL connection to the Halon server."""
+
+    EMAIL_SMTP_USER: str = "arxiv"
+    """Username for authenticating to the Halon SMTP server."""
+
+    EMAIL_SMTP_PASSWORD: str = ""
+    """Password for authenticating to the Halon SMTP server. Set via the
+    environment (e.g. a secret); never commit a real password."""
+
+    EMAIL_FROM: str = "noreply@arxiv.org"
+    """Default ``From`` address for outgoing mail."""
+
     COMPILE_API_IMPERSONATE_SA: str = ""
     """Service account email to impersonate when minting ID tokens for the
     tex2pdf-api Cloud Run service. Leave empty in production (the attached

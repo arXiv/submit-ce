@@ -21,8 +21,8 @@ class SentEmail:  # pragma: no cover
     subject: str
     body: str
     reply_to: str
-    cc: str = ""
-    bcc: str = ""
+    cc: list[str] = field(default_factory=list)
+    bcc: list[str] = field(default_factory=list)
     message_id: str = ""
     references: str = ""
 
@@ -54,8 +54,8 @@ class EmailInMemory(EmailService):  # pragma: no cover
                    subject: str,
                    body: str,
                    reply_to: str,
-                   cc: str = "",
-                   bcc: str = "",
+                   cc: list[str] | None = None,
+                   bcc: list[str] | None = None,
                    message_id: str = "",
                    references: str = "") -> None:
         """Capture an email in memory.
@@ -68,8 +68,8 @@ class EmailInMemory(EmailService):  # pragma: no cover
             subject=subject,
             body=body,
             reply_to=reply_to,
-            cc=cc,
-            bcc=bcc,
+            cc=list(cc or []),
+            bcc=list(bcc or []),
             message_id=message_id,
             references=references,
         ))

@@ -11,6 +11,7 @@ from submit_ce.api import SubmitApi
 from submit_ce.domain import User, Submission, Event
 from submit_ce.domain.exceptions import NoSuchSubmission
 from submit_ce.implementations.compile.compile_api_service import CompileApiService
+from submit_ce.implementations.email import email_service_from_settings
 from submit_ce.implementations.file_store.gs_file_store import GsFileStore
 from submit_ce.implementations.legacy_implementation.flask_impl import FlaskSubmitImplementation
 from submit_ce.implementations import NullFileStore
@@ -33,7 +34,8 @@ def config_backend_api(settings: Settings) -> SubmitApi:
     
     return FlaskSubmitImplementation(
         store=store,
-        compiler=CompileApiService())
+        compiler=CompileApiService(),
+        email_service=email_service_from_settings(settings))
 
 
 def get_submission(submission_id: str) -> Tuple[Submission, List[Event]]:

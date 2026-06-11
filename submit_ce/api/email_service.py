@@ -8,8 +8,8 @@ class EmailService(metaclass=ABCMeta):
                    subject: str,
                    body: str,
                    reply_to: str,
-                   cc: str="",
-                   bcc: str="",
+                   cc: list[str] | None = None,
+                   bcc: list[str] | None = None,
                    message_id: str="",
                    references: str="") -> None:
         """Send an email.
@@ -24,10 +24,12 @@ class EmailService(metaclass=ABCMeta):
             Body content of the message.
         reply_to : str
             Address that replies should be directed to.
-        cc : str
-            Address(es) to copy on the message. Pass empty string for no CCs.
-        bcc : str
-            Address(es) to blind-copy on the message. Pass empty string for no CCs.
+        cc : list[str], optional
+            Addresses to copy on the message. Pass ``None`` or an empty list
+            for no CCs.
+        bcc : list[str], optional
+            Addresses to blind-copy on the message. Pass ``None`` or an empty
+            list for no BCCs.
         message_id : str
             Unique identifier for this message (the ``Message-ID`` header),
             used for threading.
