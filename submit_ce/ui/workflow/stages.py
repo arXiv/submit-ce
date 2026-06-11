@@ -141,12 +141,17 @@ class OptionalMetadata(Stage):
 
 
 class FinalPreview(Stage):
-    """The user is asked to review the submission before finalizing."""
+    """The user is asked to review the submission before finalizing.
+
+    Note: the class name remains FinalPreview for backward compatibility
+    (endpoint URL is still /final_preview), but the visible tab label is
+    "Confirm" per the v5 mockup redesign.
+    """
 
     endpoint = 'final_preview'
     label = 'preview and approve your submission'
-    title = "Final preview"
-    display = "Preview"
+    title = "Confirm and Submit"
+    display = "Confirm"
     completed = [conditions.is_finalized]
 
 

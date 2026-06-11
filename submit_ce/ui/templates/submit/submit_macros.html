@@ -1,7 +1,11 @@
 {% import "svg.html" as svg  %}
 {# The submit_nav buttons target sending the form via the `form="form"` so
    the id on the form should be `form` for this to work.  #}
-{% macro submit_nav(submission_id) %}
+{% macro submit_nav(submission_id,
+                    next_label="Continue",
+                    next_aria="Save and continue",
+                    next_disabled=False,
+                    next_id="") %}
   <div class="buttons submit-nav" role="navigation" aria-label="Submission form controls">
     <button name="action" class="button" form="form"
             value="previous" aria-label="Go back one step">
@@ -14,8 +18,11 @@
     </button>
     -->
     <button name="action" class="button is-success" form="form"
-            value="next" aria-label="Save and continue">
-            Continue
+            value="next"
+            {% if next_id %}id="{{ next_id }}"{% endif %}
+            aria-label="{{ next_aria }}"
+            {% if next_disabled %}disabled{% endif %}>
+            {{ next_label }}
     </button>
   </div>
 {% endmacro %}

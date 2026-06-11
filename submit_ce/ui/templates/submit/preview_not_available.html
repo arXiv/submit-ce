@@ -1,0 +1,49 @@
+{%- extends "submit/base.html" %}
+{% import "svg.html" as svg %}
+
+{% block title %}PDF Preview Not Available{% endblock title %}
+
+{% block within_content %}
+  <div class="notification is-warning">
+    <h2 class="is-size-5 is-marginless">
+      {{ svg.exclamation(klass="icon filter-orange") }}
+      Your PDF preview could not be retrieved.
+    </h2>
+    <p>
+      Your submission's PDF was compiled successfully when you completed
+      the Process step, so this is unexpected. The most likely cause is
+      a temporary problem retrieving the stored PDF &mdash; for example,
+      a transient storage or network error.
+    </p>
+  </div>
+
+  <div class="content">
+    <p>What to try:</p>
+    <ul>
+      <li>Wait a moment and click <em>Preview PDF</em> again from the
+        Confirm step.</li>
+      <li>If the problem persists, return to the
+        <strong>Process Files</strong> step and reprocess your submission
+        to regenerate the PDF.</li>
+      <li>If it still won't load, please contact
+        <a href="mailto:help@arxiv.org">arXiv support</a> with your
+        submission ID so we can investigate.</li>
+    </ul>
+  </div>
+
+  <div class="buttons">
+    {% if submission_id %}
+      <a class="button is-link"
+         href="{{ url_for('ui.final_preview', submission_id=submission_id) }}">
+        Back to Confirm
+      </a>
+      <a class="button"
+         href="{{ url_for('ui.file_process', submission_id=submission_id) }}">
+        Go to Process step
+      </a>
+    {% endif %}
+    <button class="button" type="button" onclick="window.close();">
+      Close this tab
+    </button>
+  </div>
+{% endblock within_content %}

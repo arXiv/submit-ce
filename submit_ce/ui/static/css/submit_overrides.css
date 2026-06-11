@@ -49,3 +49,51 @@ h1.title.title-submit {
     padding-bottom: 0.75rem !important;          /* space under buttons */
     margin-bottom: 0.75rem !important;           /* space before content begins */
 }
+
+/* Make disabled buttons obviously inactive even when they carry a Bulma
+   color modifier like is-success, is-link, is-danger, etc. Bulma's
+   default disabled style only adds opacity: 0.5, which on a saturated
+   green/blue button still reads as "active" at a glance. We desaturate
+   to gray + a not-allowed cursor so users can tell from across the room
+   that the button is gated. */
+.submit-nav .button[disabled],
+.submit-nav .button[disabled]:hover,
+.submit-nav .button[disabled]:focus,
+.submit-nav .button[disabled]:active {
+    background-color: #e4e6eb !important;
+    border-color: #cdd1d8 !important;
+    color: #8a8f98 !important;
+    box-shadow: none !important;
+    cursor: not-allowed !important;
+    opacity: 1 !important;          /* override Bulma's 0.5 fade-only */
+}
+
+/* Highlight the proceed-confirmation checkbox on the Confirm page when
+   ticking it is the only remaining step before Submit (PDF has been
+   previewed). The page has a lot going on (abstract preview, sidebar,
+   shortcut buttons), so without a visual cue the user can lose track
+   of what to do next. A soft amber row + bolder label brings the eye
+   to the checkbox without yelling. The pulse animation gently
+   reinforces it for a few seconds, then settles into the static
+   highlight. */
+.proceed-checkbox {
+    padding: 0.5rem 0.75rem;
+    border-radius: 4px;
+    transition: background-color 0.25s ease, border-color 0.25s ease;
+    border: 1px solid transparent;
+}
+.proceed-checkbox.proceed-highlight {
+    background-color: #fff8db;        /* soft amber */
+    border-color: #f6c344;            /* amber accent */
+    font-weight: 600;
+    animation: proceed-pulse 1.8s ease-in-out 2;
+}
+@keyframes proceed-pulse {
+    0%   { box-shadow: 0 0 0 0 rgba(246, 195, 68, 0.55); }
+    50%  { box-shadow: 0 0 0 6px rgba(246, 195, 68, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(246, 195, 68, 0); }
+}
+.proceed-checkbox.proceed-highlight input[type="checkbox"] {
+    transform: scale(1.15);
+    margin-right: 0.4rem;
+}
