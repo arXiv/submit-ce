@@ -24,6 +24,15 @@ def _common_file_change_execute(api: SubmitApi, submission: Submission) -> None:
     Any change to the source workspace invalidates the analysis chain
     that was built from the previous state of the files:
 
+    * **source_package** -- the persisted ``<id>.tar.gz`` snapshot of
+      the source directory. The preflight API
+      (``CompileApiService.start_preflight``) hands this path to
+      tex2pdf as the ``source`` query param, so if it lingers past a
+      file change tex2pdf scans a stale snapshot and Review Files
+      shows the old file list. We delete it here; the next
+      ``start_preflight`` call rebuilds it fresh from ``src/``. (The
+      same archive is rebuilt by ``compile_at_gcp.py`` on a successful
+      compile, so the compile-time path is unaffected.)
     * **preflight** -- the per-file scan that detects compiler, top-level
       TeX, issues, etc. Must be re-run against the new file list.
     * **user_decisions** -- captures the user's selections (source_file,
@@ -43,13 +52,19 @@ def _common_file_change_execute(api: SubmitApi, submission: Submission) -> None:
     (UploadArchive / UploadFiles / RemoveFiles / RemoveAllFiles) get
     consistent invalidation. Skipping any of these leads to stale data
     being shown on Review Files even though the workspace itself is
-    current. The submission-package ``<id>.tar.gz`` is intentionally
-    NOT deleted here -- it represents the source that last successfully
-    compiled, and gets overwritten by ``compile_at_gcp.py`` on the next
-    successful compile.
+    current.
+
+    Note: we delete here (cheap, one bucket call per event) rather
+    than rebuild here. Rebuilding the tar inside each file event
+    would be quadratic for multi-file uploads -- N AddFiles events
+    would each download all N files and reupload, for O(N^2) bucket
+    traffic, with only the last build mattering. Lazy rebuild in
+    ``start_preflight`` keeps the cost at one build per preflight
+    call regardless of how many file events preceded it.
     """
     file_store = api.get_file_store()
     sid = str(submission.submission_id)
+    file_store.delete_source_package(sid)
     file_store.delete_preflight(sid)
     file_store.delete_user_decisions(sid)
     file_store.delete_directives(sid)
