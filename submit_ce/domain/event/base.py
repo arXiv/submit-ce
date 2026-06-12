@@ -95,6 +95,11 @@ class Event(BaseModel):
     This should generally not be set from outside this package.
     """
 
+    cause: Optional[str] = None
+    """
+    The `event_id` of `Event` that this event was the consequence of.
+    """
+
     _before: Optional[Submission] = None
     """The state of the submission prior to the event. For debugging only."""
 
@@ -177,12 +182,18 @@ class Event(BaseModel):
         Raises if an event emits a consequence type it did not declare; this
         keeps the static consequence graph honest at runtime.
         """
+        if not self.created:
+            raise RuntimeError('Can not make consequences for not yet commited Event')
+
         events = self.consequences(submission)
         for event in events:
             if type(event) not in self.CONSEQUENCE_TYPES:
                 raise RuntimeError(
                     f"{self.event_type} emitted undeclared consequence "
                     f"{type(event).__name__}; add it to CONSEQUENCE_TYPES")
+            else:
+                event.cause = self.event_id
+
         return events
 
 
