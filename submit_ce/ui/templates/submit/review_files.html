@@ -5,33 +5,100 @@
  <script src="{{ url_for('static', filename='js/filewidget.js') }}"></script>
 {% endblock addl_head %}
 
-{% macro display_preflight_tree(key, item) %}
+{# Renders one row of the Review Files table for a preflight-detected file,
+   or recurses into a subdirectory listing. The third argument
+   ``top_level_filename`` is the currently-selected top-level TeX file
+   (form.source_file.data) so we can render "Used: top-level file" for it.
+   00README.json gets a dedicated label and a disabled delete checkbox --
+   it's a build-directives file, not a candidate for deletion. #}
+{% macro display_preflight_tree(key, item, top_level_filename) %}
   {% if 'filename' in item %}
   <tr>
-    <td>
+    <td class="has-text-centered">
       <input type="hidden" name="all_files" value="{{ item.filename }}">
-      <input type="checkbox" name="selected_files" value="{{ item.filename }}">
+      {% if item.filename == '00README.json' %}
+        <input type="checkbox" name="selected_files" value="{{ item.filename }}"
+               disabled
+               title="00README.json contains build directives and cannot be deleted from this step">
+      {% else %}
+        <input type="checkbox" name="selected_files" value="{{ item.filename }}">
+      {% endif %}
     </td>
     <td>{{ item.filename }}</td>
     <td>
-      {% if item.used_by %}used by: {{ item.used_by | join(', ') }}<br>{% endif %}
-      {% if item.used_by_tex %}used tex: {{ item.used_by_tex | join(', ') }}<br>{% endif %}
-      {% if item.used_by_bib %}used bib: {{ item.used_by_bib | join(', ') }}{% endif %}
+      {% if item.filename == '00README.json' %}
+        Build directives file
+      {% elif item.filename == top_level_filename %}
+        Used: top-level file
+      {% else %}
+        {% if item.used_by %}Used by: {{ item.used_by | join(', ') }}<br>{% endif %}
+        {% if item.used_by_tex %}Used by (TeX): {{ item.used_by_tex | join(', ') }}<br>{% endif %}
+        {% if item.used_by_bib %}Used by (bib): {{ item.used_by_bib | join(', ') }}{% endif %}
+      {% endif %}
     </td>
   </tr>
   {% else %}
   <tr><td colspan="3"><em>{{ key }}/</em></td></tr>
   {% for k, subitem in item.items() %}
-    {{ display_preflight_tree(k, subitem) }}
+    {{ display_preflight_tree(k, subitem, top_level_filename) }}
   {% endfor %}
   {% endif %}
 {% endmacro %}
 
 {% block title -%}Review Files{%- endblock title %}
 
-{% block important_text_box %}
-  <p>Review Files sidebar information goes here</p>
-{% endblock important_text_box %}
+{# v5-style sidebar carried forward from Submit 1.5's addfiles/reviewfiles
+   sidebar.tt. Same content as 1.5 (Did you know..., Accepted Formats,
+   Important, Read more about v1.5 changes) but laid out in the v5
+   heading hierarchy (h2 lead + h3 subsections, wrapped in message-body).
+   Adds two action buttons absent from the v5 Upload mockup:
+     - Download Package (new on-the-fly source_package endpoint)
+     - Back to upload step (go back without invalidating preflight,
+       e.g. when the user needs to add a missing file)
+#}
+{% block info_container_middle %}
+  <div class="message-body">
+    <h2>Did you know you can simplify your submission?</h2>
+    <p>Upload a single .tar.gz or zip file.</p>
+
+    <h3>Accepted Formats</h3>
+    <ul>
+      <li><a href="{{ url_for('help_submit_tex') }}">(La)TeX,
+        AMS(La)TeX, PDFLaTeX</a></li>
+      <li><a href="{{ url_for('help_submit_pdf') }}">PDF (not
+        generated from TeX)</a></li>
+      <li><a href="{{ url_for('help_submit_html') }}">HTML for
+        conference proceeding indexes</a></li>
+    </ul>
+
+    <h3>Important</h3>
+    <p>If your submission is (La)TeX, then you must submit the source
+      (plus necessary macros and figures), not derivative dvi,
+      Postscript, or PDF (see
+      <a href="{{ url_for('help_whytex') }}">Why TeX?</a>). For more
+      information on formats and other submission details see
+      <a href="{{ url_for('help_submit') }}">Submission Help</a>. TeX
+      source uploaded to arXiv will be made publicly available.</p>
+
+    <p>Read more about the new changes in
+      <a href="{{ url_for('help_submit_tex') }}#latex-processing-changes-april-2025">Submission
+      v1.5</a>.</p>
+
+    {% if submission_id %}
+      <div class="buttons" style="margin-top: 1rem;">
+        <a href="{{ url_for('ui.source_package_tar_gz', submission_id=submission_id) }}"
+           class="button button-secondary"
+           download>
+          Download Package
+        </a>
+        <a href="{{ url_for('ui.file_upload', submission_id=submission_id) }}"
+           class="button button-secondary">
+          Back to upload step
+        </a>
+      </div>
+    {% endif %}
+  </div>
+{% endblock info_container_middle %}
 
 {% block within_content %}
 {% if immediate_notifications %}
@@ -45,88 +112,121 @@
   {% endfor %}
 {% endif %}
 
-<form id="form" class="form" action="{{ url_for('ui.review_files', submission_id=submission_id) }}" method="POST" enctype="multipart/form-data">
-  <div class="columns action-container">
+{# The form below depends entirely on preflight output: source_file
+   choices come from preflight's detected TeX files, compiler choices
+   come from preflight-detected language, and the file table is
+   driven by file_notes. When preflight is unavailable we have nothing
+   to populate any of it with, so we hide the form sections and render
+   a clear placeholder instead of a row of empty dropdowns + a
+   misleading "No files uploaded yet" message. The submit_alerts flash
+   at the top of base_edit.html already tells the user *why*. #}
+{% if file_notes %}
+{# Flat layout matching the Metadata page (per UI designer feedback):
+   no per-section card framing, no red section headings. The whole
+   form is wrapped in a single <div class="action-container"> so the
+   page has the same outline/container look as add_metadata.html. The
+   three logical groupings (compiler, top-level file, file table) are
+   still present as ordinary <div class="field"> blocks. #}
+<form id="form" class="form"
+      action="{{ url_for('ui.review_files', submission_id=submission_id) }}"
+      method="POST" enctype="multipart/form-data">
+  <div class="action-container">
+    {{ form.csrf_token }}
 
-    <div class="column is-one-half-desktop is-one-half-tablet">
-      {{ form.csrf_token }}
-      
-      <div class="field">
-        <label class="label">{{ form.source_file.label }}</label>
-        <div class="control">
-          <div class="select is-fullwidth">
-            {{ form.source_file }}
-          </div>
-        </div>
-        {% if form.source_file.errors %}
-          {% for error in form.source_file.errors %}
-            <p class="help is-danger">{{ error }}</p>
-          {% endfor %}
-        {% endif %}
+  {# Compiler engine + TeX Live version (auto-selected from preflight) #}
+  <div class="field">
+    <label class="label" for="compiler">Compiler</label>
+    <p class="help">Our automated scan tries to identify the correct
+      compiler. You can change it here or keep the auto-selection.</p>
+    <div class="control">
+      <div class="select is-fullwidth">
+        {{ form.compiler }}
       </div>
-
-      <div class="columns">
-        <div class="column">
-          <div class="field">
-            <label class="label">{{ form.compiler.label }}</label>
-            <div class="control">
-              <div class="select is-fullwidth">
-                {{ form.compiler }}
-              </div>
-            </div>
-            {% if form.compiler.errors %}
-              {% for error in form.compiler.errors %}
-                <p class="help is-danger">{{ error }}</p>
-              {% endfor %}
-            {% endif %}
-          </div>
-        </div>
-        <div class="column">
-          <div class="field">
-            <label class="label">{{ form.compiler_version.label }}</label>
-            <div class="control">
-              <div class="select is-fullwidth">
-                {{ form.compiler_version }}
-              </div>
-            </div>
-            {% if form.compiler_version.errors %}
-              {% for error in form.compiler_version.errors %}
-                <p class="help is-danger">{{ error }}</p>
-              {% endfor %}
-            {% endif %}
-          </div>
-        </div>
-      </div>
-
-      <hr />
-
-      {% if file_notes %}
-      <table class="table is-fullwidth">
-        <thead>
-          <tr>
-            <th>
-              Delete
-              <br>
-              <a href="#" onclick="document.querySelectorAll('input[name=selected_files]').forEach(cb => cb.checked = false); return false;">keep all</a>
-            </th>
-            <th>File Name</th>
-            <th>Auto-detected Notes</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for k, item in (file_notes | group_preflight_files).items() %}
-            {{ display_preflight_tree(k, item) }}
-          {% endfor %}
-        </tbody>
-      </table>
-      {% else %}
-      <p class="title is-4 breathe-vertical has-text-centered">
-        No files have been uploaded yet.
-      </p>
-      {% endif %}
-
     </div>
+    {% for error in form.compiler.errors %}
+      <p class="help is-danger">{{ error }}</p>
+    {% endfor %}
   </div>
+
+  <div class="field">
+    <label class="label" for="compiler_version">TeX Live version</label>
+    <p class="help">arXiv currently uses TeX Live 2025 by default. You
+      can also select TeX Live 2023 as an alternative.</p>
+    <div class="control">
+      <div class="select is-fullwidth">
+        {{ form.compiler_version }}
+      </div>
+    </div>
+    {% for error in form.compiler_version.errors %}
+      <p class="help is-danger">{{ error }}</p>
+    {% endfor %}
+  </div>
+
+  {# Top-level TeX file. Submit 2.0 supports a single top-level file
+     (unlike legacy 1.5 which allowed multiple with reordering). #}
+  <div class="field">
+    <label class="label" for="source_file">Top-level TeX file</label>
+    <p class="help">Our automated scan tries to identify the top-level
+      TeX file. You can change it here or keep the auto-selection.</p>
+    <div class="control">
+      <div class="select is-fullwidth">
+        {{ form.source_file }}
+      </div>
+    </div>
+    {% for error in form.source_file.errors %}
+      <p class="help is-danger">{{ error }}</p>
+    {% endfor %}
+  </div>
+
+  {# Review Files list. Files checked for deletion will be removed when
+     the user clicks Continue, invalidating preflight and routing back
+     to Upload Files (see _update_preflight). #}
+  <div class="field">
+    <label class="label">Files</label>
+    <p class="help">The automated scan tries to identify issues and
+      unused files that can be deleted. You can make changes below or
+      leave auto-selections in place.</p>
+
+    <table class="table is-fullwidth is-striped review-files-table">
+      <thead>
+        <tr>
+          <th class="has-text-centered" style="width: 6rem;">
+            Delete<br>
+            <a href="#" class="is-size-7 keep-all-link"
+               onclick="document.querySelectorAll('input[name=selected_files]:not([disabled])').forEach(cb => cb.checked = false); return false;">Keep All</a>
+          </th>
+          <th>File Name</th>
+          <th>Auto-detected Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for k, item in (file_notes | group_preflight_files).items() %}
+          {{ display_preflight_tree(k, item, form.source_file.data) }}
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  </div>{# /.action-container #}
 </form>
+{% else %}
+  <div class="notification is-warning" role="alert">
+    <h2 class="is-size-5 is-marginless">
+      {{ svg.exclamation(klass="icon filter-orange") }}
+      File analysis is unavailable
+    </h2>
+    <p>We couldn't analyze your submission's files right now because the
+      preflight service is temporarily unavailable.</p>
+    <p><strong>What to try:</strong></p>
+    <ul>
+      <li>Refresh this page in a moment &mdash; transient outages
+        typically resolve quickly.</li>
+      <li>If the problem persists after several minutes, please contact
+        <a href="mailto:help@arxiv.org">arXiv support</a> and include
+        your submission ID.</li>
+    </ul>
+    <p class="is-marginless">Your uploaded files have not been lost
+      &mdash; this step just couldn't read them for analysis.</p>
+  </div>
+{% endif %}
 
 {% endblock within_content %}

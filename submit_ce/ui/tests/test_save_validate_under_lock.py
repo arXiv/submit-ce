@@ -35,7 +35,7 @@ class _ProbeSideEffect(EventWithSideEffect):
     should_block: bool = False
     calls: List[str] = []
 
-    def validate(self, submission) -> None:
+    def validate_pre_lock(self, submission) -> None:
         pass
 
     def validate_under_lock(self, api, submission) -> None:
@@ -61,7 +61,7 @@ class _ProbeNoOverride(EventWithSideEffect):
 
     calls: List[str] = []
 
-    def validate(self, submission) -> None:
+    def validate_pre_lock(self, submission) -> None:
         pass
 
     def execute(self, api, submission) -> None:

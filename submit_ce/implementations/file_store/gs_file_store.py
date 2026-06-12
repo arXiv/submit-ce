@@ -191,6 +191,18 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
         preview_path = self._preview_path(submission_id)
         preview = self.bucket.blob(preview_path)
         if preview.exists():
+            # bucket.blob() returns a local reference with empty _properties;
+            # .exists() does a HEAD but doesn't populate metadata. Without
+            # reload(), preview.size and preview.crc32c are both None and
+            # the route layer's set_etag()/Content-Length header crash on
+            # None. This matters in particular for PDFs that arrived in
+            # the bucket via something other than our store_preview() path
+            # (e.g., hand-copied for testing).
+            try:
+                preview.reload()
+            except Exception as exc:
+                logger.debug("preview reload failed for %s: %s",
+                             preview_path, exc)
             return preview
         else:
             return FileDoesNotExist(preview_path)
@@ -464,8 +476,18 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
         return self.bucket.blob(self._source_log_path(submission_id)).exists()
 
     def _get_checksum(self, path: str) -> str:
+        """Return the crc32c checksum of the blob at ``path``.
+
+        Returns an empty string when the blob doesn't exist or has no
+        crc32c (rather than ``None``), so callers feeding the value
+        into ``Response.set_etag()`` and ``Content-Length`` headers
+        don't crash. This matters in particular for blobs that arrived
+        in the bucket via something other than our upload paths (e.g.
+        hand-copied for testing), which may lack a crc32c on the
+        object.
+        """
         item = self.bucket.get_blob(path)
-        return item.crc32c if item is not None else ""
+        return (item.crc32c or "") if item is not None else ""
 
     def _submission_path(self, submission_id: str) -> str:
         """Gets GS filesystem structure ex /{rootdir}/{first 4 digits of submission id}/{submission id}"""

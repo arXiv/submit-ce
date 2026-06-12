@@ -71,12 +71,12 @@ def test_set_title_rejects_all_caps():
     SetTitle should reject titles that are entirely uppercase.
 
     Why: The event validation explicitly checks for all-caps titles.
-    Expectation: InvalidEvent is raised by .validate(submission).
+    Expectation: InvalidEvent is raised by .validate_pre_lock(submission).
     """
     s = _blank_submission()
     e = SetTitle(creator=s.creator, title="ALL CAPS TITLE")
     with pytest.raises(InvalidEvent):
-        e.validate(s)
+        e.validate_pre_lock(s)
 
 
 def test_set_title_rejects_trailing_period():
@@ -84,12 +84,12 @@ def test_set_title_rejects_trailing_period():
     SetTitle should reject titles ending with a trailing period.
 
     Why: Title validation includes a "no trailing '.'" rule.
-    Expectation: InvalidEvent is raised by .validate(submission).
+    Expectation: InvalidEvent is raised by .validate_pre_lock(submission).
     """
     s = _blank_submission()
     e = SetTitle(creator=s.creator, title="Ends with period.")
     with pytest.raises(InvalidEvent):
-        e.validate(s)
+        e.validate_pre_lock(s)
 
 
 def test_set_abstract_length_bounds_both_paths():
@@ -106,12 +106,12 @@ def test_set_abstract_length_bounds_both_paths():
     # Too short: MIN_LENGTH is 20, so this should fail.
     e_short = SetAbstract(creator=s.creator, abstract="too short")
     with pytest.raises(InvalidEvent):
-        e_short.validate(s)
+        e_short.validate_pre_lock(s)
 
     # Reasonable: 25 chars satisfies the minimum.
     ok_text = "This abstract is valid length."
     e_ok = SetAbstract(creator=s.creator, abstract=ok_text)
-    e_ok.validate(s)  # no exception means the branch was accepted
+    e_ok.validate_pre_lock(s)  # no exception means the branch was accepted
 
 
 def test_set_license_rejects_invalid_uri():
@@ -119,12 +119,12 @@ def test_set_license_rejects_invalid_uri():
     SetLicense should reject license URIs not present in the allowed set.
 
     Why: The validator cross-checks the URI against the current LICENSES list.
-    Expectation: InvalidEvent is raised by .validate(submission).
+    Expectation: InvalidEvent is raised by .validate_pre_lock(submission).
     """
     s = _blank_submission()
     e = SetLicense(creator=s.creator, license_uri="http://not-on-our-list")
     with pytest.raises(InvalidEvent):
-        e.validate(s)
+        e.validate_pre_lock(s)
 
 
 def test_abstract_rejects_when_not_capitalized():
@@ -135,7 +135,7 @@ def test_abstract_rejects_when_not_capitalized():
     s = _blank_submission()
     e = SetAbstract(creator=s.creator, abstract="not capitalized first sentence.")
     with pytest.raises(InvalidEvent):
-        e.validate(s)
+        e.validate_pre_lock(s)
 
 
 def test_abstract_rejects_when_too_long():
@@ -148,7 +148,7 @@ def test_abstract_rejects_when_too_long():
     too_long = "A" + ("x" * 2000)
     e = SetAbstract(creator=s.creator, abstract=too_long)
     with pytest.raises(InvalidEvent):
-        e.validate(s)
+        e.validate_pre_lock(s)
 
 
 def test_remove_secondary_requires_existing_category_then_accepts():
@@ -165,12 +165,12 @@ def test_remove_secondary_requires_existing_category_then_accepts():
     # Missing category -> should raise
     e_missing = RemoveSecondaryClassification(creator=s.creator, category="cond-mat.dis-nn")
     with pytest.raises(InvalidEvent):
-        e_missing.validate(s)
+        e_missing.validate_pre_lock(s)
 
     # Add the category, then validate again -> should pass
     s.secondary_classification.append(meta.Classification("cond-mat.dis-nn"))
     e_present = RemoveSecondaryClassification(creator=s.creator, category="cond-mat.dis-nn")
-    e_present.validate(s)
+    e_present.validate_pre_lock(s)
 
 
 def test_finalize_submission_missing_required_fields():
@@ -183,5 +183,5 @@ def test_finalize_submission_missing_required_fields():
     s = _blank_submission()
     e = FinalizeSubmission(creator=s.creator, created=_now())
     with pytest.raises(InvalidEvent):
-        e.apply(s)  # .apply() triggers .validate() internally
+        e.apply(s)  # .apply() triggers .validate_pre_lock() internally
 

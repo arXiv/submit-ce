@@ -66,7 +66,7 @@ from typing import Tuple, List, Optional
 from submit_ce.api.compile_service import CompileService
 from submit_ce.api.email_service import EmailService
 from submit_ce.domain import Submission, Event, License
-from submit_ce.domain.size_limits import SizeLimits
+from submit_ce.domain.size_limits import SIZE_LIMIT_POLICY, SizeLimits
 from submit_ce.api.file_store import SubmissionFileStore
 
 
@@ -78,7 +78,7 @@ class SubmitApi(ABC):
         Defaults to the built-in 50 MB limits. Implementations with access to
         application config (e.g. the Flask implementation) override this to
         honor the configured ``MAX_*_KB`` values."""
-        return SizeLimits.defaults()
+        return SIZE_LIMIT_POLICY
 
     @abstractmethod
     def get(self, submission_id: str) -> Submission:

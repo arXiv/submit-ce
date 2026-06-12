@@ -55,7 +55,7 @@ class TestWithdrawalSubmission(TestCase):
         e = event.RequestWithdrawal(creator=self.user,
                                     created=datetime.now(UTC),
                                     reason="no good")
-        e.validate(self.submission)
+        e.validate_pre_lock(self.submission)
         replacement = e.apply(self.submission)
         self.assertEqual(replacement.arxiv_id, self.submission.arxiv_id)
         self.assertEqual(replacement.version, self.submission.version)
@@ -69,13 +69,13 @@ class TestWithdrawalSubmission(TestCase):
         """A reason is required."""
         e = event.RequestWithdrawal(creator=self.user)
         with self.assertRaises(event.InvalidEvent):
-            e.validate(self.submission)
+            e.validate_pre_lock(self.submission)
 
     def test_request_without_announced_submission(self):
         """The submission must already be announced."""
         e = event.RequestWithdrawal(creator=self.user, reason="no good")
         with self.assertRaises(event.InvalidEvent):
-            e.validate(mock.MagicMock(announced=False))
+            e.validate_pre_lock(mock.MagicMock(announced=False))
 
 
 class TestReplacementSubmission(TestCase):
@@ -239,7 +239,7 @@ class TestSetPrimaryClassification(TestCase):
             category="nonsense"
         )
         with self.assertRaises(InvalidEvent):
-            e.validate(self.submission)    # "Event should not be valid".
+            e.validate_pre_lock(self.submission)    # "Event should not be valid".
 
     def test_set_primary_inactive(self):
         """Category is not from the arXiv taxonomy."""
@@ -249,7 +249,7 @@ class TestSetPrimaryClassification(TestCase):
             category="chao-dyn"
         )
         with self.assertRaises(InvalidEvent):
-            e.validate(self.submission)    # "Event should not be valid".
+            e.validate_pre_lock(self.submission)    # "Event should not be valid".
 
     def test_set_primary_with_valid_category(self):
         """Category is from the arXiv taxonomy."""
@@ -261,12 +261,12 @@ class TestSetPrimaryClassification(TestCase):
             )
             if category in self.user.endorsements:
                 try:
-                    e.validate(self.submission)
+                    e.validate_pre_lock(self.submission)
                 except InvalidEvent as e:
                     self.fail("Event should be valid")
             else:
                 with self.assertRaises(InvalidEvent):
-                    e.validate(self.submission)
+                    e.validate_pre_lock(self.submission)
 
     def test_set_primary_already_secondary(self):
         """Category is already set as a secondary."""
@@ -278,7 +278,7 @@ class TestSetPrimaryClassification(TestCase):
             category='cond-mat.dis-nn'
         )
         with self.assertRaises(InvalidEvent):
-            e.validate(self.submission)    # "Event should not be valid".
+            e.validate_pre_lock(self.submission)    # "Event should not be valid".
 
 
 class TestAddSecondaryClassification(TestCase):
@@ -303,7 +303,7 @@ class TestAddSecondaryClassification(TestCase):
             category="nonsense"
         )
         with self.assertRaises(InvalidEvent):
-            e.validate(self.submission)    # "Event should not be valid".
+            e.validate_pre_lock(self.submission)    # "Event should not be valid".
 
     def test_add_secondary_inactive(self):
         """Category is inactive."""
@@ -313,7 +313,7 @@ class TestAddSecondaryClassification(TestCase):
             category="bayes-an"
         )
         with self.assertRaises(InvalidEvent):
-            e.validate(self.submission)
+            e.validate_pre_lock(self.submission)
 
     def test_add_secondary_with_valid_category(self):
         """Category is from the arXiv taxonomy."""
@@ -324,7 +324,7 @@ class TestAddSecondaryClassification(TestCase):
                 category=category
             )
             try:
-                e.validate(self.submission)
+                e.validate_pre_lock(self.submission)
             except InvalidEvent:
                 if category != 'physics.gen-ph':
                     self.fail("Event should be valid")
@@ -340,7 +340,7 @@ class TestAddSecondaryClassification(TestCase):
             category='cond-mat.dis-nn'
         )
         with self.assertRaises(InvalidEvent):
-            e.validate(self.submission)    # "Event should not be valid".
+            e.validate_pre_lock(self.submission)    # "Event should not be valid".
 
     def test_add_secondary_already_primary(self):
         """Category is already set as primary."""
@@ -353,7 +353,7 @@ class TestAddSecondaryClassification(TestCase):
             category='cond-mat.dis-nn'
         )
         with self.assertRaises(InvalidEvent):
-            e.validate(self.submission)    # "Event should not be valid".
+            e.validate_pre_lock(self.submission)    # "Event should not be valid".
 
     def test_add_general_secondary(self):
         """Category is more general than the existing categories."""
@@ -366,7 +366,7 @@ class TestAddSecondaryClassification(TestCase):
             category='physics.gen-ph'
         )
         with self.assertRaises(InvalidEvent):
-            e.validate(self.submission)    # "Event should not be valid".
+            e.validate_pre_lock(self.submission)    # "Event should not be valid".
 
         classification = submission.Classification('cond-mat.quant-gas')
         self.submission.primary_classification = classification
@@ -379,7 +379,7 @@ class TestAddSecondaryClassification(TestCase):
             category='physics.gen-ph'
         )
         with self.assertRaises(InvalidEvent):
-            e.validate(self.submission)    # "Event should not be valid".
+            e.validate_pre_lock(self.submission)    # "Event should not be valid".
 
     def test_add_specific_secondary(self):
         """Category is more specific than existing general category."""
@@ -392,7 +392,7 @@ class TestAddSecondaryClassification(TestCase):
             category='physics.optics'
         )
         with self.assertRaises(InvalidEvent):
-            e.validate(self.submission)    # "Event should not be valid".
+            e.validate_pre_lock(self.submission)    # "Event should not be valid".
 
         classification = submission.Classification('astro-ph.SR')
         self.submission.primary_classification = classification
@@ -405,7 +405,7 @@ class TestAddSecondaryClassification(TestCase):
             category='physics.optics'
         )
         with self.assertRaises(InvalidEvent):
-            e.validate(self.submission)    # "Event should not be valid".
+            e.validate_pre_lock(self.submission)    # "Event should not be valid".
 
     def test_add_max_secondaries(self):
         """Test max secondaries."""
@@ -421,7 +421,7 @@ class TestAddSecondaryClassification(TestCase):
             submission_id="1",
             category='cond-mat.quant-gas'
         )
-        e1.validate(self.submission)
+        e1.validate_pre_lock(self.submission)
         self.submission.secondary_classification.append(
             submission.Classification('cond-mat.quant-gas'))
 
@@ -433,7 +433,7 @@ class TestAddSecondaryClassification(TestCase):
 
         self.assertEqual(len(self.submission.secondary_classification), 4)
         with self.assertRaises(InvalidEvent):
-            e2.validate(self.submission)    # "Event should not be valid".
+            e2.validate_pre_lock(self.submission)    # "Event should not be valid".
 
 
 class TestRemoveSecondaryClassification(TestCase):
@@ -458,7 +458,7 @@ class TestRemoveSecondaryClassification(TestCase):
             category="nonsense"
         )
         with self.assertRaises(InvalidEvent):
-            e.validate(self.submission)    # "Event should not be valid".
+            e.validate_pre_lock(self.submission)    # "Event should not be valid".
 
     def test_remove_secondary_with_valid_category(self):
         """Category is from the arXiv taxonomy."""
@@ -470,7 +470,7 @@ class TestRemoveSecondaryClassification(TestCase):
             category='cond-mat.dis-nn'
         )
         try:
-            e.validate(self.submission)
+            e.validate_pre_lock(self.submission)
         except InvalidEvent as e:
             self.fail("Event should be valid")
 
@@ -482,7 +482,7 @@ class TestRemoveSecondaryClassification(TestCase):
             category='cond-mat.dis-nn'
         )
         with self.assertRaises(InvalidEvent):
-            e.validate(self.submission)    # "Event should not be valid".
+            e.validate_pre_lock(self.submission)    # "Event should not be valid".
 
 
 class TestSetAuthors(TestCase):
@@ -505,7 +505,7 @@ class TestSetAuthors(TestCase):
                                 authors=[submission.Author()],
                                 authors_display="Foo authors")
         try:
-            e.validate(self.submission)
+            e.validate_pre_lock(self.submission)
         except Exception as e:
             self.fail(str(e), "Data should be valid")
         s = e.project(self.submission)
@@ -528,7 +528,7 @@ class TestSetAuthors(TestCase):
                          "Display string should be generated automagically")
 
         try:
-            e.validate(self.submission)
+            e.validate_pre_lock(self.submission)
         except Exception as e:
             self.fail(str(e), "Data should be valid")
         s = e.project(self.submission)
@@ -553,7 +553,7 @@ class TestSetTitle(TestCase):
         """Title is set to an empty string."""
         e = event.SetTitle(creator=self.user, title='')
         with self.assertRaises(InvalidEvent):
-            e.validate(self.submission)
+            e.validate_pre_lock(self.submission)
 
     # breaks with metacheck (fix arriving soon)
     # def test_reasonable_title(self):
@@ -571,7 +571,7 @@ class TestSetTitle(TestCase):
     #                 .title()
     #             e = event.SetTitle(creator=self.user, title=title)
     #             try:
-    #                 e.validate(self.submission)
+    #                 e.validate_pre_lock(self.submission)
     #             except InvalidEvent as e:
     #                 self.fail(f'Failed to handle title due to {e.message}: "{title}" ')
 
@@ -580,21 +580,21 @@ class TestSetTitle(TestCase):
         title = Text().title()[:240].upper()
         e = event.SetTitle(creator=self.user, title=title)
         with self.assertRaises(InvalidEvent):
-            e.validate(self.submission)
+            e.validate_pre_lock(self.submission)
 
     def test_title_ends_with_period(self):
         """Title ends with a period."""
         title = Text().title()[:239] + "."
         e = event.SetTitle(creator=self.user, title=title)
         with self.assertRaises(InvalidEvent):
-            e.validate(self.submission)
+            e.validate_pre_lock(self.submission)
 
     def test_title_ends_with_ellipsis(self):
         """Title ends with an ellipsis."""
         title = Text().title()[:236] + "..."
         e = event.SetTitle(creator=self.user, title=title)
         try:
-            e.validate(self.submission)
+            e.validate_pre_lock(self.submission)
         except InvalidEvent as e:
             self.fail("Should accept ellipsis")
 
@@ -603,13 +603,13 @@ class TestSetTitle(TestCase):
         title = Text().text(200)    # 200 sentences.
         e = event.SetTitle(creator=self.user, title=title)
         with self.assertRaises(InvalidEvent):
-            e.validate(self.submission)
+            e.validate_pre_lock(self.submission)
 
     def test_title_with_html_escapes(self):
         """Title should not allow HTML escapes."""
         e = event.SetTitle(creator=self.user, title='foo &nbsp; title')
         with self.assertRaises(InvalidEvent):
-            e.validate(self.submission)
+            e.validate_pre_lock(self.submission)
 
 
 class TestSetAbstract(TestCase):
@@ -629,7 +629,7 @@ class TestSetAbstract(TestCase):
         """Abstract is set to an empty string."""
         e = event.SetAbstract(creator=self.user, abstract='')
         with self.assertRaises(InvalidEvent):
-            e.validate(self.submission)
+            e.validate_pre_lock(self.submission)
 
     def test_reasonable_abstract(self):
         """Abstract is set to some reasonable value smaller than 1920 chars."""
@@ -637,7 +637,7 @@ class TestSetAbstract(TestCase):
             abstract = Text(locale="en").text(20)[:1920]
             e = event.SetAbstract(creator=self.user, abstract=abstract)
             try:
-                e.validate(self.submission)
+                e.validate_pre_lock(self.submission)
             except InvalidEvent as e:
                 self.fail(f'Failed to handle abstract due to {e.message}: {abstract}')
 
@@ -648,7 +648,7 @@ class TestSetAbstract(TestCase):
             abstract = Text(locale=locale).text(20)[:1920]
             e = event.SetAbstract(creator=self.user, abstract=abstract)
             try:
-                e.validate(self.submission)
+                e.validate_pre_lock(self.submission)
             except InvalidEvent as e:
                 if "Does not appear to be in English" not in e.message:
                     self.fail(f'Failed to handle abstract due to {e.message}: {abstract}')
@@ -658,7 +658,7 @@ class TestSetAbstract(TestCase):
         abstract = Text().text(200)    # 200 sentences.
         e = event.SetAbstract(creator=self.user, abstract=abstract)
         with self.assertRaises(InvalidEvent):
-            e.validate(self.submission)
+            e.validate_pre_lock(self.submission)
 
 
 class TestSetDOI(TestCase):
@@ -679,7 +679,7 @@ class TestSetDOI(TestCase):
         doi = ""
         e = event.SetDOI(creator=self.user, doi=doi)
         try:
-            e.validate(self.submission)
+            e.validate_pre_lock(self.submission)
         except InvalidEvent as e:
             self.fail('Failed to handle valid DOI: %s' % e)
 
@@ -688,7 +688,7 @@ class TestSetDOI(TestCase):
         doi = "10.1016/S0550-3213(01)00405-9"
         e = event.SetDOI(creator=self.user, doi=doi)
         try:
-            e.validate(self.submission)
+            e.validate_pre_lock(self.submission)
         except InvalidEvent as e:
             self.fail('Failed to handle valid DOI: %s' % e)
 
@@ -698,7 +698,7 @@ class TestSetDOI(TestCase):
     #     doi = "10.1016/S0550-3213(01)00405-9, 10.1016/S0550-3213(01)00405-8"
     #     e = event.SetDOI(creator=self.user, doi=doi)
     #     try:
-    #         e.validate(self.submission)
+    #         e.validate_pre_lock(self.submission)
     #     except InvalidEvent as e:
     #         self.fail(f'Failed to handle valid DOI {e.message}: {doi}')
 
@@ -707,7 +707,7 @@ class TestSetDOI(TestCase):
         not_a_doi = "101016S0550-3213(01)00405-9"
         e = event.SetDOI(creator=self.user, doi=not_a_doi)
         with self.assertRaises(InvalidEvent):
-            e.validate(self.submission)
+            e.validate_pre_lock(self.submission)
 
 
 class TestSetReportNumber(TestCase):
@@ -761,7 +761,7 @@ class TestSetReportNumber(TestCase):
         for value in values:
             try:
                 e = event.SetReportNumber(creator=self.user, report_num=value)
-                e.validate(self.submission)
+                e.validate_pre_lock(self.submission)
             except InvalidEvent as e:
                 self.fail(f'failed report number {e.message}: {value}')
 
@@ -773,7 +773,7 @@ class TestSetReportNumber(TestCase):
         for value in values:
             with self.assertRaises(InvalidEvent):
                 e = event.SetReportNumber(creator=self.user, report_num=value)
-                e.validate(self.submission)
+                e.validate_pre_lock(self.submission)
 
 
 class TestSetJournalReference(TestCase):
@@ -818,7 +818,7 @@ class TestSetJournalReference(TestCase):
             try:
                 e = event.SetJournalReference(creator=self.user,
                                               journal_ref=value)
-                e.validate(self.submission)
+                e.validate_pre_lock(self.submission)
             except InvalidEvent as e:
                 self.fail(f'Failed {e.message} {value}')
 
@@ -834,7 +834,7 @@ class TestSetJournalReference(TestCase):
     #         with self.assertRaises(InvalidEvent):
     #             e = event.SetJournalReference(creator=self.user,
     #                                           journal_ref=value)
-    #             e.validate(self.submission)
+    #             e.validate_pre_lock(self.submission)
 
 
 class TestSetACMClassification(TestCase):
@@ -879,7 +879,7 @@ class TestSetACMClassification(TestCase):
             try:
                 e = event.SetACMClassification(creator=self.user,
                                                acm_class=value)
-                e.validate(self.submission)
+                e.validate_pre_lock(self.submission)
             except InvalidEvent as e:
                 self.fail('Failed to handle %s: %s' % (value, e))
 
@@ -925,7 +925,7 @@ class TestSetMSCClassification(TestCase):
             try:
                 e = event.SetMSCClassification(creator=self.user,
                                                msc_class=value)
-                e.validate(self.submission)
+                e.validate_pre_lock(self.submission)
             except InvalidEvent as e:
                 self.fail('Failed to handle %s: %s' % (value, e))
 
@@ -947,7 +947,7 @@ class TestSetComments(TestCase):
         """Comment is set to an empty string."""
         e = event.SetComments(creator=self.user, comments='')
         try:
-            e.validate(self.submission)
+            e.validate_pre_lock(self.submission)
         except InvalidEvent as e:
             self.fail('Failed to handle empty comments')
 
@@ -957,7 +957,7 @@ class TestSetComments(TestCase):
     #         comments = Text(locale=locale).text(20)[:400]
     #         e = event.SetComments(creator=self.user, comments=comments)
     #         try:
-    #             e.validate(self.submission)
+    #             e.validate_pre_lock(self.submission)
     #         except InvalidEvent as e:
     #             self.fail(f'Failed to handle comment {e.message}: {comments}')
 
@@ -971,7 +971,7 @@ class TestSetComments(TestCase):
     #     assert res.disposition != metacheck.OK
     #     e = event.SetComments(creator=self.user, comments=comments)
     #     with self.assertRaises(InvalidEvent):
-    #         e.validate(self.submission)
+    #         e.validate_pre_lock(self.submission)
 
 
 # Locales supported by mimesis.

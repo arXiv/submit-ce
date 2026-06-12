@@ -80,7 +80,7 @@ def test_confirm_preview_fails_when_no_preview():
     s = _working_submission()
     e = ConfirmPreview(creator=s.creator, created=_now(), preview_checksum="abc123")
     with pytest.raises(InvalidEvent):
-        e.validate(s)
+        e.validate_pre_lock(s)
 
 def test_confirm_preview_fails_on_checksum_mismatch():
     """
@@ -96,7 +96,7 @@ def test_confirm_preview_fails_on_checksum_mismatch():
     )
     e = ConfirmPreview(creator=s.creator, created=_now(), preview_checksum="WRONG")
     with pytest.raises(InvalidEvent):
-        e.validate(s)
+        e.validate_pre_lock(s)
 
 def test_confirm_preview_succeeds_on_checksum_match_sets_flag():
     """
@@ -112,7 +112,7 @@ def test_confirm_preview_succeeds_on_checksum_match_sets_flag():
     )
     e = ConfirmPreview(creator=s.creator, created=_now(), preview_checksum="MATCH")
     # validate should not raise
-    e.validate(s)
+    e.validate_pre_lock(s)
     # apply should toggle the flag
     after = e.apply(s)
     assert after.submitter_confirmed_preview is True
@@ -129,7 +129,7 @@ def test_create_submission_version_rejects_unannounced():
     s = _working_submission()
     e = CreateSubmissionVersion(creator=s.creator, created=_now())
     with pytest.raises(InvalidEvent):
-        e.validate(s)
+        e.validate_pre_lock(s)
 
 def test_create_submission_version_succeeds_when_announced():
     """
@@ -139,7 +139,7 @@ def test_create_submission_version_succeeds_when_announced():
     s = _announced_submission()
     e = CreateSubmissionVersion(creator=s.creator, created=_now())
     # validate should not raise
-    e.validate(s)
+    e.validate_pre_lock(s)
     # apply should move to a new version and set status to WORKING
     after = e.apply(s)
     assert after.version == s.version + 1
@@ -154,7 +154,7 @@ def test_finalize_missing_required_fields():
     s = _working_submission()
     e = FinalizeSubmission(creator=s.creator)
     with pytest.raises(InvalidEvent):
-        e.validate(s)  # REQUIRED / REQUIRED_METADATA guard
+        e.validate_pre_lock(s)  # REQUIRED / REQUIRED_METADATA guard
 
 # -------------------------------------------------------
 # RemoveSecondaryClassification
@@ -164,7 +164,7 @@ def test_remove_secondary_missing_fails():
     # category not yet added → _must_already_be_present should fail
     e = RemoveSecondaryClassification(creator=s.creator, category="cs.AI")
     with pytest.raises(InvalidEvent):
-        e.validate(s)  # "No such category on submission"
+        e.validate_pre_lock(s)  # "No such category on submission"
 
 # -------------------------------------------------------
 # Rollback: version==1 -> delete; version>1 with history -> revert
@@ -174,7 +174,7 @@ def test_rollback_invalid_when_announced():
     s = _announced_submission()
     e = Rollback(creator=s.creator)
     with pytest.raises(InvalidEvent):
-        e.validate(s)  # "Cannot already be announced"
+        e.validate_pre_lock(s)  # "Cannot already be announced"
 
 def test_rollback_on_first_version_deletes_submission():
     """
@@ -184,7 +184,7 @@ def test_rollback_on_first_version_deletes_submission():
     s.version = 1
     e = Rollback(creator=s.creator, created=_now())
     # validate: requires unannounced (is true for working)
-    e.validate(s)
+    e.validate_pre_lock(s)
     after = e.apply(s)
     assert after.status == submod.Submission.DELETED
 
@@ -200,7 +200,7 @@ def test_rollback_to_previous_announced_version():
     s.versions = [copy.deepcopy(s)]
     s.versions[0].status = submod.Submission.ANNOUNCED
     e = Rollback(creator=s.creator, created=_now())
-    e.validate(s)
+    e.validate_pre_lock(s)
     after = e.apply(s)
     # Should have decremented version and restored announced status
     assert after.version == 1
@@ -211,7 +211,7 @@ def test_rollback_version1_sets_deleted():
     s.version = 1
     s.status = Submission.WORKING
     e = Rollback(creator=s.creator)
-    e.validate(s)
+    e.validate_pre_lock(s)
     out = e.project(s)
     assert out.status == Submission.DELETED
 
@@ -222,12 +222,12 @@ def test_abstract_too_short_fails():
     s = _working_submission()
     e = SetAbstract(creator=s.creator, abstract="short")
     with pytest.raises(InvalidEvent):
-        e.validate(s)  # MIN_LENGTH branch
+        e.validate_pre_lock(s)  # MIN_LENGTH branch
 
 def test_abstract_valid_passes():
     s = _working_submission()
     e = SetAbstract(creator=s.creator, abstract="This abstract is just long enough")
-    e.validate(s)
+    e.validate_pre_lock(s)
     s2 = e.project(s)
     assert s2.metadata.abstract == "This abstract is just long enough"
 
@@ -238,7 +238,7 @@ def test_license_requires_url():
     s = _working_submission()
     e = SetLicense(creator=s.creator, license_name="CC BY 4.0", license_uri="")
     with pytest.raises(InvalidEvent):
-        e.validate(
+        e.validate_pre_lock(
             s)  # "License must have a URL"
 
 def test_license_valid_url():
@@ -246,7 +246,7 @@ def test_license_valid_url():
     s = _working_submission()
     e = SetLicense(creator=s.creator, license_name="CC BY 4.0",
                    license_uri="http://creativecommons.org/licenses/by/4.0/")
-    e.validate(s)  # passes if LICENSES marks it current
+    e.validate_pre_lock(s)  # passes if LICENSES marks it current
 
 # -------------------------------------------------------
 # SetReportNumber: invalid vs. valid formats
@@ -259,7 +259,7 @@ def test_set_report_number_rejects_invalid_value():
     s = _working_submission()
     e = SetReportNumber(creator=s.creator, report_num="not a report number")
     with pytest.raises(InvalidEvent):
-        e.validate(s)
+        e.validate_pre_lock(s)
 
 def test_set_report_number_accepts_common_formats():
     """
@@ -268,7 +268,7 @@ def test_set_report_number_accepts_common_formats():
     s = _working_submission()
     e = SetReportNumber(creator=s.creator, report_num="CORNELL-1003-1130")
     # Should not raise
-    e.validate(s)
+    e.validate_pre_lock(s)
     after = e.apply(s)
     assert after.metadata.report_num == "CORNELL-1003-1130"
 
@@ -279,16 +279,16 @@ def test_title_allows_basic_tags():
     s = _working_submission()
     e = SetTitle(creator=s.creator, title="Hello<br>World")
     with pytest.raises(InvalidEvent):
-        e.validate(s)  # No HTML tags are allowed
+        e.validate_pre_lock(s)  # No HTML tags are allowed
 
 def test_title_rejects_disallowed_html():
     s = _working_submission()
     e = SetTitle(creator=s.creator, title="<script>alert(1)</script>")
     with pytest.raises(InvalidEvent):
-        e.validate(s)  # _check_for_html branch
+        e.validate_pre_lock(s)  # _check_for_html branch
 
 def test_title_trailing_period_rule():
     s = _working_submission()
     e = SetTitle(creator=s.creator, title="Hello world.")
     with pytest.raises(InvalidEvent):
-        e.validate(s)  # validators.no_trailing_period
+        e.validate_pre_lock(s)  # validators.no_trailing_period

@@ -193,7 +193,15 @@ class LegacySubmitImplementation(SubmitApi):
         """Internal save for when submission is already read from the db."""
         before = submission
         committed: List[Event] = []
-        for event in events:
+        # A work-queue since events may imply consequent events (see
+        # Event.consequences) that need to be processed in this same locked
+        # session/transaction. They are inserted at the front of the queue so a
+        # consequence applies to the state immediately after its parent, before
+        # any remaining sibling events. The consequence type-graph is acyclic
+        # (enforced by test), so this terminates.
+        queue: List[Event] = list(events)
+        while queue:
+            event = queue.pop(0)
             if event.submission_id is None and before and before.submission_id is not None:
                 event.submission_id = before.submission_id
 
@@ -208,8 +216,9 @@ class LegacySubmitImplementation(SubmitApi):
                 # validate_under_lock runs inside the locked
                 # transaction so it can inspect on-disk / FileStore
                 # state without racing against another writer. Raising
-                # InvalidEvent here rolls the transaction back; the
-                # caller's `except InvalidEvent` decides UX.
+                # InvalidEvent here rolls the DB transaction back.
+                # Any earlier EventWithSideEffect.execute() is not rolled back.
+                # The caller's `except InvalidEvent` decides UX.
                 event.validate_under_lock(self, before)
                 logger.debug('Execute event %s: %s', event.event_id, event.NAME)
                 event.execute(self, before)
@@ -223,6 +232,10 @@ class LegacySubmitImplementation(SubmitApi):
                 committed.append(consequent_event)
 
             before = after  # Prepare for the next event.
+
+            # Queue any follow-on events implied by this one, given the new state.
+            for consequence in reversed(event.get_consequences(after)):
+                queue.insert(0, consequence)
 
         all_ = sorted(existing_events + committed, key=lambda e: e.created)
         session.commit()

@@ -7,6 +7,7 @@ import httpx
 from flask import current_app
 from arxiv.auth.domain import Session
 from arxiv.base import alerts
+from markupsafe import Markup
 from submit_ce.domain.event.process import (
     SetDecisions,
     SetDirectivesAndCleanup,
@@ -169,8 +170,17 @@ def review_files(method: str, params: MultiDict, session: Session,
         )
 
         if preflight_data is None:
+            # Preflight is what populates compiler choices, top-level TeX
+            # candidates, and per-file usage notes. Without it, the form
+            # below has nothing to render -- the template hides the form
+            # sections when file_notes is empty and surfaces this flash
+            # message + the main-area placeholder instead.
             alerts.flash_warning(
-                f"We couldn't load preflight data for this submission. {SUPPORT}",
+                Markup(
+                    "We couldn't analyze the files in your submission "
+                    "right now because the preflight service is "
+                    "temporarily unavailable. Please refresh this page "
+                    "to try again. ") + SUPPORT,
                 title="Preflight unavailable")
             return stay_on_this_stage((rdata, status.OK, {}))
 
@@ -319,7 +329,19 @@ def _load_or_create_preflight(
         except InvalidEvent:
             pass  # nothing actionable in cleanup is fine
 
-        start_preflight(params, session, submission_id, token)
+        # Preflight calls into the external tex2pdf service; that service
+        # may be unreachable (local dev without the service running, a
+        # transient outage in production, etc.). If it fails, log and
+        # continue with preflight_data=None -- review_files() already has
+        # a clean handler for that case (flashes "Preflight unavailable"
+        # and stays on this stage) instead of bubbling up as a 500.
+        try:
+            start_preflight(params, session, submission_id, token)
+        except Exception as exc:
+            logger.warning(
+                "Could not run preflight for submission %s: %s",
+                submission_id, exc,
+            )
         preflight_data = _get_preflight_data(submission_id)
         _store_source_format(preflight_data, session, submission_id)
 

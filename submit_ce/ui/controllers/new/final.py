@@ -36,6 +36,24 @@ def finalize(method: str, params: MultiDict, session: Session,
 
     form = FinalizationForm(params)
 
+    # Check whether a preview PDF actually exists in the bucket. The
+    # persisted submitter_confirmed_preview flag can drift from file-store
+    # reality (e.g., a PDF was removed out-of-band, a file-change event
+    # missed resetting the flag, or in dev when state is manipulated
+    # directly). The Confirm page should gate Submit on what's actually
+    # in the bucket, not just the persisted flag, so an absent PDF can
+    # never produce an enabled Submit button.
+    fstore = current_app.api.get_file_store()
+    preview_exists = fstore.does_preview_exist(str(submission_id))
+    preview_ready = bool(submission.submitter_confirmed_preview
+                         and preview_exists)
+    logger.info(
+        "finalize: submission=%s confirmed_preview=%s preview_exists=%s "
+        "preview_ready=%s",
+        submission_id, submission.submitter_confirmed_preview,
+        preview_exists, preview_ready,
+    )
+
     # The abs preview macro expects a specific struct for submission history.
     # TODO submission.versions removed, what do do in final?
     # submission_history = [{'submitted_date': s.created, 'version': s.version}
@@ -47,11 +65,24 @@ def finalize(method: str, params: MultiDict, session: Session,
         'submission': submission,
         'submitter': submitter,
         'submission_history': submission_history,
+        'preview_ready': preview_ready,
+        'preview_exists': preview_exists,
     }
+
+    # Only treat this POST as an actual submit attempt when the form's
+    # "next" action was used. The Confirm form is shared by the nav bar's
+    # "Go Back" and "Save & Exit" buttons too -- those also POST the form
+    # (so the CSRF token comes along) but they're navigation actions, not
+    # the submit action. If the user has the proofread checkbox ticked and
+    # then clicks Go Back, we must NOT fire FinalizeSubmission; flow_control
+    # is supposed to redirect them to the previous step instead.
+    action = (params.get('action') or '').strip()
+    is_submit_action = action == 'next'
 
     command = FinalizeSubmission(creator=submitter)
     proofread_confirmed = form.proceed.data
-    if method == 'POST' and form.validate() \
+    if method == 'POST' and is_submit_action \
+       and form.validate() \
        and proofread_confirmed \
        and validate_command(form, command, submission):
         try:

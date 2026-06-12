@@ -27,7 +27,12 @@ def test_review_files_get_warning_via_http(app, authorized_client, sub_files_tex
 
     assert resp.status_code == status.OK
     assert mock_flash.called
-    assert "couldn't load preflight data" in mock_flash.call_args[0][0]
+    # Flash text changed when the page was redesigned to show a clearer
+    # placeholder instead of bare empty form controls. Assert on the
+    # title and a stable substring of the body.
+    assert mock_flash.call_args[1].get('title') == 'Preflight unavailable'
+    assert "preflight service is temporarily unavailable" in str(
+        mock_flash.call_args[0][0])
 
 
 
@@ -57,9 +62,22 @@ def test_review_files_unsupported_method_raises(mocker):
 
 
 def _get_csrf(authorized_client, url, mocker):
-    """GET the review page (with preflight stubbed out) and pull the CSRF token."""
-    mocker.patch.object(review, '_load_or_create_preflight',
-                        return_value=(None, None))
+    """GET the review page and pull the CSRF token.
+
+    Stubs preflight + file_notes so the form (including csrf_token)
+    actually renders. The Review Files template hides the form (and
+    its csrf_token) when file_notes is empty -- see review_files.html.
+    Tests that use this helper aren't checking the no-preflight branch,
+    they just need a CSRF for a subsequent POST.
+    """
+    mocker.patch.object(
+        review, '_load_or_create_preflight',
+        return_value=({'tex_files': [],
+                       'detected_toplevel_files': []}, None))
+    # file_notes is consumed by the template's group_preflight_files
+    # filter, which expects a list of dicts each carrying a 'filename'.
+    mocker.patch.object(review.dm, 'get_files_from_preflight',
+                        return_value=[{'filename': 'paper.tex'}])
     resp = authorized_client.get(url)
     return parse_csrf_token(resp)
 
