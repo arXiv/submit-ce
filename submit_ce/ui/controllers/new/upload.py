@@ -21,7 +21,6 @@ from fastapi.exceptions import HTTPException
 from flask import current_app
 from arxiv.auth.domain import Session
 from arxiv.base import alerts
-from arxiv.base.filters import tidy_filesize
 from arxiv.forms import csrf
 from markupsafe import Markup
 from werkzeug.datastructures import FileStorage
@@ -39,7 +38,9 @@ from submit_ce.domain.event.file import UploadArchive, UploadFiles
 from submit_ce.domain.submission import Submission
 from submit_ce.domain.uploads import SourceFormat
 from submit_ce.domain.uploads import Workspace, FileStatus, UploadStatus, is_file_tgz, is_file_zip
+from submit_ce.domain import size_limits
 
+from submit_ce.ui.filters import iec_filesize
 from submit_ce.ui.auth import user_and_client_from_session
 from submit_ce.ui.controllers.util import add_immediate_alert, validate_command
 from submit_ce.ui.routes.flow_control import ready_for_next, stay_on_this_stage
@@ -260,11 +261,12 @@ def _flash_oversize_warning(submission: Submission) -> None:
     if not submission.is_oversize:
         return
     alerts.flash_warning(
-        Markup(
-            'This submission exceeds the arXiv size guideline. You can still '
-            'submit, but it will be placed on hold for moderator review. See '
-            '<a href="/help/sizes">arxiv.org/help/sizes</a> for ways to reduce '
-            'the size, or to request a size exception.'),
+        Markup(f'This submission exceeds the {iec_filesize(size_limits.DEFAULT_MAX_SIZE_BYTES)} arXiv '
+               'size guideline.'
+               'Please consider reducing the size of the files to ensure your paper can be accessed by readers. '
+               'If the size of the files are necessary to present the work then please continue with '
+               'the submission steps and click the "Process" button. '
+               'For more information, please read about <a href="/help/sizes">Oversized Submissions</a>.'),
         title='Submission is oversize')
 
 
@@ -277,7 +279,7 @@ def _upload_archive(form: AddfilesForm, file: FileStorage,
     validate_command(form, command, submission, 'file')  # raises on invalid
     submission, _ = current_app.api.save(command, submission_id=submission.submission_id)
     workspace = current_app.api.get_file_store().get_workspace(submission_id=str(submission.submission_id))
-    converted_size = tidy_filesize(workspace.size)
+    converted_size = iec_filesize(workspace.size)
 
     inferred = _infer_source_format(workspace.files)
     if submission.source_format != inferred:
@@ -320,7 +322,7 @@ def _upload_files(form: AddfilesForm, file: FileStorage,
     validate_command(form, command, submission, 'file')
     submission, _ = current_app.api.save(command, submission_id=submission.submission_id)
     workspace = current_app.api.get_file_store().get_workspace(submission_id=str(submission.submission_id))
-    converted_size = tidy_filesize(workspace.size)
+    converted_size = iec_filesize(workspace.size)
 
     inferred = _infer_source_format(workspace.files)
     if submission.source_format != inferred:

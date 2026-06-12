@@ -21,9 +21,10 @@ def test_normal_upload_not_oversize(sub_files):
 
 
 def test_oversize_flag_persists_on_event(app, sub_files_oversize):
-    """The event's oversize flag round-trips through the event history."""
+    """The event's oversize reasons round-trip through the event history."""
     with app.app_context():
         _, history = current_app.api.get_with_history(
             str(sub_files_oversize.submission_id))
         uploads = [e for e in history if isinstance(e, UploadFiles)]
-        assert uploads and uploads[-1].oversize is True
+        assert uploads and uploads[-1].oversize
+        assert uploads[-1].oversize[0].kind == "TOTAL"

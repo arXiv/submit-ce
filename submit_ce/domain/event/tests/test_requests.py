@@ -44,14 +44,14 @@ class TestRequestEvents(unittest.TestCase):
         
         # Test valid approval
         e = ApproveRequest(creator=self.user, request_id=request_id)
-        e.validate(self.submission)
+        e.validate_pre_lock(self.submission)
         updated_submission = e.project(self.submission)
         self.assertEqual(updated_submission.user_requests[request_id].status, UserRequest.APPROVED)
 
         # Test invalid approval (non-existent request)
         e_invalid = ApproveRequest(creator=self.user, request_id="nonexistent")
         with self.assertRaises(InvalidEvent):
-            e_invalid.validate(self.submission)
+            e_invalid.validate_pre_lock(self.submission)
 
     def test_reject_request(self):
         """Test RejectRequest validation and projection."""
@@ -66,14 +66,14 @@ class TestRequestEvents(unittest.TestCase):
         
         # Test valid rejection
         e = RejectRequest(creator=self.user, request_id=request_id)
-        e.validate(self.submission)
+        e.validate_pre_lock(self.submission)
         updated_submission = e.project(self.submission)
         self.assertEqual(updated_submission.user_requests[request_id].status, UserRequest.REJECTED)
 
         # Test invalid rejection (non-existent request)
         e_invalid = RejectRequest(creator=self.user, request_id="nonexistent")
         with self.assertRaises(InvalidEvent):
-            e_invalid.validate(self.submission)
+            e_invalid.validate_pre_lock(self.submission)
 
     def test_cancel_request(self):
         """Test CancelRequest validation and projection."""
@@ -88,14 +88,14 @@ class TestRequestEvents(unittest.TestCase):
         
         # Test valid cancellation
         e = CancelRequest(creator=self.user, request_id=request_id)
-        e.validate(self.submission)
+        e.validate_pre_lock(self.submission)
         updated_submission = e.project(self.submission)
         self.assertEqual(updated_submission.user_requests[request_id].status, UserRequest.CANCELLED)
 
         # Test invalid cancellation (non-existent request)
         e_invalid = CancelRequest(creator=self.user, request_id="nonexistent")
         with self.assertRaises(InvalidEvent):
-            e_invalid.validate(self.submission)
+            e_invalid.validate_pre_lock(self.submission)
 
     def test_apply_request(self):
         """Test ApplyRequest validation and projection."""
@@ -117,7 +117,7 @@ class TestRequestEvents(unittest.TestCase):
         
         # Test valid application
         e = ApplyRequest(creator=self.user, request_id=request_id)
-        e.validate(self.submission)
+        e.validate_pre_lock(self.submission)
         updated_submission = e.project(self.submission)
         self.assertEqual(updated_submission.user_requests[request_id].status, UserRequest.APPLIED)
         self.assertEqual(updated_submission.metadata.title, "Updated Title")
@@ -125,7 +125,7 @@ class TestRequestEvents(unittest.TestCase):
         # Test invalid application (non-existent request)
         e_invalid = ApplyRequest(creator=self.user, request_id="nonexistent")
         with self.assertRaises(InvalidEvent):
-            e_invalid.validate(self.submission)
+            e_invalid.validate_pre_lock(self.submission)
 
     def test_request_crosslist(self):
         """Test RequestCrossList validation and projection."""
@@ -136,7 +136,7 @@ class TestRequestEvents(unittest.TestCase):
         # Test valid crosslist request
         created = datetime.now(UTC)
         e = RequestCrossList(creator=self.user, created=created, categories=["astro-ph.GA"])
-        e.validate(self.submission)
+        e.validate_pre_lock(self.submission)
         updated_submission = e.project(self.submission)
         
         self.assertEqual(len(updated_submission.user_requests), 1)
@@ -150,14 +150,14 @@ class TestRequestEvents(unittest.TestCase):
         # Test invalid: not announced
         self.submission.status = Submission.WORKING
         with self.assertRaises(InvalidEvent) as cm:
-            e.validate(self.submission)
+            e.validate_pre_lock(self.submission)
         self.assertIn("Submission must already be announced", str(cm.exception))
         self.submission.status = Submission.ANNOUNCED
 
         # Test invalid: already primary
         e_bad = RequestCrossList(creator=self.user, categories=["physics.gen-ph"])
         with self.assertRaises(InvalidEvent):
-            e_bad.validate(self.submission)
+            e_bad.validate_pre_lock(self.submission)
 
     def test_request_withdrawal(self):
         """Test RequestWithdrawal validation and projection."""
@@ -167,7 +167,7 @@ class TestRequestEvents(unittest.TestCase):
         # Test valid withdrawal request
         created = datetime.now(UTC)
         e = RequestWithdrawal(creator=self.user, created=created, reason="Too many typos")
-        e.validate(self.submission)
+        e.validate_pre_lock(self.submission)
         updated_submission = e.project(self.submission)
         
         self.assertEqual(len(updated_submission.user_requests), 1)
@@ -181,18 +181,18 @@ class TestRequestEvents(unittest.TestCase):
         # Test invalid: no reason
         e_no_reason = RequestWithdrawal(creator=self.user, reason="")
         with self.assertRaises(InvalidEvent) as cm:
-            e_no_reason.validate(self.submission)
+            e_no_reason.validate_pre_lock(self.submission)
         self.assertIn("Provide a reason", str(cm.exception))
 
         # Test invalid: reason too long
         e_long_reason = RequestWithdrawal(creator=self.user, reason="a" * 401)
         with self.assertRaises(InvalidEvent) as cm:
-            e_long_reason.validate(self.submission)
+            e_long_reason.validate_pre_lock(self.submission)
         self.assertIn("400 characters or less", str(cm.exception))
 
         # Test invalid: not announced
         self.submission.status = Submission.WORKING
         e_valid_reason = RequestWithdrawal(creator=self.user, reason="valid")
         with self.assertRaises(InvalidEvent) as cm:
-            e_valid_reason.validate(self.submission)
+            e_valid_reason.validate_pre_lock(self.submission)
         self.assertIn("Submission must already be announced", str(cm.exception))
