@@ -18,10 +18,12 @@ class FlaskSubmitImplementation(LegacySubmitImplementation):
     def __init__(self,
                  store,
                  compiler,
+                 email_service=None,
     ):
         store = store
         compiler = compiler or CompileApiService()
-        super().__init__(store=store, compiler=compiler)
+        super().__init__(store=store, compiler=compiler,
+                         email_service=email_service)
         self.get_session = flask_get_session
 
     def get_size_limits(self) -> SizeLimits:
