@@ -1011,11 +1011,10 @@ class FinalizeSubmission(Event):
                                   submission_id=submission.submission_id,
                                   hold_type=Hold.Type.SOURCE_OVERSIZE,
                                   hold_reason="source is oversize"))
-        # submission_id is str-typed on Event; some load paths surface it as
-        # an int, so coerce.
         sid = submission.submission_id
         events.append(EmailSubmitterFinalizeMsg(
             creator=System(name=__name__),
+            email_to=self.creator,
             submission_id=str(sid) if sid is not None else None))
         return events
 

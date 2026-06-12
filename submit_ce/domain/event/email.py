@@ -8,12 +8,11 @@ TODO the ``auto_hold`` override,
 
 TODO ``Re:`` resubmit threading,
 
-TODO proxy/admin recipient resolution,
-
 TODO the full ``write_to_string`` abstract block
 """
 from typing import Optional, TYPE_CHECKING
 
+from ..agent import ServiceAgent, System, User
 from ..submission import Submission
 from .base import EventWithSideEffect
 
@@ -29,7 +28,6 @@ logger = logging.getLogger(__name__)
 # body"). The dashboard URL comes from SubmitConfig.
 #
 # TODO: parameterize the "20:00 ET" schedule text via config
-# TODO: parameterize the THIS_SITE too
 
 _NEW_SUBMISSION_BODY = """\
 Dear {name},
@@ -57,6 +55,30 @@ Title: {title}
 # abstract block (title/authors/abstract/comments/categories).
 
 
+def submitter_recipient(user: User) -> tuple[str, str]:
+    """Resolve the ``(name, email)`` the confirmation email is sent to.
+
+    ``user`` is the agent the email is addressed to -- in practice the
+    ``creator`` of the :class:`.EmailSubmitterFinalizeMsg` event, which is the
+    user that performed the ``FinalizeSubmission``. So the person doing the
+    Finalize is the one who gets the email.
+
+    If the normal submitter performs Finalize they will get the email.
+
+    If an admin performs Finalize they will get the email.
+
+    If CCSD performs Finalize CCSD will get the email eventhough they put a
+    proxy on the submission.
+    """
+    match user:
+        case System():
+            return "", ""
+        case ServiceAgent():
+            return user.email, user.email
+        case _:
+            return user.name, user.email
+
+
 class EmailSubmitterFinalizeMsg(EventWithSideEffect):
     """Send the submitter the on-submit confirmation email.
 
@@ -69,6 +91,9 @@ class EmailSubmitterFinalizeMsg(EventWithSideEffect):
     NAME = "email submitter on finalize"
     NAMED = "submitter finalize email sent"
 
+    email_to: User
+    """User who should get the email. Should be the creator of the `FinalizeSubmission` event."""
+
     error: Optional[str] = None
     """Set if the email could not be sent; the submit still succeeds."""
 
@@ -78,24 +103,40 @@ class EmailSubmitterFinalizeMsg(EventWithSideEffect):
 
     def execute(self, api: 'SubmitApi', submission: Submission) -> None:
         """Compose and send the confirmation email. Never raises."""
-        service = api.get_email_service()
-        if service is None or not service.is_available():
-            self.error = "email service unavailable; no confirmation sent"
-            logger.warning("Submission %s: %s", submission.submission_id,
-                           self.error)
-            return
-
-        config = api.get_config()
-        subject = f"arXiv submission {submission.submission_id}"
-        body = _NEW_SUBMISSION_BODY.format(
-            name=submission.contact_name,
-            submission_id=submission.submission_id,
-            title=submission.metadata.title or "",
-            dashboard_url=config.url_for_user_dashboard,
-        )
         try:
+            if isinstance(self.email_to, System):
+                # System actor: there is no one to email. Intentionally skip;
+                logger.info("Submission %s: System actor, no confirmation "
+                            "email sent", submission.submission_id)
+                return
+
+            to_name, to_email = submitter_recipient(self.email_to)
+            if not to_email:
+                # A real user with no email address; record it (not fatal).
+                name = getattr(self.email_to, "name", "")
+                self.error = (f"No email for user of type {type(self.email_to)} "
+                              f"name '{name}'")
+                logger.warning("Submission %s: %s", submission.submission_id,
+                               self.error)
+                return
+
+            service = api.get_email_service()
+            if service is None or not service.is_available():
+                self.error = "email not configured or unavailable, no confirmation sent"
+                logger.warning("Submission %s: %s", submission.submission_id,
+                               self.error)
+                return
+
+            config = api.get_config()
+            subject = f"arXiv submission {submission.submission_id}"
+            body = _NEW_SUBMISSION_BODY.format(
+                name=to_name,
+                submission_id=submission.submission_id,
+                title=submission.metadata.title or "",
+                dashboard_url=config.url_for_user_dashboard,
+            )
             service.send_email(
-                to=[submission.contact_email],
+                to=[to_email],
                 subject=subject,
                 body=body,
                 reply_to=config.email_reply_to,

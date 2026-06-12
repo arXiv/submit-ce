@@ -12,13 +12,18 @@ from submit_ce.domain import agent
 from submit_ce.domain.meta import Classification
 from submit_ce.domain.config import SubmitConfig
 from submit_ce.domain.event import EmailSubmitterFinalizeMsg
+from submit_ce.domain.event.email import submitter_recipient
 from submit_ce.domain.submission import Submission, SubmissionMetadata
 from submit_ce.implementations.email.email_in_memory import EmailInMemory
 
 
+def _user():
+    return agent.PublicUser(name="Test User", user_id="u1",
+                            email="submitter@example.org", endorsements=[])
+
+
 def _submission():
-    u = agent.PublicUser(name="Test User", user_id="u1",
-                         email="submitter@example.org", endorsements=[])
+    u = _user()
     return Submission(
         submission_id="12345",
         creator=u, owner=u, created=datetime.now(UTC),
@@ -29,6 +34,7 @@ def _submission():
 def _event():
     return EmailSubmitterFinalizeMsg(
         creator=agent.System(name="test"),
+        email_to=_user(),
         submission_id="12345",
         created=datetime.now(UTC))
 
@@ -76,7 +82,7 @@ def test_execute_with_no_service_records_error_and_does_not_raise():
     event = _event()
     event.execute(_Api(None), _submission())
     assert event.error is not None
-    assert "unavailable" in event.error
+    assert "not configured" in event.error
 
 
 def test_execute_with_unavailable_service_does_not_send():
@@ -99,6 +105,33 @@ def test_execute_swallows_send_failure():
     assert "smtp boom" in event.error
 
 
+def test_execute_system_recipient_skips_send_without_error():
+    """A System actor has no email address: skip the send, but it's not an error."""
+    service = EmailInMemory()
+    event = EmailSubmitterFinalizeMsg(
+        creator=agent.System(name="sys"),
+        email_to=agent.System(name="sys"),
+        submission_id="12345",
+        created=datetime.now(UTC))
+    event.execute(_Api(service), _submission())
+    assert len(service.sent) == 0
+    assert event.error is None
+
+
 def test_project_is_noop():
     sub = _submission()
     assert _event().project(sub) is sub
+
+
+# --- recipient resolution (submitter_recipient) ---
+
+def test_submitter_recipient_returns_user_name_and_email():
+    """The recipient is the given user's name and email (the finalizer)."""
+    assert submitter_recipient(_user()) == ("Test User",
+                                            "submitter@example.org")
+
+
+def test_submitter_recipient_staff_user():
+    staff = agent.StaffUser(user_id="999", email="mod@arxiv.org",
+                            name="Mod Erator", username="moderator")
+    assert submitter_recipient(staff) == ("Mod Erator", "mod@arxiv.org")
