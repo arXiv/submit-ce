@@ -10,8 +10,10 @@ from werkzeug.exceptions import BadRequest, NotFound
 from submit_ce.api import SubmitApi
 from submit_ce.domain import User, Submission, Event
 from submit_ce.domain.exceptions import NoSuchSubmission
+from submit_ce.domain.config import SubmitConfig
 from submit_ce.implementations.compile.compile_api_service import CompileApiService
-from submit_ce.implementations.email import email_service_from_settings
+from submit_ce.implementations.email import HalonEmailService
+from submit_ce.implementations.email.email_in_memory import EmailInMemory
 from submit_ce.implementations.file_store.gs_file_store import GsFileStore
 from submit_ce.implementations.legacy_implementation.flask_impl import FlaskSubmitImplementation
 from submit_ce.implementations import NullFileStore
@@ -31,11 +33,34 @@ def config_backend_api(settings: Settings) -> SubmitApi:
         store = NullFileStore()
     else:
         raise NotImplementedError("settings.store may not be set correctly.")
-    
+
+    email_service = email_service_from_settings(settings)
+
     return FlaskSubmitImplementation(
         store=store,
         compiler=CompileApiService(),
-        email_service=email_service_from_settings(settings))
+        email_service=email_service,
+        config=SubmitConfig.from_config(settings))
+
+
+def email_service_from_settings(settings: Settings):
+    """Build the configured `EmailService` from application settings.
+
+    ``EMAIL_MODE`` selects the implementation: ``HALON`` builds a
+    `HalonEmailService` that sends real mail; ``TESTING`` builds an
+    `EmailInMemory` that captures messages instead of sending them.
+    """
+    if settings.EMAIL_MODE == "TESTING":
+        logger.info("EMAIL_MODE=TESTING: using in-memory email service")
+        return EmailInMemory()
+
+    return HalonEmailService(
+        host=settings.EMAIL_SMTP_HOST,
+        port=settings.EMAIL_SMTP_PORT,
+        user=settings.EMAIL_SMTP_USER,
+        password=settings.EMAIL_SMTP_PASSWORD,
+        from_address=settings.EMAIL_FROM,
+    )
 
 
 def get_submission(submission_id: str) -> Tuple[Submission, List[Event]]:

@@ -1,10 +1,7 @@
 """Tests for `HalonEmailService`, mocking the SMTP transport."""
 from unittest import mock
 
-from submit_ce.implementations.email import (
-    HalonEmailService,
-    email_service_from_settings,
-)
+from submit_ce.implementations.email import HalonEmailService
 
 
 def make_service() -> HalonEmailService:
@@ -81,14 +78,3 @@ def test_repr_hides_password():
     assert "secret" not in repr(make_service())
 
 
-def test_email_service_from_settings_uses_settings():
-    settings = mock.Mock(
-        EMAIL_SMTP_HOST="h",
-        EMAIL_SMTP_PORT=465,
-        EMAIL_SMTP_USER="u",
-        EMAIL_SMTP_PASSWORD="p",
-        EMAIL_FROM="from@arxiv.org",
-    )
-    service = email_service_from_settings(settings)
-    assert service.host == "h"
-    assert service.from_address == "from@arxiv.org"

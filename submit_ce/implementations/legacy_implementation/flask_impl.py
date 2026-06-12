@@ -17,9 +17,12 @@ class FlaskSubmitImplementation(LegacySubmitImplementation):
                  store,
                  compiler,
                  email_service=None,
+                 config=None,
     ):
         store = store
         compiler = compiler or CompileApiService()
-        super().__init__(store=store, compiler=compiler,
-                         email_service=email_service)
+        super().__init__(store=store,
+                         compiler=compiler,
+                         email_service=email_service,
+                         config=config)
         self.get_session = flask_get_session

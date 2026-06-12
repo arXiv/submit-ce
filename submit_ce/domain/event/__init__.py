@@ -62,6 +62,7 @@ from pytz import UTC
 from . import validators
 from .base import Event
 from .base import event_factory as make_event
+from .email import EmailSubmitterFinalizeMsg
 from .file import UploadFiles, RemoveFiles, RemoveAllFiles
 from .flag import AddMetadataFlag, AddUserFlag, AddContentFlag, RemoveFlag, \
     AddHold, RemoveHold
@@ -978,7 +979,7 @@ class FinalizeSubmission(Event):
     ]
     REQUIRED_METADATA: ClassVar[str] = ['title', 'abstract', 'authors_display']
 
-    CONSEQUENCE_TYPES = frozenset({AddHold})
+    CONSEQUENCE_TYPES = frozenset({AddHold, EmailSubmitterFinalizeMsg})
 
     def validate_pre_lock(self, submission: Submission) -> None:
         """Ensure that all required data/steps are complete."""
@@ -995,19 +996,28 @@ class FinalizeSubmission(Event):
         return submission
 
     def consequences(self, submission: Submission) -> List[Event]:
-        """Place an oversize submission on hold when it is finalized.
+        """Follow-on events when a submission is finalized.
 
-        Recording a `SOURCE_OVERSIZE` hold (while status stays `SUBMITTED`) is
-        what makes :attr:`Submission.is_on_hold` report true; there is no
-        separate hold status in this model. Skipped if a waiver already exists.
+        1. Place an oversize submission on hold. Recording a `SOURCE_OVERSIZE`
+           hold (while status stays `SUBMITTED`) is what makes
+           :attr:`Submission.is_on_hold` report true; there is no separate hold
+           status in this model. Skipped if a waiver already exists.
+        2. Send the submitter the on-submit confirmation email.
         """
+        events: List[Event] = []
         if submission.is_oversize \
                 and not submission.has_waiver_for(Hold.Type.SOURCE_OVERSIZE):
-            return [AddHold(creator=System(name=__name__),
-                            submission_id=submission.submission_id,
-                            hold_type=Hold.Type.SOURCE_OVERSIZE,
-                            hold_reason="source is oversize")]
-        return []
+            events.append(AddHold(creator=System(name=__name__),
+                                  submission_id=submission.submission_id,
+                                  hold_type=Hold.Type.SOURCE_OVERSIZE,
+                                  hold_reason="source is oversize"))
+        # submission_id is str-typed on Event; some load paths surface it as
+        # an int, so coerce.
+        sid = submission.submission_id
+        events.append(EmailSubmitterFinalizeMsg(
+            creator=System(name=__name__),
+            submission_id=str(sid) if sid is not None else None))
+        return events
 
     def _required_fields_are_complete(self, submission: Submission) -> None:
         """Verify that all required fields are complete."""

@@ -13,6 +13,7 @@ from submit_ce.api import SubmitApi
 from submit_ce.api.email_service import EmailService
 from submit_ce.api.file_store import SubmissionFileStore
 from submit_ce.domain.agent import Client, User
+from submit_ce.domain.config import SubmitConfig
 from submit_ce.domain.meta import License
 from ...api.compile_service import CompileService
 
@@ -81,6 +82,7 @@ class LegacySubmitImplementation(SubmitApi):
                  store: SubmissionFileStore,
                  compiler: CompileService,
                  email_service: EmailService = None,
+                 config: Optional[SubmitConfig] = None,
                  get_session:Callable[[],SqlalchemySession] = None,
                  serialize_file_operations:bool = False):
         self.get_session = get_session
@@ -88,12 +90,14 @@ class LegacySubmitImplementation(SubmitApi):
         self.compiler = compiler
         self.store = store
         self.email_service = email_service
+        self.config = config or SubmitConfig()
 
     def __repr__(self) -> str:
         return (f"{self.__class__.__name__}("
                 f"store={self.store.__repr__()},"
                 f"compiler={self.compiler.__repr__()},"
                 f"email_service={self.email_service.__repr__()},"
+                f"config={self.config.__repr__()},"
                 f"serialize_file_operations={self.serialize_file_operations}"
                 ")")
 
@@ -292,6 +296,10 @@ class LegacySubmitImplementation(SubmitApi):
     @override
     def get_email_service(self) -> EmailService:
         return self.email_service
+
+    @override
+    def get_config(self) -> SubmitConfig:
+        return self.config
 
     @override
     def next_announcement_time(self, reference: Optional[datetime] = None) -> datetime:

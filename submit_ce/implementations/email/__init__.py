@@ -8,7 +8,6 @@ import logging
 import smtplib
 from email.message import EmailMessage
 from email.utils import format_datetime, localtime, make_msgid
-from typing import Optional
 
 from typing_extensions import override
 
@@ -117,24 +116,3 @@ class HalonEmailService(EmailService):
         """
         return bool(self.host and self.user and self.password
                     and self.from_address)
-
-
-def email_service_from_settings(settings: Optional[object] = None) -> HalonEmailService:
-    """Build a `HalonEmailService` from application settings.
-
-    Parameters
-    ----------
-    settings : object, optional
-        Settings object exposing the ``EMAIL_*`` attributes. If ``None``,
-        the application's `submit_ce.ui.config.settings` is used.
-    """
-    if settings is None:
-        from submit_ce.ui.config import settings as app_settings
-        settings = app_settings
-    return HalonEmailService(
-        host=settings.EMAIL_SMTP_HOST,
-        port=settings.EMAIL_SMTP_PORT,
-        user=settings.EMAIL_SMTP_USER,
-        password=settings.EMAIL_SMTP_PASSWORD,
-        from_address=settings.EMAIL_FROM,
-    )

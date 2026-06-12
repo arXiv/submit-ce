@@ -112,6 +112,11 @@ class Settings(ArxivBaseSettings):
 
     COMPILE_API_CONVERT_TIMEOUT: int = 840
 
+    EMAIL_MODE: Literal["TESTING", "HALON"] = "HALON"
+    """Which `EmailService` the app uses. ``HALON`` sends real mail via the
+    Halon SMTP server; ``TESTING`` uses an in-memory service that captures
+    messages instead of sending them."""
+
     EMAIL_SMTP_HOST: str = "mailh.arxiv.org"
     """Hostname of the Halon SMTP server used to send mail (SMTP over SSL)."""
 
@@ -125,8 +130,13 @@ class Settings(ArxivBaseSettings):
     """Password for authenticating to the Halon SMTP server. Set via the
     environment (e.g. a secret); never commit a real password."""
 
-    EMAIL_FROM: str = "noreply@arxiv.org"
-    """Default ``From`` address for outgoing mail."""
+    EMAIL_FROM: str = "e-prints@arxiv.org"
+    """Default ``From`` address for outgoing mail. Matches legacy submission mail,
+    which sends from ``e-prints@arxiv.org``."""
+
+    EMAIL_REPLY_TO: str = "www-admin@arxiv.org"
+    """``Reply-To`` address for email. Matches legacy, which used the
+    configurable ``$WWW_ADMIN_ADDRESS``."""
 
     COMPILE_API_IMPERSONATE_SA: str = ""
     """Service account email to impersonate when minting ID tokens for the
