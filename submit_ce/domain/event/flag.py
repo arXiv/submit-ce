@@ -20,7 +20,7 @@ class AddFlag(Event):
         = field(default=None)
     comment: Optional[str] = field(default=None)
 
-    def validate(self, submission: Submission) -> None:
+    def validate_pre_lock(self, submission: Submission) -> None:
         """Not implemented."""
         raise NotImplementedError("Invoke a child event instead")
 
@@ -38,7 +38,7 @@ class RemoveFlag(Event):
     flag_id: Optional[str] = field(default=None)
     """This is the ``event_id`` of the event that added the flag."""
 
-    def validate(self, submission: Submission) -> None:
+    def validate_pre_lock(self, submission: Submission) -> None:
         """Verify that the flag exists."""
         if self.flag_id not in submission.flags:
             raise InvalidEvent(self, f"Unknown flag: {self.flag_id}")
@@ -58,7 +58,7 @@ class AddContentFlag(AddFlag):
 
     flag_type: Optional[ContentFlag.FlagType] = None
 
-    def validate(self, submission: Submission) -> None:
+    def validate_pre_lock(self, submission: Submission) -> None:
         """Verify that we have a known flag."""
         if self.flag_type not in ContentFlag.FlagType:
             raise InvalidEvent(self, f"Unknown content flag: {self.flag_type}")
@@ -94,7 +94,7 @@ class AddMetadataFlag(AddFlag):
     field: Optional[str] = field(default=None)
     """Name of the metadata field to which the flag applies."""
 
-    def validate(self, submission: Submission) -> None:
+    def validate_pre_lock(self, submission: Submission) -> None:
         """Verify that we have a known flag and metadata field."""
         if self.flag_type not in MetadataFlag.FlagType:
             raise InvalidEvent(self, f"Unknown meta flag: {self.flag_type}")
@@ -131,7 +131,7 @@ class AddUserFlag(AddFlag):
 
     flag_type: Optional[UserFlag.FlagType] = field(default=None)
 
-    def validate(self, submission: Submission) -> None:
+    def validate_pre_lock(self, submission: Submission) -> None:
         """Verify that we have a known flag."""
         if self.flag_type not in MetadataFlag.FlagType:
             raise InvalidEvent(self, f"Unknown user flag: {self.flag_type}")
@@ -166,7 +166,7 @@ class AddHold(Event):
     hold_type: Hold.Type = field(default=Hold.Type.PATCH)
     hold_reason: Optional[str] = field(default_factory=str)
 
-    def validate(self, submission: Submission) -> None:
+    def validate_pre_lock(self, submission: Submission) -> None:
         pass
 
     def project(self, submission: Submission) -> Submission:
@@ -199,7 +199,7 @@ class RemoveHold(Event):
     hold_type: Hold.Type = field(default=Hold.Type.PATCH)
     removal_reason: Optional[str] = field(default_factory=str)
 
-    def validate(self, submission: Submission) -> None:
+    def validate_pre_lock(self, submission: Submission) -> None:
         if self.hold_event_id not in submission.holds:
             raise InvalidEvent(self, "No such hold")
 
@@ -225,7 +225,7 @@ class AddWaiver(Event):
     waiver_type: Hold.Type = field(default=Hold.Type.SOURCE_OVERSIZE)
     waiver_reason: str = field(default_factory=str)
 
-    def validate(self, submission: Submission) -> None:
+    def validate_pre_lock(self, submission: Submission) -> None:
         pass
 
     def project(self, submission: Submission) -> Submission:

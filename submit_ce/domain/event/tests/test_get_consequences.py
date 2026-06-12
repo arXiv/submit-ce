@@ -28,7 +28,7 @@ class _Consequence(Event):
 
     NAME = "test consequence"
 
-    def validate(self, submission):
+    def validate_pre_lock(self, submission):
         pass
 
     def project(self, submission):
@@ -41,7 +41,7 @@ class _Cause(Event):
     NAME = "test cause"
     CONSEQUENCE_TYPES = frozenset({_Consequence})
 
-    def validate(self, submission):
+    def validate_pre_lock(self, submission):
         pass
 
     def project(self, submission):
@@ -56,7 +56,7 @@ class _Undeclared(Event):
 
     NAME = "test undeclared"
 
-    def validate(self, submission):
+    def validate_pre_lock(self, submission):
         pass
 
     def project(self, submission):

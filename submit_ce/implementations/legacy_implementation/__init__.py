@@ -191,8 +191,9 @@ class LegacySubmitImplementation(SubmitApi):
                 # validate_under_lock runs inside the locked
                 # transaction so it can inspect on-disk / FileStore
                 # state without racing against another writer. Raising
-                # InvalidEvent here rolls the transaction back; the
-                # caller's `except InvalidEvent` decides UX.
+                # InvalidEvent here rolls the DB transaction back.
+                # Any earlier EventWithSideEffect.execute() is not rolled back.
+                # The caller's `except InvalidEvent` decides UX.
                 event.validate_under_lock(self, before)
                 logger.debug('Execute event %s: %s', event.event_id, event.NAME)
                 event.execute(self, before)

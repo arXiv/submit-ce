@@ -125,7 +125,7 @@ class CreateSubmission(Event):
     # - https://github.com/python/typing/issues/269
     # - https://github.com/python/mypy/issues/5146
     # - https://github.com/python/typing/issues/241
-    def validate(self, submission: None = None) -> None:   # type: ignore
+    def validate_pre_lock(self, submission: None = None) -> None:   # type: ignore
         """Validate creation of a submission."""
         return
 
@@ -147,7 +147,7 @@ class CreateSubmissionVersion(Event):
     NAME = "create a new version"
     NAMED = "new version created"
 
-    def validate(self, submission: Submission) -> None:
+    def validate_pre_lock(self, submission: Submission) -> None:
         """Only applies to announced submissions."""
         if not submission.is_announced:
             raise InvalidEvent(self, "Must already be announced")
@@ -178,7 +178,7 @@ class Rollback(Event):
     NAME = "roll back or delete"
     NAMED = "rolled back or deleted"
 
-    def validate(self, submission: Submission) -> None:
+    def validate_pre_lock(self, submission: Submission) -> None:
         """Only applies to submissions in an unannounced state."""
         if submission.is_announced:
             raise InvalidEvent(self, "Cannot already be announced")
@@ -213,7 +213,7 @@ class ConfirmContactInformation(Event):
     NAME = "confirm contact information"
     NAMED = "contact information confirmed"
 
-    def validate(self, submission: Submission) -> None:
+    def validate_pre_lock(self, submission: Submission) -> None:
         """Cannot apply to a finalized submission."""
         validators.submission_is_not_finalized(self, submission)
 
@@ -249,7 +249,7 @@ class ConfirmAuthorship(Event):
 
     submitter_is_author: bool = True
 
-    def validate(self, submission: Submission) -> None:
+    def validate_pre_lock(self, submission: Submission) -> None:
         """Cannot apply to a finalized submission."""
         validators.submission_is_not_finalized(self, submission)
 
@@ -266,7 +266,7 @@ class ConfirmPolicy(Event):
     NAMED = "policy acceptance confirmed"
     agreement_id: int
     
-    def validate(self, submission: Submission) -> None:
+    def validate_pre_lock(self, submission: Submission) -> None:
         """Cannot apply to a finalized submission."""
         validators.submission_is_not_finalized(self, submission)
 
@@ -285,7 +285,7 @@ class SetPrimaryClassification(Event):
 
     category: Optional[ActiveCategory] = None
 
-    def validate(self, submission: Submission) -> None:
+    def validate_pre_lock(self, submission: Submission) -> None:
         """Validate the primary classification category."""
         if self.category is None:
             raise InvalidEvent(self, "Must have a category")
@@ -333,7 +333,7 @@ class AddSecondaryClassification(Event):
     #category: Optional[taxonomy.Category] = field(default=None)
     category: Optional[ActiveCategory] = None
 
-    def validate(self, submission: Submission) -> None:
+    def validate_pre_lock(self, submission: Submission) -> None:
         """Validate the secondary classification category to add."""
         assert self.category is not None
         validators.must_be_an_active_category(self, self.category, submission)
@@ -360,7 +360,7 @@ class RemoveSecondaryClassification(Event):
 
     category: Optional[str] = field(default=None)
 
-    def validate(self, submission: Submission) -> None:
+    def validate_pre_lock(self, submission: Submission) -> None:
         """Validate the secondary classification category to remove."""
         assert self.category is not None
         validators.must_be_an_active_category(self, self.category, submission)
@@ -391,7 +391,7 @@ class SetLicense(Event):
     license_name: Optional[str] = field(default=None)
     license_uri: Optional[str] = field(default=None)
 
-    def validate(self, submission: Submission) -> None:
+    def validate_pre_lock(self, submission: Submission) -> None:
         """Validate the selected license."""
         validators.submission_is_not_finalized(self, submission)
         if not self.license_uri:
@@ -425,7 +425,7 @@ class SetTitle(Event):
         """Perform some light cleanup on the provided value."""
         self.title = self.cleanup(self.title)
 
-    def validate(self, submission: Submission) -> None:
+    def validate_pre_lock(self, submission: Submission) -> None:
         """Validate the title value."""
         validators.submission_is_not_finalized(self, submission)
         check = metacheck.check_title(self.title)
@@ -484,7 +484,7 @@ class SetAbstract(Event):
         #super(SetAbstract, self).__post_init__()
         self.abstract = self.cleanup(self.abstract)
 
-    def validate(self, submission: Submission) -> None:
+    def validate_pre_lock(self, submission: Submission) -> None:
         """Validate the abstract value."""
         validators.submission_is_not_finalized(self, submission)
         check = metacheck.check_abstract(self.abstract)
@@ -536,7 +536,7 @@ class SetDOI(Event):
         """Perform some light cleanup on the provided value."""
         self.doi = self.cleanup(self.doi)
 
-    def validate(self, submission: Submission) -> None:
+    def validate_pre_lock(self, submission: Submission) -> None:
         """Validate the DOI value."""
         if submission.status == Submission.SUBMITTED \
                 and not submission.is_announced:
@@ -578,7 +578,7 @@ class SetMSCClassification(Event):
         """Perform some light cleanup on the provided value."""
         self.msc_class = self.cleanup(self.msc_class)
 
-    def validate(self, submission: Submission) -> None:
+    def validate_pre_lock(self, submission: Submission) -> None:
         """Validate the MSC classification value."""
         validators.submission_is_not_finalized(self, submission)
         if not self.msc_class:    # Blank values are OK.
@@ -620,7 +620,7 @@ class SetACMClassification(Event):
         """Perform some light cleanup on the provided value."""
         self.acm_class = self.cleanup(self.acm_class)
 
-    def validate(self, submission: Submission) -> None:
+    def validate_pre_lock(self, submission: Submission) -> None:
         """Validate the ACM classification value."""
         validators.submission_is_not_finalized(self, submission)
         if not self.acm_class:    # Blank values are OK.
@@ -670,7 +670,7 @@ class SetJournalReference(Event):
         """Perform some light cleanup on the provided value."""
         self.journal_ref = self.cleanup(self.journal_ref)
 
-    def validate(self, submission: Submission) -> None:
+    def validate_pre_lock(self, submission: Submission) -> None:
         """Validate the journal reference value."""
         if not self.journal_ref:    # Blank values are OK.
             return
@@ -718,7 +718,7 @@ class SetReportNumber(Event):
         """Perform some light cleanup on the provided value."""
         self.report_num = self.cleanup(self.report_num)
 
-    def validate(self, submission: Submission) -> None:
+    def validate_pre_lock(self, submission: Submission) -> None:
         """Validate the report number value."""
         if not self.report_num:    # Blank values are OK.
             return
@@ -753,7 +753,7 @@ class SetComments(Event):
         """Perform some light cleanup on the provided value."""
         self.comments = self.cleanup(self.comments)
 
-    def validate(self, submission: Submission) -> None:
+    def validate_pre_lock(self, submission: Submission) -> None:
         """Validate the comments value."""
         validators.submission_is_not_finalized(self, submission)
         if not self.comments:    # Blank values are OK.
@@ -795,7 +795,7 @@ class SetAuthors(Event):
             self.authors_display = self._canonical_author_string()
         self.authors_display = self.cleanup(self.authors_display)
 
-    def validate(self, submission: Submission) -> None:
+    def validate_pre_lock(self, submission: Submission) -> None:
         """May not apply to a finalized submission."""
         validators.submission_is_not_finalized(self, submission)
         check = metacheck.check_authors(self.authors_display)
@@ -838,7 +838,7 @@ class SetSourceFormat(Event):
 
     source_format: Optional[str] = field(default=None)
 
-    def validate(self, submission: Submission) -> None:
+    def validate_pre_lock(self, submission: Submission) -> None:
         """Validate that source_format is a known SourceFormat value."""
         if self.source_format is None:
             return
@@ -886,7 +886,7 @@ class ConfirmSourceProcessed(Event):
 
     added: Optional[datetime] = field(default=None)
 
-    def validate(self, submission: Submission) -> None:
+    def validate_pre_lock(self, submission: Submission) -> None:
         """Make sure that a preview is actually provided."""
         # if self.source_id < 0:
         #     raise InvalidEvent(self, "Preview not provided")
@@ -922,7 +922,7 @@ class UnConfirmSourceProcessed(Event):
     NAME = "unconfirm source has been processed"
     NAMED = "unconfirmed that source has been processed"
 
-    def validate(self, submission: Submission) -> None:
+    def validate_pre_lock(self, submission: Submission) -> None:
         """Nothing to do."""
 
     def project(self, submission: Submission) -> Submission:
@@ -946,7 +946,7 @@ class ConfirmPreview(Event):
 
     preview_checksum: Optional[str] = field(default=None)
 
-    def validate(self, submission: Submission) -> None:
+    def validate_pre_lock(self, submission: Submission) -> None:
         """Validate data for :class:`.ConfirmPreview`."""
         validators.submission_is_not_finalized(self, submission)
         if submission.preview is None:
@@ -980,7 +980,7 @@ class FinalizeSubmission(Event):
 
     CONSEQUENCE_TYPES = frozenset({AddHold})
 
-    def validate(self, submission: Submission) -> None:
+    def validate_pre_lock(self, submission: Submission) -> None:
         """Ensure that all required data/steps are complete."""
         if submission.is_finalized:
             raise InvalidEvent(self, "Submission already finalized")
@@ -1025,7 +1025,7 @@ class UnFinalizeSubmission(Event):
     NAME = "re-open submission for modification"
     NAMED = "submission re-opened for modification"
 
-    def validate(self, submission: Submission) -> None:
+    def validate_pre_lock(self, submission: Submission) -> None:
         """Validate the unfinalize action."""
         self._must_be_finalized(submission)
         if submission.is_announced:
@@ -1051,7 +1051,7 @@ class Announce(Event):
 
     arxiv_id: Optional[str] = None
 
-    def validate(self, submission: Submission) -> None:
+    def validate_pre_lock(self, submission: Submission) -> None:
         """Make sure that we have a valid arXiv ID."""
         # TODO: When we're using this to perform publish in NG, we will want to
         # re-enable this step.
@@ -1086,7 +1086,7 @@ class Announce(Event):
 #     body: str = field(default_factory=str)
 #     scope: str = 'private'
 #
-#     def validate(self, submission: Submission) -> None:
+#     def validate_pre_lock(self, submission: Submission) -> None:
 #         """The :attr:`.body` should be set."""
 #         if not self.body:
 #             raise ValueError('Comment body not set')
@@ -1112,7 +1112,7 @@ class Announce(Event):
 #
 #     comment_id: str = field(default_factory=str)
 #
-#     def validate(self, submission: Submission) -> None:
+#     def validate_pre_lock(self, submission: Submission) -> None:
 #         """The :attr:`.comment_id` must present on the submission."""
 #         if self.comment_id is None:
 #             raise InvalidEvent(self, 'comment_id is required')
@@ -1132,7 +1132,7 @@ class Announce(Event):
 #
 #     delegate: Optional[Agent] = None
 #
-#     def validate(self, submission: Submission) -> None:
+#     def validate_pre_lock(self, submission: Submission) -> None:
 #         """The event creator must be the owner of the submission."""
 #         if not self.creator == submission.owner:
 #             raise InvalidEvent(self, 'Event creator must be submission owner')
@@ -1153,7 +1153,7 @@ class Announce(Event):
 #
 #     delegation_id: str = field(default_factory=str)
 #
-#     def validate(self, submission: Submission) -> None:
+#     def validate_pre_lock(self, submission: Submission) -> None:
 #         """The event creator must be the owner of the submission."""
 #         if not self.creator == submission.owner:
 #             raise InvalidEvent(self, 'Event creator must be submission owner')
@@ -1175,7 +1175,7 @@ class AddFeature(Event):
         field(default=Feature.Type.WORD_COUNT)
     feature_value: Union[float, int] = field(default=0)
 
-    def validate(self, submission: Submission) -> None:
+    def validate_pre_lock(self, submission: Submission) -> None:
         """Verify that the feature type is a known value."""
         if self.feature_type not in Feature.Type:
             valid_types = ", ".join([ft.value for ft in Feature.Type])
@@ -1205,7 +1205,7 @@ class AddClassifierResults(Event):
         = field(default=ClassifierResults.Classifiers.CLASSIC)
     results: List[ClassifierResult] = field(default_factory=list)
 
-    def validate(self, submission: Submission) -> None:
+    def validate_pre_lock(self, submission: Submission) -> None:
         """Verify that the classifier is a known value."""
         if self.classifier not in ClassifierResults.Classifiers:
             valid = ", ".join([c.value for c in ClassifierResults.Classifiers])
@@ -1234,7 +1234,7 @@ class Reclassify(Event):
     #category: Optional[taxonomy.Category] = None
     category: Optional[str] = None
 
-    def validate(self, submission: Submission) -> None:
+    def validate_pre_lock(self, submission: Submission) -> None:
         """Validate the primary classification category."""
         assert isinstance(self.category, str)
         validators.must_be_an_active_category(self, self.category, submission)

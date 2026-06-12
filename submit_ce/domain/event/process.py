@@ -48,7 +48,7 @@ class StartCompileSource(EventWithSideEffect):
         """Make sure our enums are in order."""
         super(StartCompileSource, self).__post_init__()
 
-    def validate(self, submission: Submission) -> None:
+    def validate_pre_lock(self, submission: Submission) -> None:
         """Verify that we have a :class:`.ProcessStatus`."""
         if submission.uncompressed_size <= 0:
             raise InvalidEvent(self, "Compile source for the submission is empty.")
@@ -93,7 +93,7 @@ class StartPreflight(EventWithSideEffect):
     def __post_init__(self) -> None:
         super(StartPreflight, self).__post_init__()
 
-    def validate(self, submission: Submission) -> None:
+    def validate_pre_lock(self, submission: Submission) -> None:
         if not submission.submission_id:
             raise InvalidEvent(self, "Source content for preflight is empty.")
 
@@ -133,7 +133,7 @@ class StartDirectives(EventWithSideEffect):
     process: Optional[ProcessInfo] = field(default=None)
     result: Optional[Result] = field(default=None)
 
-    def validate(self, submission: Submission) -> None:
+    def validate_pre_lock(self, submission: Submission) -> None:
         if not submission.submission_id:
             raise InvalidEvent(self, "Source content for directives is empty.")
 
@@ -175,7 +175,7 @@ class CompileStatus(Event):
         """Make sure our enums are in order."""
         super(CompileStatus, self).__post_init__()
 
-    def validate(self, submission: Submission) -> None:
+    def validate_pre_lock(self, submission: Submission) -> None:
         """Verify that we have a :class:`.ProcessStatus`."""
         if self.process is None:
             raise InvalidEvent(self, "Must include process")
@@ -207,7 +207,7 @@ class PreflightStatus(Event):
     def __post_init__(self) -> None:
         super(PreflightStatus, self).__post_init__()
 
-    def validate(self, submission: Submission) -> None:
+    def validate_pre_lock(self, submission: Submission) -> None:
         if self.process is None:
             raise InvalidEvent(self, "Must include process")
         if self.result is None:
@@ -238,7 +238,7 @@ class SetDecisions(EventWithSideEffect):
 
     bytes_removed: int = 0
 
-    def validate(self, submission: Submission) -> None:
+    def validate_pre_lock(self, submission: Submission) -> None:
         if not self.decisions:
             raise InvalidEvent(self, "Must include decisions information")
         # TODO better validation of preflight data or just handled by pydantic?
@@ -298,7 +298,7 @@ class SetDirectivesAndCleanup(EventWithSideEffect):
     # and 00README.json are left untouched.
     user_decisions_from_zzrm: Optional[dict] = None
 
-    def validate(self, submission: Submission) -> None:
+    def validate_pre_lock(self, submission: Submission) -> None:
         # No input invariants: the event is always safe to dispatch
         # from `_load_or_create_preflight`; an absent zzrm just means
         # "skip the user_decisions seed step."

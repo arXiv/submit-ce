@@ -76,7 +76,7 @@ class UploadArchive(EventWithSideEffect):
     oversize: list[size_limits.OversizeReason] = []
     """`OversizeReason` instances after this change (set in execute)."""
 
-    def validate(self, submission: Submission) -> None:
+    def validate_pre_lock(self, submission: Submission) -> None:
         validators.submission_is_not_finalized(self, submission)
         if not self.file:
             raise InvalidEvent(self, "Must upload a file")
@@ -114,7 +114,7 @@ class UploadFiles(EventWithSideEffect):
     oversize: list[size_limits.OversizeReason] = []
     """`OversizeReason` instances after this change (set in execute)."""
 
-    def validate(self, submission: Submission) -> None:
+    def validate_pre_lock(self, submission: Submission) -> None:
         validators.submission_is_not_finalized(self, submission)
 
     def execute(self, api: SubmitApi, submission: Submission) -> None:
@@ -151,7 +151,7 @@ class RemoveFiles(EventWithSideEffect):
     oversize: list[size_limits.OversizeReason] = []
     """`OversizeReason` instances after this change (set in execute)."""
 
-    def validate(self, submission: Submission) -> None:
+    def validate_pre_lock(self, submission: Submission) -> None:
         validators.submission_is_not_finalized(self, submission)
 
     def execute(self, api: SubmitApi, submission: Submission) -> None:
@@ -179,7 +179,7 @@ class RemoveAllFiles(EventWithSideEffect):
     NAME = "remove all files"
     NAMED = "all files removed"
 
-    def validate(self, submission: Submission) -> None:
+    def validate_pre_lock(self, submission: Submission) -> None:
         validators.submission_is_not_finalized(self, submission)
 
     def execute(self, api: SubmitApi, submission: Submission) -> None:

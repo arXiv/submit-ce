@@ -34,7 +34,7 @@ class Event(BaseModel):
     extend it with whatever data is needed for the event, and define methods
     for validation and projection (changing a submission):
 
-    - ``validate(self, submission: Submission) -> None`` should raise
+    - ``validate_pre_lock(self, submission: Submission) -> None`` should raise
       :class:`.InvalidEvent` if the event instance has invalid data.
     - ``project(self, submission: Submission) -> Submission`` should perform
       changes to the :class:`.domain.submission.Submission` and return it.
@@ -135,7 +135,7 @@ class Event(BaseModel):
         """Apply the projection for this :class:`.Event` instance."""
         self._before = copy.deepcopy(submission)
         # See comment on CreateSubmission, below.
-        self.validate(submission)    # type: ignore
+        self.validate_pre_lock(submission)    # type: ignore
         if submission is not None:
             self._after = self.project(copy.deepcopy(submission))
         else:   # See comment on CreateSubmission, below.
@@ -152,8 +152,15 @@ class Event(BaseModel):
         return self._after
 
 
-    def validate(self, submission: Submission) -> None:
-        """Validate this event and its data against a submission."""
+    def validate_pre_lock(self, submission: Submission) -> None:
+        """Validate this event and its data against a submission.
+
+        Raise :class:`.InvalidEvent` if the event cannot be applied. This runs
+        *before* the submission row lock is taken (during :meth:`apply`), so it
+        must not depend on state that a concurrent writer could change. For
+        validation that needs the lock held, see
+        :meth:`EventWithSideEffect.validate_under_lock`.
+        """
         raise NotImplementedError('Must be implemented by subclass')
 
     def project(self, submission: Submission) -> Submission:

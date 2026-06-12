@@ -29,7 +29,7 @@ class ApproveRequest(Event):
     #         return NotImplemented
     #     return hash(self) == hash(other)
 
-    def validate(self, submission: Submission) -> None:
+    def validate_pre_lock(self, submission: Submission) -> None:
         if self.request_id not in submission.user_requests:
             raise InvalidEvent(self, "No such request")
 
@@ -55,7 +55,7 @@ class RejectRequest(Event):
     #         return NotImplemented
     #     return hash(self) == hash(other)
 
-    def validate(self, submission: Submission) -> None:
+    def validate_pre_lock(self, submission: Submission) -> None:
         if self.request_id not in submission.user_requests:
             raise InvalidEvent(self, "No such request")
 
@@ -81,7 +81,7 @@ class CancelRequest(Event):
     #         return NotImplemented
     #     return hash(self) == hash(other)
 
-    def validate(self, submission: Submission) -> None:
+    def validate_pre_lock(self, submission: Submission) -> None:
         if self.request_id not in submission.user_requests:
             raise InvalidEvent(self, "No such request")
 
@@ -108,7 +108,7 @@ class ApplyRequest(Event):
     #         return NotImplemented
     #     return hash(self) == hash(other)
 
-    def validate(self, submission: Submission) -> None:
+    def validate_pre_lock(self, submission: Submission) -> None:
         if self.request_id not in submission.user_requests:
             raise InvalidEvent(self, "No such request")
 
@@ -141,7 +141,7 @@ class RequestCrossList(Event):
     #         return NotImplemented
     #     return hash(self) == hash(other)
 
-    def validate(self, submission: Submission) -> None:
+    def validate_pre_lock(self, submission: Submission) -> None:
         """Validate the cross-list request."""
         validators.no_active_requests(self, submission)
         if not submission.is_announced:
@@ -190,7 +190,7 @@ class RequestWithdrawal(Event):
     #         return NotImplemented
     #     return hash(self) == hash(other)
 
-    def validate(self, submission: Submission) -> None:
+    def validate_pre_lock(self, submission: Submission) -> None:
         """Make sure that a reason was provided."""
         validators.no_active_requests(self, submission)
         if not self.reason:

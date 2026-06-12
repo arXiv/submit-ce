@@ -23,7 +23,7 @@ class Withdraw(EventWithSideEffect):
     abstract: str = Field(min_length=10, max_length=1920)
     """Updated abstract for the withdrawal notice."""
 
-    def validate(self, submission: Submission) -> None:
+    def validate_pre_lock(self, submission: Submission) -> None:
         """Make sure that a reason was provided and the paper is announced."""
         if not self.comment:
             raise InvalidEvent(self, "Provide a reason for the withdrawal")
