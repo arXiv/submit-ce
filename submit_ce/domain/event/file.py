@@ -9,6 +9,7 @@ from . import validators
 from .base import EventWithSideEffect
 from ..submission import Submission
 from ..uploads import SubmitFile
+from .. import size_limits
 
 import logging
 logger = logging.getLogger(__name__)
@@ -25,6 +26,26 @@ def _common_file_change_execute(api: SubmitApi, submission: Submission) -> None:
     file_store.delete_preview(str(submission.submission_id))
 
 
+def _evaluate_oversize(api: SubmitApi, submission: Submission) -> bool:
+    """Measure the current workspace against the configured size limits.
+
+    Called from ``execute`` (which has file-store access). The boolean result
+    is stored on the event so ``project`` can apply it deterministically on
+    replay, when ``execute`` does not run. Reads the authoritative post-change
+    workspace so the flag reflects *all* current files, not just the ones this
+    event touched.
+    """
+    workspace = api.get_file_store().get_workspace(str(submission.submission_id))
+    if workspace is None:
+        return False
+    per_file = {file.path: file.bytes for file in workspace.files}
+    total = workspace.size or 0
+    category = (submission.primary_classification.category
+                if submission.primary_classification else None)
+    return size_limits.is_oversize(total, per_file, primary_category=category,
+                                   limits=api.get_size_limits())
+
+
 class UploadArchive(EventWithSideEffect):
     """Uploads a zip or tgz file to the workspace, unpacking all the files."""
 
@@ -37,6 +58,9 @@ class UploadArchive(EventWithSideEffect):
     bytes_added: int = 0
     """Bytes added by uploading this archive."""
 
+    oversize: bool = False
+    """Whether the submission is oversize after this change (set in execute)."""
+
     def validate(self, submission: Submission) -> None:
         validators.submission_is_not_finalized(self, submission)
 
@@ -45,9 +69,11 @@ class UploadArchive(EventWithSideEffect):
         files = api.get_file_store().store_source_package(str(submission.submission_id), self.file, 4098)
         self.bytes_added = sum([file.bytes for file in files])
         _common_file_change_execute(api, submission)
+        self.oversize = _evaluate_oversize(api, submission)
 
     def project(self, submission: Submission) -> Submission:
         submission.uncompressed_size += self.bytes_added
+        submission.is_oversize = self.oversize
         _common_file_change_project(submission)
         return submission
 
@@ -66,6 +92,9 @@ class UploadFiles(EventWithSideEffect):
         Field(default_factory=list, exclude=True)
     bytes_added: int = 0
 
+    oversize: bool = False
+    """Whether the submission is oversize after this change (set in execute)."""
+
     def validate(self, submission: Submission) -> None:
         validators.submission_is_not_finalized(self, submission)
 
@@ -76,9 +105,11 @@ class UploadFiles(EventWithSideEffect):
             stat=file_store.store_source_file(str(submission.submission_id), f, chunk_size=4096)
             self.bytes_added += stat.bytes
         _common_file_change_execute(api, submission)
+        self.oversize = _evaluate_oversize(api, submission)
 
     def project(self, submission: Submission) -> Submission:
         submission.uncompressed_size += self.bytes_added
+        submission.is_oversize = self.oversize
         _common_file_change_project(submission)
         return submission
 
@@ -96,6 +127,9 @@ class RemoveFiles(EventWithSideEffect):
     bytes_removed:int = 0
     """Bytes removed by removing these files."""
 
+    oversize: bool = False
+    """Whether the submission is oversize after this change (set in execute)."""
+
     def validate(self, submission: Submission) -> None:
         validators.submission_is_not_finalized(self, submission)
 
@@ -109,9 +143,11 @@ class RemoveFiles(EventWithSideEffect):
                 self.bytes_removed += file.bytes
 
         _common_file_change_execute(api, submission)
+        self.oversize = _evaluate_oversize(api, submission)
 
     def project(self, submission: Submission) -> Submission:
         submission.uncompressed_size -= self.bytes_removed
+        submission.is_oversize = self.oversize
         _common_file_change_project(submission)
         return submission
 
@@ -134,5 +170,6 @@ class RemoveAllFiles(EventWithSideEffect):
     def project(self, submission: Submission) -> Submission:
         submission.source_format = None
         submission.uncompressed_size = 0
+        submission.is_oversize = False
         _common_file_change_project(submission)
         return submission

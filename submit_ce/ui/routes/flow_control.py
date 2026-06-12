@@ -43,11 +43,12 @@ Response = Union[FResponse, WResponse]
 FlowAction = Literal['prevous','next','save_exit']
 FlowResponse = Tuple[FlowAction, Response]
 
-ControllerDesires = Literal['stage_success', 'stage_reshow', 'stage_current', 'stage_parent']
+ControllerDesires = Literal['stage_success', 'stage_reshow', 'stage_current', 'stage_parent', 'stage_previous']
 STAGE_SUCCESS: ControllerDesires = 'stage_success'
 STAGE_RESHOW: ControllerDesires = 'stage_reshow'
 STAGE_CURRENT: ControllerDesires = 'stage_current'
 STAGE_PARENT: ControllerDesires = 'stage_parent'
+STAGE_PREVIOUS: ControllerDesires = 'stage_previous'
 
 def ready_for_next(response: CResponse) -> CResponse:
     """Mark the result from a controller being ready to move to the
@@ -72,6 +73,14 @@ def return_to_parent_stage(response: CResponse) -> CResponse:
     """Mark the result from a controller as should return to the parent stage.
     Such as delete_file to the FileUpload stage."""
     response[0].update({'flow_control_from_controller': STAGE_PARENT})
+    return response
+
+
+def return_to_previous_stage(response: CResponse) -> CResponse:
+    """Mark the result from a main-stage controller as needing to redirect to
+    the previous stage in the workflow (e.g., review_files back to file_upload
+    when prerequisites aren't met)."""
+    response[0].update({'flow_control_from_controller': STAGE_PREVIOUS})
     return response
 
 
@@ -257,6 +266,8 @@ def flow_decision(method: str,
                   controller_action: Optional[ControllerDesires],
                   last_stage: bool)\
                   -> FlowDecision:
+    if controller_action == STAGE_PREVIOUS:
+        return 'REDIRECT_PREVIOUS'
     # For now with GET we do the same sort of things
     if method == 'GET' and controller_action == STAGE_CURRENT:
         return 'REDIRECT_NEXT'

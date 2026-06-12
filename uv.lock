@@ -58,6 +58,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "arxiv-tex2pdf-tools"
+version = "0.1.0"
+source = { git = "https://github.com/arXiv/submission-tools.git?subdirectory=tex2pdf-tools&branch=master#0ef0c5a8e91cfafa119f46196ff15d9c1f2d4abf" }
+dependencies = [
+    { name = "pydantic" },
+    { name = "ruamel-yaml" },
+    { name = "toml" },
+    { name = "tomli-w" },
+]
+
+[[package]]
 name = "astroid"
 version = "1.6.6"
 source = { registry = "https://pypi.org/simple" }
@@ -1984,6 +1995,7 @@ dependencies = [
     { name = "annotated-types" },
     { name = "anyio" },
     { name = "arxiv-base" },
+    { name = "arxiv-tex2pdf-tools" },
     { name = "astroid" },
     { name = "attrs" },
     { name = "backports-datetime-fromisoformat" },
@@ -2142,6 +2154,7 @@ requires-dist = [
     { name = "annotated-types", specifier = "==0.7.0" },
     { name = "anyio", specifier = "==4.5.0" },
     { name = "arxiv-base", git = "https://github.com/arXiv/arxiv-base.git?branch=SUBMISSION-80-LicenseDataUpdate" },
+    { name = "arxiv-tex2pdf-tools", git = "https://github.com/arXiv/submission-tools.git?subdirectory=tex2pdf-tools&branch=master" },
     { name = "astroid", specifier = "==1.6.6" },
     { name = "attrs", specifier = "==24.2.0" },
     { name = "backports-datetime-fromisoformat", specifier = "==2.0.2" },

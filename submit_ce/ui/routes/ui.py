@@ -42,6 +42,14 @@ def redirect_to_login(*args, **kwargs) -> Response:
     return redirect(url_for('login'))
 
 
+_SUB_ROUTE_PARENT_STAGE = {
+    'file_delete': 'file_upload',
+    'file_delete_all': 'file_upload',
+}
+"""Auxiliary routes that don't have their own workflow stage but live under one.
+Used to highlight the parent stage in the progress nav sidebar."""
+
+
 @UI.before_request
 def load_submission() -> None:
     """Load the submission before the request is processed."""
@@ -56,7 +64,10 @@ def load_submission() -> None:
     request.events = events
     request.workflow = wfp
     request.current_stage = wfp.current_stage()
-    request.this_stage = wfp.workflow[endpoint_name()]
+    endpoint = endpoint_name()
+    request.this_stage = wfp.workflow[
+        _SUB_ROUTE_PARENT_STAGE.get(endpoint, endpoint)
+    ]
 
 
 @UI.context_processor
@@ -395,7 +406,7 @@ def file_process(submission_id: str) -> Response:
 # TODO @flow_control(Process)?
 def file_preview(submission_id: str) -> Response:
     try:
-        data, code, headers = cntrls.new.process.file_preview(
+        data, code, headers = cntrls.new.preview.file_preview(
             MultiDict(request.args.items(multi=True)),
             request.auth,
             submission_id,
