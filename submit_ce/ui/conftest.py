@@ -322,6 +322,7 @@ def sub_files_oversize(app, authorized_user, sub_cross):
 
         fake_stat = MagicMock()
         fake_stat.bytes = big
+        fake_stat.path = "huge.pdf"
 
         mock_store = MagicMock()
         mock_store.store_source_file.return_value = fake_stat

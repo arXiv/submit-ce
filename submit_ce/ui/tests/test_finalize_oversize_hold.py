@@ -19,7 +19,7 @@ from submit_ce.domain.submission import Hold, Submission
 
 
 def _make_oversize(user, submission_id):
-    """Re-upload with a workspace over the size limit to flip is_oversize."""
+    """Re-upload an over-limit file to flip is_oversize via the file delta."""
     ua = InternalClient(name="test_client_finalize_oversize")
     big = 60 * 1024 * 1024  # over the 50 MB default limit
 
@@ -30,6 +30,7 @@ def _make_oversize(user, submission_id):
 
     fake_stat = MagicMock()
     fake_stat.bytes = big
+    fake_stat.path = "huge.pdf"
     mock_store = MagicMock()
     mock_store.store_source_file.return_value = fake_stat
     big_ws = MagicMock()

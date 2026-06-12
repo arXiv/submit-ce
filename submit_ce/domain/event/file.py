@@ -2,13 +2,15 @@ from __future__ import annotations
 from pydantic import ConfigDict, Field, WithJsonSchema
 from typing import TYPE_CHECKING, List, Annotated, Optional
 
+from submit_ce.domain.exceptions import InvalidEvent
+
 if TYPE_CHECKING:
     from submit_ce.api.submit import SubmitApi
 
 from . import validators
 from .base import EventWithSideEffect
 from ..submission import Submission
-from ..uploads import SubmitFile
+from ..uploads import FileStatus, SubmitFile
 from .. import size_limits
 
 import logging
@@ -26,24 +28,37 @@ def _common_file_change_execute(api: SubmitApi, submission: Submission) -> None:
     file_store.delete_preview(str(submission.submission_id))
 
 
-def _evaluate_oversize(api: SubmitApi, submission: Submission) -> bool:
+def _add_evaluate_oversize(api: SubmitApi,
+                           submission: Submission,
+                           bytes_added:int,
+                           files: list[FileStatus],
+                          ) -> list[size_limits.OversizeReason]:
+    """Figure out if any oversize problems due to file additions."""
+    per_file = {file.path: file.bytes for file in files}
+    total = submission.uncompressed_size + bytes_added
+    category = (submission.primary_classification.category
+                if submission.primary_classification else None)
+    return size_limits.check_sizes(total, per_file, primary_category=category,
+                                   limits=api.get_size_limits())
+
+
+def _workspace_evaluate_oversize(api: SubmitApi, submission: Submission) -> list[size_limits.OversizeReason]:
     """Measure the current workspace against the configured size limits.
 
-    Called from ``execute`` (which has file-store access). The boolean result
-    is stored on the event so ``project`` can apply it deterministically on
-    replay, when ``execute`` does not run. Reads the authoritative post-change
-    workspace so the flag reflects *all* current files, not just the ones this
-    event touched.
+    Reads the authoritative post-change workspace so the flag reflects *all*
+    current files, not just the ones this event touched. This causes more api
+    requests than `_add_evaluate_oversize`
     """
     workspace = api.get_file_store().get_workspace(str(submission.submission_id))
     if workspace is None:
-        return False
+        return []
     per_file = {file.path: file.bytes for file in workspace.files}
     total = workspace.size or 0
     category = (submission.primary_classification.category
                 if submission.primary_classification else None)
-    return size_limits.is_oversize(total, per_file, primary_category=category,
+    return size_limits.check_sizes(total, per_file, primary_category=category,
                                    limits=api.get_size_limits())
+
 
 
 class UploadArchive(EventWithSideEffect):
@@ -58,22 +73,26 @@ class UploadArchive(EventWithSideEffect):
     bytes_added: int = 0
     """Bytes added by uploading this archive."""
 
-    oversize: bool = False
-    """Whether the submission is oversize after this change (set in execute)."""
+    oversize: list[size_limits.OversizeReason] = []
+    """`OversizeReason` instances after this change (set in execute)."""
 
     def validate(self, submission: Submission) -> None:
         validators.submission_is_not_finalized(self, submission)
+        if not self.file:
+            raise InvalidEvent(self, "Must upload a file")
 
     def execute(self, api: SubmitApi, submission: Submission) -> None:
         """Upload the new files using the file store."""
+        if not self.file:
+            raise RuntimeError("File must be set")
         files = api.get_file_store().store_source_package(str(submission.submission_id), self.file, 4098)
         self.bytes_added = sum([file.bytes for file in files])
         _common_file_change_execute(api, submission)
-        self.oversize = _evaluate_oversize(api, submission)
+        self.oversize = _add_evaluate_oversize(api, submission, self.bytes_added, files)
 
     def project(self, submission: Submission) -> Submission:
         submission.uncompressed_size += self.bytes_added
-        submission.is_oversize = self.oversize
+        submission.is_oversize = bool(self.oversize)
         _common_file_change_project(submission)
         return submission
 
@@ -92,8 +111,8 @@ class UploadFiles(EventWithSideEffect):
         Field(default_factory=list, exclude=True)
     bytes_added: int = 0
 
-    oversize: bool = False
-    """Whether the submission is oversize after this change (set in execute)."""
+    oversize: list[size_limits.OversizeReason] = []
+    """`OversizeReason` instances after this change (set in execute)."""
 
     def validate(self, submission: Submission) -> None:
         validators.submission_is_not_finalized(self, submission)
@@ -101,15 +120,17 @@ class UploadFiles(EventWithSideEffect):
     def execute(self, api: SubmitApi, submission: Submission) -> None:
         """Upload the new files using the file store."""
         file_store = api.get_file_store()
+        stats = []
         for f in self.files:
             stat=file_store.store_source_file(str(submission.submission_id), f, chunk_size=4096)
+            stats.append(stat)
             self.bytes_added += stat.bytes
         _common_file_change_execute(api, submission)
-        self.oversize = _evaluate_oversize(api, submission)
+        self.oversize = _add_evaluate_oversize(api, submission, self.bytes_added, stats)
 
     def project(self, submission: Submission) -> Submission:
         submission.uncompressed_size += self.bytes_added
-        submission.is_oversize = self.oversize
+        submission.is_oversize = bool(self.oversize)
         _common_file_change_project(submission)
         return submission
 
@@ -127,8 +148,8 @@ class RemoveFiles(EventWithSideEffect):
     bytes_removed:int = 0
     """Bytes removed by removing these files."""
 
-    oversize: bool = False
-    """Whether the submission is oversize after this change (set in execute)."""
+    oversize: list[size_limits.OversizeReason] = []
+    """`OversizeReason` instances after this change (set in execute)."""
 
     def validate(self, submission: Submission) -> None:
         validators.submission_is_not_finalized(self, submission)
@@ -143,11 +164,11 @@ class RemoveFiles(EventWithSideEffect):
                 self.bytes_removed += file.bytes
 
         _common_file_change_execute(api, submission)
-        self.oversize = _evaluate_oversize(api, submission)
+        self.oversize = _workspace_evaluate_oversize(api, submission)
 
     def project(self, submission: Submission) -> Submission:
         submission.uncompressed_size -= self.bytes_removed
-        submission.is_oversize = self.oversize
+        submission.is_oversize = bool(self.oversize)
         _common_file_change_project(submission)
         return submission
 
