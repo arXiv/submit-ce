@@ -1,9 +1,5 @@
 """Events that send email as a side effect.
 
-Scope of this implementation: the "new submission" confirmation only.
-
-TODO Per-type bodies (rep/wdr/cross/jref),
-
 TODO the ``auto_hold`` override,
 
 TODO ``Re:`` resubmit threading
@@ -11,7 +7,7 @@ TODO ``Re:`` resubmit threading
 from typing import Optional, TYPE_CHECKING
 
 from ..agent import ServiceAgent, System, User
-from ..submission import Submission
+from ..submission import Submission, SubmissionType
 from .base import EventWithSideEffect
 
 if TYPE_CHECKING:
@@ -42,6 +38,56 @@ Our goal is to screen and announce papers as quickly as possible while ensuring 
 You can make changes and view the current status of the submission from your user dashboard: {dashboard_url}
 
 Below is a copy of the submission information.
+
+Regards,
+arXiv Support
+
+
+{summary}
+"""
+
+# TODO: replace placeholder bodies below with real per-type content
+
+_REP_SUBMISSION_BODY = """\
+Dear {name},
+
+TODO: replacement confirmation email body for arXiv replacement {submission_id} of {arxiv_id}.
+
+Regards,
+arXiv Support
+
+
+{summary}
+"""
+
+_WDR_SUBMISSION_BODY = """\
+Dear {name},
+
+TODO: withdrawal confirmation email body for arXiv withdrawal of {arxiv_id} (submission {submission_id}).
+
+Regards,
+arXiv Support
+
+
+{summary}
+"""
+
+_CROSS_SUBMISSION_BODY = """\
+Dear {name},
+
+TODO: cross-list confirmation email body for arXiv cross to {new_categories} for {arxiv_id} (submission {submission_id}).
+
+Regards,
+arXiv Support
+
+
+{summary}
+"""
+
+_JREF_SUBMISSION_BODY = """\
+Dear {name},
+
+TODO: journal-ref confirmation email body for arXiv journal ref for {arxiv_id} (submission {submission_id}).
 
 Regards,
 arXiv Support
@@ -86,6 +132,81 @@ def render_submission_summary(submission: Submission) -> str:
 
     abstract = (md.abstract or "").strip()
     return "{}\n\\\\\n{}\n\\\\".format("\n".join(lines), abstract)
+
+
+def _build_subject_and_body(
+    submission: Submission,
+    to_name: str,
+    dashboard_url: str,
+) -> tuple[str, str]:
+    """Return ``(subject, body)`` for the finalize confirmation email.
+
+    Dispatches on :attr:`.Submission.submission_type`. All non-``new`` types
+    send a placeholder body with a TODO message until full templates are
+    implemented (see ``submit_email_feature_description.md``).
+    """
+    sid = submission.submission_id
+    arxiv_id = submission.arxiv_id or ""
+    summary = render_submission_summary(submission)
+
+    sub_type = submission.submission_type or SubmissionType.NEW
+
+    if sub_type == SubmissionType.NEW:
+        subject = f"arXiv submission {sid}"
+        body = _NEW_SUBMISSION_BODY.format(
+            name=to_name,
+            submission_id=sid,
+            dashboard_url=dashboard_url,
+            summary=summary,
+        )
+    elif sub_type == SubmissionType.REPLACEMENT:
+        subject = f"arXiv replacement {sid} for {arxiv_id}"
+        body = _REP_SUBMISSION_BODY.format(
+            name=to_name,
+            submission_id=sid,
+            arxiv_id=arxiv_id,
+            summary=summary,
+        )
+    elif sub_type == SubmissionType.WITHDRAWAL:
+        subject = f"arXiv withdrawal of {arxiv_id}"
+        body = _WDR_SUBMISSION_BODY.format(
+            name=to_name,
+            submission_id=sid,
+            arxiv_id=arxiv_id,
+            summary=summary,
+        )
+    elif sub_type == SubmissionType.CROSS_LIST:
+        categories = []
+        if submission.primary_classification:
+            categories.append(submission.primary_classification.category)
+        categories.extend(submission.secondary_categories)
+        new_categories = " ".join(categories)
+        subject = f"arXiv cross to {new_categories} for {arxiv_id}"
+        body = _CROSS_SUBMISSION_BODY.format(
+            name=to_name,
+            submission_id=sid,
+            arxiv_id=arxiv_id,
+            new_categories=new_categories,
+            summary=summary,
+        )
+    elif sub_type == SubmissionType.JOURNAL_REFERENCE:
+        subject = f"arXiv journal ref for {arxiv_id}"
+        body = _JREF_SUBMISSION_BODY.format(
+            name=to_name,
+            submission_id=sid,
+            arxiv_id=arxiv_id,
+            summary=summary,
+        )
+    else:
+        subject = f"arXiv submission {sid}"
+        body = _NEW_SUBMISSION_BODY.format(
+            name=to_name,
+            submission_id=sid,
+            dashboard_url=dashboard_url,
+            summary=summary,
+        )
+
+    return subject, body
 
 
 def submitter_recipient(user: User) -> tuple[str, str]:
@@ -161,12 +282,10 @@ class EmailSubmitterFinalizeMsg(EventWithSideEffect):
                 return
 
             config = api.get_config()
-            subject = f"arXiv submission {submission.submission_id}"
-            body = _NEW_SUBMISSION_BODY.format(
-                name=to_name,
-                submission_id=submission.submission_id,
+            subject, body = _build_subject_and_body(
+                submission=submission,
+                to_name=to_name,
                 dashboard_url=config.url_for_user_dashboard,
-                summary=render_submission_summary(submission),
             )
             service.send_email(
                 to=[to_email],
