@@ -416,7 +416,7 @@ class EmailSubmitterFinalizeMsg(EventWithSideEffect):
                 reply_to=reply_to,
             )
             self.msg_id = msg_id
-            self.error = problems
+            self.error = problems or None
         except Exception as e:  # noqa: BLE001 - email send must never abort submit
             self.error = f"failed to send confirmation email: {e}"
             logger.warning("Submission %s: %s", submission.submission_id,

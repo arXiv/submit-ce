@@ -13,6 +13,7 @@ def _halon_settings(mode="HALON"):
         EMAIL_MODE=mode,
         EMAIL_SMTP_SECRET="MY_SECRET",
         EMAIL_FROM="from@arxiv.org",
+        EMAIL_TIMEOUT=30.0,
     )
 
 
