@@ -6,9 +6,7 @@ TODO Per-type bodies (rep/wdr/cross/jref),
 
 TODO the ``auto_hold`` override,
 
-TODO ``Re:`` resubmit threading,
-
-TODO the full ``write_to_string`` abstract block
+TODO ``Re:`` resubmit threading
 """
 from typing import Optional, TYPE_CHECKING
 
@@ -49,10 +47,45 @@ Regards,
 arXiv Support
 
 
-Title: {title}
+{summary}
 """
-# TODO: replace the bare "Title: ..." line with a full write_to_string-equivalent
-# abstract block (title/authors/abstract/comments/categories).
+
+
+def render_submission_summary(submission: Submission) -> str:
+    """Render the plaintext "copy of the submission information" block.
+
+    A ``write_to_string`` equivalent: an arXiv abs-style summary of the
+    submission -- title / authors / categories, then the optional
+    cross-reference fields, then the abstract. Empty fields are omitted. Text is
+    included as entered (TeX is not converted to unicode). The ``\\\\`` lines
+    are the conventional arXiv abs delimiters around the abstract.
+    """
+    md = submission.metadata
+
+    categories = []
+    if submission.primary_classification:
+        categories.append(submission.primary_classification.category)
+    categories.extend(submission.secondary_categories)
+
+    lines = [
+        f"Title: {md.title or ''}",
+        f"Authors: {md.authors_display or ''}",
+    ]
+    if categories:
+        lines.append(f"Categories: {' '.join(categories)}")
+    for label, value in (
+        ("Comments", md.comments),
+        ("Report-no", md.report_num),
+        ("MSC-class", md.msc_class),
+        ("ACM-class", md.acm_class),
+        ("Journal-ref", md.journal_ref),
+        ("DOI", md.doi),
+    ):
+        if value:
+            lines.append(f"{label}: {value}")
+
+    abstract = (md.abstract or "").strip()
+    return "{}\n\\\\\n{}\n\\\\".format("\n".join(lines), abstract)
 
 
 def submitter_recipient(user: User) -> tuple[str, str]:
@@ -132,8 +165,8 @@ class EmailSubmitterFinalizeMsg(EventWithSideEffect):
             body = _NEW_SUBMISSION_BODY.format(
                 name=to_name,
                 submission_id=submission.submission_id,
-                title=submission.metadata.title or "",
                 dashboard_url=config.url_for_user_dashboard,
+                summary=render_submission_summary(submission),
             )
             service.send_email(
                 to=[to_email],

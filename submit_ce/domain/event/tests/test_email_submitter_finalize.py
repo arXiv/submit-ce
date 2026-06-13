@@ -12,7 +12,10 @@ from submit_ce.domain import agent
 from submit_ce.domain.meta import Classification
 from submit_ce.domain.config import SubmitConfig
 from submit_ce.domain.event import EmailSubmitterFinalizeMsg
-from submit_ce.domain.event.email import submitter_recipient
+from submit_ce.domain.event.email import (
+    render_submission_summary,
+    submitter_recipient,
+)
 from submit_ce.domain.submission import Submission, SubmissionMetadata
 from submit_ce.implementations.email.email_in_memory import EmailInMemory
 
@@ -116,6 +119,67 @@ def test_execute_system_recipient_skips_send_without_error():
     event.execute(_Api(service), _submission())
     assert len(service.sent) == 0
     assert event.error is None
+
+
+# --- abstract block (render_submission_summary) ---
+
+def _full_submission():
+    u = _user()
+    sub = Submission(
+        submission_id="12345",
+        creator=u, owner=u, created=datetime.now(UTC),
+        primary_classification=Classification(category="astro-ph.GA"),
+        secondary_classification=[Classification(category="astro-ph.CO"),
+                                  Classification(category="gr-qc")],
+        metadata=SubmissionMetadata(
+            title="A Fine Paper",
+            authors_display="A. Author and B. Coauthor",
+            abstract="We show a fine result.",
+            comments="12 pages, 3 figures",
+            report_num="REP-2026-1",
+            msc_class="83C99",
+            acm_class="F.2.2",
+            journal_ref="J. Fine Res. 1 (2026) 1",
+            doi="10.1000/xyz"))
+    return sub
+
+
+def test_render_submission_summary_full():
+    summary = render_submission_summary(_full_submission())
+    assert "Title: A Fine Paper" in summary
+    assert "Authors: A. Author and B. Coauthor" in summary
+    # primary first, then secondaries, space-joined.
+    assert "Categories: astro-ph.GA astro-ph.CO gr-qc" in summary
+    assert "Comments: 12 pages, 3 figures" in summary
+    assert "Report-no: REP-2026-1" in summary
+    assert "MSC-class: 83C99" in summary
+    assert "ACM-class: F.2.2" in summary
+    assert "Journal-ref: J. Fine Res. 1 (2026) 1" in summary
+    assert "DOI: 10.1000/xyz" in summary
+    # abstract sits between the arXiv abs delimiters.
+    assert "\\\\\nWe show a fine result.\n\\\\" in summary
+
+
+def test_render_submission_summary_omits_empty_optional_fields():
+    """Only title/authors (and categories if any) are always present."""
+    summary = render_submission_summary(_submission())  # minimal metadata
+    assert "Title: A Fine Paper" in summary
+    assert "Authors: " in summary
+    assert "Categories: astro-ph.GA" in summary
+    for label in ("Comments:", "Report-no:", "MSC-class:", "ACM-class:",
+                  "Journal-ref:", "DOI:"):
+        assert label not in summary
+
+
+def test_render_submission_summary_in_email_body():
+    """The rendered summary is included in the sent email body."""
+    service = EmailInMemory()
+    event = _event()
+    event.execute(_Api(service), _full_submission())
+    body = service.last.body
+    assert "Title: A Fine Paper" in body
+    assert "Categories: astro-ph.GA astro-ph.CO gr-qc" in body
+    assert "We show a fine result." in body
 
 
 def test_project_is_noop():
