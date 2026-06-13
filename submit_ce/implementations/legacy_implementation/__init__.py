@@ -67,10 +67,7 @@ class LegacySubmitImplementation(SubmitApi):
         Configuration thta is relevant to the SubmitAPI.
     get_session : Callable[[], SqlalchemySession], optional
         Factory returning a SQLAlchemy session for database access.
-    serialize_file_operations : bool, optional
-        If ``True``, serialize file operations rather than allowing them to
-        run concurrently. Defaults to ``False``.
-
+    
     Notes
     -----
     TODO success response objects (similar to modapi? {msg: success, updated_fields:[]})
@@ -84,10 +81,8 @@ class LegacySubmitImplementation(SubmitApi):
                  compiler: CompileService,
                  email_service: EmailService,
                  config: SubmitConfig,
-                 get_session:Callable[[],SqlalchemySession],
-                 serialize_file_operations:bool = False):
+                 get_session:Callable[[],SqlalchemySession]):
         self.get_session = get_session
-        self.serialize_file_operations = serialize_file_operations
         self.compiler = compiler
         self.store = store
         self.email_service = email_service
@@ -98,10 +93,7 @@ class LegacySubmitImplementation(SubmitApi):
                 f"store={self.store.__repr__()},"
                 f"compiler={self.compiler.__repr__()},"
                 f"email_service={self.email_service.__repr__()},"
-                f"config={self.config.__repr__()},"
-                f"serialize_file_operations={self.serialize_file_operations}"
                 ")")
-
 
     @override
     def get(self, submission_id: str) -> Submission:

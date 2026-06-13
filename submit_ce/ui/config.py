@@ -127,6 +127,11 @@ class Settings(ArxivBaseSettings):
     resource name is passed straight through. Only used when
     ``EMAIL_MODE=HALON``."""
 
+    EMAIL_TIMEOUT: float = 30.0
+    """Timeout in seconds for SMTP connection and I/O. Applied to both the
+    initial connection and all blocking socket operations (login, send).
+    Only used when ``EMAIL_MODE=HALON``."""
+
     EMAIL_FROM: str = "e-prints@arxiv.org"
     """Default ``From`` address for outgoing mail. Matches legacy submission mail,
     which sends from ``e-prints@arxiv.org``."""

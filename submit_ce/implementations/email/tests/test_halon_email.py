@@ -1,5 +1,8 @@
 """Tests for `HalonEmailService` and `SmtpCreds`, mocking the SMTP transport."""
+import smtplib
 from unittest import mock
+
+import pytest
 
 from submit_ce.implementations.email import HalonEmailService
 from submit_ce.implementations.email.smtp_creds import SmtpCreds
@@ -31,7 +34,7 @@ def test_send_email_logs_in_and_sends(smtp_ssl):
         references="<prev@arxiv.org>",
     )
 
-    smtp_ssl.assert_called_once_with(host="mail.example.org", port=465)
+    smtp_ssl.assert_called_once_with(host="mail.example.org", port=465, timeout=30.0)
     sess.login.assert_called_once_with("arxiv", "secret")
 
     assert sess.send_message.call_count == 1
@@ -92,10 +95,96 @@ def test_send_email_starttls_path(smtp):
     )
     service.send_email(["a@example.com"], "Hi", "Body", "reply@arxiv.org")
 
-    smtp.assert_called_once_with(host="smtp.example.org", port=587)
+    smtp.assert_called_once_with(host="smtp.example.org", port=587, timeout=30.0)
     sess.starttls.assert_called_once()
     sess.login.assert_called_once_with("u", "p")
     sess.send_message.assert_called_once()
+
+
+# --- send_email return value ---
+
+@mock.patch("submit_ce.implementations.email.smtplib.SMTP_SSL")
+def test_send_email_returns_message_id_and_empty_error_on_success(smtp_ssl):
+    sess = smtp_ssl.return_value.__enter__.return_value
+    sess.send_message.return_value = {}
+    msg_id, err = make_service().send_email(
+        ["a@example.com"], "Hi", "Body", "reply@arxiv.org",
+        message_id="<fixed@arxiv.org>",
+    )
+    assert msg_id == "<fixed@arxiv.org>"
+    assert err == ""
+
+
+# --- send_email error paths ---
+
+def _send(service=None, **kwargs):
+    svc = service or make_service()
+    return svc.send_email(["a@example.com"], "Hi", "Body", "reply@arxiv.org", **kwargs)
+
+
+@mock.patch("submit_ce.implementations.email.smtplib.SMTP_SSL")
+def test_send_email_timeout(smtp_ssl):
+    smtp_ssl.side_effect = TimeoutError
+    msg_id, err = _send()
+    assert "timed out" in err
+    assert "30.0" in err
+    assert "mail.example.org" in err
+
+
+@mock.patch("submit_ce.implementations.email.smtplib.SMTP_SSL")
+def test_send_email_auth_failure(smtp_ssl):
+    smtp_ssl.return_value.__enter__.return_value.login.side_effect = (
+        smtplib.SMTPAuthenticationError(535, b"5.7.8 Bad credentials")
+    )
+    msg_id, err = _send()
+    assert "authentication failed" in err
+    assert "arxiv" in err  # user name included
+
+
+@mock.patch("submit_ce.implementations.email.smtplib.SMTP_SSL")
+def test_send_email_connect_error(smtp_ssl):
+    smtp_ssl.return_value.__enter__.return_value.login.side_effect = (
+        smtplib.SMTPConnectError(421, b"Service unavailable")
+    )
+    msg_id, err = _send()
+    assert "connect" in err.lower()
+    assert "mail.example.org" in err
+
+
+@mock.patch("submit_ce.implementations.email.smtplib.SMTP_SSL")
+def test_send_email_all_recipients_refused(smtp_ssl):
+    smtp_ssl.return_value.__enter__.return_value.send_message.side_effect = (
+        smtplib.SMTPRecipientsRefused({"a@example.com": (550, b"User unknown")})
+    )
+    msg_id, err = _send()
+    assert "All recipients refused" in err
+    assert "a@example.com" in err
+    assert "550" in err
+
+
+@mock.patch("submit_ce.implementations.email.smtplib.SMTP_SSL")
+def test_send_email_sender_refused(smtp_ssl):
+    smtp_ssl.return_value.__enter__.return_value.login.side_effect = (
+        smtplib.SMTPSenderRefused(550, b"Sender denied", "noreply@arxiv.org")
+    )
+    msg_id, err = _send()
+    assert "refused" in err.lower()
+    assert "noreply@arxiv.org" in err
+
+
+@mock.patch("submit_ce.implementations.email.smtplib.SMTP_SSL")
+def test_send_email_partial_recipients_refused(smtp_ssl):
+    sess = smtp_ssl.return_value.__enter__.return_value
+    sess.send_message.return_value = {
+        "bob@example.com": (550, b"User unknown"),
+        "sam@example.com": (452, b"Mailbox full"),
+    }
+    msg_id, err = _send()
+    assert "some recipients refused" in err
+    assert "bob@example.com" in err
+    assert "sam@example.com" in err
+    assert "550" in err
+    assert "452" in err
 
 
 # --- SmtpCreds.parse ---

@@ -365,6 +365,9 @@ class EmailSubmitterFinalizeMsg(EventWithSideEffect):
     error: Optional[str] = None
     """Set if the email could not be sent; the submit still succeeds."""
 
+    msg_id: Optional[str] = None
+    """Message id"""
+
     def validate_pre_lock(self, submission: Submission) -> None:
         """No precondition; this is a consequence of a validated finalize."""
         pass
@@ -406,12 +409,14 @@ class EmailSubmitterFinalizeMsg(EventWithSideEffect):
                 if _is_auto_hold(submission)
                 else config.email_reply_to
             )
-            service.send_email(
+            msg_id, problems = service.send_email(
                 to=[to_email],
                 subject=subject,
                 body=body,
                 reply_to=reply_to,
             )
+            self.msg_id = msg_id
+            self.error = problems
         except Exception as e:  # noqa: BLE001 - email send must never abort submit
             self.error = f"failed to send confirmation email: {e}"
             logger.warning("Submission %s: %s", submission.submission_id,

@@ -57,7 +57,7 @@ class EmailInMemory(EmailService):  # pragma: no cover
                    cc: list[str] | None = None,
                    bcc: list[str] | None = None,
                    message_id: str = "",
-                   references: str = "") -> None:
+                   references: str = "") -> tuple[str, str]:
         """Capture an email in memory.
 
         Parameters match `EmailService.send_email`; see that method for
@@ -73,6 +73,7 @@ class EmailInMemory(EmailService):  # pragma: no cover
             message_id=message_id,
             references=references,
         ))
+        return (message_id, "")
 
     @property
     def last(self) -> SentEmail:

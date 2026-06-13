@@ -11,7 +11,7 @@ class EmailService(metaclass=ABCMeta):
                    cc: list[str] | None = None,
                    bcc: list[str] | None = None,
                    message_id: str="",
-                   references: str="") -> None:
+                   references: str="") -> tuple[str, str]:
         """Send an email.
 
         Parameters
@@ -36,6 +36,13 @@ class EmailService(metaclass=ABCMeta):
         references : str
             ``References`` header linking this message to prior messages in
             a thread.
+
+        Returns
+        -------
+        tuple[str, str]
+            ``(message_id, error)``. ``error`` is an empty string on success,
+            or a human-readable description if sending failed or some
+            recipients were refused.
         """
         pass
 

@@ -52,8 +52,8 @@ class NullEmailService(EmailService):  # pragma: no cover
                    cc: list[str] | None = None,
                    bcc: list[str] | None = None,
                    message_id: str = "",
-                   references: str = "") -> None:
-        pass
+                   references: str = "") -> tuple[str, str]:
+        return ("", "")
 
     def is_available(self) -> bool:
         return False

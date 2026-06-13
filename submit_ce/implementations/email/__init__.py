@@ -45,13 +45,15 @@ class HalonEmailService(EmailService):
                  password: str,
                  from_address: str,
                  port: int = 465,
-                 use_starttls: bool = False) -> None:
+                 use_starttls: bool = False,
+                 timeout: float = 30.0) -> None:
         self.host = host
         self.user = user
         self.password = password
         self.from_address = from_address
         self.port = port
         self.use_starttls = use_starttls
+        self.timeout = timeout
 
     def __repr__(self) -> str:
         # Never include the password in a repr.
@@ -71,7 +73,7 @@ class HalonEmailService(EmailService):
                    cc: list[str] | None = None,
                    bcc: list[str] | None = None,
                    message_id: str = "",
-                   references: str = "") -> None:
+                   references: str = "") -> tuple[str,str]:
         """Build and send a plain-text email through the Halon server.
 
         Parameters match `EmailService.send_email`; see that method for
@@ -103,23 +105,58 @@ class HalonEmailService(EmailService):
         # including Bcc (which is intentionally absent from the headers).
         recipients = list(to) + list(cc) + list(bcc)
 
-        if self.use_starttls:
-            with smtplib.SMTP(host=self.host, port=self.port) as sess:
-                sess.starttls()
-                sess.login(self.user, self.password)
-                sess.send_message(msg,
-                                  from_addr=self.from_address,
-                                  to_addrs=recipients,
-                                  mail_options=mail_options)
-        else:
-            with smtplib.SMTP_SSL(host=self.host, port=self.port) as sess:
-                sess.login(self.user, self.password)
-                sess.send_message(msg,
-                                  from_addr=self.from_address,
-                                  to_addrs=recipients,
-                                  mail_options=mail_options)
+        try:
+            if self.use_starttls:
+                with smtplib.SMTP(host=self.host, port=self.port, timeout=self.timeout) as sess:
+                    sess.starttls()
+                    sess.login(self.user, self.password)
+                    refused = sess.send_message(msg,
+                                                from_addr=self.from_address,
+                                                to_addrs=recipients,
+                                                mail_options=mail_options)
+            else:
+                with smtplib.SMTP_SSL(host=self.host, port=self.port, timeout=self.timeout) as sess:
+                    sess.login(self.user, self.password)
+                    refused = sess.send_message(msg,
+                                                from_addr=self.from_address,
+                                                to_addrs=recipients,
+                                                mail_options=mail_options)
+        except TimeoutError:
+            return (msg["Message-ID"],
+                    f"Email timed out after {self.timeout}s"
+                    f" connecting to {self.host}:{self.port}")
+        except smtplib.SMTPAuthenticationError as e:
+            return (msg["Message-ID"],
+                    f"SMTP authentication failed for user {self.user!r}:"
+                    f" {e.smtp_error.decode(errors='replace')}")
+        except smtplib.SMTPConnectError as e:
+            return (msg["Message-ID"],
+                    f"Could not connect to SMTP server {self.host}:{self.port}:"
+                    f" {e.smtp_error.decode(errors='replace')}")
+        except smtplib.SMTPRecipientsRefused as e:
+            parts = ", ".join(
+                f"{addr} ({code}, {resp.decode(errors='replace')})"
+                for addr, (code, resp) in e.recipients.items()
+            )
+            return (msg["Message-ID"], f"All recipients refused: {parts}")
+        except smtplib.SMTPSenderRefused as e:
+            return (msg["Message-ID"],
+                    f"Sender {self.from_address!r} refused:"
+                    f" {e.smtp_error.decode(errors='replace')}")
+
+        if refused:
+            parts = ", ".join(
+                f"{addr} ({code}, {resp.decode(errors='replace')})"
+                for addr, (code, resp) in refused.items()
+            )
+            logger.warning("send_email %s: some recipients refused: %s",
+                           msg["Message-ID"], parts)
+            return (msg["Message-ID"],
+                    f"Email sent but some recipients refused: {parts}")
+
         logger.info("Sent email %s to %d recipient(s)",
                     msg["Message-ID"], len(recipients))
+        return (msg["Message-ID"], "")
 
     @override
     def is_available(self) -> bool:

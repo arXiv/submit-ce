@@ -63,6 +63,7 @@ def email_service_from_settings(settings: Settings):
         password=creds.password,
         from_address=settings.EMAIL_FROM,
         use_starttls=creds.use_starttls,
+        timeout=settings.EMAIL_TIMEOUT,
     )
 
 
