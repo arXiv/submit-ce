@@ -61,9 +61,10 @@ class LegacySubmitImplementation(SubmitApi):
         previews and related artifacts.
     compiler : CompileService
         Service used to compile submission sources (e.g. to PDF).
-    email_service : EmailService, optional
-        Service used to send notification email. If ``None``, no email
-        service is configured.
+    email_service : EmailService
+        Service used to send notification email.
+    config : SubmitConfig
+        Configuration thta is relevant to the SubmitAPI.
     get_session : Callable[[], SqlalchemySession], optional
         Factory returning a SQLAlchemy session for database access.
     serialize_file_operations : bool, optional
@@ -81,9 +82,9 @@ class LegacySubmitImplementation(SubmitApi):
     def __init__(self,
                  store: SubmissionFileStore,
                  compiler: CompileService,
-                 email_service: EmailService = None,
-                 config: Optional[SubmitConfig] = None,
-                 get_session:Callable[[],SqlalchemySession] = None,
+                 email_service: EmailService,
+                 config: SubmitConfig,
+                 get_session:Callable[[],SqlalchemySession],
                  serialize_file_operations:bool = False):
         self.get_session = get_session
         self.serialize_file_operations = serialize_file_operations

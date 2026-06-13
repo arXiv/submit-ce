@@ -112,23 +112,20 @@ class Settings(ArxivBaseSettings):
 
     COMPILE_API_CONVERT_TIMEOUT: int = 840
 
-    EMAIL_MODE: Literal["TESTING", "HALON"] = "HALON"
+    EMAIL_MODE: Literal["TESTING", "HALON"] = "TESTING"
     """Which `EmailService` the app uses. ``HALON`` sends real mail via the
-    Halon SMTP server; ``TESTING`` uses an in-memory service that captures
-    messages instead of sending them."""
+    Halon SMTP server (requires ``EMAIL_SMTP_SECRET`` to resolve);
+    ``TESTING`` uses an in-memory service that captures messages instead of
+    sending them. Defaults to ``TESTING`` so the app starts safely without
+    GCP credentials; set ``EMAIL_MODE=HALON`` in production."""
 
-    EMAIL_SMTP_HOST: str = "mailh.arxiv.org"
-    """Hostname of the Halon SMTP server used to send mail (SMTP over SSL)."""
-
-    EMAIL_SMTP_PORT: int = 465
-    """Port for the SMTP-over-SSL connection to the Halon server."""
-
-    EMAIL_SMTP_USER: str = "arxiv"
-    """Username for authenticating to the Halon SMTP server."""
-
-    EMAIL_SMTP_PASSWORD: str = ""
-    """Password for authenticating to the Halon SMTP server. Set via the
-    environment (e.g. a secret); never commit a real password."""
+    EMAIL_SMTP_SECRET: str = "HALON_CREDS"
+    """Name of the GCP Secret Manager secret whose value is an SMTP URI
+    (e.g. ``smtps://user:pass@mailh.arxiv.org:465``).
+    A short name (e.g. ``"HALON_CREDS"``) is resolved against
+    ``GOOGLE_CLOUD_PROJECT``; a full ``projects/…/secrets/…/versions/…``
+    resource name is passed straight through. Only used when
+    ``EMAIL_MODE=HALON``."""
 
     EMAIL_FROM: str = "e-prints@arxiv.org"
     """Default ``From`` address for outgoing mail. Matches legacy submission mail,

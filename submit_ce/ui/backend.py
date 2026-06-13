@@ -14,6 +14,7 @@ from submit_ce.domain.config import SubmitConfig
 from submit_ce.implementations.compile.compile_api_service import CompileApiService
 from submit_ce.implementations.email import HalonEmailService
 from submit_ce.implementations.email.email_in_memory import EmailInMemory
+from submit_ce.implementations.email.smtp_creds import smtp_creds_from_secret
 from submit_ce.implementations.file_store.gs_file_store import GsFileStore
 from submit_ce.implementations.legacy_implementation.flask_impl import FlaskSubmitImplementation
 from submit_ce.implementations import NullFileStore
@@ -54,12 +55,14 @@ def email_service_from_settings(settings: Settings):
         logger.info("EMAIL_MODE=TESTING: using in-memory email service")
         return EmailInMemory()
 
+    creds = smtp_creds_from_secret(settings.EMAIL_SMTP_SECRET)
     return HalonEmailService(
-        host=settings.EMAIL_SMTP_HOST,
-        port=settings.EMAIL_SMTP_PORT,
-        user=settings.EMAIL_SMTP_USER,
-        password=settings.EMAIL_SMTP_PASSWORD,
+        host=creds.host,
+        port=creds.port or 465,
+        user=creds.user,
+        password=creds.password,
         from_address=settings.EMAIL_FROM,
+        use_starttls=creds.use_starttls,
     )
 
 

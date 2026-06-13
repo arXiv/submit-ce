@@ -33,7 +33,10 @@ class HalonEmailService(EmailService):
     from_address : str
         Default ``From`` address for outgoing mail.
     port : int
-        Port for the SMTP-over-SSL connection. Defaults to 465.
+        Port for the SMTP connection. Defaults to 465.
+    use_starttls : bool
+        If ``True``, connect with plain SMTP then upgrade via STARTTLS.
+        If ``False`` (default), connect with SMTP_SSL.
     """
 
     def __init__(self,
@@ -41,12 +44,14 @@ class HalonEmailService(EmailService):
                  user: str,
                  password: str,
                  from_address: str,
-                 port: int = 465) -> None:
+                 port: int = 465,
+                 use_starttls: bool = False) -> None:
         self.host = host
         self.user = user
         self.password = password
         self.from_address = from_address
         self.port = port
+        self.use_starttls = use_starttls
 
     def __repr__(self) -> str:
         # Never include the password in a repr.
@@ -98,12 +103,21 @@ class HalonEmailService(EmailService):
         # including Bcc (which is intentionally absent from the headers).
         recipients = list(to) + list(cc) + list(bcc)
 
-        with smtplib.SMTP_SSL(host=self.host, port=self.port) as sess:
-            sess.login(self.user, self.password)
-            sess.send_message(msg,
-                              from_addr=self.from_address,
-                              to_addrs=recipients,
-                              mail_options=mail_options)
+        if self.use_starttls:
+            with smtplib.SMTP(host=self.host, port=self.port) as sess:
+                sess.starttls()
+                sess.login(self.user, self.password)
+                sess.send_message(msg,
+                                  from_addr=self.from_address,
+                                  to_addrs=recipients,
+                                  mail_options=mail_options)
+        else:
+            with smtplib.SMTP_SSL(host=self.host, port=self.port) as sess:
+                sess.login(self.user, self.password)
+                sess.send_message(msg,
+                                  from_addr=self.from_address,
+                                  to_addrs=recipients,
+                                  mail_options=mail_options)
         logger.info("Sent email %s to %d recipient(s)",
                     msg["Message-ID"], len(recipients))
 

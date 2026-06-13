@@ -1,7 +1,8 @@
-"""Tests for `HalonEmailService`, mocking the SMTP transport."""
+"""Tests for `HalonEmailService` and `SmtpCreds`, mocking the SMTP transport."""
 from unittest import mock
 
 from submit_ce.implementations.email import HalonEmailService
+from submit_ce.implementations.email.smtp_creds import SmtpCreds
 
 
 def make_service() -> HalonEmailService:
@@ -76,5 +77,59 @@ def test_is_available_requires_full_config():
 
 def test_repr_hides_password():
     assert "secret" not in repr(make_service())
+
+
+@mock.patch("submit_ce.implementations.email.smtplib.SMTP")
+def test_send_email_starttls_path(smtp):
+    sess = smtp.return_value.__enter__.return_value
+    service = HalonEmailService(
+        host="smtp.example.org",
+        user="u",
+        password="p",
+        from_address="noreply@arxiv.org",
+        port=587,
+        use_starttls=True,
+    )
+    service.send_email(["a@example.com"], "Hi", "Body", "reply@arxiv.org")
+
+    smtp.assert_called_once_with(host="smtp.example.org", port=587)
+    sess.starttls.assert_called_once()
+    sess.login.assert_called_once_with("u", "p")
+    sess.send_message.assert_called_once()
+
+
+# --- SmtpCreds.parse ---
+
+def test_parse_smtps_uri():
+    creds = SmtpCreds.parse("smtps://arxiv:s3cr3t@mailh.arxiv.org:465")
+    assert creds.host == "mailh.arxiv.org"
+    assert creds.port == 465
+    assert creds.user == "arxiv"
+    assert creds.password == "s3cr3t"
+    assert creds.use_ssl is True
+    assert creds.use_starttls is False
+
+
+def test_parse_starttls_uri():
+    creds = SmtpCreds.parse("smtp+starttls://u:p@smtp.example.org:587")
+    assert creds.use_ssl is False
+    assert creds.use_starttls is True
+    assert creds.port == 587
+
+
+def test_parse_uri_no_port():
+    creds = SmtpCreds.parse("smtps://u:p@mail.example.org")
+    assert creds.port is None
+
+
+def test_parse_uri_percent_encoded_password():
+    creds = SmtpCreds.parse("smtps://user:p%40ssw%21rd@mail.example.org")
+    assert creds.password == "p@ssw!rd"
+
+
+def test_parse_uri_missing_hostname_raises():
+    import pytest
+    with pytest.raises(RuntimeError, match="hostname"):
+        SmtpCreds.parse("smtps://")
 
 

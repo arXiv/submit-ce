@@ -635,6 +635,23 @@ wheels = [
 ]
 
 [[package]]
+name = "google-cloud-secret-manager"
+version = "2.29.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "google-api-core", extra = ["grpc"] },
+    { name = "google-auth" },
+    { name = "grpc-google-iam-v1" },
+    { name = "grpcio" },
+    { name = "proto-plus" },
+    { name = "protobuf" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/d2/7c/5c88cdde9664f6c75fb68aa11e0af4309a92bef38dd38df0456ffb0f469b/google_cloud_secret_manager-2.29.0.tar.gz", hash = "sha256:ee64133af8fdb3780affb65ec6ccf10ab15a0113d8edeba388665f4be87ce1be", size = 278437, upload-time = "2026-06-03T16:13:43.149Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b6/c2/fc3275bc42a522757cb5141d7dae51f048b93d2f5fe4574fcee5392cef03/google_cloud_secret_manager-2.29.0-py3-none-any.whl", hash = "sha256:21bac2d0adb0bb3c13c346d7223832f197c2266534528a1bf1402774e06395a3", size = 225042, upload-time = "2026-06-03T16:12:20.162Z" },
+]
+
+[[package]]
 name = "google-cloud-storage"
 version = "3.9.0"
 source = { registry = "https://pypi.org/simple" }
@@ -2019,6 +2036,7 @@ dependencies = [
     { name = "flask" },
     { name = "gcld3" },
     { name = "google-cloud-pubsub" },
+    { name = "google-cloud-secret-manager" },
     { name = "greenlet" },
     { name = "gunicorn" },
     { name = "h11" },
@@ -2109,6 +2127,7 @@ dev = [
     { name = "docopt" },
     { name = "epc" },
     { name = "google-cloud-pubsub" },
+    { name = "google-cloud-secret-manager" },
     { name = "hypothesis" },
     { name = "hypothesis-jsonschema" },
     { name = "idna" },
@@ -2178,6 +2197,7 @@ requires-dist = [
     { name = "flask", specifier = "==3.0.3" },
     { name = "gcld3", specifier = ">=3.0.13" },
     { name = "google-cloud-pubsub", specifier = ">=2.29.0" },
+    { name = "google-cloud-secret-manager", specifier = ">=2.20.0" },
     { name = "greenlet", specifier = "==3.1.0" },
     { name = "gunicorn", specifier = ">=23.0.0" },
     { name = "h11", specifier = "==0.14.0" },
@@ -2268,6 +2288,7 @@ dev = [
     { name = "docopt", specifier = "==0.6.2" },
     { name = "epc", specifier = ">=0.0.5" },
     { name = "google-cloud-pubsub", specifier = ">=2.29.0" },
+    { name = "google-cloud-secret-manager", specifier = ">=2.20.0" },
     { name = "hypothesis", specifier = ">=6.131.21" },
     { name = "hypothesis-jsonschema", specifier = ">=0.23.1" },
     { name = "idna", specifier = "==3.10" },
