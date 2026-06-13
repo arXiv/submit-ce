@@ -13,6 +13,7 @@ from submit_ce.domain.meta import Classification
 from submit_ce.domain.config import SubmitConfig
 from submit_ce.domain.event import EmailSubmitterFinalizeMsg
 from submit_ce.domain.event.email import (
+    _is_auto_hold,
     render_submission_summary,
     submitter_recipient,
 )
@@ -199,3 +200,70 @@ def test_submitter_recipient_staff_user():
     staff = agent.StaffUser(user_id="999", email="mod@arxiv.org",
                             name="Mod Erator", username="moderator")
     assert submitter_recipient(staff) == ("Mod Erator", "mod@arxiv.org")
+
+
+# --- auto_hold override ---
+
+def _oversize_submission():
+    sub = _submission()
+    sub.is_oversize = True
+    return sub
+
+
+def test_is_auto_hold_true_for_oversize():
+    assert _is_auto_hold(_oversize_submission()) is True
+
+
+def test_is_auto_hold_false_for_normal():
+    assert _is_auto_hold(_submission()) is False
+
+
+def test_auto_hold_subject_contains_on_hold():
+    service = EmailInMemory()
+    event = _event()
+    event.execute(_Api(service), _oversize_submission())
+
+    assert event.error is None
+    sent = service.last
+    assert "On Hold" in sent.subject
+    assert sent.subject == "arXiv submission 12345: On Hold"
+
+
+def test_auto_hold_reply_to_is_mod_lib():
+    service = EmailInMemory()
+    event = _event()
+    event.execute(_Api(service), _oversize_submission())
+
+    assert service.last.reply_to == SubmitConfig().email_auto_hold_reply_to
+
+
+def test_normal_submission_reply_to_is_from_config():
+    """Non-oversize submissions use the configured reply-to, not mod-lib."""
+    service = EmailInMemory()
+    event = _event()
+    event.execute(_Api(service), _submission())
+
+    assert service.last.reply_to == "replyhere@arxiv.org"
+
+
+def test_auto_hold_body_content():
+    """Auto-hold body mirrors the legacy $tmpl_new_user_auto_hold template."""
+    service = EmailInMemory()
+    event = _event()
+    event.execute(_Api(service), _oversize_submission())
+
+    body = service.last.body
+    # Top-level framing (no "Dear" salutation, matching legacy)
+    assert body.startswith("Your submission to arXiv is on hold.")
+    assert "12345" in body
+    # Submit URL derived from dashboard URL
+    assert "https://example.test/submit/12345" in body
+    # Oversize summary and detail
+    assert "Oversize submission" in body
+    assert "example.test/help/sizes" in body
+    assert "example.test/help/submit_tex#pdflatex" in body
+    assert "example.test/bitmap/index" in body
+    # www_admin contact address from config
+    assert "replyhere@arxiv.org" in body
+    # Abstract block at the bottom
+    assert "A Fine Paper" in body

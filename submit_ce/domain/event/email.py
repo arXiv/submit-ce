@@ -1,12 +1,12 @@
 """Events that send email as a side effect.
 
-TODO the ``auto_hold`` override,
-
 TODO ``Re:`` resubmit threading
 """
 from typing import Optional, TYPE_CHECKING
+from urllib.parse import urlparse
 
 from ..agent import ServiceAgent, System, User
+from ..config import SubmitConfig
 from ..submission import Submission, SubmissionType
 from .base import EventWithSideEffect
 
@@ -47,6 +47,95 @@ arXiv Support
 """
 
 # TODO: replace placeholder bodies below with real per-type content
+
+
+def _render_auto_hold_body(
+    submission: Submission,
+    submission_id: str,
+    submit_url: str,
+    this_site: str,
+    www_admin: str,
+    summary: str,
+) -> str:
+    """Render the auto_hold email body.
+
+    Faithfully translated from ``$tmpl_new_user_auto_hold`` in
+    ``arxiv-lib/lib/arXiv/Submit/Email/OnSubmit.pm`` (lines 298-349).
+    Conditions are evaluated per flag; only ``is_oversize`` is wired now —
+    the remaining four (``multiple``, ``linenos``, ``text_extraction_failure``,
+    ``missing_pdf``) will be added when those Submission fields exist.
+    """
+    # -- Summary block -------------------------------------------------------
+    summary_lines: list[str] = []
+    if submission.is_oversize:
+        summary_lines.append("   Oversize submission")
+    # TODO: append for multiple, linenos, text_extraction_failure, missing_pdf
+
+    # -- Detail block --------------------------------------------------------
+    detail_parts: list[str] = []
+    if submission.is_oversize:
+        detail_parts.append(
+            f"Oversize submission: Your article is currently in \"on-hold\" status"
+            f" because it is over our size limits. It will not be announced without"
+            f" action from arXiv administrators either after you correct the"
+            f" over-size issue, or if you are given permission because there is a"
+            f" good reason for why your paper should be announced as-is (e.g. the"
+            f" source of your paper is efficient already, or you have large ancillary"
+            f" files). Please see:\n"
+            f"\n"
+            f"   https://{this_site}/help/sizes\n"
+            f"\n"
+            f"for a discussion related to arXiv's file size warnings.\n"
+            f"\n"
+            f"A common problem is large and inefficient postscript files in LaTeX"
+            f" submissions. The simplest method to correct this issue is to convert"
+            f" any postscript figures into pdf and convert your submission to use"
+            f" pdflatex. See:\n"
+            f"\n"
+            f"   https://{this_site}/help/submit_tex#pdflatex\n"
+            f"\n"
+            f"for a brief discussion regarding the considerations for using pdflatex."
+            f" You may also wish to consider bitmapping complex figures. For a more"
+            f" complete discussion see:\n"
+            f"\n"
+            f"   https://{this_site}/bitmap/index"
+        )
+    # TODO: append detail paragraphs for multiple, linenos, text_extraction_failure,
+    # missing_pdf when those Submission fields exist.
+
+    conditions_summary = "\n".join(summary_lines)
+    conditions_detail = "\n\n".join(detail_parts)
+
+    return (
+        f"Your submission to arXiv is on hold.\n"
+        f"\n"
+        f"Your temporary submission identifier is: {submission_id}.\n"
+        f"You may update your submission at: {submit_url}\n"
+        f"\n"
+        f"Your article is currently in \"on-hold\" status because of the conditions"
+        f" listed below. Once you have corrected these conditions, please update your"
+        f" source files, reprocess/view your submission and submit your article again."
+        f" This sequence should automatically move your submission to \"submitted\""
+        f" status.\n"
+        f"\n"
+        f"Summary:\n"
+        f"\n"
+        f"{conditions_summary}\n"
+        f"\n"
+        f"Additional details on each of these conditions are included below:\n"
+        f"\n"
+        f"{conditions_detail}\n"
+        f"\n"
+        f"You may resubmit your paper once you have addressed all the issues listed"
+        f" above. If you are not able to resolve these matters, or feel you are"
+        f" receiving this warning in error, please contact {www_admin}, quoting"
+        f" submission identifier {submission_id}, to request additional assistance.\n"
+        f"\n"
+        f"arXiv admin\n"
+        f"\n"
+        f"\n"
+        f"{summary}\n"
+    )
 
 _REP_SUBMISSION_BODY = """\
 Dear {name},
@@ -134,20 +223,45 @@ def render_submission_summary(submission: Submission) -> str:
     return "{}\n\\\\\n{}\n\\\\".format("\n".join(lines), abstract)
 
 
+def _is_auto_hold(submission: Submission) -> bool:
+    """Return True when the email type should be overridden to ``auto_hold``.
+
+    Currently only ``is_oversize`` is wired; the other four legacy conditions
+    (``multiple``, ``linenos``, ``text_extraction_failure``, ``missing_pdf``)
+    don't exist as Submission fields yet and will be added when those
+    content-check pipelines are implemented.
+    """
+    return submission.is_oversize
+
+
 def _build_subject_and_body(
     submission: Submission,
     to_name: str,
-    dashboard_url: str,
+    config: SubmitConfig,
 ) -> tuple[str, str]:
     """Return ``(subject, body)`` for the finalize confirmation email.
 
-    Dispatches on :attr:`.Submission.submission_type`. All non-``new`` types
-    send a placeholder body with a TODO message until full templates are
-    implemented (see ``submit_email_feature_description.md``).
+    Checks for the auto_hold override first (``is_oversize``), then dispatches
+    on :attr:`.Submission.submission_type`. Non-``new`` types send a placeholder
+    body until full templates are implemented.
     """
     sid = submission.submission_id
     arxiv_id = submission.arxiv_id or ""
     summary = render_submission_summary(submission)
+
+    if _is_auto_hold(submission):
+        this_site = urlparse(config.url_for_user_dashboard).hostname or "arxiv.org"
+        submit_url = f"https://{this_site}/submit/{sid}"
+        subject = f"arXiv submission {sid}: On Hold"
+        body = _render_auto_hold_body(
+            submission=submission,
+            submission_id=sid,
+            submit_url=submit_url,
+            this_site=this_site,
+            www_admin=config.email_reply_to,
+            summary=summary,
+        )
+        return subject, body
 
     sub_type = submission.submission_type or SubmissionType.NEW
 
@@ -156,7 +270,7 @@ def _build_subject_and_body(
         body = _NEW_SUBMISSION_BODY.format(
             name=to_name,
             submission_id=sid,
-            dashboard_url=dashboard_url,
+            dashboard_url=config.url_for_user_dashboard,
             summary=summary,
         )
     elif sub_type == SubmissionType.REPLACEMENT:
@@ -202,7 +316,7 @@ def _build_subject_and_body(
         body = _NEW_SUBMISSION_BODY.format(
             name=to_name,
             submission_id=sid,
-            dashboard_url=dashboard_url,
+            dashboard_url=config.url_for_user_dashboard,
             summary=summary,
         )
 
@@ -285,13 +399,18 @@ class EmailSubmitterFinalizeMsg(EventWithSideEffect):
             subject, body = _build_subject_and_body(
                 submission=submission,
                 to_name=to_name,
-                dashboard_url=config.url_for_user_dashboard,
+                config=config,
+            )
+            reply_to = (
+                config.email_auto_hold_reply_to
+                if _is_auto_hold(submission)
+                else config.email_reply_to
             )
             service.send_email(
                 to=[to_email],
                 subject=subject,
                 body=body,
-                reply_to=config.email_reply_to,
+                reply_to=reply_to,
             )
         except Exception as e:  # noqa: BLE001 - email send must never abort submit
             self.error = f"failed to send confirmation email: {e}"

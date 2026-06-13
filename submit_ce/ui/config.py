@@ -138,6 +138,10 @@ class Settings(ArxivBaseSettings):
     """``Reply-To`` address for email. Matches legacy, which used the
     configurable ``$WWW_ADMIN_ADDRESS``."""
 
+    EMAIL_AUTO_HOLD_REPLY_TO: str = "mod-lib@arxiv.org"
+    """``Reply-To`` address for auto-hold confirmation emails. Legacy uses
+    ``mod-lib@arxiv.org`` so replies go to the moderation team."""
+
     COMPILE_API_IMPERSONATE_SA: str = ""
     """Service account email to impersonate when minting ID tokens for the
     tex2pdf-api Cloud Run service. Leave empty in production (the attached
