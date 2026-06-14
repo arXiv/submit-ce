@@ -64,7 +64,9 @@ from datetime import datetime
 from typing import Tuple, List, Optional
 
 from submit_ce.api.compile_service import CompileService
+from submit_ce.api.email_service import EmailService
 from submit_ce.domain import Submission, Event, License
+from submit_ce.domain.config import SubmitConfig
 from submit_ce.domain.size_limits import SIZE_LIMIT_POLICY, SizeLimits
 from submit_ce.api.file_store import SubmissionFileStore
 
@@ -78,6 +80,14 @@ class SubmitApi(ABC):
         application config (e.g. the Flask implementation) override this to
         honor the configured ``MAX_*_KB`` values."""
         return SIZE_LIMIT_POLICY
+
+    def get_config(self) -> SubmitConfig:
+        """Domain-relevant configuration values (e.g. for composing email).
+
+        Defaults to the built-in `SubmitConfig` defaults. Implementations with
+        access to application config (e.g. the Flask implementation) override
+        this to honor the configured values."""
+        return SubmitConfig()
 
     @abstractmethod
     def get(self, submission_id: str) -> Submission:
@@ -173,6 +183,22 @@ class SubmitApi(ABC):
         Returns
         -------
             `CompileService`
+        """
+        ...
+
+    @abstractmethod
+    def get_email_service(self) -> EmailService:
+        """
+        Gets an `EmailService` implementation object.
+
+        Used by `Events` with side effects to send email.
+
+        Intended to allow code with access to the SubmitApi to also have
+        access to the email service.
+
+        Returns
+        -------
+            `EmailService`
         """
         ...
 
