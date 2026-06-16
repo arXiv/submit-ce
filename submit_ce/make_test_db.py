@@ -185,6 +185,28 @@ MODERATORS: List[Tuple[int, str, str, str, str, str, int]] = [
 ]
 
 
+SYSTEM_USER_ID = 900000
+
+
+def system_user() -> models.TapirUser:
+    """The ``system`` user that owns classifier/automated actions.
+
+    Resolved by ``nickname == 'system'`` when recording system-generated
+    category proposals (see ``legacy_implementation.db._proposer_user_id``).
+    """
+    return models.TapirUser(
+        user_id=SYSTEM_USER_ID,
+        email="system@arxiv.org",
+        first_name="arXiv",
+        last_name="System",
+        policy_class=2,
+        flag_email_verified=1,
+        flag_approved=1,
+        tapir_nicknames=models.TapirNickname(
+            nickname="system", flag_valid=1, flag_primary=1),
+    )
+
+
 def moderator_users() -> List[models.TapirUser]:
     """Tapir users that back the deterministic test moderators."""
     return [
@@ -475,6 +497,10 @@ def bootstrap_db(
                 session.add(obj)
             session.commit()
             logger.debug("Added %i categories", len(categories()))
+
+            session.add(system_user())
+            session.commit()
+            logger.debug("Added system user")
 
             for obj in moderator_users():
                 session.add(obj)

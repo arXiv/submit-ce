@@ -127,22 +127,29 @@ class Settings(ArxivBaseSettings):
     resource name is passed straight through. Only used when
     ``EMAIL_MODE=HALON``."""
 
-    EMAIL_TIMEOUT: float = 30.0
+    EMAIL_TIMEOUT: float = 10.0
     """Timeout in seconds for SMTP connection and I/O. Applied to both the
     initial connection and all blocking socket operations (login, send).
     Only used when ``EMAIL_MODE=HALON``."""
 
-    EMAIL_FROM: str = "e-prints@arxiv.org"
-    """Default ``From`` address for outgoing mail. Matches legacy submission mail,
-    which sends from ``e-prints@arxiv.org``."""
+    EMAIL_FROM: str = "EMAIL_FROM@example.org"
+    """Default ``From`` address for outgoing mail. Matches legacy submission mail."""
 
-    EMAIL_REPLY_TO: str = "www-admin@arxiv.org"
+    EMAIL_REPLY_TO: str = "EMAIL_REPLY_TO@example.org"
     """``Reply-To`` address for email. Matches legacy, which used the
     configurable ``$WWW_ADMIN_ADDRESS``."""
 
-    EMAIL_AUTO_HOLD_REPLY_TO: str = "mod-lib@arxiv.org"
-    """``Reply-To`` address for auto-hold confirmation emails. Legacy uses
-    ``mod-lib@arxiv.org`` so replies go to the moderation team."""
+    EMAIL_AUTO_HOLD_REPLY_TO: str = "EMAIL_AUTO_HOLD_REPLY_TO@example.org"
+    """``Reply-To`` address for auto-hold confirmation emails so replies go to
+    the moderation team."""
+
+    MOD_REPLY_TO_EMAIL: str = "MOD_ADMIN_EMAIL@example.org"
+    """Moderation admin address; included in ``Reply-To`` on moderator
+    notification emails (e.g. category proposals)."""
+
+    ARCHIVAL_EMAIL: str = "LOCAL_ADMIN_EMAIL@example.org"
+    """Internal admin address; ``Bcc``'d on moderator notification emails, and
+    the ``To`` fallback when a proposed category has no moderators."""
 
     COMPILE_API_IMPERSONATE_SA: str = ""
     """Service account email to impersonate when minting ID tokens for the

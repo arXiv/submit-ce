@@ -63,6 +63,7 @@ from . import validators
 from .base import Event
 from .base import event_factory as make_event
 from .email import EmailSubmitterFinalizeMsg
+from .email_mods import EmailProposalModeratorsMsg
 from .file import UploadFiles, RemoveFiles, RemoveAllFiles
 from .flag import AddMetadataFlag, AddUserFlag, AddContentFlag, RemoveFlag, \
     AddHold, RemoveHold
@@ -398,6 +399,8 @@ class ProposeClassification(Event):
     NAME = "propose classification"
     NAMED = "classification proposed"
 
+    CONSEQUENCE_TYPES = frozenset({EmailProposalModeratorsMsg})
+
     category: Optional[ActiveCategory] = None
     is_primary: bool = False
     comment: Optional[str] = None
@@ -432,6 +435,28 @@ class ProposeClassification(Event):
         )
         submission.proposals[self.event_id] = proposal
         return submission
+
+    def consequences(self, submission: Submission) -> List[Event]:
+        """Email the moderators of the affected categories about the proposal.
+
+        System/classifier proposals are silent (matches legacy: auto-proposals
+        are logged with ``notify=0`` and send no email). For a primary proposal
+        the affected categories also include the submission's current primary
+        and any other unresolved primary proposals, so their moderators are
+        notified too.
+        """
+        if isinstance(self.creator, System):
+            return []
+
+        sid = submission.submission_id
+        return [EmailProposalModeratorsMsg(
+            creator=System(name=__name__),
+            submission_id=str(sid) if sid is not None else None,
+            proposed_category=self.category,
+            is_primary=self.is_primary,
+            comment=self.comment,
+            proposer_name=getattr(self.creator, "name", None),
+        )]
 
 
 class SetLicense(Event):

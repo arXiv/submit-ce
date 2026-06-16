@@ -295,8 +295,12 @@ class LegacySubmitImplementation(SubmitApi):
     @override
     def moderators_for_categories(self, categories: List[str]) \
             -> List[Moderator]:
-        with self.get_session() as session:
-            return moderators.moderators_for_categories(session, categories)
+        # Reuse the current (scoped) session without a `with` block: this is
+        # called from within an event's execute(), inside the save() session, so
+        # closing a nested context here would tear down the in-flight
+        # transaction. The read runs in the same session/transaction.
+        session = self.get_session()
+        return moderators.moderators_for_categories(session, categories)
 
     @override
     def get_config(self) -> SubmitConfig:
