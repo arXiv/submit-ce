@@ -13,6 +13,7 @@ from .annotation import Comment, Feature, Annotation
 from .flag import Flag
 from .meta import License, Classification
 from .preview import Preview
+from .proposal import Proposal
 from .process import ProcessStatus
 from .util import get_tzaware_utc_now
 
@@ -344,6 +345,9 @@ class Submission:
 
     comments: Dict[str, Comment] = field(default_factory=dict)
     """Moderation/administrative comments."""
+
+    proposals: Dict[str, Proposal] = field(default_factory=dict)
+    """Category proposals (classifier- or moderator-suggested category changes)."""
 
     holds: Dict[str, Hold] = field(default_factory=dict)
     """Quality control holds."""

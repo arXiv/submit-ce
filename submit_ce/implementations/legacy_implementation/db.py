@@ -47,7 +47,7 @@ from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session as SQLAlchemySession
 from sqlalchemy.orm.exc import NoResultFound
 
-from submit_ce.domain.agent import Client, HttpClient
+from submit_ce.domain.agent import Client, HttpClient, System
 from submit_ce.domain.event.legacy import Withdraw
 from submit_ce.domain.event.request import CancelRequest, RequestCrossList, RequestWithdrawal
 
@@ -58,7 +58,8 @@ from submit_ce import domain
 from submit_ce.domain.uploads import SourceFormat
 from submit_ce.domain import Event, Submission, User, WithdrawalRequest, CrossListClassificationRequest,  License
 from submit_ce.domain.submission import SubmissionType
-from submit_ce.domain.event import SetJournalReference, SetDOI, SetReportNumber, CreateSubmission, Rollback
+from submit_ce.domain.event import SetJournalReference, SetDOI, SetReportNumber, CreateSubmission, Rollback, \
+    ProposeClassification
 from submit_ce.domain.exceptions import NoSuchSubmission
 
 logger = logging.getLogger(__name__)
@@ -358,7 +359,70 @@ def store_event(session: SQLAlchemySession, event: Event, before: Optional[Submi
         assert before is not None
         event.submission_id = before.submission_id
         after.submission_id = before.submission_id
+
+    # Some events also write to auxiliary classic tables, keyed off the now-final
+    # submission_id. A category proposal records a row in
+    # arXiv_submission_category_proposal (and an accompanying admin log comment).
+    if isinstance(event, ProposeClassification):
+        _store_proposal(session, event, after)
+
     return event, after
+
+
+def _store_proposal(session: SQLAlchemySession, event: ProposeClassification,
+                    after: Submission) -> models.CategoryProposal:
+    """Record a category proposal in the classic database.
+
+    Mirrors the legacy ``system_propose_primary`` / ``save_new_proposals``
+    behaviour: insert one ``arXiv_submission_category_proposal`` row with
+    ``proposal_status = UNRESOLVED`` and an ``arXiv_admin_log`` comment row,
+    linked via ``proposal_comment_id``.
+    """
+    assert event.category is not None
+    user_id = _proposer_user_id(session, event.creator)
+
+    type_str = "primary" if event.is_primary else "secondary"
+    logtext = f"Proposed: {event.category} as {type_str}"
+    if event.comment:
+        logtext += f": {event.comment}"
+    username = "system" if isinstance(event.creator, System) \
+        else str(event.creator.identifier)
+    comment = log.admin_log(session, "Submission", "admin comment", logtext,
+                            username=username,
+                            submission_id=after.submission_id)
+    # Flush so the comment row gets an id to reference from the proposal.
+    if comment is not None:
+        session.flush([comment])
+
+    proposal = models.CategoryProposal(
+        submission_id=after.submission_id,
+        category=event.category,
+        is_primary=1 if event.is_primary else 0,
+        proposal_status=models.CategoryProposal.UNRESOLVED,
+        user_id=user_id,
+        updated=event.created,
+        proposal_comment_id=comment.id if comment is not None else None,
+    )
+    session.add(proposal)
+    session.flush([proposal])
+    return proposal
+
+
+def _proposer_user_id(session: SQLAlchemySession, creator: User) -> int:
+    """Resolve the tapir ``user_id`` for the agent making a proposal.
+
+    Moderators carry their own tapir id; system/classifier proposals are
+    attributed to the configured ``system`` user (legacy looks this up by the
+    ``system`` nickname in ``tapir_nicknames``).
+    """
+    if isinstance(creator, System):
+        row = session.query(models.Username) \
+            .filter_by(nickname="system").first()
+        if row is None:
+            raise RuntimeError(
+                "No 'system' user configured for system-generated proposals")
+        return int(row.user_id)
+    return int(creator.identifier)
 
 
 def _load(session: SQLAlchemySession,
@@ -707,7 +771,35 @@ def to_submission(row: models.Submission,
     if row.sticky_status == row.ON_HOLD or row.status == row.ON_HOLD:
         submission = patch_hold(submission, row)
 
+    for prop in row.category_proposals:
+        submission.proposals[str(prop.proposal_id)] = _to_proposal(prop)
+
     return submission
+
+
+def _to_proposal(row: models.CategoryProposal) -> domain.Proposal:
+    """Build a domain :class:`.Proposal` from a classic proposal row."""
+    proposer = row.user
+    if proposer is not None:
+        name = f"{proposer.first_name or ''} {proposer.last_name or ''}".strip()
+        creator: domain.User = domain.PublicUser(
+            user_id=str(row.user_id),
+            name=name or "unknown",
+            email=proposer.email or "unknown")
+    else:
+        creator = domain.PublicUser(user_id=str(row.user_id),
+                                    name="unknown", email="unknown")
+    comment = row.proposal_comment.logtext if row.proposal_comment else None
+    return domain.Proposal(
+        proposal_id=str(row.proposal_id),
+        category=row.category,
+        is_primary=bool(row.is_primary),
+        creator=creator,
+        created=row.updated,
+        comment=comment,
+        status=domain.ProposalStatus(row.proposal_status or 0),
+        classic_proposal_id=row.proposal_id,
+    )
 
 
 def load(rows: Iterable[models.Submission]) -> Optional[domain.Submission]:

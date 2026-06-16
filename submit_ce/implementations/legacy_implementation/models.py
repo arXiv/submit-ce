@@ -228,6 +228,11 @@ class Submission(Base):    # type: ignore
     categories = relationship('SubmissionCategory',
                               back_populates='submission', lazy='joined',
                               cascade="all, delete-orphan")
+    category_proposals = relationship(
+        'CategoryProposal',
+        primaryjoin='Submission.submission_id == foreign(CategoryProposal.submission_id)',
+        viewonly=True,
+    )
 
     def get_submitter(self) -> domain.PublicUser:
         """Generate a :class:`.User` representing the submitter."""

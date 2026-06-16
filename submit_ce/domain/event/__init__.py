@@ -72,6 +72,7 @@ from ..agent import System
 from ..annotation import Feature, ClassifierResults, \
     ClassifierResult
 from ..preview import Preview
+from ..proposal import Proposal, ProposalStatus
 from ..submission import Submission, Author, \
     Classification, License, Hold
 from ..uploads import SourceFormat
@@ -92,7 +93,8 @@ __all__ = [
     ClassifierResult,
     Preview,
     Submission, Author,
-    Classification, License
+    Classification, License,
+    Proposal, ProposalStatus,
 ]
 
 import logging
@@ -381,6 +383,55 @@ class RemoveSecondaryClassification(Event):
         """One cannot remove a secondary that is not actually set."""
         if self.category not in submission.secondary_categories:
             raise InvalidEvent(self, 'No such category on submission')
+
+
+class ProposeClassification(Event):
+    """Propose a primary or cross-list classification for a submission.
+
+    A proposal is a *suggestion* to change the submission's classification, made
+    either automatically (by the classifier) or manually (by a moderator). It
+    does not itself change the submission's categories; it records a
+    :class:`.domain.proposal.Proposal` awaiting a response. Maps onto the classic
+    ``arXiv_submission_category_proposal`` table.
+    """
+
+    NAME = "propose classification"
+    NAMED = "classification proposed"
+
+    category: Optional[ActiveCategory] = None
+    is_primary: bool = False
+    comment: Optional[str] = None
+
+    def validate_pre_lock(self, submission: Submission) -> None:
+        """Validate the proposed category."""
+        if self.category is None:
+            raise InvalidEvent(self, "Must have a category")
+        validators.must_be_an_active_category(self, self.category, submission)
+        self._no_duplicate_unresolved_proposal(submission)
+
+    def _no_duplicate_unresolved_proposal(self, submission: Submission) -> None:
+        """Reject a proposal that duplicates an existing unresolved one."""
+        for proposal in submission.proposals.values():
+            if proposal.category == self.category \
+                    and proposal.is_primary == self.is_primary \
+                    and proposal.is_unresolved:
+                raise InvalidEvent(
+                    self, f"{self.category} has already been proposed")
+
+    def project(self, submission: Submission) -> Submission:
+        """Record a :class:`.domain.proposal.Proposal` on the submission."""
+        assert self.category is not None
+        proposal = Proposal(
+            proposal_id=self.event_id,
+            category=self.category,
+            is_primary=self.is_primary,
+            creator=self.creator,
+            created=self.created,
+            comment=self.comment,
+            status=ProposalStatus.UNRESOLVED,
+        )
+        submission.proposals[self.event_id] = proposal
+        return submission
 
 
 class SetLicense(Event):
