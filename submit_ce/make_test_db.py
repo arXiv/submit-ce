@@ -173,6 +173,50 @@ def categories() -> List[models.CategoryDef]:
     ]
 
 
+# Deterministic moderators for testing/dev. Each tuple is
+# (user_id, email, first_name, last_name, archive, subject_class, no_web_email).
+# An empty subject_class denotes an archive-level moderator. These are used by
+# tests that exercise category->moderator resolution.
+MODERATORS: List[Tuple[int, str, str, str, str, str, int]] = [
+    (900001, "ag@example.org", "Alice", "Gauss", "math", "AG", 0),
+    (900002, "matharch@example.org", "Marc", "Archive", "math", "", 0),
+    (900003, "noweb@example.org", "Nora", "Webless", "math", "AG", 1),
+    (900004, "cs@example.org", "Carol", "Sharp", "cs", "AI", 0),
+]
+
+
+def moderator_users() -> List[models.TapirUser]:
+    """Tapir users that back the deterministic test moderators."""
+    return [
+        models.TapirUser(
+            user_id=user_id,
+            email=email,
+            first_name=first_name,
+            last_name=last_name,
+            policy_class=2,
+            flag_email_verified=1,
+            flag_approved=1,
+        )
+        for user_id, email, first_name, last_name, _arch, _sub, _noweb
+        in MODERATORS
+    ]
+
+
+def moderators() -> List[submit_ce_models.Moderator]:
+    """Moderator assignments for the deterministic test moderators."""
+    return [
+        submit_ce_models.Moderator(
+            user_id=user_id,
+            archive=archive,
+            subject_class=subject_class,
+            is_public=1,
+            no_web_email=no_web_email,
+        )
+        for user_id, _email, _first, _last, archive, subject_class, no_web_email
+        in MODERATORS
+    ]
+
+
 def policy_classes() -> List[models.TapirPolicyClass]:
     """Generate policy classes."""
     return [models.TapirPolicyClass(**datum) for datum in POLICY_CLASSES]
@@ -431,6 +475,14 @@ def bootstrap_db(
                 session.add(obj)
             session.commit()
             logger.debug("Added %i categories", len(categories()))
+
+            for obj in moderator_users():
+                session.add(obj)
+            session.commit()
+            for obj in moderators():
+                session.add(obj)
+            session.commit()
+            logger.debug("Added %i moderators", len(moderators()))
 
             #users_to_add = users_v2(10)
             users_to_add = users_v3(10)

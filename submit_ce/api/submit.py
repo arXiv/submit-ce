@@ -65,7 +65,7 @@ from typing import Tuple, List, Optional
 
 from submit_ce.api.compile_service import CompileService
 from submit_ce.api.email_service import EmailService
-from submit_ce.domain import Submission, Event, License
+from submit_ce.domain import Submission, Event, License, Moderator
 from submit_ce.domain.config import SubmitConfig
 from submit_ce.domain.size_limits import SIZE_LIMIT_POLICY, SizeLimits
 from submit_ce.api.file_store import SubmissionFileStore
@@ -199,6 +199,30 @@ class SubmitApi(ABC):
         Returns
         -------
             `EmailService`
+        """
+        ...
+
+    @abstractmethod
+    def moderators_for_categories(self, categories: List[str]) \
+            -> List[Moderator]:
+        """Resolve a set of categories to the moderators to notify.
+
+        For each category this includes both category-level moderators and the
+        archive-level moderators of its archive, with moderators who have opted
+        out of web email excluded, de-duplicated by email address.
+
+        Used by `Events` with side effects (e.g. proposal notifications) to
+        determine email recipients. Intended to allow code with access to the
+        SubmitApi to also resolve category moderators.
+
+        Parameters
+        ----------
+        categories : List[str]
+            Category identifiers (e.g. ``["math.AG", "cs.AI"]``).
+
+        Returns
+        -------
+            List[`Moderator`]
         """
         ...
 

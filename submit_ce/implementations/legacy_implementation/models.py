@@ -703,6 +703,43 @@ class User(Base):    # type: ignore
     tapir_policy_class = relationship('PolicyClass')
 
 
+class Moderator(Base):    # type: ignore
+    """
+    Assignment of a user as moderator of a category or whole archive.
+
+    An empty ``subject_class`` (``''``) denotes an archive-level moderator that
+    covers every subject class in ``archive``.
+
+    +---------------+-------------+------+-----+---------+
+    | Field         | Type        | Null | Key | Default |
+    +---------------+-------------+------+-----+---------+
+    | user_id       | int(4)      | NO   | PRI | NULL    |
+    | archive       | varchar(16) | NO   | PRI |         |
+    | subject_class | varchar(16) | NO   | PRI |         |
+    | is_public     | tinyint(1)  | NO   |     | 0       |
+    | no_email      | tinyint(1)  | YES  |     | 0       |
+    | no_web_email  | tinyint(1)  | YES  |     | 0       |
+    | no_reply_to   | tinyint(1)  | YES  |     | 0       |
+    | daily_update  | tinyint(1)  | YES  |     | 0       |
+    +---------------+-------------+------+-----+---------+
+    """
+
+    __tablename__ = 'arXiv_moderators'
+
+    user_id = Column(ForeignKey('tapir_users.user_id'), primary_key=True,
+                     index=True)
+    archive = Column(String(16), primary_key=True, server_default=text("''"))
+    subject_class = Column(String(16), primary_key=True,
+                           server_default=text("''"))
+    is_public = Column(Integer, nullable=False, server_default=text("'0'"))
+    no_email = Column(Integer, nullable=True, server_default=text("'0'"))
+    no_web_email = Column(Integer, nullable=True, server_default=text("'0'"))
+    no_reply_to = Column(Integer, nullable=True, server_default=text("'0'"))
+    daily_update = Column(Integer, nullable=True, server_default=text("'0'"))
+
+    user = relationship('User')
+
+
 class Username(Base):  # type: ignore
     """
     Users' usernames (because why not have a separate table).

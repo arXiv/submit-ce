@@ -4,6 +4,7 @@ from .agent import (User, Client, PublicUser, StaffUser, System, ServiceAgent, a
 from .event import Event
 from .annotation import Comment
 from .meta import License, Classification
+from .moderator import Moderator
 from .preview import Preview
 from .proposal import Proposal, ProposalStatus
 from .submission import Submission, SubmissionMetadata, SubmissionType, Author, \
@@ -25,6 +26,7 @@ __all__ = [
     Comment,
     License,
     Classification,
+    Moderator,
     Preview,
     Proposal,
     ProposalStatus,
