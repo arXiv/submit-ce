@@ -257,8 +257,14 @@ class NullImplementation(SubmitApi):  # pragma: no cover
     def get_email_service(self) -> EmailService:
         return NullEmailService()
 
-    def moderators_for_categories(self, categories: List[str]) \
-            -> List[Moderator]:
+    def moderators_for_categories(
+            self,
+            categories: List[str],
+            *,
+            exclude_no_web_email: bool = True,
+            exclude_no_email: bool = False,
+            exclude_no_reply_to: bool = False,
+    ) -> List[Moderator]:
         return []
 
     def get(self, submission_id: str) -> Submission:

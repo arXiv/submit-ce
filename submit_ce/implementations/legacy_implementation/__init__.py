@@ -293,14 +293,24 @@ class LegacySubmitImplementation(SubmitApi):
         return self.email_service
 
     @override
-    def moderators_for_categories(self, categories: List[str]) \
-            -> List[Moderator]:
+    def moderators_for_categories(
+            self,
+            categories: List[str],
+            *,
+            exclude_no_web_email: bool = True,
+            exclude_no_email: bool = False,
+            exclude_no_reply_to: bool = False,
+    ) -> List[Moderator]:
         # Reuse the current (scoped) session without a `with` block: this is
         # called from within an event's execute(), inside the save() session, so
         # closing a nested context here would tear down the in-flight
         # transaction. The read runs in the same session/transaction.
         session = self.get_session()
-        return moderators.moderators_for_categories(session, categories)
+        return moderators.moderators_for_categories(
+            session, categories,
+            exclude_no_web_email=exclude_no_web_email,
+            exclude_no_email=exclude_no_email,
+            exclude_no_reply_to=exclude_no_reply_to)
 
     @override
     def get_config(self) -> SubmitConfig:

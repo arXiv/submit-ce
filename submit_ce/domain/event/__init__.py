@@ -62,7 +62,8 @@ from pytz import UTC
 from . import validators
 from .base import Event
 from .base import event_factory as make_event
-from .email import EmailSubmitterFinalizeMsg
+from .email import EmailSubmitterFinalizeMsg, _is_auto_hold
+from .email_mod_finalize import EmailModeratorsFinalizeMsg
 from .email_mods import EmailProposalModeratorsMsg
 from .file import UploadFiles, RemoveFiles, RemoveAllFiles
 from .flag import AddMetadataFlag, AddUserFlag, AddContentFlag, RemoveFlag, \
@@ -75,7 +76,7 @@ from ..annotation import Feature, ClassifierResults, \
 from ..preview import Preview
 from ..proposal import Proposal, ProposalStatus
 from ..submission import Submission, Author, \
-    Classification, License, Hold
+    Classification, License, Hold, SubmissionType
 from ..uploads import SourceFormat
 from ..exceptions import InvalidEvent
 
@@ -1055,7 +1056,15 @@ class FinalizeSubmission(Event):
     ]
     REQUIRED_METADATA: ClassVar[str] = ['title', 'abstract', 'authors_display']
 
-    CONSEQUENCE_TYPES = frozenset({AddHold, EmailSubmitterFinalizeMsg})
+    CONSEQUENCE_TYPES = frozenset({AddHold, EmailSubmitterFinalizeMsg,
+                                   EmailModeratorsFinalizeMsg})
+
+    MOD_EMAIL_TYPES: ClassVar[frozenset] = frozenset({
+        SubmissionType.NEW, SubmissionType.REPLACEMENT,
+        SubmissionType.WITHDRAWAL, SubmissionType.CROSS_LIST})
+    """Submission types that send a moderator email on finalize (legacy: types
+    with a ``mod_template``). ``jref`` is excluded, as are auto-held
+    submissions; see :meth:`consequences`."""
 
     def validate_pre_lock(self, submission: Submission) -> None:
         """Ensure that all required data/steps are complete."""
@@ -1079,19 +1088,29 @@ class FinalizeSubmission(Event):
            :attr:`Submission.is_on_hold` report true; there is no separate hold
            status in this model. Skipped if a waiver already exists.
         2. Send the submitter the on-submit confirmation email.
+        3. Notify the affected categories' moderators, but only for submission
+           types (`new`/`rep`/`wdr`/`cross`) and only when the submission is not
+           auto-held. An auto-held submission (e.g. oversize)
+           is not sent to moderators until the problems are fixed.
         """
         events: List[Event] = []
+        sid = submission.submission_id
+        sid_str = str(sid) if sid is not None else None
         if submission.is_oversize \
                 and not submission.has_waiver_for(Hold.Type.SOURCE_OVERSIZE):
             events.append(AddHold(creator=System(name=__name__),
                                   submission_id=submission.submission_id,
                                   hold_type=Hold.Type.SOURCE_OVERSIZE,
                                   hold_reason="source is oversize"))
-        sid = submission.submission_id
         events.append(EmailSubmitterFinalizeMsg(
             creator=System(name=__name__),
             email_to=self.creator,
-            submission_id=str(sid) if sid is not None else None))
+            submission_id=sid_str))
+        if submission.submission_type in self.MOD_EMAIL_TYPES \
+                and not _is_auto_hold(submission):
+            events.append(EmailModeratorsFinalizeMsg(
+                creator=System(name=__name__),
+                submission_id=sid_str))
         return events
 
     def _required_fields_are_complete(self, submission: Submission) -> None:

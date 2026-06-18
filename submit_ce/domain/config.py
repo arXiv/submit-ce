@@ -32,6 +32,10 @@ class SubmitConfig(BaseModel):
     url_for_user_dashboard: str = "https://arxiv.org/user/"
     """Absolute URL of the user submission dashboard."""
 
+    url_for_moderator_review: str = "https://check.arxiv.org/submit/"
+    """Base URL of the moderator review page; the submission id is appended.
+    Real value read from ``Settings.URL_FOR_MODERATOR_REVIEW``."""
+
     mod_reply_to_email: str = "mod_reply_to_email@arxiv.example.com"
     """Moderation admin address; included in ``Reply-To`` on moderator emails.
     Real value read from ``Settings.MOD_REPLY_TO_EMAIL``."""
@@ -70,4 +74,7 @@ class SubmitConfig(BaseModel):
                    archival_email=config.get("ARCHIVAL_EMAIL",
                                                  defaults.archival_email),
                    url_for_user_dashboard=dashboard,
+                   url_for_moderator_review=config.get(
+                       "URL_FOR_MODERATOR_REVIEW",
+                       defaults.url_for_moderator_review),
                    )

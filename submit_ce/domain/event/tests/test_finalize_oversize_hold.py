@@ -11,8 +11,8 @@ from pytz import UTC
 from submit_ce.domain import agent
 from submit_ce.domain.meta import Classification
 from submit_ce.domain.event import FinalizeSubmission, AddHold, \
-    EmailSubmitterFinalizeMsg
-from submit_ce.domain.submission import Submission, Hold, Waiver
+    EmailSubmitterFinalizeMsg, EmailModeratorsFinalizeMsg
+from submit_ce.domain.submission import Submission, Hold, Waiver, SubmissionType
 
 
 def _user():
@@ -20,13 +20,18 @@ def _user():
                             email="u1@example.org", endorsements=[])
 
 
-def _submission(is_oversize=False, waivers=None):
+def _submission(is_oversize=False, waivers=None, submission_type=SubmissionType.NEW):
     u = _user()
     return Submission(
         creator=u, owner=u, created=datetime.now(UTC),
         primary_classification=Classification(category="astro-ph.GA"),
         is_oversize=is_oversize,
+        submission_type=submission_type,
         waivers=waivers or {})
+
+
+def _mod_emails(events):
+    return [e for e in events if isinstance(e, EmailModeratorsFinalizeMsg)]
 
 
 def _finalize():
@@ -65,4 +70,29 @@ def test_finalize_always_emails_submitter():
 
 def test_declared_consequence_type():
     assert FinalizeSubmission.CONSEQUENCE_TYPES == frozenset(
-        {AddHold, EmailSubmitterFinalizeMsg})
+        {AddHold, EmailSubmitterFinalizeMsg, EmailModeratorsFinalizeMsg})
+
+
+def test_new_finalize_emails_moderators():
+    """A plain `new` submission notifies moderators on finalize."""
+    events = _finalize().consequences(_submission())
+    assert len(_mod_emails(events)) == 1
+
+
+def test_auto_hold_finalize_does_not_email_moderators():
+    """An auto-held (oversize) submission tells the submitter, not moderators."""
+    events = _finalize().consequences(_submission(is_oversize=True))
+    assert _mod_emails(events) == []
+
+
+def test_jref_finalize_does_not_email_moderators():
+    """`jref` has no moderator template in legacy; no moderator email."""
+    sub = _submission(submission_type=SubmissionType.JOURNAL_REFERENCE)
+    assert _mod_emails(_finalize().consequences(sub)) == []
+
+
+def test_rep_wdr_cross_finalize_email_moderators():
+    for sub_type in (SubmissionType.REPLACEMENT, SubmissionType.WITHDRAWAL,
+                     SubmissionType.CROSS_LIST):
+        events = _finalize().consequences(_submission(submission_type=sub_type))
+        assert len(_mod_emails(events)) == 1, sub_type
