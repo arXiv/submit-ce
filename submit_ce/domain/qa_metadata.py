@@ -1,20 +1,27 @@
 """Build the QA "submission snapshot" metadata document.
 
-This mirrors the legacy generator in ``arxiv-qa/metadata/snapshot_md.py``: a JSON
-snapshot of the legacy ``arXiv_submissions`` row and related tables that the QA
-pipeline reads from ``<id>/<id>.meta.json``. The top-level keys are the names of
-the originating database tables. See SUBMISSION-136.
+This mirrors the generator in
+``arxiv-qa/snapshot_submission/snapshot_submission/snapshot_submission.py``: a
+JSON snapshot of the legacy ``arXiv_submissions`` row and related tables that the
+QA pipeline reads from ``<id>/<id>.meta.json``. The top-level keys are the names
+of the originating database tables. See SUBMISSION-136.
+
+Schema version history (from the QA generator):
+- 1.0 (2021-08): had ``arXiv_admin_log``, lacked ``urls``.
+- 1.1 (2025-10): dropped ``arXiv_admin_log``, added GS ``urls``.
+- 1.2 (2026-02): added ``metadata_checksum`` and per-file ``crc32c``.
 
 This module works on plain column dicts (not ORM objects) so the domain layer
 stays free of any database/implementation coupling; the caller is responsible
-for turning DB rows into dicts (datetimes already ISO-formatted) and for parsing
-the textual ``json`` columns is handled here.
+for turning DB rows into dicts (datetimes already ISO-formatted) and for
+computing the GS ``urls``/``crc32c`` and ``metadata_checksum``. Parsing of the
+textual ``json`` columns is handled here.
 """
 import json
 from typing import Any, Iterable, Mapping, Optional
 
 SNAPSHOT_NAME = "arXiv Submission Snapshot Metadata"
-SNAPSHOT_VERSION = "1.1"
+SNAPSHOT_VERSION = "1.2"
 
 #: The ``arXiv_submissions`` columns included in the snapshot, in order. The DB
 #: model carries extra processing columns (``data_version``, ``preflight``, ...)
@@ -50,13 +57,17 @@ def build_snapshot(
     near_duplicates: Iterable[Mapping[str, Any]],
     abs_classifier: Optional[Mapping[str, Any]],
     classifier: Optional[Mapping[str, Any]],
+    metadata_checksum: Any,
     urls: Optional[Mapping[str, str]] = None,
+    crc32c: Optional[Mapping[str, str]] = None,
 ) -> dict:
-    """Assemble the QA submission-snapshot document (schema version 1.1).
+    """Assemble the QA submission-snapshot document (schema version 1.2).
 
     Parameters are column dicts for the corresponding ``arXiv_submission*``
-    tables (``submission`` is the ``arXiv_submissions`` row); ``urls`` maps
-    artifact names to their GCS locations.
+    tables (``submission`` is the ``arXiv_submissions`` row). ``metadata_checksum``
+    is the adler32 of the descriptive metadata (stringified to match the QA
+    generator); ``urls`` maps artifact names to their GCS locations and
+    ``crc32c`` maps the same names to each blob's crc32c checksum.
     """
     return {
         "name": SNAPSHOT_NAME,
@@ -66,5 +77,7 @@ def build_snapshot(
         "arXiv_submission_near_duplicates": [dict(n) for n in near_duplicates],
         "arXiv_submission_abs_classifier_data": _classifier_data(abs_classifier),
         "arXiv_submission_classifier_data": _classifier_data(classifier),
+        "metadata_checksum": str(metadata_checksum),
         "urls": dict(urls) if urls else {},
+        "crc32c": dict(crc32c) if crc32c else {},
     }

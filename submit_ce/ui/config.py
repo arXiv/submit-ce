@@ -95,6 +95,18 @@ class Settings(ArxivBaseSettings):
     """A subdirectory to upload files related to your local database, ie: "api-test/myusername"
     """
 
+    QA_GS_BUCKET: str = "arxiv-dev-submission-qa"
+    """If in gs mode, what bucket to store submissions in."""
+ 
+    QA_GS_PREFIX: str = ""
+    """A subdirectory to upload files related to your local database, ie: "api-test/myusername"
+    """
+
+    QA_GS_UPLOAD_ENABLED: bool = True
+    """When true, upload the QA submission-snapshot meta.json to the QA bucket
+    on finalize. Set false to disable QA metadata uploads (e.g. local dev
+    without access to the QA bucket)."""
+
     ADMIN_ONLY: bool = False
     """If true, only admin users can use the system. Intended to
     allowe closed to the public dev or beta system."""

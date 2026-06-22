@@ -147,6 +147,9 @@ class NullFileStore(SubmissionFileStore):  # pragma: no cover
     def store_zzrm(self, submission_id: str, content: dict) -> None:
         pass
 
+    def store_qa_metadata(self, submission_id: str, content: dict) -> None:
+        pass
+
     def get_preview_checksum(self, submission_id: str) -> str:
         return ""
 

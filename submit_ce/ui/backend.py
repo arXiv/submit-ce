@@ -29,7 +29,9 @@ def config_backend_api(settings: Settings) -> SubmitApi:
     if settings.STORE == "gs":
         logger.info(f"Doing FileStore GS bucket {settings.STORE_GS_BUCKET} prefix {settings.STORE_GS_PREFIX}")
         store = GsFileStore(gs_bucket=settings.STORE_GS_BUCKET,
-                            gs_prefix=settings.STORE_GS_PREFIX)
+                            gs_prefix=settings.STORE_GS_PREFIX,
+                            qa_bucket=settings.QA_GS_BUCKET,
+                            qa_prefix=settings.QA_GS_PREFIX)
     elif settings.STORE == "null":
         store = NullFileStore()
     else:

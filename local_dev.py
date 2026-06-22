@@ -17,11 +17,13 @@ import logging
 logging.getLogger("werkzeug").setLevel(logging.WARNING)
 
 
-DEV_NAME = None  # if you want to override your netid.
+DEV_NAME = None # if you want to override your netid.
 
 os.environ.setdefault('STORE', 'gs')
 os.environ.setdefault('STORE_GS_BUCKET', 'arxiv-submit-dev')
 os.environ.setdefault('STORE_GS_PREFIX', DEV_NAME or getpass.getuser())
+os.environ.setdefault('QA_GS_BUCKET', 'arxiv-submit-dev')
+os.environ.setdefault('QA_GS_PREFIX', DEV_NAME or getpass.getuser())
 os.environ.setdefault('GCLOUD_PROJECT', 'arxiv-development')
 os.environ.setdefault('TEMPLATES_AUTO_RELOAD', '1')
 #os.environ.setdefault('COMPILE_API_URL', 'http://localhost:9001')

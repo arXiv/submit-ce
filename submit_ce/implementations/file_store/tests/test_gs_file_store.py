@@ -3,6 +3,7 @@
 Requires Google Cloud credentials with access to the arxiv-development project.
 Run with: TEST_GS_FILE_STORE_AT_GCP=1 uv run pytest submit_ce/implementations/file_store/tests/test_gs_file_store.py -v
 """
+import json
 import os
 import tarfile
 import uuid
@@ -58,7 +59,11 @@ def bucket(gcs_client):
 @pytest.fixture
 def store(gcs_client, bucket):
     bucket_name, gs_prefix = bucket
-    return GsFileStore(gs_bucket=bucket_name, gs_prefix=gs_prefix, client=gcs_client)
+    # Reuse the same dev bucket + test prefix for QA so the fixture's
+    # prefix-based cleanup also removes any QA metadata written here.
+    return GsFileStore(gs_bucket=bucket_name, gs_prefix=gs_prefix,
+                       qa_bucket=bucket_name, qa_prefix=gs_prefix,
+                       client=gcs_client)
 
 
 @pytest.fixture
@@ -192,6 +197,21 @@ def test_delete_workspace(store, sub_id):
 
 def test_is_available(store):
     assert store.is_available() is True
+
+
+def test_store_qa_metadata(store, sub_id):
+    content = {
+        "name": "arXiv Submission Snapshot Metadata",
+        "version": "1.1",
+        "arXiv_submissions": {"submission_id": sub_id, "type": "new"},
+    }
+    store.store_qa_metadata(sub_id, content)
+
+    path = store._qa_meta_json_path(sub_id)
+    assert path.endswith(f"{sub_id}/{sub_id}.meta.json")
+    blob = store.qa_bucket.blob(path)
+    assert blob.exists()
+    assert json.loads(blob.download_as_bytes()) == content
 
 
 # ---------------------------------------------------------------------------

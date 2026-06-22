@@ -14,7 +14,7 @@ from werkzeug.datastructures import MultiDict
 from werkzeug.exceptions import NotFound
 from submit_ce.ui import controllers as cntrls
 from submit_ce.ui.controllers.debug import debug_events
-from submit_ce.ui.controllers.debug import qa_metadata as qa_metadata_ctrl
+from submit_ce.ui.controllers import qa_metadata as qa_metadata_ctrl
 from submit_ce.ui.controllers.new import upload
 from submit_ce.ui.controllers.new import review
 from submit_ce.ui.controllers.new import upload_delete

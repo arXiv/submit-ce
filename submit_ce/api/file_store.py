@@ -172,6 +172,15 @@ class SubmissionFileStore(metaclass=ABCMeta):
         pass
 
     @abstractmethod
+    def store_qa_metadata(self, submission_id: str, content: dict) -> None:
+        """Store the QA submission-snapshot metadata in the QA bucket.
+
+        Writes ``content`` as ``<submission_id>/<submission_id>.meta.json`` so
+        the QA pipeline can consume it (see arxiv-qa). This is a separate bucket
+        from the submission source/preview store."""
+        pass
+
+    @abstractmethod
     def get_full_source_package_path(self, submission_id: str) -> str:
         """Returns bucket name and full path to tar.gz."""
         pass
