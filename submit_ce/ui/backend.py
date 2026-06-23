@@ -149,7 +149,7 @@ def backend_startup_health_check():
     if not current_app.api.get_compiler():
         errors.append("API lacks compiler")
     elif not current_app.api.get_compiler().is_available():
-        errors.append("Compiler serivce is misconfigured or not available")
+        errors.append("Compiler service is misconfigured or not available")
 
     if errors:
         raise RuntimeError(", ".join(errors))

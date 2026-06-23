@@ -181,6 +181,16 @@ class SubmissionFileStore(metaclass=ABCMeta):
         pass
 
     @abstractmethod
+    def get_qa_artifact_info(self, submission_id: str) -> tuple[dict[str, str], dict[str, str]]:
+        """Return ``(urls, crc32c)`` for the QA artifacts present for a submission.
+
+        Each URL includes the storage object generation
+        (``gs://{bucket}/{name}#{generation}``); ``crc32c`` maps the same keys
+        to each object's crc32c checksum. Artifacts that do not exist are
+        omitted from both dicts (matching the QA snapshot generator)."""
+        pass
+
+    @abstractmethod
     def get_full_source_package_path(self, submission_id: str) -> str:
         """Returns bucket name and full path to tar.gz."""
         pass

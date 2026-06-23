@@ -43,6 +43,29 @@ def _upload_qa_metadata(file_store, submission_id: str) -> None:
         logger.exception("Failed to upload QA metadata for %s", submission_id)
 
 
+def _pubsub_qa_metadata(submission_id: str) -> None:
+    """Publish the QA submission-snapshot metadata to Pub/Sub after finalize.
+
+    Best-effort: a failure here must never fail the submission itself, so any
+    exception is logged and swallowed. Gated by ``QA_PUBSUB_ENABLED``.
+    """
+    import json
+    from submit_ce.ui.config import settings
+    if not settings.QA_PUBSUB_ENABLED or not settings.QA_PUBSUB_TOPIC:
+        return
+    try:
+        from google.cloud import pubsub_v1
+        from submit_ce.ui.controllers.qa_metadata import build_qa_metadata
+        metadata = build_qa_metadata(submission_id)
+        publisher = pubsub_v1.PublisherClient()
+        future = publisher.publish(
+            settings.QA_PUBSUB_TOPIC,
+            json.dumps(metadata).encode("utf-8"))
+        future.result(timeout=60)
+    except Exception:  # noqa: BLE001 - QA pubsub must not break finalize
+        logger.exception("Failed to publish QA metadata for %s", submission_id)
+
+
 def finalize(method: str, params: MultiDict, session: Session,
              submission_id: str, **kwargs) -> Response:
     submitter, _ = user_and_client_from_session(session)
@@ -108,6 +131,7 @@ def finalize(method: str, params: MultiDict, session: Session,
             logger.error('Could not save primary event')
             raise InternalServerError(response_data) from e
         _upload_qa_metadata(file_store, submission_id)
+        _pubsub_qa_metadata(submission_id)
         return ready_for_next((response_data, status.OK, {}))
     else:
         return stay_on_this_stage((response_data, status.OK, {}))

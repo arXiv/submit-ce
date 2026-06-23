@@ -150,6 +150,9 @@ class NullFileStore(SubmissionFileStore):  # pragma: no cover
     def store_qa_metadata(self, submission_id: str, content: dict) -> None:
         pass
 
+    def get_qa_artifact_info(self, submission_id: str):
+        return {}, {}
+
     def get_preview_checksum(self, submission_id: str) -> str:
         return ""
 

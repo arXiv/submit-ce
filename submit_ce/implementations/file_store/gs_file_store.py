@@ -594,6 +594,40 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
         data = json.dumps(content).encode('utf-8')
         blob.upload_from_file(io.BytesIO(data), content_type='application/json')
 
+    #: QA snapshot artifact key -> path-builder method. Mirrors
+    #: ``upload_submission_files`` in the QA generator (arxiv-qa
+    #: snapshot_submission). Keys are the QA-facing names; the paths resolve to
+    #: the actual objects in this store.
+    _QA_ARTIFACT_PATHS = (
+        ("pdf", "_preview_path"),
+        ("source", "_source_package_path"),
+        ("directives.json", "_directives_path"),
+        ("gcp-compile.json", "_compile_json_path"),
+        ("gcp_compile.log", "_compile_log_path"),
+        ("gcp_preflight.json", "_preflight_path"),
+        ("source.log", "_source_log_path"),
+    )
+
+    @override
+    def get_qa_artifact_info(self, submission_id: str) -> tuple[dict[str, str], dict[str, str]]:
+        """Return ``(urls, crc32c)`` for QA artifacts present in the bucket.
+
+        Each URL includes the GS object generation
+        (``gs://{bucket}/{name}#{generation}``). A single ``get_blob`` per
+        artifact supplies both the generation and crc32c; artifacts with no
+        object are omitted (matching the QA snapshot generator).
+        """
+        urls: dict[str, str] = {}
+        crc32c: dict[str, str] = {}
+        for key, path_method in self._QA_ARTIFACT_PATHS:
+            path = getattr(self, path_method)(submission_id)
+            blob = self.bucket.get_blob(path)
+            if blob is None:
+                continue
+            urls[key] = f"gs://{self.gs_bucket}/{blob.name}#{blob.generation}"
+            crc32c[key] = blob.crc32c or ""
+        return urls, crc32c
+
     def _blob_to_file_status(self, submission_id: str, blob: Blob) -> FileStatus:
         src_dir = self._source_path(submission_id)
         anc_dir = posixpath.join(src_dir, "anc")

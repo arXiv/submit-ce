@@ -10,6 +10,9 @@ sudo apt-get install cmake libprotobuf-dev protobuf-compiler
 # On mac, you need a version of protobuf <= 21
 brew install protobuf@21
 
+# For service account use, to use buckets.
+gcloud auth application-default login
+
 pyenv shell 3.11  # or similar
 source .venv/bin/activate
 uv sync
@@ -20,7 +23,8 @@ uv run python submit_ce/make_test_db.py bootstrap_db
 # Use a browser extension like modheader to send the token for localhost
 #   add Authorization=eyJhb...
 
-uv run python local_dev.py
+uv run python local_ui.py
+
 open http://localhost:8000
 ```
 
@@ -29,6 +33,20 @@ open http://localhost:8000
 ```bash
 ./test.sh
 ```
+
+##  Test pubsub
+
+```bash
+# Edit local_ui.py:
+#   Set QA_PUBSUB_ENABLED to True
+
+# shell 1, to run the emulator:
+gcloud beta emulators pubsub start --project=arxiv-development
+
+# shell 2 optional, to echo messages:
+uv run python local_subscriber.py
+```
+
 
 ## Build Docker Image
 

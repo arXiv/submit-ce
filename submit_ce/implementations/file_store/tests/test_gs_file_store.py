@@ -199,6 +199,26 @@ def test_is_available(store):
     assert store.is_available() is True
 
 
+def test_get_qa_artifact_info(store, sub_id):
+    # Only the preview and source package exist for this submission.
+    store.store_preview(sub_id, BytesIO(b"%PDF-1.4 fake"))
+    tar_stream = make_targz({"main.tex": b"hello"})
+    f = FakeFile("pkg.tar.gz", b"", "application/gzip")
+    f.stream = tar_stream
+    store.store_source_package(sub_id, f, chunk_size=4096)
+
+    urls, crc32c = store.get_qa_artifact_info(sub_id)
+
+    assert set(urls) == {"pdf", "source"}
+    assert set(crc32c) == {"pdf", "source"}
+    # URL points at the right object and carries a numeric generation suffix.
+    base, sep, gen = urls["pdf"].partition("#")
+    assert base.startswith(f"gs://{BUCKET_NAME}/")
+    assert base.endswith(f"{sub_id}.pdf")
+    assert sep == "#" and gen.isdigit()
+    assert crc32c["pdf"]  # non-empty crc32c
+
+
 def test_store_qa_metadata(store, sub_id):
     content = {
         "name": "arXiv Submission Snapshot Metadata",

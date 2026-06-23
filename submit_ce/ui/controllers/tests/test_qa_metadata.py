@@ -51,16 +51,15 @@ class _FakeSession:
 
 
 def _fake_store():
-    """File store stub: pdf + source exist (have crc32c); the rest do not."""
+    """File store stub: pdf + source exist (url w/ generation + crc32c)."""
     store = MagicMock()
-    store.get_full_submission_path.return_value = f"gs://arxiv-dev-submission-qa/{SID}"
-    store.get_preview_checksum.return_value = "PDFcrc=="
-    store.get_source_package_checksum.return_value = "SRCcrc=="
-    store.get_directives_checksum.return_value = ""
-    store.get_compile_json_checksum.return_value = ""
-    store.get_compile_log_checksum.return_value = ""
-    store.get_preflight_checksum.return_value = ""
-    store.get_source_log_checksum.return_value = ""
+    store.get_qa_artifact_info.return_value = (
+        {
+            "pdf": f"gs://arxiv-submit-dev/{SID}/{SID}.pdf#111",
+            "source": f"gs://arxiv-submit-dev/{SID}/{SID}.tar.gz#222",
+        },
+        {"pdf": "PDFcrc==", "source": "SRCcrc=="},
+    )
     return store
 
 
@@ -106,12 +105,14 @@ def test_build_qa_metadata_v12(monkeypatch):
     # --- metadata_checksum: stringified adler32 of the descriptive metadata ---
     assert out["metadata_checksum"] == str(checksum_metadata(submission))
 
-    # --- crc32c + urls only for files that exist (pdf, source) ---
+    # --- crc32c + urls (with generation) only for files that exist ---
     assert out["crc32c"] == {"pdf": "PDFcrc==", "source": "SRCcrc=="}
     assert out["urls"] == {
-        "pdf": f"gs://arxiv-dev-submission-qa/{SID}/{SID}.pdf",
-        "source": f"gs://arxiv-dev-submission-qa/{SID}/{SID}.tar.gz",
+        "pdf": f"gs://arxiv-submit-dev/{SID}/{SID}.pdf#111",
+        "source": f"gs://arxiv-submit-dev/{SID}/{SID}.tar.gz#222",
     }
+    # urls carry the GS object generation suffix
+    assert out["urls"]["pdf"].split("#")[-1] == "111"
 
     # --- arXiv_submissions: pinned column set, in order ---
     assert list(out["arXiv_submissions"]) == list(ARXIV_SUBMISSIONS_FIELDS)
@@ -134,8 +135,7 @@ def test_build_qa_metadata_no_files(monkeypatch):
                             authors="a", abstract="x")
     _patch_api(monkeypatch, submission, [], None, None)
     store = ctrl.current_app.api.get_file_store.return_value
-    for m in ("get_preview_checksum", "get_source_package_checksum"):
-        getattr(store, m).return_value = ""
+    store.get_qa_artifact_info.return_value = ({}, {})
 
     out = ctrl.build_qa_metadata(SID)
 

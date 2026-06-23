@@ -107,6 +107,15 @@ class Settings(ArxivBaseSettings):
     on finalize. Set false to disable QA metadata uploads (e.g. local dev
     without access to the QA bucket)."""
 
+    QA_PUBSUB_ENABLED: bool = True
+    """When true, publish the QA submission-snapshot metadata to ``QA_PUBSUB_TOPIC``
+    on finalize. Set false to disable QA metadata Pub/Sub messages."""
+
+    QA_PUBSUB_TOPIC: str = "projects/arxiv-development/topics/submission-qa-metadata"
+    """Full Pub/Sub topic path the QA submission-snapshot metadata is published to,
+    e.g. ``projects/{project}/topics/{name}``. Only used when ``QA_PUBSUB_ENABLED``."""
+
+
     ADMIN_ONLY: bool = False
     """If true, only admin users can use the system. Intended to
     allowe closed to the public dev or beta system."""
