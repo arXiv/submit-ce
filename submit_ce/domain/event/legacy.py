@@ -1,9 +1,9 @@
 """Events that are intended to be backward compatable with legacy submit 1.5."""
 
 
-from pydantic import Field
+from pydantic import ConfigDict, Field
 from submit_ce.api.submit import SubmitApi
-from submit_ce.domain.event.base import EventWithSideEffect
+from submit_ce.domain.event.base import Event, EventWithSideEffect
 from submit_ce.domain.exceptions import InvalidEvent
 from submit_ce.domain.submission import Submission
 from submit_ce.domain.uploads import InMemorySubmitFile, SourceFormat
@@ -50,3 +50,49 @@ class Withdraw(EventWithSideEffect):
         submission.is_source_processed = True
         submission.metadata.abstract = self.abstract
         return submission
+
+
+class _LegacyUploadPackageEvent(Event):
+    """Base for the removed ``*UploadPackage`` events, kept as a no-op shim.
+
+    ``SetUploadPackage`` / ``UpdateUploadPackage`` / ``UnsetUploadPackage`` were
+    removed in commit ``20e2a47`` ("Refactor to remove XyzUploadPackage event
+    classes"); source/file state now comes from the FileStore workspace and the
+    events in :mod:`submit_ce.domain.event.file`. Submissions created before
+    that refactor still have these rows persisted, so without a matching class
+    :meth:`models.DBEvent.to_event` raises ``Unknown event type`` and the whole
+    submission fails to load. These shims exist only so those old rows
+    deserialize and replay. The field they once projected onto
+    (``Submission.source_content``) no longer exists, so projection is a pure
+    no-op and validation always passes.
+    """
+    model_config = ConfigDict(extra="ignore")  # tolerate old payload fields
+
+    def validate_pre_lock(self, submission: Submission) -> None:
+        """No-op: legacy event, nothing to validate."""
+        return None
+
+    def project(self, submission: Submission) -> Submission:
+        """No-op: legacy event, leaves the submission unchanged."""
+        return submission
+
+
+class SetUploadPackage(_LegacyUploadPackageEvent):
+    """Deprecated no-op shim; see :class:`_LegacyUploadPackageEvent`."""
+
+    NAME = "set the upload package (legacy no-op)"
+    NAMED = "upload package set"
+
+
+class UpdateUploadPackage(_LegacyUploadPackageEvent):
+    """Deprecated no-op shim; see :class:`_LegacyUploadPackageEvent`."""
+
+    NAME = "update the upload package (legacy no-op)"
+    NAMED = "upload package updated"
+
+
+class UnsetUploadPackage(_LegacyUploadPackageEvent):
+    """Deprecated no-op shim; see :class:`_LegacyUploadPackageEvent`."""
+
+    NAME = "unset the upload package (legacy no-op)"
+    NAMED = "upload package unset"
