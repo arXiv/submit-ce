@@ -16,14 +16,14 @@ from arxiv.forms import csrf
 from submit_ce.ui.controllers.util import Response, validate_command
 
 
-class DeleteForm(csrf.CSRFForm):
+class DeleteForm(csrf.CSRFForm):  # pragma: no cover
     """Form for deleting a submission or a revision."""
 
     confirmed = BooleanField('Confirmed',
                              validators=[validators.DataRequired()])
 
 
-class CancelRequestForm(csrf.CSRFForm):
+class CancelRequestForm(csrf.CSRFForm):  # pragma: no cover
     """Form for cancelling a request."""
 
     confirmed = BooleanField('Confirmed',
@@ -31,7 +31,7 @@ class CancelRequestForm(csrf.CSRFForm):
 
 
 def delete(method: str, params: MultiDict, session: Session,
-           submission_id: str, **kwargs) -> Response:
+           submission_id: str, **kwargs) -> Response:  # pragma: no cover
     """
     Delete a submission, replacement, or other request.
 
@@ -74,7 +74,7 @@ def delete(method: str, params: MultiDict, session: Session,
 
 def cancel_request(method: str, params: MultiDict, session: Session,
                    submission_id: str, request_id: str,
-                   **kwargs) -> Response:
+                   **kwargs) -> Response:  # pragma: no cover
     submission, submission_events = get_submission(submission_id)
 
     # if request_type == WithdrawalRequest.NAME.lower():

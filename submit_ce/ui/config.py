@@ -99,18 +99,6 @@ class Settings(ArxivBaseSettings):
     """If true, only admin users can use the system. Intended to
     allowe closed to the public dev or beta system."""
 
-    MAX_UNCOMPRESSED_TOTAL_KB: int = 50_000
-    """Max total uncompressed submission size, in KB, before the submission is
-    flagged oversize (default 50 MB; the legacy arXiv size guideline)."""
-
-    MAX_UNCOMPRESSED_PER_FILE_KB: int = 50_000
-    """Max uncompressed size of any single file, in KB, before the submission
-    is flagged oversize (default 50 MB)."""
-
-    MAX_COMPRESSED_KB: int = 50_000
-    """Max compressed upload size, in KB. Defined for completeness; not
-    currently enforced (matches legacy check_sizes)."""
-
     COMPILE_API_URL: str = "https://tex2pdf-api-default-874717964009.us-central1.run.app"
     """The tex2pdf-api url.
     Do not end with a /.
@@ -123,6 +111,38 @@ class Settings(ArxivBaseSettings):
     COMPILE_API_PREFLIGHT_TIMEOUT: int = 840
 
     COMPILE_API_CONVERT_TIMEOUT: int = 840
+
+    EMAIL_MODE: Literal["TESTING", "HALON"] = "TESTING"
+    """Which `EmailService` the app uses. ``HALON`` sends real mail via the
+    Halon SMTP server (requires ``EMAIL_SMTP_SECRET`` to resolve);
+    ``TESTING`` uses an in-memory service that captures messages instead of
+    sending them. Defaults to ``TESTING`` so the app starts safely without
+    GCP credentials; set ``EMAIL_MODE=HALON`` in production."""
+
+    EMAIL_SMTP_SECRET: str = "HALON_CREDS"
+    """Name of the GCP Secret Manager secret whose value is an SMTP URI
+    (e.g. ``smtps://user:pass@mailh.arxiv.org:465``).
+    A short name (e.g. ``"HALON_CREDS"``) is resolved against
+    ``GOOGLE_CLOUD_PROJECT``; a full ``projects/…/secrets/…/versions/…``
+    resource name is passed straight through. Only used when
+    ``EMAIL_MODE=HALON``."""
+
+    EMAIL_TIMEOUT: float = 30.0
+    """Timeout in seconds for SMTP connection and I/O. Applied to both the
+    initial connection and all blocking socket operations (login, send).
+    Only used when ``EMAIL_MODE=HALON``."""
+
+    EMAIL_FROM: str = "e-prints@arxiv.org"
+    """Default ``From`` address for outgoing mail. Matches legacy submission mail,
+    which sends from ``e-prints@arxiv.org``."""
+
+    EMAIL_REPLY_TO: str = "www-admin@arxiv.org"
+    """``Reply-To`` address for email. Matches legacy, which used the
+    configurable ``$WWW_ADMIN_ADDRESS``."""
+
+    EMAIL_AUTO_HOLD_REPLY_TO: str = "mod-lib@arxiv.org"
+    """``Reply-To`` address for auto-hold confirmation emails. Legacy uses
+    ``mod-lib@arxiv.org`` so replies go to the moderation team."""
 
     COMPILE_API_IMPERSONATE_SA: str = ""
     """Service account email to impersonate when minting ID tokens for the

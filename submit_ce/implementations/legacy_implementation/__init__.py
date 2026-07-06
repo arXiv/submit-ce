@@ -10,8 +10,10 @@ from sqlalchemy import select, text
 from sqlalchemy.orm import Session as SqlalchemySession, Session
 
 from submit_ce.api import SubmitApi
+from submit_ce.api.email_service import EmailService
 from submit_ce.api.file_store import SubmissionFileStore
 from submit_ce.domain.agent import Client, User
+from submit_ce.domain.config import SubmitConfig
 from submit_ce.domain.meta import License
 from ...api.compile_service import CompileService
 
@@ -46,9 +48,28 @@ def check_user_authorized(
 
 
 class LegacySubmitImplementation(SubmitApi):
-    """
-    Implementation of `SubmitApi` that interoperates with legacy submission by writing to SFS and DB.
+    """Implementation of `SubmitApi` that interoperates with legacy submission.
 
+    Persists submissions and their events to the classic arXiv database and
+    the submission file store (SFS), bridging the event-sourced domain model
+    onto the legacy ``arXiv_submissions`` tables.
+
+    Parameters
+    ----------
+    store : SubmissionFileStore
+        File store used to persist and retrieve submission source packages,
+        previews and related artifacts.
+    compiler : CompileService
+        Service used to compile submission sources (e.g. to PDF).
+    email_service : EmailService
+        Service used to send notification email.
+    config : SubmitConfig
+        Configuration thta is relevant to the SubmitAPI.
+    get_session : Callable[[], SqlalchemySession], optional
+        Factory returning a SQLAlchemy session for database access.
+    
+    Notes
+    -----
     TODO success response objects (similar to modapi? {msg: success, updated_fields:[]})
     TODO failure to validate response objects (which field caused the problem?)
     TODO Failure response object (general failure message)
@@ -58,20 +79,21 @@ class LegacySubmitImplementation(SubmitApi):
     def __init__(self,
                  store: SubmissionFileStore,
                  compiler: CompileService,
-                 get_session:Callable[[],SqlalchemySession] = None,
-                 serialize_file_operations:bool = False):
+                 email_service: EmailService,
+                 config: SubmitConfig,
+                 get_session:Callable[[],SqlalchemySession]):
         self.get_session = get_session
-        self.serialize_file_operations = serialize_file_operations
         self.compiler = compiler
         self.store = store
+        self.email_service = email_service
+        self.config = config or SubmitConfig()
 
     def __repr__(self) -> str:
         return (f"{self.__class__.__name__}("
                 f"store={self.store.__repr__()},"
                 f"compiler={self.compiler.__repr__()},"
-                f"serialize_file_operations={self.serialize_file_operations}"
+                f"email_service={self.email_service.__repr__()},"
                 ")")
-
 
     @override
     def get(self, submission_id: str) -> Submission:
@@ -168,7 +190,15 @@ class LegacySubmitImplementation(SubmitApi):
         """Internal save for when submission is already read from the db."""
         before = submission
         committed: List[Event] = []
-        for event in events:
+        # A work-queue since events may imply consequent events (see
+        # Event.consequences) that need to be processed in this same locked
+        # session/transaction. They are inserted at the front of the queue so a
+        # consequence applies to the state immediately after its parent, before
+        # any remaining sibling events. The consequence type-graph is acyclic
+        # (enforced by test), so this terminates.
+        queue: List[Event] = list(events)
+        while queue:
+            event = queue.pop(0)
             if event.submission_id is None and before and before.submission_id is not None:
                 event.submission_id = before.submission_id
 
@@ -183,8 +213,9 @@ class LegacySubmitImplementation(SubmitApi):
                 # validate_under_lock runs inside the locked
                 # transaction so it can inspect on-disk / FileStore
                 # state without racing against another writer. Raising
-                # InvalidEvent here rolls the transaction back; the
-                # caller's `except InvalidEvent` decides UX.
+                # InvalidEvent here rolls the DB transaction back.
+                # Any earlier EventWithSideEffect.execute() is not rolled back.
+                # The caller's `except InvalidEvent` decides UX.
                 event.validate_under_lock(self, before)
                 logger.debug('Execute event %s: %s', event.event_id, event.NAME)
                 event.execute(self, before)
@@ -198,6 +229,10 @@ class LegacySubmitImplementation(SubmitApi):
                 committed.append(consequent_event)
 
             before = after  # Prepare for the next event.
+
+            # Queue any follow-on events implied by this one, given the new state.
+            for consequence in reversed(event.get_consequences(after)):
+                queue.insert(0, consequence)
 
         all_ = sorted(existing_events + committed, key=lambda e: e.created)
         session.commit()
@@ -250,6 +285,14 @@ class LegacySubmitImplementation(SubmitApi):
     @override
     def get_compiler(self) -> CompileService:
         return self.compiler
+
+    @override
+    def get_email_service(self) -> EmailService:
+        return self.email_service
+
+    @override
+    def get_config(self) -> SubmitConfig:
+        return self.config
 
     @override
     def next_announcement_time(self, reference: Optional[datetime] = None) -> datetime:
