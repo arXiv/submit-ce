@@ -102,7 +102,6 @@ class ReviewFiles(Stage):
     """The user is asked to review files for their submission with input
        from preflight analysis.
     """
-    #endpoint = 'review_files'
     endpoint = 'review_files'
     label = 'review your submission files'
     title = "Review Files"
@@ -118,8 +117,7 @@ class Process(Stage):
     title = "File process"
     display = "Process Files"
     """We need to re-process every time the source is updated."""
-    completed = []
-    #completed = [conditions.is_source_processed]
+    completed = [conditions.is_source_processed]
 
 
 class Metadata(Stage):

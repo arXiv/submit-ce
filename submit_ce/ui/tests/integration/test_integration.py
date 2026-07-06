@@ -138,19 +138,24 @@ class TestSubmissionIntegration(unittest.TestCase):
         self.assertEqual(res.status_code, 200)
         self.assertIn('Upload Files', res.text)
 
-        upload_path = Path(os.path.abspath(__file__)).parent / 'upload2.tar.gz'
-        with open(upload_path, 'rb') as upload_file:
-            multipart = MultipartEncoder(fields={
-                'file': ('upload2.tar.gz', upload_file, 'application/gzip'),
-                'csrf_token' : parse_csrf_token(res),
-            })
+        res = self._post_archive(res, 'upload2.tar.gz', 'application/gzip')
 
-            res = self.client.post(self.next_page,
-                                    data=multipart,
-                                    headers={'Content-Type': multipart.content_type})
+        # Clear the submission source via the file_delete_all route, then
+        # confirm we are redirected back to the upload page and start fresh.
+        submission_id = self.next_page.strip('/').split('/')[0]
+        delete_url = f"/{submission_id}/file_delete_all"
+        res = self.client.post(delete_url,
+                               data={'csrf_token': parse_csrf_token(res),
+                                     'confirmed': 'true'})
+        self.assertEqual(res.status_code, status.SEE_OTHER,
+                         "delete_all should redirect after confirmation")
+        self.assertEqual(res.headers['Location'], f"/{submission_id}/file_upload")
 
+        res = self.client.get(self.next_page)
         self.assertEqual(res.status_code, 200)
-        self.assertIn('Upload successful', res.text, "upload should succeed")
+        self.assertIn('Upload Files', res.text)
+
+        res = self._post_archive(res, 'upload2.zip', 'application/zip')
 
         # Verify the upload was actually saved on the submission.
         # The submission_id is the first path segment of the upload URL,
@@ -175,6 +180,24 @@ class TestSubmissionIntegration(unittest.TestCase):
         res = self.client.post(self.next_page, # should still be file upload page
                             data={'action':'next', 'csrf_token': parse_csrf_token(res)})
         self.check_response(res)
+
+    def _post_archive(self, prior_res, filename, content_type):
+        """POST an archive fixture from this directory to the upload page."""
+        upload_path = Path(os.path.abspath(__file__)).parent / filename
+        with open(upload_path, 'rb') as upload_file:
+            multipart = MultipartEncoder(fields={
+                'file': (filename, upload_file, content_type),
+                'csrf_token': parse_csrf_token(prior_res),
+            })
+
+            res = self.client.post(self.next_page,
+                                   data=multipart,
+                                   headers={'Content-Type': multipart.content_type})
+
+        self.assertEqual(res.status_code, 200)
+        self.assertIn('Upload successful', res.text,
+                      f"upload of {filename} should succeed")
+        return res
 
     def review_files(self):
         # TODO test more review_files when it is written

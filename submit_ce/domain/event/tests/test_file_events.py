@@ -26,7 +26,7 @@ def _blank_submission(uid: str = "u1"):
 def test_add_files_initializes_package():
     s = _blank_submission()
     e = UploadFiles(creator=s.creator, files=[])
-    e.validate(s)
+    e.validate_pre_lock(s)
     s = e.project(s)
 
     assert s.submitter_confirmed_preview is False
@@ -35,7 +35,7 @@ def test_add_files_updates_package():
     s = _blank_submission()
     e = UploadFiles(creator=s.creator, files=[])
 
-    e.validate(s)
+    e.validate_pre_lock(s)
     s = e.project(s)
 
     assert s.submitter_confirmed_preview is False
@@ -44,7 +44,7 @@ def test_remove_files_updates_size():
     s = _blank_submission()
     e = RemoveFiles(creator=s.creator, files=[])
 
-    e.validate(s)
+    e.validate_pre_lock(s)
     s = e.project(s)
 
     assert s.submitter_confirmed_preview is False
@@ -53,7 +53,7 @@ def test_remove_all_files_clears_package():
     s = _blank_submission()
     e = RemoveAllFiles(creator=s.creator)
 
-    e.validate(s)
+    e.validate_pre_lock(s)
     s = e.project(s)
 
     assert s.source_format is None

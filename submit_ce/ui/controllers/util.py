@@ -79,7 +79,7 @@ def validate_command(form: Form, event: Event,
     bool
     """
     try:
-        event.validate(submission)
+        event.validate_pre_lock(submission)
         return True
     except InvalidEvent as e:
         # This use of _errors causes a problem in WTForms 2.3.3

@@ -34,7 +34,7 @@ class TestFlagEvents(unittest.TestCase):
         """Test that AddFlag base class methods raise NotImplementedError."""
         e = AddFlag(creator=self.user, created=datetime.now(UTC))
         with self.assertRaises(NotImplementedError):
-            e.validate(self.submission)
+            e.validate_pre_lock(self.submission)
         with self.assertRaises(NotImplementedError):
             e.project(self.submission)
 
@@ -42,7 +42,7 @@ class TestFlagEvents(unittest.TestCase):
         """Test AddContentFlag validation and projection."""
         # Valid flag type
         e = AddContentFlag(creator=self.user, created=datetime.now(UTC), flag_type=ContentFlag.FlagType.CHARACTER_SET)
-        e.validate(self.submission)
+        e.validate_pre_lock(self.submission)
         updated_submission = e.project(self.submission)
 
         self.assertIn(e.event_id, updated_submission.flags)
@@ -53,7 +53,7 @@ class TestFlagEvents(unittest.TestCase):
 
         # Valid flag type passed as string
         e_str = AddContentFlag(creator=self.user, created=datetime.now(UTC), flag_type='character set')
-        e_str.validate(self.submission)
+        e_str.validate_pre_lock(self.submission)
         self.assertEqual(e_str.flag_type, ContentFlag.FlagType.CHARACTER_SET)
 
         # Invalid flag type
@@ -70,20 +70,20 @@ class TestFlagEvents(unittest.TestCase):
         
         # Valid removal
         e = RemoveFlag(creator=self.user, created=datetime.now(UTC), flag_id=flag_id)
-        e.validate(self.submission)
+        e.validate_pre_lock(self.submission)
         updated_submission = e.project(self.submission)
         self.assertNotIn(flag_id, updated_submission.flags)
 
         # Invalid removal (unknown flag)
         e_invalid = RemoveFlag(creator=self.user, created=datetime.now(UTC), flag_id="nonexistent")
         with self.assertRaises(InvalidEvent):
-            e_invalid.validate(self.submission)
+            e_invalid.validate_pre_lock(self.submission)
 
     def test_add_metadata_flag(self):
         """Test AddMetadataFlag validation and projection."""
         # Valid metadata flag
         e = AddMetadataFlag(creator=self.user, created=datetime.now(UTC), flag_type=MetadataFlag.FlagType.LANGUAGE, field="title")
-        e.validate(self.submission)
+        e.validate_pre_lock(self.submission)
         updated_submission = e.project(self.submission)
 
         self.assertIn(e.event_id, updated_submission.flags)
@@ -99,7 +99,7 @@ class TestFlagEvents(unittest.TestCase):
         # Invalid metadata field
         e_invalid_field = AddMetadataFlag(creator=self.user, created=datetime.now(UTC), flag_type=MetadataFlag.FlagType.LANGUAGE, field="unknown_field")
         with self.assertRaises(InvalidEvent) as cm:
-            e_invalid_field.validate(self.submission)
+            e_invalid_field.validate_pre_lock(self.submission)
         self.assertIn("Not a valid metadata field", str(cm.exception))
 
     def test_add_user_flag(self):
@@ -109,7 +109,7 @@ class TestFlagEvents(unittest.TestCase):
         
         # Validation might fail due to the bug:
         try:
-            e.validate(self.submission)
+            e.validate_pre_lock(self.submission)
         except InvalidEvent:
             pass
 
@@ -122,7 +122,7 @@ class TestFlagEvents(unittest.TestCase):
     def test_add_hold(self):
         """Test AddHold validation and projection."""
         e = AddHold(creator=self.user, created=datetime.now(UTC), hold_type=Hold.Type.PATCH, hold_reason="Need to patch")
-        e.validate(self.submission)
+        e.validate_pre_lock(self.submission)
         updated_submission = e.project(self.submission)
 
         self.assertIn(e.event_id, updated_submission.holds)
@@ -145,19 +145,19 @@ class TestFlagEvents(unittest.TestCase):
         
         # Valid removal
         e = RemoveHold(creator=self.user, created=datetime.now(UTC), hold_event_id=hold_id)
-        e.validate(self.submission)
+        e.validate_pre_lock(self.submission)
         updated_submission = e.project(self.submission)
         self.assertNotIn(hold_id, updated_submission.holds)
 
         # Invalid removal
         e_invalid = RemoveHold(creator=self.user, created=datetime.now(UTC), hold_event_id="nonexistent")
         with self.assertRaises(InvalidEvent):
-            e_invalid.validate(self.submission)
+            e_invalid.validate_pre_lock(self.submission)
 
     def test_add_waiver(self):
         """Test AddWaiver validation and projection."""
         e = AddWaiver(creator=self.user, created=datetime.now(UTC), waiver_type=Hold.Type.SOURCE_OVERSIZE, waiver_reason="Approved")
-        e.validate(self.submission)
+        e.validate_pre_lock(self.submission)
         updated_submission = e.project(self.submission)
 
         self.assertIn(e.event_id, updated_submission.waivers)

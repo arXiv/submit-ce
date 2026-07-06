@@ -212,7 +212,7 @@
   #}
   <script>
   (function () {
-    var DEBUG = true;  // flip to false once the flow is verified
+    var DEBUG = false;  // enable/disable debugging
     function log() {
       if (!DEBUG || !window.console) return;
       console.log.apply(console, ['[confirm]'].concat([].slice.call(arguments)));

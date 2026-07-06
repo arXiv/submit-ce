@@ -5,17 +5,15 @@ from dataclasses import asdict
 from datetime import datetime
 from locale import strxfrm
 from pathlib import Path
-from typing import List, Tuple, Callable
+from typing import List, Tuple, Callable, Union
 
 from arxiv import taxonomy
 from pytz import UTC
 
 from submit_ce.domain.process import ProcessStatus
 from submit_ce.domain.uploads import FileStatus
-from submit_ce.ui.controllers.new.upload import group_files, tidy_filesize
-from .tex_filters import compilation_log_display
 from submit_ce.domain.compilation import Compilation
-
+from .tex_filters import compilation_log_display
 
 # additions for compilation log markup
 
@@ -150,8 +148,22 @@ def pluralize(number, singular="", plural="s"):
     else:
         return plural
 
+
+def iec_filesize(bytes: Union[int, float]) -> str:
+    """Returns `bytes` as a IEC binary prefixed `str`."""
+    units = ["B", "KiB", "MiB", "GiB", "TiB"]
+    if bytes == 0:
+        return "0B"
+    i = 0
+    while bytes >= 1024 and i < len(units) - 1:
+        bytes /= 1024
+        i += 1
+    return f"{bytes:.2f} {units[i]}"
+
+
 def get_filters() -> List[Tuple[str, Callable]]:
     """Get the filter functions available in this module."""
+    from submit_ce.ui.controllers.new.upload import group_files
     return [
         ('group_files', group_files),
         ('timesince', timesince),
@@ -159,7 +171,7 @@ def get_filters() -> List[Tuple[str, Callable]]:
         ('get_category_name', get_category_name),
         ('process_status_display', process_status_display),
         ('compilation_status_display', compilation_status_display),
-        ('tidy_filesize', tidy_filesize),
+        ('iec_filesize', iec_filesize),  # FYI tidy_filesize is SI units which confuses users
         ('asdict', asdict),
         ('compilation_log_display', compilation_log_display),
         ('pluralize', pluralize),

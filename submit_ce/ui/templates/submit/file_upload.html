@@ -86,23 +86,29 @@
         <a href="{{ url_for('help_submit_sizes') }}">submission size and
         exemptions to size limits</a></li>
     </ul>
+
+    {# Download a fresh .tar.gz of the submission's current source files.
+       Built on the fly by source_package.download_source_package; mirrors
+       the Submit 1.5 "Download Package" sidebar button. Anchor + download
+       attribute is enough -- no JS required. #}
+    {% if submission_id %}
+      <div class="buttons" style="margin-top: 1rem;">
+        <a href="{{ url_for('ui.source_package_tar_gz', submission_id=submission_id) }}"
+           class="button button-secondary"
+           download>
+          Download Package
+        </a>
+      </div>
+    {% endif %}
   </div>
 {% endblock info_container_middle %}
 
-{% block within_content %}
-{# Main-area intro copy (moved from the sidebar to match v5 mockup). #}
-<p>TeX and (La)TeX submissions are highly encouraged. This format is the
-  most likely to retain readability and high-quality output in the future.
-  TeX source uploaded to arXiv will be made publicly available.</p>
-
-<p>You can upload all your files at once as a single .zip or .tar.gz
-  file, or upload individual files as needed.</p>
-
-{# Upload-result notifications (success/warning/error). Previously this
-   block sat outside any {% block %} in the template, so Jinja's extends
-   mechanic silently dropped it -- the notifications never rendered.
-   Moved into within_content so they appear above the form as the v5
-   mockup shows. #}
+{# Upload-result notifications (success/warning/error). Lives in the
+   more_notifications slot that base_edit.html provides as a sibling
+   of within_content. Previously this rendered outside any block, so
+   Jinja's extends mechanic silently dropped it -- the notifications
+   never appeared in production. #}
+{% block more_notifications %}
 {% if immediate_notifications %}
   {% for notification in immediate_notifications %}
     <div class="notification is-{{ notification.severity }}"
@@ -114,6 +120,16 @@
     </div>
   {% endfor %}
 {% endif %}
+{% endblock more_notifications %}
+
+{% block within_content %}
+{# Main-area intro copy (moved from the sidebar to match v5 mockup). #}
+<p>TeX and (La)TeX submissions are highly encouraged. This format is the
+  most likely to retain readability and high-quality output in the future.
+  TeX source uploaded to arXiv will be made publicly available.</p>
+
+<p>You can upload all your files at once as a single .zip or .tar.gz
+  file, or upload individual files as needed.</p>
 
 <form id="form" class="form" action="{{ url_for('ui.file_upload', submission_id=submission_id) }}" method="POST" enctype="multipart/form-data">
   <div class="columns action-container">

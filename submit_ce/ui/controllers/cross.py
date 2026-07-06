@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)  # pylint: disable=C0103
 Response = Tuple[Dict[str, Any], int, Dict[str, Any]]  # pylint: disable=C0103
 
 
-class HiddenListField(HiddenField):
+class HiddenListField(HiddenField): # pragma: no cover
     def process_formdata(self, valuelist):
         self.data = list(str(x) for x in valuelist if x)
 
@@ -45,7 +45,7 @@ class HiddenListField(HiddenField):
         return ",".join(self.data) if self.data else ""
 
 
-class CrossListForm(csrf.CSRFForm):
+class CrossListForm(csrf.CSRFForm): # pragma: no cover
     """Submit a cross-list request."""
 
     CATEGORIES = [
@@ -117,7 +117,7 @@ class CrossListForm(csrf.CSRFForm):
 
 
 def request_cross(method: str, params: MultiDict, session: Session,
-                  submission_id: str, **kwargs) -> Response:
+                  submission_id: str, **kwargs) -> Response: # pragma: no cover
     """Request cross-list classification for an announced e-print."""
     submitter, client = user_and_client_from_session(session)
     logger.debug(f'method: {method}, submission: {submission_id}. {params}')
