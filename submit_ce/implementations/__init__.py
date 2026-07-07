@@ -97,6 +97,10 @@ class NullFileStore(SubmissionFileStore):
     def delete_source_package(self, submission_id: str) -> None:
         pass
 
+    def get_source_package(self, submission_id: str) -> FileObj:
+        from arxiv.files import FileDoesNotExist
+        return FileDoesNotExist(f"{submission_id}.tar.gz")
+
     def get_full_submission_path(self, submission_id: str) -> str:
         return ""
 

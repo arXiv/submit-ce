@@ -141,6 +141,21 @@ class SubmissionFileStore(metaclass=ABCMeta):
         pass
 
     @abstractmethod
+    def get_source_package(self, submission_id: str) -> FileObj:
+        """Retrieve the persisted ``<submission_id>.tar.gz`` source package.
+
+        Returns a :class:`~arxiv.files.FileObj` for the archive last
+        written by :meth:`write_source_package`, or
+        :class:`~arxiv.files.FileDoesNotExist` if none has been written.
+        Callers that want a *fresh* archive built under the submission
+        lock should dispatch ``BuildSourcePackage`` (which calls
+        :meth:`write_source_package` inside the locked transaction) and
+        then read the result with this method, rather than calling the
+        unlocked :meth:`build_source_package` directly.
+        """
+        pass
+
+    @abstractmethod
     def store_preview(self, submission_id: str, content: IO[bytes], chunk_size: int = 4096) -> str:
         """Store a preview PDF for a submission.
 

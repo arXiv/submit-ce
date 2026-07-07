@@ -326,6 +326,23 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
             blob.delete()
 
     @override
+    def get_source_package(self, submission_id: str) -> FileObj:
+        """Retrieve the persisted ``<submission_id>.tar.gz`` source package."""
+        package_path = self._source_package_path(submission_id)
+        blob = self.bucket.blob(package_path)
+        if blob.exists():
+            # See get_preview: bucket.blob() returns a reference with empty
+            # metadata; reload so size/crc32c are populated for the route's
+            # Content-Length / ETag handling.
+            try:
+                blob.reload()
+            except Exception as exc:
+                logger.debug("source package reload failed for %s: %s",
+                             package_path, exc)
+            return blob
+        return FileDoesNotExist(package_path)
+
+    @override
     def get_preview_checksum(self, submission_id: str) -> str:
         """Get the checksum of the preview PDF for a submission."""
         return self._get_checksum(self._preview_path(submission_id))

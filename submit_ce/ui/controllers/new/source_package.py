@@ -42,11 +42,15 @@ from http import HTTPStatus as status
 from typing import Any, Dict, Tuple
 
 from arxiv.auth.domain import Session
+from arxiv.files import FileDoesNotExist
 from flask import current_app
 from werkzeug.datastructures import MultiDict
 from werkzeug.exceptions import NotFound
 
+from submit_ce.domain.event.process import BuildSourcePackage
 from submit_ce.ui.backend import get_submission
+
+from ...auth import user_and_client_from_session
 
 
 logger = logging.getLogger(__name__)
@@ -77,8 +81,28 @@ def download_source_package(
             "a source package."
         )
 
-    tar_bytes = file_store.build_source_package(submission_id)
-    stream = io.BytesIO(tar_bytes)
+    # Build the archive inside the submission's critical section. Dispatching
+    # BuildSourcePackage makes SubmitApi.save hold the submission row lock
+    # while write_source_package assembles the tar, so a concurrent upload or
+    # delete cannot change the file set mid-build (bdc34's review point on
+    # PR #76). We then stream the archive that was just persisted under the
+    # lock, rather than calling the unlocked build_source_package directly.
+    submitter, client = user_and_client_from_session(session)
+    current_app.api.save(
+        BuildSourcePackage(creator=submitter, client=client),
+        submission_id=submission_id,
+    )
+    package = file_store.get_source_package(submission_id)
+    if isinstance(package, FileDoesNotExist):
+        logger.error(
+            "source_package: package missing after BuildSourcePackage for %s",
+            submission_id,
+        )
+        raise NotFound(
+            "The source package could not be built. Please try again; if the "
+            "problem persists, contact arXiv support."
+        )
+    stream = io.BytesIO(package.download_as_bytes())
     stream.seek(0)
 
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M")
