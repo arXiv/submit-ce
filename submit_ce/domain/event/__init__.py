@@ -948,16 +948,36 @@ class ConfirmPreview(Event):
     preview_checksum: Optional[str] = field(default=None)
 
     def validate_pre_lock(self, submission: Submission) -> None:
-        """Validate data for :class:`.ConfirmPreview`."""
+        """Validate data for :class:`.ConfirmPreview`.
+
+        For source formats that require compilation (TeX, PostScript) the
+        submission must have a separately-built preview (populated by
+        :class:`.ConfirmSourceProcessed` during the Process step) and its
+        checksum must match what the submitter just viewed.
+
+        For source formats that do not require compilation (PDF, HTML)
+        the source IS the preview -- no ``ConfirmSourceProcessed`` runs
+        and ``submission.preview`` is legitimately ``None``. We accept
+        the confirmation in that case without checking preview state.
+
+        This mirrors the ``has_non_processing_content`` pattern in
+        ``submit_ce/ui/workflow/conditions.py`` so the event-layer
+        validation agrees with the workflow-layer condition that
+        already lets PDF/HTML submissions pass through ``is_source_processed``.
+        """
         validators.submission_is_not_finalized(self, submission)
-        if submission.preview is None:
-            raise InvalidEvent(self, "Preview not set on submission")
-        if self.preview_checksum != submission.preview.preview_checksum:
-            raise InvalidEvent(
-                self,
-                f"Checksum {self.preview_checksum} does not match current"
-                f" preview checksum: {submission.preview.preview_checksum}"
-            )
+        requires_processing = submission.source_format in (
+            SourceFormat.TEX, SourceFormat.POSTSCRIPT,
+        )
+        if requires_processing:
+            if submission.preview is None:
+                raise InvalidEvent(self, "Preview not set on submission")
+            if self.preview_checksum != submission.preview.preview_checksum:
+                raise InvalidEvent(
+                    self,
+                    f"Checksum {self.preview_checksum} does not match current"
+                    f" preview checksum: {submission.preview.preview_checksum}"
+                )
 
 
     def project(self, submission: Submission) -> Submission:
