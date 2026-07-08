@@ -219,6 +219,16 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
         return blob.crc32c
 
     @override
+    def store_nostamp_preview(self, submission_id: str,
+                              content: IO[bytes],
+                              chunk_size: int = 4096) -> str:
+        """Store the unstamped PDF at ``<submission_id>-nostamp.pdf``."""
+        blob = self.bucket.blob(self._nostamp_preview_path(submission_id))
+        blob.upload_from_file(content)
+        blob.reload()
+        return blob.crc32c
+
+    @override
     def store_directives(self, submission_id: str, content: dict) -> str:
         """Store directives.json for a submission."""
         directives_path = self._directives_path(submission_id)
@@ -607,6 +617,9 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
 
     def _preview_path(self, submission_id: str) -> str:
         return posixpath.join(self._submission_path(submission_id), f'{submission_id}.pdf')
+
+    def _nostamp_preview_path(self, submission_id: str) -> str:
+        return posixpath.join(self._submission_path(submission_id), f'{submission_id}-nostamp.pdf')
 
     def _preflight_path(self, submission_id: str) -> str:
         return posixpath.join(self._submission_path(submission_id), 'gcp_preflight.json')

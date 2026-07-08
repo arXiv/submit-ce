@@ -168,6 +168,19 @@ class SubmissionFileStore(metaclass=ABCMeta):
         pass
 
     @abstractmethod
+    def store_nostamp_preview(self, submission_id: str, content: IO[bytes],
+                              chunk_size: int = 4096) -> str:
+        """Store the *unstamped* PDF at ``<submission_id>-nostamp.pdf``.
+
+        Mirrors how TeX2PDF keeps both a stamped and an unstamped copy for
+        TeX submissions. For PDF-only submissions Submit 2.0 writes the
+        unstamped upload here and the stamped copy to the preview slot
+        (``store_preview`` / ``<submission_id>.pdf``).
+
+        Returns checksum"""
+        pass
+
+    @abstractmethod
     def store_directives(self, submission_id: str, content: dict) -> str:
         """Store directives.json for a submission.
 

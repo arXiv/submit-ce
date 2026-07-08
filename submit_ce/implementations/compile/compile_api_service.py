@@ -249,6 +249,28 @@ class CompileApiService(CompileService):
             return False
 
     @override
+    def stamp(self, pdf_bytes: bytes, watermark_text: str,
+              watermark_link: Optional[str] = None) -> bytes:
+        """Stamp a PDF via the tex2pdf ``/stamp/`` endpoint.
+
+        The endpoint takes the PDF as a multipart upload plus the watermark
+        text/link as query params, and returns the stamped PDF bytes in the
+        response body (it does not write to the bucket). Non-2xx raises, so
+        the caller falls back to the unstamped PDF.
+        """
+        query_params = {'watermark_text': watermark_text}
+        if watermark_link:
+            query_params['watermark_link'] = watermark_link
+        url = f'{settings.COMPILE_API_URL}/stamp/?{urllib.parse.urlencode(query_params)}'
+        files = {'incoming': ('submission.pdf', pdf_bytes, 'application/pdf')}
+        headers = _auth_headers()
+
+        with httpx.Client(timeout=settings.COMPILE_API_CONVERT_TIMEOUT) as client:
+            response = client.post(url, files=files, headers=headers)
+        response.raise_for_status()
+        return response.content
+
+    @override
     def start_directives(self,
             submission: Submission,
             user: User,

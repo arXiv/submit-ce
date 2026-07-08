@@ -8,8 +8,16 @@ from flask import current_app
 from submit_ce.domain.agent import InternalClient
 from submit_ce.domain.event import SetSourceFormat
 from submit_ce.domain.uploads import SourceFormat
+from submit_ce.implementations.compile.mock_compile_mimesis_pdf import MockCompileMimesisPdf
 from submit_ce.implementations.file_store.mock_file_store import MockFileStore
 from submit_ce.ui.controllers.new.process import file_process
+
+
+class _StampFails(MockCompileMimesisPdf):
+    """A compiler whose stamp() always fails, to exercise the fallback."""
+
+    def stamp(self, pdf_bytes, watermark_text, watermark_link=None):
+        raise RuntimeError("stamp service unavailable")
 
 
 def test_no_sub(app, authorized_client):
@@ -33,26 +41,21 @@ def test_process(app, authorized_client, sub_reviewfiles):
         and b"<form " in resp.data
 
 
-def test_file_process_pdf_only_installs_preview(
+def test_file_process_pdf_only_installs_stamped_preview(
         app, authorized_user, authorized_user_session, sub_primary):
-    """PDF-only: transiting Process promotes the uploaded PDF into the
-    top-level preview slot and records ConfirmSourceProcessed (Option A).
-
-    Before the fix, the PDF branch of ``file_process`` just advanced without
-    installing anything, leaving the preview slot empty -- ``/preview.pdf``
-    404'd, ``ConfirmPreview`` never fired, and Submit stayed disabled.
-    """
+    """PDF-only: transiting Process stamps the uploaded PDF and installs both
+    the stamped preview (``<id>.pdf``) and the unstamped copy
+    (``<id>-nostamp.pdf``), via InstallPdfPreview under the submission lock."""
     session, _ = authorized_user_session
     ua = InternalClient(name="test_pdf_only")
+    src = b"%PDF-1.4\n1 0 obj\n%%EOF\n"
     with app.app_context():
         sid = str(sub_primary.submission_id)
 
         store = MockFileStore()
         current_app.api.store = store
-        # Seed a single uploaded PDF in the source workspace.
-        store._source[sid] = {"paper.pdf": b"%PDF-1.4\n1 0 obj\n%%EOF\n"}
-
-        # Mark the submission as PDF-only.
+        current_app.api.compiler = MockCompileMimesisPdf()  # stamp() -> b"STAMPED:" + bytes
+        store._source[sid] = {"paper.pdf": src}
         current_app.api.save(
             SetSourceFormat(creator=authorized_user, client=ua,
                             source_format=SourceFormat.PDF.value),
@@ -60,23 +63,71 @@ def test_file_process_pdf_only_installs_preview(
 
         assert not store.does_preview_exist(sid)
 
-        data, code, headers = file_process(
-            "GET", MultiDict(), session, sid, token="")
+        _, code, _ = file_process("GET", MultiDict(), session, sid, token="")
 
         assert code == status.OK
-        # The uploaded PDF is now installed at the top-level preview slot ...
-        assert store.does_preview_exist(sid)
-        assert store.get_preview(sid).download_as_bytes().startswith(b"%PDF")
-        # ... and, on a fresh reload, the submission is marked source-processed.
-        # NOTE: reload via get_with_history to bypass the per-request `g`
-        # cache in backend.get_submission (which still holds the pre-event
-        # snapshot inside this single app context). The legacy backend
-        # round-trips is_source_processed via the must_process column;
-        # submission.preview is derived state and is intentionally not
-        # persisted, so we don't assert on it here (the Confirm-page gate
-        # uses does_preview_exist + submitter_confirmed_preview instead).
+        # Stamped PDF is in the preview slot ...
+        assert store.get_preview(sid).download_as_bytes() == b"STAMPED:" + src
+        # ... the unstamped copy is in the -nostamp slot ...
+        assert store._nostamp_preview[sid] == src
+        # ... and, on a fresh reload (bypassing the per-request g cache), the
+        # submission is marked source-processed (round-trips via must_process).
         submission, _ = current_app.api.get_with_history(sid)
         assert submission.is_source_processed
+
+
+def test_file_process_pdf_only_falls_back_to_unstamped_on_stamp_failure(
+        app, authorized_user, authorized_user_session, sub_primary):
+    """If stamping fails, the preview slot must still be populated -- with the
+    unstamped PDF -- so the submitter can review and Submit stays reachable."""
+    session, _ = authorized_user_session
+    ua = InternalClient(name="test_pdf_only")
+    src = b"%PDF-1.4\n%%EOF\n"
+    with app.app_context():
+        sid = str(sub_primary.submission_id)
+
+        store = MockFileStore()
+        current_app.api.store = store
+        current_app.api.compiler = _StampFails()
+        store._source[sid] = {"paper.pdf": src}
+        current_app.api.save(
+            SetSourceFormat(creator=authorized_user, client=ua,
+                            source_format=SourceFormat.PDF.value),
+            submission_id=sid)
+
+        _, code, _ = file_process("GET", MultiDict(), session, sid, token="")
+
+        assert code == status.OK
+        # Fallback: preview slot holds the unstamped bytes (no STAMPED marker).
+        assert store.get_preview(sid).download_as_bytes() == src
+        assert store._nostamp_preview[sid] == src
+
+
+def test_file_process_pdf_only_does_not_confirm_preview(
+        app, authorized_user, authorized_user_session, sub_primary):
+    """Installing/stamping must NOT mark the preview as viewed. The submitter
+    still has to open it to fire ConfirmPreview (the review gate) -- this
+    guards against stamping accidentally bypassing the 'must review' rule."""
+    session, _ = authorized_user_session
+    ua = InternalClient(name="test_pdf_only")
+    with app.app_context():
+        sid = str(sub_primary.submission_id)
+
+        store = MockFileStore()
+        current_app.api.store = store
+        current_app.api.compiler = MockCompileMimesisPdf()
+        store._source[sid] = {"paper.pdf": b"%PDF-1.4\n%%EOF\n"}
+        current_app.api.save(
+            SetSourceFormat(creator=authorized_user, client=ua,
+                            source_format=SourceFormat.PDF.value),
+            submission_id=sid)
+
+        file_process("GET", MultiDict(), session, sid, token="")
+
+        submission, _ = current_app.api.get_with_history(sid)
+        assert submission.is_source_processed
+        # Viewable, but not yet viewed.
+        assert submission.submitter_confirmed_preview is False
 
 
 def test_file_process_pdf_only_is_idempotent(
@@ -90,6 +141,7 @@ def test_file_process_pdf_only_is_idempotent(
 
         store = MockFileStore()
         current_app.api.store = store
+        current_app.api.compiler = MockCompileMimesisPdf()
         store._source[sid] = {"paper.pdf": b"%PDF-1.4\n%%EOF\n"}
         current_app.api.save(
             SetSourceFormat(creator=authorized_user, client=ua,
@@ -101,8 +153,7 @@ def test_file_process_pdf_only_is_idempotent(
 
         # Change the source so an unexpected re-copy would be visible.
         store._source[sid] = {"paper.pdf": b"%PDF-DIFFERENT\n%%EOF\n"}
-        data, code, headers = file_process(
-            "GET", MultiDict(), session, sid, token="")
+        _, code, _ = file_process("GET", MultiDict(), session, sid, token="")
 
         assert code == status.OK
         # Idempotent: preview unchanged because it already existed.
