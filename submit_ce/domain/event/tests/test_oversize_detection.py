@@ -50,7 +50,16 @@ class _FakeStore:
     def get_workspace(self, sid):
         return self.workspace
 
+    def delete_source_package(self, sid):
+        pass
+
     def delete_preflight(self, sid):
+        pass
+
+    def delete_user_decisions(self, sid):
+        pass
+
+    def delete_directives(self, sid):
         pass
 
     def delete_preview(self, sid):
