@@ -238,6 +238,111 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
         return self.bucket.blob(self._source_package_path(submission_id)).exists()
 
     @override
+    def build_source_package(self, submission_id: str) -> bytes:
+        """Build a fresh .tar.gz from the current source files in the bucket.
+
+        Walks the submission's ``src/`` directory, fetches each blob,
+        and packs the contents into a gzipped tarball returned as
+        bytes. The persisted ``<submission_id>.tar.gz`` is NOT touched
+        by this method -- use :meth:`write_source_package` for that.
+
+        Files that are listed in the workspace but whose blobs cannot
+        be read are skipped with a warning rather than aborting the
+        build. Returns the gzipped tarball bytes; if the workspace is
+        empty, returns an empty (but valid) gzipped tar.
+        """
+        workspace = self.get_workspace(submission_id)
+        buf = io.BytesIO()
+        files_added = 0
+        files_skipped = 0
+        if workspace and workspace.files:
+            with tarfile.open(fileobj=buf, mode='w:gz') as tar:
+                for f in workspace.files:
+                    blob = self.get_source_file(
+                        submission_id=submission_id, path=f.path)
+                    if isinstance(blob, FileDoesNotExist):
+                        logger.warning(
+                            "build_source_package: workspace lists %s but "
+                            "blob is missing for submission %s; skipping",
+                            f.path, submission_id,
+                        )
+                        files_skipped += 1
+                        continue
+                    try:
+                        data = blob.download_as_bytes()
+                    except Exception as exc:
+                        logger.warning(
+                            "build_source_package: could not read %s for "
+                            "submission %s: %s; skipping",
+                            f.path, submission_id, exc,
+                        )
+                        files_skipped += 1
+                        continue
+
+                    info = tarfile.TarInfo(name=f.path)
+                    info.size = len(data)
+                    updated = getattr(blob, 'updated', None) or datetime.now()
+                    try:
+                        info.mtime = int(updated.timestamp())
+                    except (AttributeError, TypeError):
+                        info.mtime = int(datetime.now().timestamp())
+                    info.mode = 0o644
+                    tar.addfile(info, io.BytesIO(data))
+                    files_added += 1
+        else:
+            # No files: still emit a syntactically valid (empty) gzipped tar
+            with tarfile.open(fileobj=buf, mode='w:gz'):
+                pass
+        logger.info(
+            "build_source_package: built tarball for submission %s "
+            "(files_added=%d, files_skipped=%d, size_bytes=%d)",
+            submission_id, files_added, files_skipped, buf.tell(),
+        )
+        return buf.getvalue()
+
+    @override
+    def write_source_package(self, submission_id: str) -> None:
+        """Build the source package and upload it to the canonical path.
+
+        Overwrites any existing ``<submission_id>.tar.gz`` so callers
+        that resolve the source URL (e.g., the preflight API) see
+        current source rather than a stale snapshot from a previous
+        compile.
+        """
+        data = self.build_source_package(submission_id)
+        package_path = self._source_package_path(submission_id)
+        blob = self.bucket.blob(package_path)
+        blob.upload_from_file(io.BytesIO(data), content_type='application/gzip')
+        logger.info(
+            "write_source_package: wrote %s (size_bytes=%d)",
+            package_path, len(data),
+        )
+
+    @override
+    def delete_source_package(self, submission_id: str) -> None:
+        """Delete the persisted ``<submission_id>.tar.gz`` if it exists."""
+        blob = self.bucket.blob(self._source_package_path(submission_id))
+        if blob.exists():
+            blob.delete()
+
+    @override
+    def get_source_package(self, submission_id: str) -> FileObj:
+        """Retrieve the persisted ``<submission_id>.tar.gz`` source package."""
+        package_path = self._source_package_path(submission_id)
+        blob = self.bucket.blob(package_path)
+        if blob.exists():
+            # See get_preview: bucket.blob() returns a reference with empty
+            # metadata; reload so size/crc32c are populated for the route's
+            # Content-Length / ETag handling.
+            try:
+                blob.reload()
+            except Exception as exc:
+                logger.debug("source package reload failed for %s: %s",
+                             package_path, exc)
+            return blob
+        return FileDoesNotExist(package_path)
+
+    @override
     def get_preview_checksum(self, submission_id: str) -> str:
         """Get the checksum of the preview PDF for a submission."""
         return self._get_checksum(self._preview_path(submission_id))

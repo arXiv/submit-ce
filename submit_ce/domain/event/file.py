@@ -22,10 +22,56 @@ def _common_file_change_project(submission: Submission) -> None:
 
 
 def _common_file_change_execute(api: SubmitApi, submission: Submission) -> None:
-    """Common changes during `execute` when any file change happens."""
+    """Common changes during `execute` when any file change happens.
+
+    Any change to the source workspace invalidates the analysis chain
+    that was built from the previous state of the files:
+
+    * **source_package** -- the persisted ``<id>.tar.gz`` snapshot of
+      the source directory. The preflight API
+      (``CompileApiService.start_preflight``) hands this path to
+      tex2pdf as the ``source`` query param, so if it lingers past a
+      file change tex2pdf scans a stale snapshot and Review Files
+      shows the old file list. We delete it here; the next
+      ``start_preflight`` call rebuilds it fresh from ``src/``. (The
+      same archive is rebuilt by ``compile_at_gcp.py`` on a successful
+      compile, so the compile-time path is unaffected.)
+    * **preflight** -- the per-file scan that detects compiler, top-level
+      TeX, issues, etc. Must be re-run against the new file list.
+    * **user_decisions** -- captures the user's selections (source_file,
+      compiler, marked-for-deletion) made on the Review Files step.
+      Those selections may reference files that no longer exist after
+      the change, so we drop them and let the user re-select.
+    * **directives** -- the combined preflight + user_decisions output
+      that drives compilation. With both of its inputs invalidated,
+      this is also stale.
+    * **preview** -- the compiled PDF that was produced from the
+      previous source.
+
+    Submit 1.5 had separate ``clear_preflight`` and
+    ``clear_directives_data`` routines in ``Submit.pm`` that were
+    called from various file-change paths; this is the 2.0 equivalent
+    consolidated into one place so all four file events
+    (UploadArchive / UploadFiles / RemoveFiles / RemoveAllFiles) get
+    consistent invalidation. Skipping any of these leads to stale data
+    being shown on Review Files even though the workspace itself is
+    current.
+
+    Note: we delete here (cheap, one bucket call per event) rather
+    than rebuild here. Rebuilding the tar inside each file event
+    would be quadratic for multi-file uploads -- N AddFiles events
+    would each download all N files and reupload, for O(N^2) bucket
+    traffic, with only the last build mattering. Lazy rebuild in
+    ``start_preflight`` keeps the cost at one build per preflight
+    call regardless of how many file events preceded it.
+    """
     file_store = api.get_file_store()
-    file_store.delete_preflight(str(submission.submission_id))
-    file_store.delete_preview(str(submission.submission_id))
+    sid = str(submission.submission_id)
+    file_store.delete_source_package(sid)
+    file_store.delete_preflight(sid)
+    file_store.delete_user_decisions(sid)
+    file_store.delete_directives(sid)
+    file_store.delete_preview(sid)
 
 
 def _add_evaluate_oversize(api: SubmitApi,

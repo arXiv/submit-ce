@@ -123,6 +123,38 @@ class StartPreflight(EventWithSideEffect):
         return submission
 
 
+class BuildSourcePackage(EventWithSideEffect):
+    """Build the canonical ``<id>.tar.gz`` source package under the lock.
+
+    The tar is assembled from the submission's current source files. By
+    running as an :class:`.EventWithSideEffect`, ``SubmitApi.save`` holds the
+    submission row lock for the duration of :meth:`execute`, so a concurrent
+    upload or delete cannot change the file set mid-build and produce a
+    package that mixes files which never coexisted on the submission. See the
+    "critical section" design note in ``CLAUDE.md``.
+
+    Carries no extra data (the side effect is the persisted ``<id>.tar.gz``),
+    so it serializes and replays like any base event.
+    """
+
+    NAME = "build source package"
+    NAMED = "built source package"
+
+    def validate(self, submission: Submission) -> None:
+        """The submission must exist to have a source package built."""
+        if not submission.submission_id:
+            raise InvalidEvent(
+                self, "Cannot build source package: submission has no id.")
+
+    def execute(self, api: 'SubmitApi', submission: Submission) -> None:
+        """Build and persist ``<id>.tar.gz`` from current source, under lock."""
+        api.get_file_store().write_source_package(submission.submission_id)
+
+    def project(self, submission: Submission) -> Submission:
+        """No submission-state change; the side effect is the stored tar."""
+        return submission
+
+
 class StartDirectives(EventWithSideEffect):
     """Start directives generation for a submission."""
 
