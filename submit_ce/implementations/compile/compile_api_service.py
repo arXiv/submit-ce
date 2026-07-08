@@ -261,7 +261,11 @@ class CompileApiService(CompileService):
         query_params = {'watermark_text': watermark_text}
         if watermark_link:
             query_params['watermark_link'] = watermark_link
-        url = f'{settings.COMPILE_API_URL}/stamp/?{urllib.parse.urlencode(query_params)}'
+        # No trailing slash: the deployed service routes ``/stamp`` and 307-
+        # redirects ``/stamp/`` -> ``/stamp`` (also downgrading to http, which
+        # we must not follow with the auth token). Matches how /convert,
+        # /preflight and /directives are called.
+        url = f'{settings.COMPILE_API_URL}/stamp?{urllib.parse.urlencode(query_params)}'
         files = {'incoming': ('submission.pdf', pdf_bytes, 'application/pdf')}
         headers = _auth_headers()
 
