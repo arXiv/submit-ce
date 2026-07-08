@@ -140,7 +140,7 @@ class BuildSourcePackage(EventWithSideEffect):
     NAME = "build source package"
     NAMED = "built source package"
 
-    def validate(self, submission: Submission) -> None:
+    def validate_pre_lock(self, submission: Submission) -> None:
         """The submission must exist to have a source package built."""
         if not submission.submission_id:
             raise InvalidEvent(
