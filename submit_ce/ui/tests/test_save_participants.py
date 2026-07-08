@@ -1,0 +1,292 @@
+"""Tests for `SaveParticipant` phases fired by ``SubmitApi.save()``.
+
+Participants are enlisted in the save transaction (see
+``submit_ce.api.save_participant``): ``under_lock`` fires inside the locked
+transaction before any event runs, ``before_commit`` after all events are
+persisted but before commit, ``after_commit`` after a successful commit, and
+``on_rollback`` (with a `SaveFailure` naming the failed `SavePhase`) when the
+transaction rolls back.
+
+These tests exercise the real ``FlaskSubmitImplementation`` save path (via the
+``app`` fixture) using throw-away participants and side-effect events, in the
+style of ``test_save_validate_under_lock.py``. Participants are injected by
+mutating ``current_app.api.participants``; the ``app`` fixture is
+function-scoped so this does not leak between tests.
+"""
+from typing import List, Optional, Tuple
+
+import pytest
+from flask import current_app
+
+from submit_ce.api.save_participant import (SaveContext, SaveFailure,
+                                            SaveParticipant, SavePhase)
+from submit_ce.domain.agent import InternalClient
+from submit_ce.domain.event.base import EventWithSideEffect
+from submit_ce.domain.event.legacy import Withdraw
+from submit_ce.domain.exceptions import InvalidEvent
+
+
+class _Boom(RuntimeError):
+    """Distinct exception so tests can assert the original error propagates."""
+
+
+class _ProbeParticipant(SaveParticipant):
+    """Records ``(phase, participant_name)`` calls into a shared list.
+
+    ``raise_in`` makes the named phase raise `_Boom`. ``failures`` collects
+    the `SaveFailure` passed to ``on_rollback``.
+    """
+
+    def __init__(self, name: str, calls: List[Tuple[str, str]],
+                 raise_in: Optional[str] = None):
+        self.name = name
+        self.calls = calls
+        self.raise_in = raise_in
+        self.failures: List[SaveFailure] = []
+        self.ctx_snapshots: List[dict] = []
+
+    def _fire(self, phase: str) -> None:
+        self.calls.append((phase, self.name))
+        if self.raise_in == phase:
+            raise _Boom(f"{self.name} raised in {phase}")
+
+    def under_lock(self, ctx: SaveContext) -> None:
+        self._fire("under_lock")
+
+    def before_commit(self, ctx: SaveContext) -> None:
+        self.ctx_snapshots.append({
+            "after": ctx.after,
+            "committed": list(ctx.committed),
+        })
+        self._fire("before_commit")
+
+    def after_commit(self, ctx: SaveContext) -> None:
+        self._fire("after_commit")
+
+    def on_rollback(self, ctx: SaveContext, failure: SaveFailure) -> None:
+        self.failures.append(failure)
+        self._fire("on_rollback")
+
+
+class _ProbeSideEffect(EventWithSideEffect):
+    """Side-effect event that records calls and can raise under the lock."""
+
+    NAME = "probe side effect"
+    NAMED = "probe side effect"
+
+    should_block: bool = False
+    calls: List[str] = []
+
+    def validate_pre_lock(self, submission) -> None:
+        pass
+
+    def validate_under_lock(self, api, submission) -> None:
+        self.calls.append("validate_under_lock")
+        if self.should_block:
+            raise InvalidEvent(self, "blocked under lock")
+
+    def execute(self, api, submission) -> None:
+        self.calls.append("execute")
+
+    def project(self, submission):
+        return submission
+
+
+def _client() -> InternalClient:
+    return InternalClient(name="test_save_participants")
+
+
+def _enlist(*participants: SaveParticipant) -> None:
+    current_app.api.participants = list(participants)
+
+
+def test_phase_ordering_two_participants(app, authorized_user, sub_created):
+    """under_lock in list order; before_commit/after_commit in reverse order,
+    with event work in between; the event is committed."""
+    with app.app_context():
+        sid = str(sub_created.submission_id)
+        _, history_before = current_app.api.get_with_history(sid)
+
+        calls: List[Tuple[str, str]] = []
+        a = _ProbeParticipant("a", calls)
+        b = _ProbeParticipant("b", calls)
+        _enlist(a, b)
+
+        probe = _ProbeSideEffect(creator=authorized_user, client=_client(), calls=[])
+        current_app.api.save(probe, submission_id=sid)
+
+        assert calls == [
+            ("under_lock", "a"), ("under_lock", "b"),
+            ("before_commit", "b"), ("before_commit", "a"),
+            ("after_commit", "b"), ("after_commit", "a"),
+        ]
+        # Event work happened between under_lock and before_commit.
+        assert probe.calls == ["validate_under_lock", "execute"]
+        _, history_after = current_app.api.get_with_history(sid)
+        assert len(history_after) == len(history_before) + 1
+
+
+def test_under_lock_raise_aborts_cleanly(app, authorized_user, sub_created):
+    """Raising in under_lock is the clean abort: no event ran, nothing
+    committed, on_rollback fires with the participant phase and identity."""
+    with app.app_context():
+        sid = str(sub_created.submission_id)
+        _, history_before = current_app.api.get_with_history(sid)
+
+        calls: List[Tuple[str, str]] = []
+        a = _ProbeParticipant("a", calls)
+        b = _ProbeParticipant("b", calls, raise_in="under_lock")
+        _enlist(a, b)
+
+        probe = _ProbeSideEffect(creator=authorized_user, client=_client(), calls=[])
+        with pytest.raises(_Boom):
+            current_app.api.save(probe, submission_id=sid)
+
+        assert probe.calls == []  # no event validated or executed
+        assert calls == [
+            ("under_lock", "a"), ("under_lock", "b"),
+            ("on_rollback", "b"), ("on_rollback", "a"),  # reverse order
+        ]
+        failure = a.failures[0]
+        assert failure.phase == SavePhase.PARTICIPANT_UNDER_LOCK
+        assert failure.participant is b
+        assert failure.event is None
+        assert isinstance(failure.exc, _Boom)
+
+        _, history_after = current_app.api.get_with_history(sid)
+        assert len(history_after) == len(history_before)
+
+
+def test_before_commit_raise_rolls_back_db(app, authorized_user, sub_created):
+    """Raising in before_commit rolls the DB back — but the event's side
+    effects already ran (the documented validate_under_lock-style caveat)."""
+    with app.app_context():
+        sid = str(sub_created.submission_id)
+        _, history_before = current_app.api.get_with_history(sid)
+
+        calls: List[Tuple[str, str]] = []
+        a = _ProbeParticipant("a", calls, raise_in="before_commit")
+        _enlist(a)
+
+        probe = _ProbeSideEffect(creator=authorized_user, client=_client(), calls=[])
+        with pytest.raises(_Boom):
+            current_app.api.save(probe, submission_id=sid)
+
+        # The side effects DID run; only the DB write was rolled back.
+        assert probe.calls == ["validate_under_lock", "execute"]
+        failure = a.failures[0]
+        assert failure.phase == SavePhase.PARTICIPANT_BEFORE_COMMIT
+        assert failure.participant is a
+
+        _, history_after = current_app.api.get_with_history(sid)
+        assert len(history_after) == len(history_before)
+
+
+def test_event_validate_under_lock_failure_reported(app, authorized_user, sub_created):
+    """An event rejected under the lock reaches on_rollback with the event
+    phase and the event itself; InvalidEvent propagates unchanged."""
+    with app.app_context():
+        sid = str(sub_created.submission_id)
+        calls: List[Tuple[str, str]] = []
+        a = _ProbeParticipant("a", calls)
+        _enlist(a)
+
+        probe = _ProbeSideEffect(creator=authorized_user, client=_client(),
+                                 should_block=True, calls=[])
+        with pytest.raises(InvalidEvent):
+            current_app.api.save(probe, submission_id=sid)
+
+        failure = a.failures[0]
+        assert failure.phase == SavePhase.EVENT_VALIDATE_UNDER_LOCK
+        assert failure.event is probe
+        assert failure.participant is None
+        assert isinstance(failure.exc, InvalidEvent)
+
+
+def test_after_commit_raise_is_swallowed(app, authorized_user, sub_created):
+    """The save already committed: an after_commit failure is logged and
+    swallowed, save() returns normally and on_rollback does NOT fire."""
+    with app.app_context():
+        sid = str(sub_created.submission_id)
+        _, history_before = current_app.api.get_with_history(sid)
+
+        calls: List[Tuple[str, str]] = []
+        a = _ProbeParticipant("a", calls, raise_in="after_commit")
+        _enlist(a)
+
+        probe = _ProbeSideEffect(creator=authorized_user, client=_client(), calls=[])
+        current_app.api.save(probe, submission_id=sid)  # must not raise
+
+        assert a.failures == []  # no rollback happened
+        assert ("on_rollback", "a") not in calls
+        _, history_after = current_app.api.get_with_history(sid)
+        assert len(history_after) == len(history_before) + 1
+
+
+def test_on_rollback_raise_never_masks_original(app, authorized_user, sub_created):
+    """A participant blowing up in on_rollback is logged; the other
+    participants are still notified and the ORIGINAL exception propagates."""
+    with app.app_context():
+        sid = str(sub_created.submission_id)
+        calls: List[Tuple[str, str]] = []
+        a = _ProbeParticipant("a", calls)
+        b = _ProbeParticipant("b", calls, raise_in="on_rollback")
+        _enlist(a, b)
+
+        probe = _ProbeSideEffect(creator=authorized_user, client=_client(),
+                                 should_block=True, calls=[])
+        with pytest.raises(InvalidEvent):  # original, not b's _Boom
+            current_app.api.save(probe, submission_id=sid)
+
+        # b raised in on_rollback, but a was still notified after it.
+        assert ("on_rollback", "b") in calls
+        assert ("on_rollback", "a") in calls
+        assert calls.index(("on_rollback", "b")) < calls.index(("on_rollback", "a"))
+
+
+def test_before_commit_sees_final_state(app, authorized_user, sub_created):
+    """By before_commit the context carries the projected state and the
+    committed events of this save."""
+    with app.app_context():
+        sid = str(sub_created.submission_id)
+        calls: List[Tuple[str, str]] = []
+        a = _ProbeParticipant("a", calls)
+        _enlist(a)
+
+        probe = _ProbeSideEffect(creator=authorized_user, client=_client(), calls=[])
+        current_app.api.save(probe, submission_id=sid)
+
+        snapshot = a.ctx_snapshots[0]
+        assert snapshot["after"] is not None
+        assert len(snapshot["committed"]) >= 1
+
+
+def test_withdraw_path_fires_participants(app, authorized_user,
+                                          published_submission, mocker):
+    """The Withdraw branch of save() is a separate code path from _save; it
+    must fire the same participant phases."""
+    with app.app_context():
+        _, paper_id = published_submission
+        # The app fixture uses a NullFileStore whose write methods raise by
+        # design; Withdraw.execute writes the `withdrawn` source file.
+        mocker.patch.object(current_app.api.store, "delete_all_source_files")
+        mocker.patch.object(current_app.api.store, "store_source_file")
+
+        calls: List[Tuple[str, str]] = []
+        a = _ProbeParticipant("a", calls)
+        _enlist(a)
+
+        cmd = Withdraw(creator=authorized_user, client=_client(),
+                       paper_id=paper_id,
+                       comment="Withdrawn because of a fatal flaw in section 3.",
+                       abstract="This paper has been withdrawn by the authors.")
+        submission, committed = current_app.api.save(cmd)
+
+        assert calls == [
+            ("under_lock", "a"),
+            ("before_commit", "a"),
+            ("after_commit", "a"),
+        ]
+        snapshot = a.ctx_snapshots[0]
+        assert snapshot["after"] is not None
+        assert len(snapshot["committed"]) == 1
