@@ -106,6 +106,19 @@ class NullFileStore(SubmissionFileStore):  # pragma: no cover
     def does_source_exist(self, submission_id: str) -> bool:
         return False
 
+    def build_source_package(self, submission_id: str) -> bytes:
+        return b""
+
+    def write_source_package(self, submission_id: str) -> None:
+        pass
+
+    def delete_source_package(self, submission_id: str) -> None:
+        pass
+
+    def get_source_package(self, submission_id: str) -> FileObj:
+        from arxiv.files import FileDoesNotExist
+        return FileDoesNotExist(f"{submission_id}.tar.gz")
+
     def get_full_submission_path(self, submission_id: str) -> str:
         return ""
 

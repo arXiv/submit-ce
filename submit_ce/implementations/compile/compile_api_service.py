@@ -107,15 +107,22 @@ class CompileApiService(CompileService):
            &dest=gs://arxiv-sync-test-01/api-test/junk.json'
         '''
 
-        # This tgz may be older than the files in the src dir, 
-        #   since submit 2.0 does not yet regenerate after file changes.
-        # We could:
-        #   - update tex2pdf-api to build from the src dir
-        #   - update tex2pdf-api to support rezip
-        #   - check file dates and rezip locally, maybe on user request
-        source_path = current_app.api.get_file_store().get_full_source_package_path(submission.submission_id)
+        # tex2pdf's preflight endpoint takes a ``source`` URL pointing at a
+        # tar.gz in the bucket and scans it for compiler/issue detection.
+        # We rebuild the persisted ``<id>.tar.gz`` from the current ``src/``
+        # directory before each preflight call so tex2pdf sees the user's
+        # latest source. ``_common_file_change_execute`` deletes the same
+        # path on every file event, so the build here is "build if needed,
+        # not because we're scared" -- it's "always build the canonical
+        # path from current source." Per file event the deletion is cheap
+        # (one bucket call); per preflight click the build is one extraction
+        # of N source files, so cost is linear in workspace size, not in
+        # number of preceding file events.
+        file_store = current_app.api.get_file_store()
+        file_store.write_source_package(submission.submission_id)
 
-        preflight_path = current_app.api.get_file_store().get_full_preflight_package_path(submission.submission_id)
+        source_path = file_store.get_full_source_package_path(submission.submission_id)
+        preflight_path = file_store.get_full_preflight_package_path(submission.submission_id)
 
         query_params = {
             'source': source_path,
