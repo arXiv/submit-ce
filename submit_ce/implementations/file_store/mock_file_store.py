@@ -167,6 +167,12 @@ class MockFileStore(NullFileStore):
     def delete_source_package(self, submission_id: str) -> None:
         self._source_package.pop(submission_id, None)
 
+    def get_source_package(self, submission_id: str) -> FileObj:
+        data = self._source_package.get(submission_id)
+        if data is None:
+            return FileDoesNotExist(f"{submission_id}.tar.gz")
+        return _InMemoryFileObj(f"{submission_id}.tar.gz", data)
+
     def get_workspace(self, submission_id: str) -> Optional[Workspace]:
         files = self._source.get(submission_id, {})
         statuses = [_file_status_from_bytes(p, b) for p, b in files.items()]

@@ -1,6 +1,6 @@
 import json
 from http import HTTPStatus as status
-from typing import Tuple, Dict, Any, Optional, List, Union
+from typing import Tuple, Dict, Any
 
 from flask import current_app
 from werkzeug.datastructures import MultiDict
@@ -18,8 +18,8 @@ logger = logging.getLogger(__name__)
 
 
 def debug_events(method: str, params: MultiDict, session: Session,
-                 submission_id: str, token: str, **kwargs) -> Response:
-    
+                 submission_id: str, token: str, **kwargs) -> Response:  # pragma: no cover
+
     submission, _ = get_submission(submission_id)
 
     workspace = current_app.api.get_file_store().get_workspace(

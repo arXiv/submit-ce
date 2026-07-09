@@ -165,7 +165,7 @@ class CompileApiService(CompileService):
             ),
             duration_sec=0,
             utc_start_time=datetime.now(timezone.utc),
-            url="FAKE_URL_LOCAL_PREFLIGHT"
+            url="FAKE_URL_PREFLIGHT"
         )
 
     @override
@@ -183,37 +183,69 @@ class CompileApiService(CompileService):
                       user: User, client: Client,
                       api: SubmitApi,
                       source_package_id: Optional[str] = None) -> Result:
+        logger.info("start_compile, submission %s", submission.submission_id)
 
-        logger.info("Compilation started for submission %s", submission.submission_id)
+        file_store = current_app.api.get_file_store()
+        source_path = f"{file_store.get_full_submission_source_path(submission.submission_id)}"
+        outcome_path = file_store.get_full_outcome_path(submission.submission_id)
+
+        query_params = {
+            'source': source_path,
+            'dest': outcome_path,
+        }
+        headers = _auth_headers()
+
+        url = f'{settings.COMPILE_API_URL}/convert?{urllib.parse.urlencode(query_params)}'
+
+        response = None
+        for retry_attempt in range(settings.COMPILE_API_MAX_RETRIES):
+            try:
+                with httpx.Client(timeout=settings.COMPILE_API_CONVERT_TIMEOUT) as client:
+                    response = client.post(url, headers=headers)
+                    if response.status_code == 500:
+                        time.sleep(settings.COMPILE_API_RETRY_DELAY)
+                    else:
+                        break
+            except httpx.HTTPStatusError as exc:
+                logger.error(f"HTTPX error occurred: {exc.response.text}")
+                raise exc
+            except httpx.RequestError as exc:
+                logger.error(f"Request error occurred: {exc}")
+
+        if response is None:
+            raise RuntimeError("response is unexpectedly None")
+
+        response.raise_for_status()
+
         return Result(
             status=ProcessStatus(
                 status=ProcessStatus.Status.SUCCEEDED,
                 creator=user,
                 created=datetime.now(timezone.utc),
-                details={'message': 'Local compilation completed'}
+                details={'message': 'Compile completed'}
             ),
             duration_sec=0,
             utc_start_time=datetime.now(timezone.utc),
-            url="FAKE_URL_LOCAL_COMPILE"
+            url="FAKE_URL_COMPILE"
         )
 
     @override
     def check(self, process_id: str, user: User, client: Client) -> ProcessStatus:
-        logger.info("Checking local compilation for process %s", process_id)
+        logger.info("Checking compilation for process %s", process_id)
         return ProcessStatus(
             status=ProcessStatus.Status.SUCCEEDED,
             creator=user,
             created=datetime.now(timezone.utc),
-            details={'message': 'Local compilation check completed'}
+            details={'message': 'Compilation check completed'}
         )
 
     @override
     def is_available(self) -> bool:
         try:
-            resp = httpx.get(self.tex2pdf_url, timeout=1)
+            resp = httpx.get(settings.COMPILE_API_URL, timeout=1)
             return resp.status_code == 200
         except httpx.RequestError as exc:
-            logger.error(f"Local compile service at '{self.tex2pdf_url}' is not available: {exc}")
+            logger.error(f"Compile service at '{settings.COMPILE_API_URL}' is not available: {exc}")
             return False
 
     @override
@@ -272,7 +304,7 @@ class CompileApiService(CompileService):
             ),
             duration_sec=0,
             utc_start_time=datetime.now(timezone.utc),
-            url="FAKE_URL_LOCAL_DIRECTIVES"
+            url="FAKE_URL_DIRECTIVES"
 
         )
     @override

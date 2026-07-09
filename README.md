@@ -4,24 +4,21 @@ arXiv paper submission system
 ## Install & use
 
 ```bash
-# Start the compiler api:
-gcloud run services proxy tex2pdf-api-default --project arxiv-development --region us-central1 --port=9001
-
-# Install gcld3 dependencies needed by arxiv-base metadata checks
-#   On linux:
+# On linux, Install gcld3 dependencies needed by arxiv-base metadata checks
 sudo apt-get install cmake libprotobuf-dev protobuf-compiler
-uv sync
-#   On mac, you need a version of protobuf <= 21:
-brew search protobuf
+
+# On mac, you need a version of protobuf <= 21
 brew install protobuf@21
 
 pyenv shell 3.11  # or similar
 source .venv/bin/activate
 uv sync
 
-# this will give you an Authorization token, save that and use a browser extension
-# like modheader to add Authorization=eyJhb...
+# Generate an Authorization token:
 uv run python submit_ce/make_test_db.py bootstrap_db
+
+# Use a browser extension like modheader to send the token for localhost
+#   add Authorization=eyJhb...
 
 uv run python local_dev.py
 open http://localhost:8000

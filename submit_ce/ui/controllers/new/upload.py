@@ -21,7 +21,6 @@ from fastapi.exceptions import HTTPException
 from flask import current_app
 from arxiv.auth.domain import Session
 from arxiv.base import alerts
-from arxiv.base.filters import tidy_filesize
 from arxiv.forms import csrf
 from markupsafe import Markup
 from werkzeug.datastructures import FileStorage
@@ -34,11 +33,14 @@ from werkzeug.exceptions import (
 from wtforms import BooleanField, FileField
 
 from submit_ce.domain import Client, Event, User
+from submit_ce.domain.event import SetSourceFormat
 from submit_ce.domain.event.file import UploadArchive, UploadFiles
 from submit_ce.domain.submission import Submission
 from submit_ce.domain.uploads import SourceFormat
 from submit_ce.domain.uploads import Workspace, FileStatus, UploadStatus, is_file_tgz, is_file_zip
+from submit_ce.domain import size_limits
 
+from submit_ce.ui.filters import iec_filesize
 from submit_ce.ui.auth import user_and_client_from_session
 from submit_ce.ui.controllers.util import add_immediate_alert, validate_command
 from submit_ce.ui.routes.flow_control import ready_for_next, stay_on_this_stage
@@ -72,6 +74,25 @@ def _single_file_archive(files: MultiDict) -> bool:
     if pointer is None:
         return False
     return is_file_tgz(pointer) or is_file_zip(pointer)
+
+
+def _infer_source_format(files: List["FileStatus"]) -> Optional[SourceFormat]:
+    """Infer source_format from workspace files.
+
+    If any .tex file is present, the submission is TEX (legacy arXiv permits
+    .pdf files, e.g. figures, inside a TeX submission, including in
+    subdirectories). If the workspace is a single lone .pdf, the submission
+    is PDF. Any other non-empty file set falls back to TEX, matching the
+    legacy default for multi-file submissions. Returns None for an empty
+    workspace.
+    """
+    if not files:
+        return None
+    if any(f.name.lower().endswith('.tex') for f in files):
+        return SourceFormat.TEX
+    if len(files) == 1 and files[0].name.lower().endswith('.pdf'):
+        return SourceFormat.PDF
+    return SourceFormat.TEX
 
 
 class AddfilesForm(csrf.CSRFForm):
@@ -174,6 +195,12 @@ def upload_files(method: str, params: MultiDict, session: Session,
         try:
             match (file, params.get('action'), is_archive):
                 case (_, 'next', _):
+                    if submission.source_format is None:
+                        alerts.flash_warning(
+                            "Cannot proceed: please upload a single PDF, or"
+                            " one or more .tex files.",
+                            title='Source format required')
+                        return stay_on_this_stage(_get_upload((rdata, status.OK, {}, token)))
                     return ready_for_next((rdata, status.OK, {}))
                 case (_, action, _) if action:  # trying to go back to previous page
                     return {}, status.SEE_OTHER, {}
@@ -238,9 +265,26 @@ def _get_upload(params: MultiDict, session: Session, submission: Submission,
 
     rdata.update({'status': workspace})
     if workspace:
-        rdata.update({'immediate_notifications': _get_notifications(workspace)})
+        rdata.update({'immediate_notifications': _get_notifications(submission, workspace)})
     return rdata, status.OK, {}
 
+
+def _flash_oversize_warning(submission: Submission) -> None:
+    """Warn the submitter that an oversize submission will be held for review.
+
+    The submission is not rejected: the size check is a soft gate. The flag is
+    persisted during event save; the auto-hold is applied when the submission is
+    finalized."""
+    if not submission.is_oversize:
+        return
+    alerts.flash_warning(
+        Markup(f'This submission exceeds the {iec_filesize(size_limits.DEFAULT_MAX_SIZE_BYTES)} arXiv '
+               'size guideline.'
+               'Please consider reducing the size of the files to ensure your paper can be accessed by readers. '
+               'If the size of the files are necessary to present the work then please continue with '
+               'the submission steps and click the "Process" button. '
+               'For more information, please read about <a href="/help/sizes">Oversized Submissions</a>.'),
+        title='Submission is oversize')
 
 
 def _upload_archive(form: AddfilesForm, file: FileStorage,
@@ -252,7 +296,15 @@ def _upload_archive(form: AddfilesForm, file: FileStorage,
     validate_command(form, command, submission, 'file')  # raises on invalid
     submission, _ = current_app.api.save(command, submission_id=submission.submission_id)
     workspace = current_app.api.get_file_store().get_workspace(submission_id=str(submission.submission_id))
-    converted_size = tidy_filesize(workspace.size)
+    converted_size = iec_filesize(workspace.size)
+
+    inferred = _infer_source_format(workspace.files)
+    if submission.source_format != inferred:
+        target = inferred.value if inferred is not None else None
+        submission, _ = current_app.api.save(
+            SetSourceFormat(creator=submitter, client=client, source_format=target),
+            submission_id=submission.submission_id,
+        )
     if workspace.status is UploadStatus.READY:
         alerts.flash_success(
             f'Unpacked {workspace.file_count} files. Total submission'
@@ -271,6 +323,7 @@ def _upload_archive(form: AddfilesForm, file: FileStorage,
             f' package size is {converted_size}. See below for errors.',
             title='Upload complete, with errors'
         )
+    _flash_oversize_warning(submission)
     alerts.flash_hidden(workspace.model_dump(), '_status')
 
     rdata.update({'status': workspace})
@@ -286,7 +339,16 @@ def _upload_files(form: AddfilesForm, file: FileStorage,
     validate_command(form, command, submission, 'file')
     submission, _ = current_app.api.save(command, submission_id=submission.submission_id)
     workspace = current_app.api.get_file_store().get_workspace(submission_id=str(submission.submission_id))
-    converted_size = tidy_filesize(workspace.size)
+    converted_size = iec_filesize(workspace.size)
+
+    inferred = _infer_source_format(workspace.files)
+    if submission.source_format != inferred:
+        target = inferred.value if inferred is not None else None
+        submission, _ = current_app.api.save(
+            SetSourceFormat(creator=submitter, client=client, source_format=target),
+            submission_id=submission.submission_id,
+        )
+
     if workspace.status is UploadStatus.READY:
         alerts.flash_success(
             f'Uploaded file. Total submission'
@@ -305,17 +367,18 @@ def _upload_files(form: AddfilesForm, file: FileStorage,
             f' package size is {converted_size}. See below for errors.',
             title='Upload complete, with errors'
         )
+    _flash_oversize_warning(submission)
     alerts.flash_hidden(workspace.model_dump(), '_status')
 
     rdata.update({'status': workspace})
     return stay_on_this_stage((rdata, status.OK, {}))
 
 
-def _get_notifications(stat: Workspace) -> List[Dict[str, str]]:
+def _get_notifications(submission: Submission, workspace: Workspace) -> List[Dict[str, str]]:
     notifications = []
-    if not stat.files:   # Nothing in the upload workspace.
+    if not workspace.files:   # Nothing in the upload workspace.
         return notifications
-    if stat.status is UploadStatus.ERRORS:
+    if workspace.status is UploadStatus.ERRORS:
         notifications.append({
             'title': 'Unresolved errors',
             'severity': 'danger',
@@ -323,7 +386,7 @@ def _get_notifications(stat: Workspace) -> List[Dict[str, str]]:
                     ' files. Please correct the errors below before'
                     ' proceeding.'
         })
-    elif stat.status is UploadStatus.READY_WITH_WARNINGS:
+    elif workspace.status is UploadStatus.READY_WITH_WARNINGS:
         notifications.append({
             'title': 'Warnings',
             'severity': 'warning',
@@ -332,14 +395,35 @@ def _get_notifications(stat: Workspace) -> List[Dict[str, str]]:
                     ' that these issues may cause delays in processing'
                     ' and/or announcement.'
         })
-    # Source-format detection happens later, on the Review Files step
-    # (preflight dispatches SetSourceFormat from the detected lang -- see
-    # review.py::_record_source_format_from_preflight). At the Upload
-    # step the workspace.source_format is always SourceFormat.UNKNOWN, so
-    # the old "Unknown submission type" warning fired on every single
-    # upload regardless of content. Don't show format-detection
-    # notifications here; the Review Files step is where the user sees
-    # whether their format was recognized.
+    has_tex = any(f.name.lower().endswith('.tex') for f in workspace.files)
+    if has_tex:
+        notifications.append({
+            'title': 'Detected TEX',
+            'severity': 'success',
+            'body': 'Your submission content is supported.'
+        })
+    elif submission.source_format == SourceFormat.PDF:
+        notifications.append({
+            'title': 'Detected PDF',
+            'severity': 'success',
+            'body': 'Your submission content is supported.'
+        })
+    elif submission.source_format == SourceFormat.INVALID:
+        notifications.append({
+            'title': 'Unsupported submission type',
+            'severity': 'danger',
+            'body': 'It is likely that your submission content is not'
+                    ' supported. Please check your files carefully. We may not'
+                    ' be able to process your files.'
+        })
+    else:
+        notifications.append({
+            'title': 'Unknown submission type',
+            'severity': 'warning',
+            'body': 'We could not determine the source type of your'
+                    ' submission. Please check your files carefully. We may'
+                    ' not be able to process your files.'
+        })
     return notifications
 
 

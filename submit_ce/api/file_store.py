@@ -39,6 +39,11 @@ class SubmissionFileStore(metaclass=ABCMeta):
         pass
 
     @abstractmethod
+    def get_full_submission_source_path(self, submission_id: str) -> str:
+        """Returns full path to submission subdirectory containing the user's source file, and includes a trailing slash."""
+        pass
+
+    @abstractmethod
     def get_workspace(self, submission_id: str) -> Workspace:
         """Returns information about the source of a submission."""
         pass
@@ -141,6 +146,21 @@ class SubmissionFileStore(metaclass=ABCMeta):
         pass
 
     @abstractmethod
+    def get_source_package(self, submission_id: str) -> FileObj:
+        """Retrieve the persisted ``<submission_id>.tar.gz`` source package.
+
+        Returns a :class:`~arxiv.files.FileObj` for the archive last
+        written by :meth:`write_source_package`, or
+        :class:`~arxiv.files.FileDoesNotExist` if none has been written.
+        Callers that want a *fresh* archive built under the submission
+        lock should dispatch ``BuildSourcePackage`` (which calls
+        :meth:`write_source_package` inside the locked transaction) and
+        then read the result with this method, rather than calling the
+        unlocked :meth:`build_source_package` directly.
+        """
+        pass
+
+    @abstractmethod
     def store_preview(self, submission_id: str, content: IO[bytes], chunk_size: int = 4096) -> str:
         """Store a preview PDF for a submission.
 
@@ -215,6 +235,11 @@ class SubmissionFileStore(metaclass=ABCMeta):
         pass
 
     @abstractmethod
+    def get_full_outcome_path(self, submission_id: str) -> str:
+        """Returns bucket name and full path to the compile outcome tarball."""
+        pass
+
+    @abstractmethod
     def get_directives_checksum(self, submission_id: str) -> str:
         """Get the checksum of the directives file for a submission."""
         pass
@@ -247,6 +272,20 @@ class SubmissionFileStore(metaclass=ABCMeta):
     @abstractmethod
     def does_user_decisions_exist(self, submission_id: str) -> bool:
         """Determine whether a user_decisions.json has been deposited for a submission."""
+        pass
+
+    @abstractmethod
+    def store_compile_log(self, submission_id: str, content: IO[bytes], chunk_size: int = 4096) -> str:
+        """Store the compile log for a submission.
+
+        Returns checksum"""
+        pass
+
+    @abstractmethod
+    def uncompress_compile_tarball(self, submission_id: str) -> None:
+        """Download the compile outcome tarball and store its main.log and src.pdf.
+
+        main.log -> store_compile_log, src.pdf -> store_preview."""
         pass
 
     @abstractmethod

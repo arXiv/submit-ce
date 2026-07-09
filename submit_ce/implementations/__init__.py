@@ -6,6 +6,7 @@ from arxiv.files import FileObj
 
 from submit_ce.api import SubmitApi, SubmissionFileStore
 from submit_ce.api.compile_service import CompileService
+from submit_ce.api.email_service import EmailService
 from submit_ce.domain.uploads import SubmitFile
 from submit_ce.domain.uploads import FileStatus, UploadStatus, UploadLifecycleStates
 from submit_ce.domain import Event, Submission, License, User, Client, Workspace
@@ -14,7 +15,7 @@ from submit_ce.domain.process import ProcessStatus
 from submit_ce.implementations.schedule import next_announcement_time, next_freeze_time
 
 
-class NullCompilerService(CompileService):
+class NullCompilerService(CompileService):  # pragma: no cover
 
     def start_directives(self, submission: Submission, user: User, client: Client, api: 'SubmitApi',
                          source_package_id: Optional[str] = None) -> Result:
@@ -41,7 +42,24 @@ class NullCompilerService(CompileService):
         return False
 
 
-class NullFileStore(SubmissionFileStore):
+class NullEmailService(EmailService):  # pragma: no cover
+
+    def send_email(self,
+                   to: list[str],
+                   subject: str,
+                   body: str,
+                   reply_to: str,
+                   cc: list[str] | None = None,
+                   bcc: list[str] | None = None,
+                   message_id: str = "",
+                   references: str = "") -> tuple[str, str]:
+        return ("", "")
+
+    def is_available(self) -> bool:
+        return False
+
+
+class NullFileStore(SubmissionFileStore):  # pragma: no cover
 
     def get_workspace(self, submission_id: str) -> Optional[Workspace]:
         return Workspace(
@@ -97,11 +115,27 @@ class NullFileStore(SubmissionFileStore):
     def delete_source_package(self, submission_id: str) -> None:
         pass
 
+    def get_source_package(self, submission_id: str) -> FileObj:
+        from arxiv.files import FileDoesNotExist
+        return FileDoesNotExist(f"{submission_id}.tar.gz")
+
     def get_full_submission_path(self, submission_id: str) -> str:
+        return ""
+
+    def get_full_submission_source_path(self, submission_id: str) -> str:
+        return ""
+
+    def get_full_outcome_path(self, submission_id: str) -> str:
         return ""
 
     def store_preview(self, submission_id: str, content: IO[bytes], chunk_size: int) -> str:
         return "not really stored, NullFileStore"
+
+    def store_compile_log(self, submission_id: str, content: IO[bytes], chunk_size: int = 4096) -> str:
+        return "not really stored, NullFileStore"
+
+    def uncompress_compile_tarball(self, submission_id: str) -> None:
+        pass
 
     def store_directives(self, submission_id: str, content: dict) -> str:
         return "not really stored, NullFileStore"
@@ -168,7 +202,8 @@ class NullFileStore(SubmissionFileStore):
         return False
 
     def get_compile_log(self, submission_id: str) -> FileObj:
-        raise RuntimeError("No compile log")
+        from arxiv.files import FileDoesNotExist
+        return FileDoesNotExist(submission_id)
 
     def delete_compile_log(self, submission_id: str) -> None:
         pass
@@ -225,11 +260,14 @@ class NullFileStore(SubmissionFileStore):
         return False
 
 
-class NullImplementation(SubmitApi):
+class NullImplementation(SubmitApi):  # pragma: no cover
     """Submission that does as little as possible."""
 
     def get_compiler(self) -> CompileService:
         return NullCompilerService()
+
+    def get_email_service(self) -> EmailService:
+        return NullEmailService()
 
     def get(self, submission_id: str) -> Submission:
         Submission(submission_id)

@@ -10,8 +10,6 @@ from sqlalchemy.orm import relationship, declarative_base
 from sqlalchemy.types import Integer, LargeBinary, SmallInteger, String
 from submit_ce import domain
 from submit_ce.domain.agent import PublicUser
-from submit_ce.domain.agent import agent_factory
-from submit_ce.domain.event.base import event_factory
 
 # class SQLiteJSON(types.TypeDecorator):
 #     """A SQLite-friendly JSON data type."""
@@ -321,6 +319,8 @@ class Submission(Base):    # type: ignore
             self.license = submission.license.uri
 
         self.source_size = submission.uncompressed_size
+
+        self.is_oversize = 1 if submission.is_oversize else 0
 
         if submission.source_format:
             self.source_format = submission.source_format.value

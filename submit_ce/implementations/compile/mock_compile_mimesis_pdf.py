@@ -5,6 +5,19 @@ from typing import Optional
 
 from typing_extensions import override
 
+from tex2pdf_tools.preflight import (
+    CompilerSpec,
+    EngineType,
+    LanguageType,
+    MainProcessSpec,
+    OutputType,
+    ParsedTeXFile,
+    PreflightResponse,
+    PreflightStatus,
+    PreflightStatusValues,
+    ToplevelFile,
+)
+
 from submit_ce.api.compile_service import CompileService
 from submit_ce.api.submit import SubmitApi
 from submit_ce.domain.agent import Client, User
@@ -32,13 +45,26 @@ class MockCompileMimesisPdf(CompileService):
         # mock-only `store_preflight` hook.
         store = api.get_file_store()
         if hasattr(store, 'store_preflight'):
-            store.store_preflight(str(submission.submission_id), {
-                'detected_toplevel_files': [
-                    {'filename': 'main.tex',
-                     'process': {'compiler': {'lang': 'tex'}}}
+            preflight = PreflightResponse(
+                status=PreflightStatus(key=PreflightStatusValues.success),
+                detected_toplevel_files=[
+                    ToplevelFile(
+                        filename="main.tex",
+                        process=MainProcessSpec(
+                            compiler=CompilerSpec(
+                                engine=EngineType.tex,
+                                lang=LanguageType.tex,
+                                output=OutputType.pdf,
+                                postp=None,
+                            ),
+                        ),
+                    ),
                 ],
-                'tex_files': [{'filename': 'main.tex'}],
-            })
+                tex_files=[ParsedTeXFile(filename="main.tex")],
+                ancillary_files=[],
+                maybe_used_files=[],
+            )
+            store.store_preflight(str(submission.submission_id), preflight.model_dump(mode='json'))
         return Result(
             status=ProcessStatus(
                 status=ProcessStatus.Status.SUCCEEDED,

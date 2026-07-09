@@ -34,7 +34,7 @@ class Event(BaseModel):
     extend it with whatever data is needed for the event, and define methods
     for validation and projection (changing a submission):
 
-    - ``validate(self, submission: Submission) -> None`` should raise
+    - ``validate_pre_lock(self, submission: Submission) -> None`` should raise
       :class:`.InvalidEvent` if the event instance has invalid data.
     - ``project(self, submission: Submission) -> Submission`` should perform
       changes to the :class:`.domain.submission.Submission` and return it.
@@ -46,6 +46,13 @@ class Event(BaseModel):
 
     NAME: ClassVar[str] = 'base event'
     NAMED: ClassVar[str] = 'base event'
+
+    CONSEQUENCE_TYPES: ClassVar[frozenset] = frozenset()
+    """Event types this event may emit from :meth:`consequences`.
+
+    Declared statically so the consequence graph over event types can be
+    checked for cycles. Empty means this event has no consequences.
+    """
 
     creator: User
     """
@@ -88,6 +95,11 @@ class Event(BaseModel):
     This should generally not be set from outside this package.
     """
 
+    cause: Optional[str] = None
+    """
+    The `event_id` of `Event` that this event was the consequence of.
+    """
+
     _before: Optional[Submission] = None
     """The state of the submission prior to the event. For debugging only."""
 
@@ -123,7 +135,7 @@ class Event(BaseModel):
         """Apply the projection for this :class:`.Event` instance."""
         self._before = copy.deepcopy(submission)
         # See comment on CreateSubmission, below.
-        self.validate(submission)    # type: ignore
+        self.validate_pre_lock(submission)    # type: ignore
         if submission is not None:
             self._after = self.project(copy.deepcopy(submission))
         else:   # See comment on CreateSubmission, below.
@@ -140,8 +152,15 @@ class Event(BaseModel):
         return self._after
 
 
-    def validate(self, submission: Submission) -> None:
-        """Validate this event and its data against a submission."""
+    def validate_pre_lock(self, submission: Submission) -> None:
+        """Validate this event and its data against a submission.
+
+        Raise :class:`.InvalidEvent` if the event cannot be applied. This runs
+        *before* the submission row lock is taken (during :meth:`apply`), so it
+        must not depend on state that a concurrent writer could change. For
+        validation that needs the lock held, see
+        :meth:`EventWithSideEffect.validate_under_lock`.
+        """
         raise NotImplementedError('Must be implemented by subclass')
 
     def project(self, submission: Submission) -> Submission:
@@ -149,6 +168,40 @@ class Event(BaseModel):
 
         This is how the `Event` changes the `submission`."""
         raise NotImplementedError('Must be implemented by subclass')
+
+    def consequences(self, submission: Submission) -> List['Event']:
+        """Follow-on events implied by this event given the resulting state.
+
+        Called by the `SubmitApi.save()` loop with the submission state *after*
+        this event's projection. The types of the returned instances must be a
+        subset of :attr:`CONSEQUENCE_TYPES`. This is enforced at runtime in the
+        `save()`. Default: no consequences.
+
+        This is intended to be explicit and traceable: an event names the events
+        it may spawn, and those types form a directed graph that is checked for
+        cycles by a test, so consequence chains are guaranteed to terminate.
+        """
+        return []
+
+    def get_consequences(self, submission: Submission) -> List['Event']:
+        """Return :meth:`consequences`, enforcing the :attr:`CONSEQUENCE_TYPES` contract.
+
+        Raises if an event emits a consequence type it did not declare; this
+        keeps the static consequence graph honest at runtime.
+        """
+        if not self.created:
+            raise RuntimeError('Can not make consequences for not yet commited Event')
+
+        events = self.consequences(submission)
+        for event in events:
+            if type(event) not in self.CONSEQUENCE_TYPES:
+                raise RuntimeError(
+                    f"{self.event_type} emitted undeclared consequence "
+                    f"{type(event).__name__}; add it to CONSEQUENCE_TYPES")
+            else:
+                event.cause = self.event_id
+
+        return events
 
 
 @functools.cache
@@ -194,8 +247,14 @@ class EventWithSideEffect(Event):
     executed: Optional[datetime] = None  # timezone aware utc
     """Should only be set when `execute` is called."""
 
-    def pre_execute_validation(self, api: SubmitApi, submission: Submission) -> None:
-        """Check if is acceptable for `execute` to be called."""
+    def validate_under_lock(self, api: SubmitApi, submission: Submission) -> None:
+        """Validate that `execute` may proceed; called inside the locked transaction.
+
+        Runs while the submission row lock is held, so it can safely inspect
+        on-disk / FileStore state without racing against a concurrent writer.
+        Raise :class:`~submit_ce.domain.exceptions.InvalidEvent` to abort the
+        transaction; the caller's ``except InvalidEvent`` block decides the UX.
+        """
         pass
 
     def execute(self, api: SubmitApi, submission: Submission) -> None:
