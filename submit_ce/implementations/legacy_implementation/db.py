@@ -790,6 +790,12 @@ def _to_proposal(row: models.CategoryProposal) -> domain.Proposal:
         creator = domain.PublicUser(user_id=str(row.user_id),
                                     name="unknown", email="unknown")
     comment = row.proposal_comment.logtext if row.proposal_comment else None
+
+    if row.proposal_status in iter(domain.ProposalStatus):
+        status = domain.ProposalStatus(row.proposal_status)
+    else:
+        status = domain.ProposalStatus.UNKNOWN
+
     return domain.Proposal(
         proposal_id=str(row.proposal_id),
         category=row.category,
@@ -797,7 +803,7 @@ def _to_proposal(row: models.CategoryProposal) -> domain.Proposal:
         creator=creator,
         created=row.updated,
         comment=comment,
-        status=domain.ProposalStatus(row.proposal_status or 0),
+        status=status,
         classic_proposal_id=row.proposal_id,
     )
 

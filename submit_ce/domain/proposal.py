@@ -28,6 +28,7 @@ class ProposalStatus(IntEnum):
     ACCEPTED_AS_SECONDARY = 2
     REJECTED = 3
 
+    UNKNOWN = 404 # to represent an unexpected value from db
 
 @dataclass
 class Proposal:

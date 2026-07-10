@@ -28,8 +28,8 @@ class PublicUser(BaseModel):
 
     Intentionally lacks name field, get that from user store."""
     user_id: str = Field(min_length=1, max_length=30)
-    name: str = Field(min_length=3, max_length=64) #length in arXiv_submissions
-    email: str = Field(min_length=3, max_length=64) #length in arXiv_submissions
+    name: str = Field(min_length=3, max_length=100)  # max of (length in arXiv_submissions, length tapir_user.first_name + last_name)
+    email: str = Field(min_length=3, max_length=255)  # max of (length arXiv_submissions, length in tapir_user)
     endorsements: list[str] = []
     scopes: list[str] = []
     agent_type: Literal["PublicUser"] = "PublicUser"
@@ -48,7 +48,7 @@ class StaffUser(BaseModel):
 
     Name can be recorded here."""
     user_id: str = Field(min_length=3, max_length= 30)
-    email: str = Field(min_length=3, max_length= 100)
+    email: str = Field(min_length=3, max_length= 255)
     name: str = Field(min_length=3, max_length= 100)
     username: str = Field(min_length=3, max_length= 100)
     endorsements: list[str] = []
@@ -67,7 +67,7 @@ class StaffUser(BaseModel):
 
 class ServiceAgent(BaseModel):
     """Represents a service agent."""
-    email: str = Field(min_length=3, max_length= 100)
+    email: str = Field(min_length=3, max_length= 255)
     agent_type: Literal["ServiceAgent"] = "ServiceAgent"
 
     @property
