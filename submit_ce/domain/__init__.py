@@ -1,5 +1,5 @@
 """Core data structures for the submission and moderation system."""
-from .agent import (User, Client, PublicUser, StaffUser, System, ServiceAgent, agent_factory,
+from .agent import (User, Client, PublicUser, StaffUser, System, agent_factory,
                     HttpClient, InternalClient, user_from_session)
 from .event import Event
 from .annotation import Comment
@@ -17,7 +17,6 @@ __all__ = [
     PublicUser,
     StaffUser,
     System,
-    ServiceAgent,
     agent_factory,
     HttpClient,
     InternalClient,

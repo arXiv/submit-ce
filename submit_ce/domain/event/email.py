@@ -5,7 +5,7 @@ TODO ``Re:`` resubmit threading
 from typing import Optional, TYPE_CHECKING
 from urllib.parse import urlparse
 
-from ..agent import ServiceAgent, System, User
+from ..agent import System, User
 from ..config import SubmitConfig
 from ..submission import Submission, SubmissionType
 from .base import EventWithSideEffect
@@ -341,8 +341,6 @@ def submitter_recipient(user: User) -> tuple[str, str]:
     match user:
         case System():
             return "", ""
-        case ServiceAgent():
-            return user.email, user.email
         case _:
             return user.name, user.email
 
