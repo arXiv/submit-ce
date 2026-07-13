@@ -449,7 +449,8 @@ class Submission(Base):    # type: ignore
             self.categories.remove(cur_primary)
             self.categories.append(
                 SubmissionCategory(submission_id=self.submission_id,
-                                   category=primary_category)
+                                   category=primary_category,
+                                   is_primary=1)
             )
         elif cur_primary is None and primary_category:
             self.categories.append(

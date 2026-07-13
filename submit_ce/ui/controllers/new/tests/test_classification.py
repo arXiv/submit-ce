@@ -1,8 +1,23 @@
 """Tests for :mod:`submit_ce.controllers.classification`."""
 
+import arxiv.db.models as classic
+from arxiv.db import Session
+
 from submit_ce.domain.submission import Submission
 from submit_ce.ui.tests import gets
 from submit_ce.ui.tests.csrf_util import parse_csrf_token
+
+
+def _endorse(app, user, *categories):
+    """Add auto endorsements so the fixture user can pick these categories."""
+    with app.app_context():
+        for cat in categories:
+            archive, _, subject = cat.partition(".")
+            Session.add(classic.Endorsement(
+                endorsee_id=user.user_id, archive=archive, subject_class=subject,
+                flag_valid=1, type="auto", point_value=10,
+                issued_when=11074371513))
+        Session.commit()
 
 
 primary_page_title=b"Suggest Category"
@@ -48,6 +63,29 @@ def test_primary_classification(app, authorized_client, sub_license):
     assert resp.status_code == 303 and "file_upload" in resp.headers["Location"]
     assert gets(app,sub).primary_classification and gets(app,sub).primary_classification.id == "astro-ph.CO"
     assert gets(app,sub).secondary_classification and gets(app,sub).secondary_classification[0].id == "astro-ph.GA"
+
+
+def test_change_general_primary_to_specific(app, authorized_client, authorized_user, sub_license):
+    """SUBMISSION-158 regression: after saving a general primary (cs.OH),
+    changing it to a non-general primary (cs.HC) must save and advance,
+    not lose the value and bounce back to the classification stage."""
+    sub = sub_license
+    _endorse(app, authorized_user, "cs.OH", "cs.HC")
+    url = f"/{sub.submission_id}/classification"
+
+    # Save a general primary.
+    resp = authorized_client.get(url)
+    resp = authorized_client.post(url, data={'csrf_token': parse_csrf_token(resp),
+                                             'primary': 'cs.OH', 'action': 'next'})
+    assert resp.status_code == 303
+    assert gets(app, sub).primary_classification.id == "cs.OH"
+
+    # Change it to a non-general primary and continue.
+    resp = authorized_client.get(url)
+    resp = authorized_client.post(url, data={'csrf_token': parse_csrf_token(resp),
+                                             'primary': 'cs.HC', 'action': 'next'})
+    assert resp.status_code == 303, resp.data
+    assert gets(app, sub).primary_classification.id == "cs.HC"
 
 
 def test_crosslist_offered_for_non_general_primary(app, authorized_client, sub_primary):
