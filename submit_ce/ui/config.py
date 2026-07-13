@@ -97,7 +97,16 @@ class Settings(ArxivBaseSettings):
 
     ADMIN_ONLY: bool = False
     """If true, only admin users can use the system. Intended to
-    allowe closed to the public dev or beta system."""
+    allow closed to the public dev or beta system."""
+
+    LOCAL_LOGIN: bool = False
+    """Avoid using browser plugins to manage sessions locally.
+    Instead allow creating a test session from an endpoint.
+    """
+
+    LOCAL_LOGIN_USER_ID: str = "0"
+    """The tapir user_id that ``/debug/login`` logs in as. Only used when
+    ``LOCAL_LOGIN`` is enabled."""
 
     COMPILE_API_URL: str = "https://tex2pdf-api-default-874717964009.us-central1.run.app"
     """The tex2pdf-api url.
