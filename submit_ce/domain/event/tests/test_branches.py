@@ -5,7 +5,8 @@ from pytz import UTC
 import pytest
 
 
-from submit_ce.domain import submission as submod, agent
+from submit_ce.domain import submission as submod, agent, meta
+from submit_ce.domain.uploads import SourceFormat
 from submit_ce.domain.event import (
     make_event,              # <- alias to base.event_factory
     FinalizeSubmission,      # used directly to hit validation error
@@ -48,6 +49,40 @@ def test_finalize_submission_missing_required_fields_raises():
     ev = FinalizeSubmission(creator=creator, created=_now())
     with pytest.raises(InvalidEvent):
         ev.apply(sub)
+
+
+def _finalizable_submission_without_primary(creator):
+    """A submission with every ``FinalizeSubmission.REQUIRED`` field present
+    EXCEPT ``primary_classification``, so finalize can fail only on the
+    missing primary category."""
+    return submod.Submission(
+        creator=creator, owner=creator, created=_now(),
+        source_format=SourceFormat("pdf"),
+        license=meta.License(uri="http://free", name="free"),
+        submitter_accepts_policy=True,
+        metadata=submod.SubmissionMetadata(
+            title="the best title",
+            abstract="very abstract",
+            authors_display="J K Jones, F W Englund",
+        ),
+    )
+
+
+def test_finalize_raises_when_primary_classification_missing():
+    """SUBMISSION-159: a submission with no primary category cannot be
+    finalized. The submission is otherwise complete, so the missing primary
+    classification is the sole cause of failure."""
+    creator = _user("erin")
+    sub = _finalizable_submission_without_primary(creator)
+    assert sub.primary_classification is None
+    ev = FinalizeSubmission(creator=creator, created=_now())
+    with pytest.raises(InvalidEvent, match="Missing primary_classification"):
+        ev.validate_pre_lock(sub)
+
+    # Positive control: adding a primary category lets finalize validation
+    # pass, proving the missing primary was the only thing blocking submission.
+    sub.primary_classification = meta.Classification("astro-ph.GA")
+    ev.validate_pre_lock(sub)  # does not raise
 
 
 def test_announce_sets_status_and_id():
