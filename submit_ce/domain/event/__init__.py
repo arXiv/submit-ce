@@ -1008,6 +1008,7 @@ class FinalizeSubmission(Event):
         if not submission.is_active:
             raise InvalidEvent(self, "Submission must be active")
         self._required_fields_are_complete(submission)
+        validators.no_secondaries_on_general_primary(self, submission)
 
     def project(self, submission: Submission) -> Submission:
         """Set :attr:`Submission.is_finalized`."""

@@ -74,6 +74,17 @@
     {% endwith %}
 
     {# CROSS-LIST CATEGORIES #}
+    {# SUBMISSION-158: a general primary category may not carry secondaries,
+       so don't offer cross-lists when the primary is general. #}
+    {% if primary_is_general %}
+    <div class="field secondary-container">
+      <label class="label" id="crosslist">Cross-list Category Suggestion (Optional)</label>
+      <div class="category-selection-container">
+        <p>Cross-list categories are not available because the primary category
+        is a general category.</p>
+      </div>
+    </div>
+    {% else %}
     {% set displayed_secondaries = form.secondaries_save_and_staged(submission, submitter) %}
     {% set saved_categories = submission.secondary_categories|list %}
     <div class="field secondary-container">
@@ -125,5 +136,6 @@
         </noscript>
       </div>
     </div>
+    {% endif %}
   </form>
 {% endblock within_content %}

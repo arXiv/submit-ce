@@ -243,6 +243,7 @@ def classification(
         "client": client,
         "form": form,
         "primary": primary,
+        "primary_is_general": bool(primary and primary.is_general),
     }
 
     if method == "GET":

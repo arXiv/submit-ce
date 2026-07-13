@@ -48,3 +48,13 @@ def test_primary_classification(app, authorized_client, sub_license):
     assert resp.status_code == 303 and "file_upload" in resp.headers["Location"]
     assert gets(app,sub).primary_classification and gets(app,sub).primary_classification.id == "astro-ph.CO"
     assert gets(app,sub).secondary_classification and gets(app,sub).secondary_classification[0].id == "astro-ph.GA"
+
+
+def test_crosslist_offered_for_non_general_primary(app, authorized_client, sub_primary):
+    """SUBMISSION-158 UI gate: a non-general primary (astro-ph.GA) still offers
+    cross-lists. The 'not available' note must not appear."""
+    sub = sub_primary
+    resp = authorized_client.get(f"/{sub.submission_id}/classification")
+    assert resp.status_code == 200
+    assert b'id="combobox"' in resp.data
+    assert b"not available because the primary category" not in resp.data

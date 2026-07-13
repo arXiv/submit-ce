@@ -120,6 +120,30 @@ def no_redundant_non_general_category(event: Event,
                                f' to general secondaries.')
 
 
+def no_secondaries_on_general_primary(event: Event,
+                                      submission: Submission) -> None:
+    """A submission with a general primary category may not carry any
+    secondary classifications (SUBMISSION-158).
+
+    Checked at finalize so it runs on every submission. Unlike
+    :func:`no_redundant_non_general_category` (add-time, same-archive only),
+    this rejects *any* secondary under a general primary.
+
+    TODO(SUBMISSION-158): the replacement / moderator-added edge cases are not
+    yet handled here. Exempting secondaries inherited from a prior announced
+    version or added by moderators/EUST needs ``Submission.versions`` or
+    classification provenance, neither of which exists yet.
+    """
+    if (submission.primary_classification
+            and CATEGORIES[submission.primary_category].is_general
+            and submission.secondary_classification):
+        raise InvalidEvent(
+            event,
+            "A submission with a general primary category "
+            f"({submission.primary_category}) may not have secondary "
+            "categories.")
+
+
 def max_secondaries(event: Event, submission: Submission) -> None:
     "No more than 4 secondary categories per submission."
     if (submission.secondary_classification and
