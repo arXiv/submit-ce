@@ -16,6 +16,7 @@ from submit_ce.domain.event import (
     EmailProposalModeratorsMsg,
     ProposeClassification,
 )
+from submit_ce.domain.proposal import Proposal, ProposalStatus
 from submit_ce.domain.submission import Submission, SubmissionMetadata
 from submit_ce.implementations.email.email_in_memory import EmailInMemory
 
@@ -190,3 +191,88 @@ def test_system_proposal_emits_no_email():
                               category="math.AG", is_primary=True)
     after = e.apply(sub)
     assert e.get_consequences(after) == []
+
+
+# --- Which moderators actually receive the email ---
+#
+# These exercise the full recipient resolution (execute -> categories_to_email
+# -> moderators_for_categories -> To addresses) with a per-category moderator
+# resolver, so we can assert on the concrete recipient addresses rather than
+# just on the category list.
+
+def _add_proposal(sub, category, is_primary,
+                  status=ProposalStatus.UNRESOLVED):
+    """Attach a proposal for ``category`` to ``sub`` and return ``sub``."""
+    pid = f"p-{category}-{'pri' if is_primary else 'sec'}"
+    sub.proposals[pid] = Proposal(
+        proposal_id=pid, category=category, is_primary=is_primary,
+        creator=_moderator_user(), created=datetime.now(UTC), status=status)
+    return sub
+
+
+class _PerCategoryApi(_Api):
+    """Resolve one distinct moderator per category.
+
+    ``moderators_for_categories`` returns the union of moderators for exactly
+    the requested categories (unknown categories resolve to nothing), so the
+    ``To`` list reflects which categories the event chose to notify.
+    """
+
+    CATEGORY_MODS = {
+        "astro-ph.GA": Moderator(user_id="10", email="mod-astro@example.org",
+                                 archive="astro-ph", subject_class="GA"),
+        "math.AG": Moderator(user_id="11", email="mod-mathag@example.org",
+                             archive="math", subject_class="AG"),
+        "cs.LG": Moderator(user_id="12", email="mod-cslg@example.org",
+                           archive="cs", subject_class="LG"),
+        "math.CO": Moderator(user_id="13", email="mod-mathco@example.org",
+                             archive="math", subject_class="CO"),
+        "q-bio.NC": Moderator(user_id="14", email="mod-qbio@example.org",
+                              archive="q-bio", subject_class="NC"),
+    }
+
+    def moderators_for_categories(self, categories):
+        return [self.CATEGORY_MODS[c] for c in categories
+                if c in self.CATEGORY_MODS]
+
+
+def test_primary_proposal_emails_current_proposed_and_unresolved_primary_mods():
+    service = EmailInMemory()
+    sub = _submission()  # current primary astro-ph.GA
+    _add_proposal(sub, "cs.LG", is_primary=True)   # unresolved primary
+    _add_proposal(sub, "math.CO", is_primary=True)  # unresolved primary
+    # A resolved primary proposal and an unresolved secondary must NOT pull in
+    # their moderators for a primary proposal.
+    _add_proposal(sub, "q-bio.NC", is_primary=True,
+                  status=ProposalStatus.REJECTED)
+    _add_proposal(sub, "math.AG", is_primary=False)
+
+    event = _event(proposed_category="math.AG", is_primary=True)
+    event.execute(_PerCategoryApi(service), sub)
+
+    assert event.error is None
+    assert set(service.last.to) == {
+        "mod-astro@example.org",   # current primary
+        "mod-mathag@example.org",  # proposed primary
+        "mod-cslg@example.org",    # unresolved primary proposal
+        "mod-mathco@example.org",  # unresolved primary proposal
+    }
+    # The rejected primary proposal's moderator is not notified.
+    assert "mod-qbio@example.org" not in service.last.to
+
+
+def test_secondary_proposal_emails_only_proposed_category_mod():
+    service = EmailInMemory()
+    sub = _submission()  # current primary astro-ph.GA
+    _add_proposal(sub, "cs.LG", is_primary=True)  # unresolved primary proposal
+
+    event = _event(proposed_category="math.AG", is_primary=False)
+    event.execute(_PerCategoryApi(service), sub)
+
+    assert event.error is None
+    # Only the proposed secondary's moderator is notified.
+    assert service.last.to == ["mod-mathag@example.org"]
+    # Neither the current primary's moderator nor the unresolved primary
+    # proposal's moderator receive the email.
+    assert "mod-astro@example.org" not in service.last.to
+    assert "mod-cslg@example.org" not in service.last.to

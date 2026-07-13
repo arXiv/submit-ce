@@ -3,8 +3,10 @@
 Emitted as a consequence of :class:`.ProposeClassification` for moderator-made
 proposals (system/classifier proposals are silent, matching legacy). It resolves
 which moderators to notify via :meth:`.SubmitApi.moderators_for_categories` and
-sends the notification. Sending is non-fatal: any failure is recorded on
-:attr:`error` and never raised, so it cannot abort the transaction.
+sends the notification.
+
+Sending is non-fatal: any failure is recorded on :attr:`error` and never raised,
+so it cannot abort the transaction.
 
 Recipient/header composition mirrors the legacy proposal email
 (``arXiv::Submit::Email::OnAdminLog``):
@@ -13,6 +15,7 @@ Recipient/header composition mirrors the legacy proposal email
 - ``Reply-To``: ``mod-admin`` followed by the moderator emails.
 - ``Bcc``: ``local-admin`` (omitted when falling back to a ``local-admin`` ``To``).
 - The submitter is never a recipient; their name appears only in the subject.
+
 """
 
 from typing import List, Optional, TYPE_CHECKING
@@ -96,15 +99,22 @@ class EmailProposalModeratorsMsg(EventWithSideEffect):
                            self.error)
 
     def categories_to_email(self, submission: Submission) -> list[str]:
+        """
+        For a primary proposal the affected categories also include the
+        submission's current primary and any other unresolved primary proposals,
+        so their moderators are notified too.
+
+        For secondary, just the mods of the proposed secondary are emailed
+        """
         cats = {self.proposed_category}
         if self.is_primary:
             if submission.primary_classification:
                 cats.add(submission.primary_classification.category)
-        for proposal in submission.proposals.values():
-            if proposal.is_primary and proposal.is_unresolved:
-                cats.add(proposal.category)
+            for proposal in submission.proposals.values():
+                if proposal.is_primary and proposal.is_unresolved:
+                    cats.add(proposal.category)
 
-        return sorted(c for c in cats if c)
+        return sorted(set(c for c in cats if c))
 
     def _build_subject_and_body(self, submission: Submission) -> tuple[str, str]:
         """Compose the proposal notification ``(subject, body)``."""

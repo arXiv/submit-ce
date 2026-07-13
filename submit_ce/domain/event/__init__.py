@@ -392,9 +392,10 @@ class ProposeClassification(Event):
 
     A proposal is a *suggestion* to change the submission's classification, made
     either automatically (by the classifier) or manually (by a moderator). It
-    does not itself change the submission's categories; it records a
-    :class:`.domain.proposal.Proposal` awaiting a response. Maps onto the classic
-    ``arXiv_submission_category_proposal`` table.
+    does not change the submission's categories; it records a
+    :class:`.domain.proposal.Proposal` awaiting a response.
+
+    Maps onto the classic ``arXiv_submission_category_proposal`` table.
     """
 
     NAME = "propose classification"
@@ -441,10 +442,7 @@ class ProposeClassification(Event):
         """Email the moderators of the affected categories about the proposal.
 
         System/classifier proposals are silent (matches legacy: auto-proposals
-        are logged with ``notify=0`` and send no email). For a primary proposal
-        the affected categories also include the submission's current primary
-        and any other unresolved primary proposals, so their moderators are
-        notified too.
+        are logged with ``notify=0`` and send no email).
         """
         if isinstance(self.creator, System):
             return []
