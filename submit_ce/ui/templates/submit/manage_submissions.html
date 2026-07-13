@@ -20,6 +20,10 @@
       <a href="https://arxiv.org/help#submission-and-revision" class="button is-link is-outlined">Submission Help Pages</a><br>
       <p>Need to make changes to your account before submitting? Manage account info here</p>
       <a href="{{ url_for('account') }}" class="button is-link is-outlined">Manage Account</a>
+      {% if config.LOCAL_LOGIN %}
+      <p>Local development session</p>
+      <a href="{{ url_for('ui.debug_logout') }}" class="button is-link is-outlined">Log out</a>
+      {% endif %}
     </div>
   </div>
   <div class="column is-two-thirds-tablet is-two-thirds-desktop" style="padding-top:0;">

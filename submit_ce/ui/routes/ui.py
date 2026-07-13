@@ -633,6 +633,22 @@ def debug_login() -> Response:
     return response
 
 
+@UI.route('/debug/logout', methods=["GET"])
+def debug_logout() -> Response:
+    """Dev-only logout: clear the ``ARXIVNG_SESSION_ID`` cookie set by
+    ``/debug/login``.
+
+    Only available when ``LOCAL_LOGIN`` is enabled; it must never be true in
+    production.
+    """
+    if not settings.LOCAL_LOGIN:
+        raise NotFound()
+    response = make_response(
+        'Logged out. <a href="/debug/login">Log back in</a>.')
+    response.delete_cookie('ARXIVNG_SESSION_ID')
+    return response
+
+
 @UI.route('/debug/<submission_id>/events', methods=["GET"])
 @scoped(scopes.VIEW_SUBMISSION, authorizer=is_admin_or_dev,
         unauthorized=redirect_to_login)
