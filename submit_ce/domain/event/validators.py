@@ -125,15 +125,24 @@ def no_secondaries_on_general_primary(event: Event,
     """A submission with a general primary category may not carry any
     secondary classifications (SUBMISSION-158).
 
-    Checked at finalize so it runs on every submission. Unlike
-    :func:`no_redundant_non_general_category` (add-time, same-archive only),
-    this rejects *any* secondary under a general primary.
+    Checked at finalize. Unlike :func:`no_redundant_non_general_category`
+    (add-time, same-archive only), this rejects *any* secondary under a
+    general primary.
 
-    TODO(SUBMISSION-158): the replacement / moderator-added edge cases are not
-    yet handled here. Exempting secondaries inherited from a prior announced
-    version or added by moderators/EUST needs ``Submission.versions`` or
-    classification provenance, neither of which exists yet.
+    Only enforced for first-version (new) submissions. Replacements
+    (``version > 1``) are exempt: the replacement workflow has no
+    classification stage and the primary is locked once announced
+    (see ``SetPrimaryClassification._must_be_unannounced``), so every category
+    on a replacement is inherited from the announced version. A general
+    primary with secondaries there was grandfathered in and must not block the
+    replacement (SUBMISSION-158 edge case 1).
+
+    TODO(SUBMISSION-158 edge case 2): a moderator/EUST-added secondary on the
+    *working* version still can't be distinguished from a submitter-added one
+    without classification provenance, which does not exist yet.
     """
+    if submission.version > 1:
+        return
     if (submission.primary_classification
             and CATEGORIES[submission.primary_category].is_general
             and submission.secondary_classification):

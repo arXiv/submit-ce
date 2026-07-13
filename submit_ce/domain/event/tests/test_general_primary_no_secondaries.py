@@ -29,12 +29,13 @@ def _user():
                             email="u1@example.org", endorsements=[])
 
 
-def _finalizable(primary, secondaries):
+def _finalizable(primary, secondaries, version=1):
     """An otherwise-finalizable submission with the given primary and
     secondary categories, so finalize can fail only on this rule."""
     u = _user()
     return Submission(
         creator=u, owner=u, created=_now(),
+        version=version,
         source_format=SourceFormat("pdf"),
         license=meta.License(uri="http://free", name="free"),
         submitter_accepts_policy=True,
@@ -67,3 +68,19 @@ def test_specific_primary_with_secondary_can_finalize():
     """The rule only applies to general primaries."""
     sub = _finalizable(SPECIFIC_PRIMARY, [SECONDARY])
     _finalize().validate_pre_lock(sub)  # does not raise
+
+
+def test_replacement_general_primary_with_inherited_secondary_can_finalize():
+    """SUBMISSION-158 edge case 1: a replacement (version > 1) inherits its
+    categories from the announced version and cannot change them, so a general
+    primary with (grandfathered) secondaries must not block the replacement."""
+    sub = _finalizable(GENERAL_PRIMARY, [SECONDARY], version=2)
+    _finalize().validate_pre_lock(sub)  # does not raise
+
+
+def test_new_submission_general_primary_with_secondary_still_blocked():
+    """The exemption is only for replacements; a first-version submission with
+    a general primary and a secondary is still blocked."""
+    sub = _finalizable(GENERAL_PRIMARY, [SECONDARY], version=1)
+    with pytest.raises(InvalidEvent, match="general primary category"):
+        _finalize().validate_pre_lock(sub)
