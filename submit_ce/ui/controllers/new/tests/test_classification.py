@@ -88,6 +88,49 @@ def test_change_general_primary_to_specific(app, authorized_client, authorized_u
     assert gets(app, sub).primary_classification.id == "cs.HC"
 
 
+def test_general_primary_drops_secondary_and_stays(app, authorized_client, authorized_user, sub_license):
+    """SUBMISSION-158: saving primary=cs.HC + secondary=cs.DB, then changing
+    the primary to a general category (cs.OH), must NOT advance to upload with
+    the secondary intact. The secondary is dropped and the user stays on the
+    classification page; switching back to cs.HC does not bring cs.DB back."""
+    sub = sub_license
+    _endorse(app, authorized_user, "cs.OH", "cs.HC", "cs.DB")
+    url = f"/{sub.submission_id}/classification"
+
+    # Save a non-general primary with a secondary.
+    resp = authorized_client.get(url)
+    resp = authorized_client.post(url, data={'csrf_token': parse_csrf_token(resp),
+                                             'primary': 'cs.HC',
+                                             'secondaries_staged_add': 'cs.DB',
+                                             'action': 'next'})
+    assert resp.status_code == 303
+    saved = gets(app, sub)
+    assert saved.primary_classification.id == "cs.HC"
+    assert saved.secondary_categories == ["cs.DB"]
+
+    # Change primary to a general category: must stay on classification (200,
+    # not a 303 to file_upload) and drop the secondary.
+    resp = authorized_client.get(url)
+    resp = authorized_client.post(url, data={'csrf_token': parse_csrf_token(resp),
+                                             'primary': 'cs.OH',
+                                             'action': 'next'})
+    assert resp.status_code == 200
+    assert b"not allowed with a general" in resp.data
+    saved = gets(app, sub)
+    assert saved.primary_classification.id == "cs.OH"
+    assert saved.secondary_categories == []
+
+    # Switching the primary back to cs.HC must not resurrect cs.DB.
+    resp = authorized_client.get(url)
+    resp = authorized_client.post(url, data={'csrf_token': parse_csrf_token(resp),
+                                             'primary': 'cs.HC',
+                                             'action': 'next'})
+    assert resp.status_code == 303
+    saved = gets(app, sub)
+    assert saved.primary_classification.id == "cs.HC"
+    assert saved.secondary_categories == []
+
+
 def test_crosslist_offered_for_non_general_primary(app, authorized_client, sub_primary):
     """SUBMISSION-158 UI gate: a non-general primary (astro-ph.GA) still offers
     cross-lists. The 'not available' note must not appear."""
