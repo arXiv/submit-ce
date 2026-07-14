@@ -295,6 +295,7 @@ class SetPrimaryClassification(Event):
         self._must_be_unannounced(submission)
         validators.submission_is_not_finalized(self, submission)
         validators.cannot_be_secondary(self, self.category, submission)
+        validators.no_secondaries_on_general_primary(self, submission)
 
     def _must_be_unannounced(self, submission: Submission) -> None:
         """Can only be set on the first version before publication."""
@@ -344,6 +345,7 @@ class AddSecondaryClassification(Event):
         validators.no_redundant_general_category(self, self.category, submission)
         validators.no_redundant_non_general_category(self, self.category, submission)
         validators.cannot_be_genph(self, self.category, submission)
+        validators.no_secondary_when_primary_general(self, submission)
 
     def project(self, submission: Submission) -> Submission:
         """Add a :class:`.Classification` as a secondary classification."""

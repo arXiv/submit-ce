@@ -153,6 +153,31 @@ def no_secondaries_on_general_primary(event: Event,
             "categories.")
 
 
+def no_secondary_when_primary_general(event: Event,
+                                      submission: Submission) -> None:
+    """A cross-list (secondary) may not be *added* when the primary category
+    is general (SUBMISSION-158).
+
+    Unlike :func:`no_secondaries_on_general_primary`, which looks at
+    secondaries already present, this rejects the add itself based only on the
+    primary. It is used by :class:`.AddSecondaryClassification` so that even
+    the first secondary under a general primary is blocked (the event runs
+    before its own projection, so the secondary being added is not yet on the
+    submission).
+
+    Replacements (``version > 1``) are exempt for the same reason as
+    :func:`no_secondaries_on_general_primary`.
+    """
+    if submission.version > 1:
+        return
+    if (submission.primary_classification
+            and CATEGORIES[submission.primary_category].is_general):
+        raise InvalidEvent(
+            event,
+            "A cross-list category may not be added when the primary "
+            f"category ({submission.primary_category}) is general.")
+
+
 def max_secondaries(event: Event, submission: Submission) -> None:
     "No more than 4 secondary categories per submission."
     if (submission.secondary_classification and

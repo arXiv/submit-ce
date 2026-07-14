@@ -131,6 +131,21 @@ def test_general_primary_drops_secondary_and_stays(app, authorized_client, autho
     assert saved.secondary_categories == []
 
 
+def test_general_primary_no_secondary_advances(app, authorized_client, authorized_user, sub_license):
+    """Not stuck: choosing a general primary (with no cross-lists) saves and
+    advances past the classification stage."""
+    sub = sub_license
+    _endorse(app, authorized_user, "math.GM")
+    url = f"/{sub.submission_id}/classification"
+    resp = authorized_client.get(url)
+    resp = authorized_client.post(url, data={'csrf_token': parse_csrf_token(resp),
+                                             'primary': 'math.GM',
+                                             'action': 'next'})
+    assert resp.status_code == 303, resp.data
+    assert "file_upload" in resp.headers["Location"]
+    assert gets(app, sub).primary_classification.id == "math.GM"
+
+
 def test_crosslist_offered_for_non_general_primary(app, authorized_client, sub_primary):
     """SUBMISSION-158 UI gate: a non-general primary (astro-ph.GA) still offers
     cross-lists. The 'not available' note must not appear."""
