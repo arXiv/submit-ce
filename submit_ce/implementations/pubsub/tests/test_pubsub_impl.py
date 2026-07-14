@@ -72,8 +72,19 @@ def test_call_to_inner(submission_topic, project_id):
                 continue
 
             sig = inspect.signature(method)
-            call_args = [MagicMock() for name, _ in sig.parameters.items() if name not in ["self"]]
-            method(ps_impl, *call_args)
+            call_args = []
+            call_kwargs = {}
+            for pname, param in sig.parameters.items():
+                if pname == "self":
+                    continue
+                if param.kind in (inspect.Parameter.VAR_POSITIONAL,
+                                  inspect.Parameter.VAR_KEYWORD):
+                    continue
+                if param.kind == inspect.Parameter.KEYWORD_ONLY:
+                    call_kwargs[pname] = MagicMock()
+                else:
+                    call_args.append(MagicMock())
+            method(ps_impl, *call_args, **call_kwargs)
             time.sleep(0.07)
             mock_method = getattr(mock_api, name)
             assert mock_method and mock_method.call_count == 1
