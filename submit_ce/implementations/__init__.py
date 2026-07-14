@@ -9,7 +9,8 @@ from submit_ce.api.compile_service import CompileService
 from submit_ce.api.email_service import EmailService
 from submit_ce.domain.uploads import SubmitFile
 from submit_ce.domain.uploads import FileStatus, UploadStatus, UploadLifecycleStates
-from submit_ce.domain import Event, Submission, License, User, Client, Workspace
+from submit_ce.domain import Event, Submission, License, User, Client, Workspace, \
+    Moderator
 from submit_ce.domain.event.process import Result
 from submit_ce.domain.process import ProcessStatus
 from submit_ce.implementations.schedule import next_announcement_time, next_freeze_time
@@ -105,6 +106,19 @@ class NullFileStore(SubmissionFileStore):  # pragma: no cover
 
     def does_source_exist(self, submission_id: str) -> bool:
         return False
+
+    def build_source_package(self, submission_id: str) -> bytes:
+        return b""
+
+    def write_source_package(self, submission_id: str) -> None:
+        pass
+
+    def delete_source_package(self, submission_id: str) -> None:
+        pass
+
+    def get_source_package(self, submission_id: str) -> FileObj:
+        from arxiv.files import FileDoesNotExist
+        return FileDoesNotExist(f"{submission_id}.tar.gz")
 
     def get_full_submission_path(self, submission_id: str) -> str:
         return ""
@@ -261,6 +275,16 @@ class NullImplementation(SubmitApi):  # pragma: no cover
 
     def get_email_service(self) -> EmailService:
         return NullEmailService()
+
+    def moderators_for_categories(
+            self,
+            categories: List[str],
+            *,
+            exclude_no_web_email: bool = True,
+            exclude_no_email: bool = False,
+            exclude_no_reply_to: bool = False,
+    ) -> List[Moderator]:
+        return []
 
     def get(self, submission_id: str) -> Submission:
         Submission(submission_id)

@@ -20,6 +20,7 @@ from submit_ce.ui.controllers.new import review
 from submit_ce.ui.controllers.new import upload_delete
 
 from ..auth import is_owner, is_admin_or_dev
+from ..config import settings
 from submit_ce.ui.controllers.new import submission_agreement
 from submit_ce.ui.controllers.new import source_package
 from submit_ce.ui.workflow.processor import WorkflowProcessor
@@ -610,6 +611,45 @@ def testalerts() -> Response:
     add_immediate_alert(tc, 'WARNING', 'This is a warning to you from the normal submission alert system.', "SUBMISSION ALERT TITLE")
     alerts.flash_failure('This is one of those alerts from base alert(): you failed', 'BASE ALERT')
     return make_response(render_template('submit/testalerts.html', **tc), 200)
+
+@UI.route('/debug/login', methods=["GET"])
+def debug_login() -> Response:
+    """Dev-only login: mint a session JWT for the ``LOCAL_LOGIN_USER_ID`` and set
+    it as the ``ARXIVNG_SESSION_ID`` cookie, then redirect to the dashboard.
+
+    Replaces the ModHeader browser extension for local development
+    (SUBMISSION-199): instead of injecting an ``Authorization`` header on every
+    localhost request, visit ``/debug/login`` once to get a session cookie.
+    ``request_auth`` already accepts the JWT from that cookie.
+
+    Only available when ``LOCAL_LOGIN`` is enabled; it must never be true in
+    production.
+    """
+    if not settings.LOCAL_LOGIN:
+        raise NotFound()
+    from submit_ce.make_test_db import jwt_for_user
+    token = jwt_for_user(settings.LOCAL_LOGIN_USER_ID, settings.CLASSIC_DB_URI,
+                         settings.JWT_SECRET)
+    response = redirect(url_for('ui.manage_submissions'))
+    response.set_cookie('ARXIVNG_SESSION_ID', token)
+    return response
+
+
+@UI.route('/debug/logout', methods=["GET"])
+def debug_logout() -> Response:
+    """Dev-only logout: clear the ``ARXIVNG_SESSION_ID`` cookie set by
+    ``/debug/login``.
+
+    Only available when ``LOCAL_LOGIN`` is enabled; it must never be true in
+    production.
+    """
+    if not settings.LOCAL_LOGIN:
+        raise NotFound()
+    response = make_response(
+        'Logged out. <a href="/debug/login">Log back in</a>.')
+    response.delete_cookie('ARXIVNG_SESSION_ID')
+    return response
+
 
 @UI.route('/debug/<submission_id>/events', methods=["GET"])
 @scoped(scopes.VIEW_SUBMISSION, authorizer=is_admin_or_dev,

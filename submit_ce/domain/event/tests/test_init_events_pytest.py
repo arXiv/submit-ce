@@ -250,6 +250,12 @@ def test_unconfirm_source_processed(mock_user, base_submission):
     assert sub.is_source_processed is False
 
 def test_confirm_preview(mock_user, base_submission):
+    # ConfirmPreview validator branches on source_format: strict checksum
+    # check for TeX/PostScript (which actually run through compilation);
+    # lenient pass for PDF/HTML where the source IS the preview.
+    # This test covers the strict-mode happy path.
+    from submit_ce.domain.uploads import SourceFormat
+    base_submission.source_format = SourceFormat.TEX
     base_submission.preview = preview.Preview(source_id=123, source_checksum="abc", preview_checksum="def", size_bytes=100, added=datetime.now(UTC))
     e = event.ConfirmPreview(creator=mock_user, created=datetime.now(UTC), preview_checksum="def")
     e.validate_pre_lock(base_submission)
@@ -257,12 +263,21 @@ def test_confirm_preview(mock_user, base_submission):
     assert sub.submitter_confirmed_preview is True
 
 def test_confirm_preview_invalid_checksum(mock_user, base_submission):
+    # Strict-mode failure: TeX submission with preview set but checksum
+    # mismatch should raise.
+    from submit_ce.domain.uploads import SourceFormat
+    base_submission.source_format = SourceFormat.TEX
     base_submission.preview = preview.Preview(source_id=123, source_checksum="abc", preview_checksum="def", size_bytes=100, added=datetime.now(UTC))
     e = event.ConfirmPreview(creator=mock_user, created=datetime.now(UTC), preview_checksum="wrong")
     with pytest.raises(InvalidEvent, match="Checksum wrong does not match"):
         e.validate_pre_lock(base_submission)
 
 def test_confirm_preview_no_preview(mock_user, base_submission):
+    # Strict-mode failure: TeX submission without submission.preview
+    # should raise. (PDF/HTML are tested in test_event_edge_paths.py
+    # and pass through without preview.)
+    from submit_ce.domain.uploads import SourceFormat
+    base_submission.source_format = SourceFormat.TEX
     base_submission.preview = None
     e = event.ConfirmPreview(creator=mock_user, created=datetime.now(UTC), preview_checksum="def")
     with pytest.raises(InvalidEvent, match="Preview not set on submission"):

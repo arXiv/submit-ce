@@ -65,7 +65,7 @@ from typing import Tuple, List, Optional
 
 from submit_ce.api.compile_service import CompileService
 from submit_ce.api.email_service import EmailService
-from submit_ce.domain import Submission, Event, License
+from submit_ce.domain import Submission, Event, License, Moderator
 from submit_ce.domain.config import SubmitConfig
 from submit_ce.domain.size_limits import SIZE_LIMIT_POLICY, SizeLimits
 from submit_ce.api.file_store import SubmissionFileStore
@@ -199,6 +199,47 @@ class SubmitApi(ABC):
         Returns
         -------
             `EmailService`
+        """
+        ...
+
+    @abstractmethod
+    def moderators_for_categories(
+            self,
+            categories: List[str],
+            *,
+            exclude_no_web_email: bool = True,
+            exclude_no_email: bool = False,
+            exclude_no_reply_to: bool = False,
+    ) -> List[Moderator]:
+        """Resolve a set of categories to the moderators to notify.
+
+        For each category this includes both category-level moderators and the
+        archive-level moderators of its archive, de-duplicated by email address.
+
+        The ``exclude_*`` flags drop moderators who have set the corresponding
+        opt-out. The defaults match the proposal email (exclude ``no_web_email``
+        only); callers that compose To/Reply-To sets themselves (e.g. the
+        on-finalize moderator email) pass ``exclude_no_web_email=False`` to get
+        the full candidate set and filter on the returned `Moderator` flags.
+
+        Used by `Events` with side effects (e.g. proposal notifications) to
+        determine email recipients. Intended to allow code with access to the
+        SubmitApi to also resolve category moderators.
+
+        Parameters
+        ----------
+        categories : List[str]
+            Category identifiers (e.g. ``["math.AG", "cs.AI"]``).
+        exclude_no_web_email : bool
+            Drop moderators with the ``no_web_email`` opt-out set.
+        exclude_no_email : bool
+            Drop moderators with the ``no_email`` opt-out set.
+        exclude_no_reply_to : bool
+            Drop moderators with the ``no_reply_to`` opt-out set.
+
+        Returns
+        -------
+            List[`Moderator`]
         """
         ...
 

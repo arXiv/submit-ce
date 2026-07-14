@@ -95,6 +95,7 @@ class MockFileStore(NullFileStore):
         self._preflight: Dict[str, bytes] = {}
         self._directives: Dict[str, bytes] = {}
         self._user_decisions: Dict[str, bytes] = {}
+        self._source_package: Dict[str, bytes] = {}
 
     # -------- source package / files --------
 
@@ -146,6 +147,31 @@ class MockFileStore(NullFileStore):
 
     def does_source_exist(self, submission_id: str) -> bool:
         return bool(self._source.get(submission_id))
+
+    def build_source_package(self, submission_id: str) -> bytes:
+        """Re-tar the in-memory source files into a gzipped tarball."""
+        files = self._source.get(submission_id, {})
+        buf = io.BytesIO()
+        with tarfile.open(fileobj=buf, mode='w:gz') as tar:
+            for path, data in files.items():
+                info = tarfile.TarInfo(name=path)
+                info.size = len(data)
+                info.mtime = int(datetime.now(timezone.utc).timestamp())
+                info.mode = 0o644
+                tar.addfile(info, io.BytesIO(data))
+        return buf.getvalue()
+
+    def write_source_package(self, submission_id: str) -> None:
+        self._source_package[submission_id] = self.build_source_package(submission_id)
+
+    def delete_source_package(self, submission_id: str) -> None:
+        self._source_package.pop(submission_id, None)
+
+    def get_source_package(self, submission_id: str) -> FileObj:
+        data = self._source_package.get(submission_id)
+        if data is None:
+            return FileDoesNotExist(f"{submission_id}.tar.gz")
+        return _InMemoryFileObj(f"{submission_id}.tar.gz", data)
 
     def get_workspace(self, submission_id: str) -> Optional[Workspace]:
         files = self._source.get(submission_id, {})

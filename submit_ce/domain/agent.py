@@ -16,7 +16,7 @@ Problem: Class names are a ambiguous and overlap with arxiv-base class names
 from __future__ import annotations
 from typing import Union, Literal, Annotated, Optional
 
-__all__ = ("User", "Client", "ServiceAgent", "HttpClient", "InternalClient", "user_from_session",
+__all__ = ("User", "Client", "HttpClient", "InternalClient", "user_from_session",
            "PublicUser", "StaffUser", "System", "agent_factory")
 
 from arxiv.auth import auth
@@ -28,8 +28,8 @@ class PublicUser(BaseModel):
 
     Intentionally lacks name field, get that from user store."""
     user_id: str = Field(min_length=1, max_length=30)
-    name: str = Field(min_length=3, max_length=64) #length in arXiv_submissions
-    email: str = Field(min_length=3, max_length=64) #length in arXiv_submissions
+    name: str = Field(min_length=3, max_length=100)  # max of (length in arXiv_submissions, length tapir_user.first_name + last_name)
+    email: str = Field(min_length=3, max_length=255)  # max of (length arXiv_submissions, length in tapir_user)
     endorsements: list[str] = []
     scopes: list[str] = []
     agent_type: Literal["PublicUser"] = "PublicUser"
@@ -48,7 +48,7 @@ class StaffUser(BaseModel):
 
     Name can be recorded here."""
     user_id: str = Field(min_length=3, max_length= 30)
-    email: str = Field(min_length=3, max_length= 100)
+    email: str = Field(min_length=3, max_length= 255)
     name: str = Field(min_length=3, max_length= 100)
     username: str = Field(min_length=3, max_length= 100)
     endorsements: list[str] = []
@@ -64,17 +64,6 @@ class StaffUser(BaseModel):
         return auth.scopes.PROXY_SUBMISSION in self.scopes
 
 
-
-class ServiceAgent(BaseModel):
-    """Represents a service agent."""
-    email: str = Field(min_length=3, max_length= 100)
-    agent_type: Literal["ServiceAgent"] = "ServiceAgent"
-
-    @property
-    def identifier(self):
-        return self.email
-
-
 class System(BaseModel):
     """Internal system not used with service agent credentials."""
     name: str = Field(min_length=3, max_length= 100)
@@ -85,7 +74,7 @@ class System(BaseModel):
         return self.name
 
 User = Annotated[
-    Union[PublicUser, StaffUser, System, ServiceAgent],
+    Union[PublicUser, StaffUser, System],
     Field(discriminator="agent_type")
 ]
 

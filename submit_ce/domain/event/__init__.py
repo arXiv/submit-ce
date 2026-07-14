@@ -62,7 +62,9 @@ from pytz import UTC
 from . import validators
 from .base import Event
 from .base import event_factory as make_event
-from .email import EmailSubmitterFinalizeMsg
+from .email import EmailSubmitterFinalizeMsg, _is_auto_hold
+from .email_mod_finalize import EmailModeratorsFinalizeMsg
+from .email_mods import EmailProposalModeratorsMsg
 from .file import UploadFiles, RemoveFiles, RemoveAllFiles
 from .flag import AddMetadataFlag, AddUserFlag, AddContentFlag, RemoveFlag, \
     AddHold, RemoveHold
@@ -72,8 +74,9 @@ from ..agent import System
 from ..annotation import Feature, ClassifierResults, \
     ClassifierResult
 from ..preview import Preview
+from ..proposal import Proposal, ProposalStatus
 from ..submission import Submission, Author, \
-    Classification, License, Hold
+    Classification, License, Hold, SubmissionType
 from ..uploads import SourceFormat
 from ..exceptions import InvalidEvent
 
@@ -92,7 +95,8 @@ __all__ = [
     ClassifierResult,
     Preview,
     Submission, Author,
-    Classification, License
+    Classification, License,
+    Proposal, ProposalStatus,
 ]
 
 import logging
@@ -381,6 +385,77 @@ class RemoveSecondaryClassification(Event):
         """One cannot remove a secondary that is not actually set."""
         if self.category not in submission.secondary_categories:
             raise InvalidEvent(self, 'No such category on submission')
+
+
+class ProposeClassification(Event):
+    """Propose a primary or cross-list classification for a submission.
+
+    A proposal is a *suggestion* to change the submission's classification, made
+    either automatically (by the classifier) or manually (by a moderator). It
+    does not change the submission's categories; it records a
+    :class:`.domain.proposal.Proposal` awaiting a response.
+
+    Maps onto the classic ``arXiv_submission_category_proposal`` table.
+    """
+
+    NAME = "propose classification"
+    NAMED = "classification proposed"
+
+    CONSEQUENCE_TYPES = frozenset({EmailProposalModeratorsMsg})
+
+    category: Optional[ActiveCategory] = None
+    is_primary: bool = False
+    comment: Optional[str] = None
+
+    def validate_pre_lock(self, submission: Submission) -> None:
+        """Validate the proposed category."""
+        if self.category is None:
+            raise InvalidEvent(self, "Must have a category")
+        validators.must_be_an_active_category(self, self.category, submission)
+        self._no_duplicate_unresolved_proposal(submission)
+
+    def _no_duplicate_unresolved_proposal(self, submission: Submission) -> None:
+        """Reject a proposal that duplicates an existing unresolved one."""
+        for proposal in submission.proposals.values():
+            if proposal.category == self.category \
+                    and proposal.is_primary == self.is_primary \
+                    and proposal.is_unresolved:
+                raise InvalidEvent(
+                    self, f"{self.category} has already been proposed")
+
+    def project(self, submission: Submission) -> Submission:
+        """Record a :class:`.domain.proposal.Proposal` on the submission."""
+        assert self.category is not None
+        proposal = Proposal(
+            proposal_id=self.event_id,
+            category=self.category,
+            is_primary=self.is_primary,
+            creator=self.creator,
+            created=self.created,
+            comment=self.comment,
+            status=ProposalStatus.UNRESOLVED,
+        )
+        submission.proposals[self.event_id] = proposal
+        return submission
+
+    def consequences(self, submission: Submission) -> List[Event]:
+        """Email the moderators of the affected categories about the proposal.
+
+        System/classifier proposals are silent (matches legacy: auto-proposals
+        are logged with ``notify=0`` and send no email).
+        """
+        if isinstance(self.creator, System):
+            return []
+
+        sid = submission.submission_id
+        return [EmailProposalModeratorsMsg(
+            creator=System(name=__name__),
+            submission_id=str(sid) if sid is not None else None,
+            proposed_category=self.category,
+            is_primary=self.is_primary,
+            comment=self.comment,
+            proposer_name=getattr(self.creator, "name", None),
+        )]
 
 
 class SetLicense(Event):
@@ -948,16 +1023,36 @@ class ConfirmPreview(Event):
     preview_checksum: Optional[str] = field(default=None)
 
     def validate_pre_lock(self, submission: Submission) -> None:
-        """Validate data for :class:`.ConfirmPreview`."""
+        """Validate data for :class:`.ConfirmPreview`.
+
+        For source formats that require compilation (TeX, PostScript) the
+        submission must have a separately-built preview (populated by
+        :class:`.ConfirmSourceProcessed` during the Process step) and its
+        checksum must match what the submitter just viewed.
+
+        For source formats that do not require compilation (PDF, HTML)
+        the source IS the preview -- no ``ConfirmSourceProcessed`` runs
+        and ``submission.preview`` is legitimately ``None``. We accept
+        the confirmation in that case without checking preview state.
+
+        This mirrors the ``has_non_processing_content`` pattern in
+        ``submit_ce/ui/workflow/conditions.py`` so the event-layer
+        validation agrees with the workflow-layer condition that
+        already lets PDF/HTML submissions pass through ``is_source_processed``.
+        """
         validators.submission_is_not_finalized(self, submission)
-        if submission.preview is None:
-            raise InvalidEvent(self, "Preview not set on submission")
-        if self.preview_checksum != submission.preview.preview_checksum:
-            raise InvalidEvent(
-                self,
-                f"Checksum {self.preview_checksum} does not match current"
-                f" preview checksum: {submission.preview.preview_checksum}"
-            )
+        requires_processing = submission.source_format in (
+            SourceFormat.TEX, SourceFormat.POSTSCRIPT,
+        )
+        if requires_processing:
+            if submission.preview is None:
+                raise InvalidEvent(self, "Preview not set on submission")
+            if self.preview_checksum != submission.preview.preview_checksum:
+                raise InvalidEvent(
+                    self,
+                    f"Checksum {self.preview_checksum} does not match current"
+                    f" preview checksum: {submission.preview.preview_checksum}"
+                )
 
 
     def project(self, submission: Submission) -> Submission:
@@ -979,7 +1074,15 @@ class FinalizeSubmission(Event):
     ]
     REQUIRED_METADATA: ClassVar[str] = ['title', 'abstract', 'authors_display']
 
-    CONSEQUENCE_TYPES = frozenset({AddHold, EmailSubmitterFinalizeMsg})
+    CONSEQUENCE_TYPES = frozenset({AddHold, EmailSubmitterFinalizeMsg,
+                                   EmailModeratorsFinalizeMsg})
+
+    MOD_EMAIL_TYPES: ClassVar[frozenset] = frozenset({
+        SubmissionType.NEW, SubmissionType.REPLACEMENT,
+        SubmissionType.WITHDRAWAL, SubmissionType.CROSS_LIST})
+    """Submission types that send a moderator email on finalize (legacy: types
+    with a ``mod_template``). ``jref`` is excluded, as are auto-held
+    submissions; see :meth:`consequences`."""
 
     def validate_pre_lock(self, submission: Submission) -> None:
         """Ensure that all required data/steps are complete."""
@@ -1003,19 +1106,29 @@ class FinalizeSubmission(Event):
            :attr:`Submission.is_on_hold` report true; there is no separate hold
            status in this model. Skipped if a waiver already exists.
         2. Send the submitter the on-submit confirmation email.
+        3. Notify the affected categories' moderators, but only for submission
+           types (`new`/`rep`/`wdr`/`cross`) and only when the submission is not
+           auto-held. An auto-held submission (e.g. oversize)
+           is not sent to moderators until the problems are fixed.
         """
         events: List[Event] = []
+        sid = submission.submission_id
+        sid_str = str(sid) if sid is not None else None
         if submission.is_oversize \
                 and not submission.has_waiver_for(Hold.Type.SOURCE_OVERSIZE):
             events.append(AddHold(creator=System(name=__name__),
                                   submission_id=submission.submission_id,
                                   hold_type=Hold.Type.SOURCE_OVERSIZE,
                                   hold_reason="source is oversize"))
-        sid = submission.submission_id
         events.append(EmailSubmitterFinalizeMsg(
             creator=System(name=__name__),
             email_to=self.creator,
-            submission_id=str(sid) if sid is not None else None))
+            submission_id=sid_str))
+        if submission.submission_type in self.MOD_EMAIL_TYPES \
+                and not _is_auto_hold(submission):
+            events.append(EmailModeratorsFinalizeMsg(
+                creator=System(name=__name__),
+                submission_id=sid_str))
         return events
 
     def _required_fields_are_complete(self, submission: Submission) -> None:

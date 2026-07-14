@@ -7,7 +7,7 @@ import logging
 from google.cloud import pubsub_v1
 
 from submit_ce.api import SubmitApi, SubmissionFileStore
-from submit_ce.domain import Event, Submission
+from submit_ce.domain import Event, Submission, Moderator
 from submit_ce.api.compile_service import CompileService
 from submit_ce.api.email_service import EmailService
 from submit_ce.domain.config import SubmitConfig
@@ -53,6 +53,20 @@ class PubsubEventSubmitImplementation(SubmitApi):
 
     def get_email_service(self) -> EmailService:
         return self.inner_api.get_email_service()
+
+    def moderators_for_categories(
+            self,
+            categories: List[str],
+            *,
+            exclude_no_web_email: bool = True,
+            exclude_no_email: bool = False,
+            exclude_no_reply_to: bool = False,
+    ) -> List[Moderator]:
+        return self.inner_api.moderators_for_categories(
+            categories,
+            exclude_no_web_email=exclude_no_web_email,
+            exclude_no_email=exclude_no_email,
+            exclude_no_reply_to=exclude_no_reply_to)
 
     def get_config(self) -> SubmitConfig:
         return self.inner_api.get_config()
