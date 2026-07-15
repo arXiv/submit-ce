@@ -120,6 +120,64 @@ def no_redundant_non_general_category(event: Event,
                                f' to general secondaries.')
 
 
+def no_secondaries_on_general_primary(event: Event,
+                                      submission: Submission) -> None:
+    """A submission with a general primary category may not carry any
+    secondary classifications (SUBMISSION-158).
+
+    Checked at finalize. Unlike :func:`no_redundant_non_general_category`
+    (add-time, same-archive only), this rejects *any* secondary under a
+    general primary.
+
+    Only enforced for first-version (new) submissions. Replacements
+    (``version > 1``) are exempt: the replacement workflow has no
+    classification stage and the primary is locked once announced
+    (see ``SetPrimaryClassification._must_be_unannounced``), so every category
+    on a replacement is inherited from the announced version. A general
+    primary with secondaries there was grandfathered in and must not block the
+    replacement (SUBMISSION-158 edge case 1).
+
+    TODO(SUBMISSION-158 edge case 2): a moderator/EUST-added secondary on the
+    *working* version still can't be distinguished from a submitter-added one
+    without classification provenance, which does not exist yet.
+    """
+    if submission.version > 1:
+        return
+    if (submission.primary_classification
+            and CATEGORIES[submission.primary_category].is_general
+            and submission.secondary_classification):
+        raise InvalidEvent(
+            event,
+            "A submission with a general primary category "
+            f"({submission.primary_category}) may not have secondary "
+            "categories.")
+
+
+def no_secondary_when_primary_general(event: Event,
+                                      submission: Submission) -> None:
+    """A cross-list (secondary) may not be *added* when the primary category
+    is general (SUBMISSION-158).
+
+    Unlike :func:`no_secondaries_on_general_primary`, which looks at
+    secondaries already present, this rejects the add itself based only on the
+    primary. It is used by :class:`.AddSecondaryClassification` so that even
+    the first secondary under a general primary is blocked (the event runs
+    before its own projection, so the secondary being added is not yet on the
+    submission).
+
+    Replacements (``version > 1``) are exempt for the same reason as
+    :func:`no_secondaries_on_general_primary`.
+    """
+    if submission.version > 1:
+        return
+    if (submission.primary_classification
+            and CATEGORIES[submission.primary_category].is_general):
+        raise InvalidEvent(
+            event,
+            "A cross-list category may not be added when the primary "
+            f"category ({submission.primary_category}) is general.")
+
+
 def max_secondaries(event: Event, submission: Submission) -> None:
     "No more than 4 secondary categories per submission."
     if (submission.secondary_classification and

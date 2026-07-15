@@ -39,6 +39,7 @@ from http import HTTPStatus as status
 from typing import Optional, Tuple, Dict, Any
 
 from arxiv import taxonomy
+from arxiv.base import alerts
 from arxiv.auth.domain import Session
 from arxiv.forms import csrf
 from arxiv.taxonomy.category import Category
@@ -243,6 +244,7 @@ def classification(
         "client": client,
         "form": form,
         "primary": primary,
+        "primary_is_general": bool(primary and primary.is_general),
     }
 
     if method == "GET":
@@ -267,15 +269,35 @@ def classification(
             form.mutate_stage_secondary_remove(cat, submission)
             return stay_on_this_stage((response_data, status.OK, {}))
         case "next":  # green "save&continue" button
+            staged_add = list(form.secondaries_staged_add.data or [])
+            staged_remove = list(form.secondaries_staged_remove.data or [])
+
+            # SUBMISSION-158: a general primary category may not carry any
+            # secondaries. If the primary being saved is general, drop the
+            # cross-lists for the user and keep them on this page with a
+            # message, rather than letting an invalid combination proceed or
+            # leaving orphaned secondaries in storage.
+            new_primary = form.primary.data or primary_cat_id
+            new_primary_cat = _cat(new_primary)
+            drop_for_general = False
+            if new_primary_cat and new_primary_cat.is_general:
+                effective_secondaries = (
+                    (set(submission.secondary_categories) | set(staged_add))
+                    - set(staged_remove))
+                if effective_secondaries:
+                    staged_add = []
+                    staged_remove = sorted(set(submission.secondary_categories))
+                    drop_for_general = True
+
             commands = []
-            for sec_rm in form.secondaries_staged_remove.data or []:
+            for sec_rm in staged_remove:
                 commands.append(RemoveSecondaryClassification(
                     category=sec_rm,
                     creator=submitter,
                     client=client,
                 ))
 
-            for sec_add in form.secondaries_staged_add.data:
+            for sec_add in staged_add:
                 commands.append(AddSecondaryClassification(
                     category=sec_add,
                     creator=submitter,
@@ -298,6 +320,20 @@ def classification(
 
             submission, _ = current_app.api.save(*commands, submission_id=submission_id)
             response_data["submission"] = submission
+            response_data["primary"] = _cat(submission.primary_classification)
+            response_data["primary_is_general"] = bool(
+                response_data["primary"] and response_data["primary"].is_general)
+
+            if drop_for_general:
+                form.secondaries_staged_add.data = set()
+                form.secondaries_staged_remove.data = set()
+                alerts.flash_warning(
+                    "Cross-list categories are not allowed with a general "
+                    "primary category. Your cross-list selections have been "
+                    "removed. Choose a non-general primary category if you "
+                    "need cross-lists.")
+                return stay_on_this_stage((response_data, status.OK, {}))
+
             return ready_for_next((response_data, status.OK, {}))
         case _:  # Primary selection change
             form.mutate_primary_change(submission)
