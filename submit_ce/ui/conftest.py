@@ -120,6 +120,7 @@ def app(legacy_db, jwt_secret):
     sce_settings.JWT_SECRET = jwt_secret
     sce_settings.CLASSIC_DB_URI = uri
     sce_settings.STORE = "null"
+    sce_settings.QA_PUBSUB_ENABLED = False  # no real Pub/Sub in tests
 
     app = create_web_app()
     app.config["CLASSIC_DB_URI"] = uri

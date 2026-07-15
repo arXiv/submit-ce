@@ -1,5 +1,6 @@
 """Provides routes for the submission user interface."""
 
+import json
 from typing import Optional, Callable, Dict, List, Union, Any
 
 from arxiv.auth.auth import scopes
@@ -13,6 +14,7 @@ from werkzeug.datastructures import MultiDict
 from werkzeug.exceptions import NotFound
 from submit_ce.ui import controllers as cntrls
 from submit_ce.ui.controllers.debug import debug_events
+from submit_ce.ui.controllers import qa_metadata as qa_metadata_ctrl
 from submit_ce.ui.controllers.new import upload
 from submit_ce.ui.controllers.new import review
 from submit_ce.ui.controllers.new import upload_delete
@@ -656,6 +658,23 @@ def get_debug_events(submission_id: Optional[str] = None) -> Response:
     return handle(debug_events.debug_events, 'debug/debug_events.html',
                   'Debug Events', submission_id,
                   token=request.environ['token'])
+
+
+@UI.route('/debug/<submission_id>/qa_metadata.json', methods=["GET"])
+@scoped(scopes.VIEW_SUBMISSION, authorizer=is_admin_or_dev,
+        unauthorized=redirect_to_login)
+def get_debug_qa_metadata(submission_id: str) -> Response:
+    """Generate the QA "submission snapshot" metadata JSON for this submission.
+
+    Equivalent to the ``<id>/<id>.meta.json`` the QA pipeline reads (see
+    ``arxiv-qa/metadata/snapshot_md.py``). Admin/dev only; used to verify
+    SUBMISSION-136 parity.
+    """
+    data = qa_metadata_ctrl.build_qa_metadata(submission_id)
+    rv = make_response(json.dumps(data, indent=2, default=str))
+    rv.headers['Content-Type'] = 'application/json'
+    rv.headers['Cache-Control'] = 'no-store'
+    return rv
 
 
 @UI.app_template_filter()

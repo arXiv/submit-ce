@@ -29,7 +29,9 @@ def config_backend_api(settings: Settings) -> SubmitApi:
     if settings.STORE == "gs":
         logger.info(f"Doing FileStore GS bucket {settings.STORE_GS_BUCKET} prefix {settings.STORE_GS_PREFIX}")
         store = GsFileStore(gs_bucket=settings.STORE_GS_BUCKET,
-                            gs_prefix=settings.STORE_GS_PREFIX)
+                            gs_prefix=settings.STORE_GS_PREFIX,
+                            qa_bucket=settings.QA_GS_BUCKET,
+                            qa_prefix=settings.QA_GS_PREFIX)
     elif settings.STORE == "null":
         store = NullFileStore()
     else:
@@ -147,7 +149,7 @@ def backend_startup_health_check():
     if not current_app.api.get_compiler():
         errors.append("API lacks compiler")
     elif not current_app.api.get_compiler().is_available():
-        errors.append("Compiler serivce is misconfigured or not available")
+        errors.append("Compiler service is misconfigured or not available")
 
     if errors:
         raise RuntimeError(", ".join(errors))

@@ -60,6 +60,8 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
                  gs_prefix: str = "data/new",
                  source_prefix: str = "src",
                  client: Optional[storage.Client] = None,
+                 qa_bucket: Optional[str] = None,
+                 qa_prefix: str = "",
                  ):
         self.gs_bucket = gs_bucket
         """GS bucket to store the files."""
@@ -73,9 +75,18 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
         if self.gs_prefix is None:
             self.gs_prefix = ""
 
+        self.qa_prefix = (qa_prefix or "")
+        """Prefix under the QA bucket for the submission-snapshot meta.json."""
+        if self.qa_prefix.startswith("/"):
+            self.qa_prefix = self.qa_prefix[1:]
+
         self.storage_client = client if client is not None else storage.Client()
         self.bucket = self.storage_client.bucket(self.gs_bucket)
         self.obj_store = GsObjectStore(self.bucket)
+
+        self.qa_bucket = self.storage_client.bucket(qa_bucket) if qa_bucket else None
+        """GS bucket for QA submission-snapshot metadata, or None if not configured."""
+        self.qa_obj_store = GsObjectStore(self.qa_bucket) if self.qa_bucket else None
 
 
     @override
@@ -608,6 +619,10 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
     def _preview_path(self, submission_id: str) -> str:
         return posixpath.join(self._submission_path(submission_id), f'{submission_id}.pdf')
 
+    def _qa_meta_json_path(self, submission_id: str) -> str:
+        """QA-bucket object path, e.g. ``{qa_prefix}/4848983/4848983.meta.json``."""
+        return posixpath.join(self.qa_prefix, str(submission_id), f'{submission_id}.meta.json')
+
     def _preflight_path(self, submission_id: str) -> str:
         return posixpath.join(self._submission_path(submission_id), 'gcp_preflight.json')
 
@@ -670,6 +685,53 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
         blob = self.bucket.blob(path)
         data = json.dumps(content).encode('utf-8')
         blob.upload_from_file(io.BytesIO(data), content_type='application/json')
+
+    @override
+    def store_qa_metadata(self, submission_id: str, content: dict) -> None:
+        """Store the QA submission-snapshot meta.json in the QA bucket.
+
+        Writes to ``gs://{qa_bucket}/{qa_prefix}/{submission_id}/{submission_id}.meta.json``.
+        """
+        if self.qa_bucket is None:
+            raise RuntimeError("QA bucket is not configured; cannot store QA metadata")
+        path = self._qa_meta_json_path(submission_id)
+        blob = self.qa_bucket.blob(path)
+        data = json.dumps(content).encode('utf-8')
+        blob.upload_from_file(io.BytesIO(data), content_type='application/json')
+
+    #: QA snapshot artifact key -> path-builder method. Mirrors
+    #: ``upload_submission_files`` in the QA generator (arxiv-qa
+    #: snapshot_submission). Keys are the QA-facing names; the paths resolve to
+    #: the actual objects in this store.
+    _QA_ARTIFACT_PATHS = (
+        ("pdf", "_preview_path"),
+        ("source", "_source_package_path"),
+        ("directives.json", "_directives_path"),
+        ("gcp-compile.json", "_compile_json_path"),
+        ("gcp_compile.log", "_compile_log_path"),
+        ("gcp_preflight.json", "_preflight_path"),
+        ("source.log", "_source_log_path"),
+    )
+
+    @override
+    def get_qa_artifact_info(self, submission_id: str) -> tuple[dict[str, str], dict[str, str]]:
+        """Return ``(urls, crc32c)`` for QA artifacts present in the bucket.
+
+        Each URL includes the GS object generation
+        (``gs://{bucket}/{name}#{generation}``). A single ``get_blob`` per
+        artifact supplies both the generation and crc32c; artifacts with no
+        object are omitted (matching the QA snapshot generator).
+        """
+        urls: dict[str, str] = {}
+        crc32c: dict[str, str] = {}
+        for key, path_method in self._QA_ARTIFACT_PATHS:
+            path = getattr(self, path_method)(submission_id)
+            blob = self.bucket.get_blob(path)
+            if blob is None:
+                continue
+            urls[key] = f"gs://{self.gs_bucket}/{blob.name}#{blob.generation}"
+            crc32c[key] = blob.crc32c or ""
+        return urls, crc32c
 
     def _blob_to_file_status(self, submission_id: str, blob: Blob) -> FileStatus:
         src_dir = self._source_path(submission_id)
