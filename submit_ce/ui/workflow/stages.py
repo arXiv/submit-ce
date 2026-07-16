@@ -107,7 +107,9 @@ class ReviewFiles(Stage):
     title = "Review Files"
     display = "Review Files"
     always_check = True
-    completed = [conditions.has_directives_started]
+    completed = [conditions.OR(conditions.source_format_pdf,
+                               conditions.source_format_html,
+                               conditions.has_current_directives)]
 
 class Process(Stage):
     """Uploaded files are processed; this is primarily to compile LaTeX."""
