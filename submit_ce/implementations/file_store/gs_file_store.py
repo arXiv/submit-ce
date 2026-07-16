@@ -478,7 +478,33 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
             outcome = json.load(extracted)
 
             pdf_name = outcome.get("pdf_file")
-            log_name = outcome["out_files"]["main.log"]["name"]
+
+            # tex2pdf names the log after the main TeX file (e.g. 'paper.log'),
+            # not always 'main.log', so we can't hardcode the key. Pick the
+            # .log whose stem matches the produced PDF, else the first .log.
+            out_files = outcome.get("out_files", {}) or {}
+            log_candidates = [
+                info.get("name", key)
+                for key, info in out_files.items()
+                if str(key).endswith(".log")
+                or str(info.get("name", "")).endswith(".log")
+            ]
+            log_name = None
+            if pdf_name:
+                pdf_stem = posixpath.splitext(pdf_name)[0]
+                log_name = next(
+                    (n for n in log_candidates
+                     if posixpath.splitext(n)[0] == pdf_stem),
+                    None,
+                )
+            if log_name is None and log_candidates:
+                log_name = log_candidates[0]
+            if log_name is None:
+                logger.warning(
+                    "uncompress_compile_tarball: no .log found in outcome "
+                    "out_files for submission %s (status=%s, out_files keys=%s)",
+                    submission_id, outcome.get("status"), list(out_files.keys()),
+                )
 
             for member in tar.getmembers():
                 name = posixpath.basename(member.name)
