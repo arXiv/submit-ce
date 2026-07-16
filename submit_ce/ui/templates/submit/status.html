@@ -1,12 +1,31 @@
 {% extends "submit/base.html" %}
 
-{% block title -%}{{ submission.status }}{%- endblock title %}
+{% block title -%}
+{% if submission.submission_type %}{{ submission.submission_type.name.replace('_', ' ').title() }}{% endif %}
+Submission {{submission.submission_id}}:
+{{ submission.status }}{%- endblock title %}
 
 {% block within_content %}
-<p>
-  This is for dev/debugging. We need to implement this page with a real
-  layout that communicates what's going on with a user's submission.
-</p>
+
+
+{% set handled_fields = ['creator', 'client', 'created', 'NAME', 'NAMED', 'committed', 'submission_id'] %}
+{% set skip_if_none = ['proxy', 'cause'] %}
+{% set sub_collections = ['annotations', 'comments', 'holds', 'flags', 'processes', 'proposals', 'user_requests', 'waivers'] %}
+{% set sub_handled = ['creator', 'owner', 'client', 'metadata'] + sub_collections %}
+
+<style>
+  .events .event, .submission {
+    border-radius: 8px;
+  }
+  .section-header {
+    background-color: #1c8bd6;
+    color: #f5fbff;
+    padding: .5rem 1rem;
+    border-radius: 6px;
+    margin-bottom: .75rem;
+  }
+</style>
+
 
 {% if gs_console_url %}
 <p>
@@ -14,31 +33,116 @@
 </p>
 {% endif %}
 
-<pre>
-{{ submission|pprint }}
-</pre>
+<div class="box submission">
+  {# creator: show name, keep the rest collapsed #}
+  {% if submission.creator %}
+  <details class="agent">
+    <summary><strong>Creator:</strong> {{ submission.creator.name }}</summary>
+    <table class="table is-narrow is-size-7" style="margin-left: 1.5rem">
+      {% for key, val in submission.creator.model_dump().items()|sort %}
+      <tr><th>{{ key }}</th><td>{{ val }}</td></tr>
+      {% endfor %}
+    </table>
+  </details>
+  {% endif %}
 
-{# Base fields rendered in the header or as their own collapsible sections. #}
-{% set handled_fields = ['creator', 'client', 'created', 'NAME', 'NAMED', 'cause', 'committed', 'submission_id'] %}
-{% set skip_if_none = ['proxy'] %}
+  {# owner: show name, keep the rest collapsed #}
+  {% if submission.owner %}
+  <details class="agent">
+    <summary><strong>Owner:</strong> {{ submission.owner.name }}</summary>
+    <table class="table is-narrow is-size-7" style="margin-left: 1.5rem">
+      {% for key, val in submission.owner.model_dump().items()|sort %}
+      <tr><th>{{ key }}</th><td>{{ val }}</td></tr>
+      {% endfor %}
+    </table>
+  </details>
+  {% endif %}
 
-<style>
-  .events .event {
-    border-radius: 8px;
-  }
-</style>
+  {# client: show name (or a sensible fallback), keep the rest collapsed #}
+  {% if submission.client %}
+  <details class="agent">
+    <summary>
+      <strong>Client:</strong>
+      {% if submission.client.name is defined and submission.client.name %}{{ submission.client.name }}
+      {%- elif submission.client.remote_addr %}{{ submission.client.remote_addr }}
+      {%- else %}{{ submission.client.tool }}{% endif %}
+    </summary>
+    <table class="table is-narrow is-size-7" style="margin-left: 1.5rem">
+      {% for key, val in submission.client.model_dump().items()|sort %}
+      <tr><th>{{ key }}</th><td>{{ val }}</td></tr>
+      {% endfor %}
+    </table>
+  </details>
+  {% endif %}
 
-<h2 class="title is-5">Events</h2>
+  {# metadata: collapsible but open by default #}
+  <details class="agent" open>
+    <summary><strong>Metadata</strong></summary>
+    <table class="table is-narrow is-fullwidth is-size-7">
+      {% for key, val in submission.metadata.__dict__.items()|sort %}
+      <tr>
+        <th style="width: 20%">{{ key }}</th>
+        <td>
+          {% if val is mapping or val is sequence and val is not string %}
+          <pre class="is-size-7">{{ val|pprint }}</pre>
+          {% else %}
+          {{ val }}
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </table>
+  </details>
+
+  {# collections: collapsible lists, default closed, with count next to the name #}
+  {% for name in sub_collections|sort %}
+  {% set coll = submission.__dict__.get(name) %}
+  <details class="agent">
+    <summary><strong>{{ name }}</strong> <span class="has-text-grey">({{ coll|length }})</span></summary>
+    <table class="table is-narrow is-size-7" style="margin-left: 1.5rem">
+      {% if coll is mapping %}
+      {% for k, v in coll.items() %}
+      <tr><th>{{ k }}</th><td><pre class="is-size-7">{{ v|pprint }}</pre></td></tr>
+      {% endfor %}
+      {% else %}
+      {% for v in coll %}
+      <tr><th>{{ loop.index0 }}</th><td><pre class="is-size-7">{{ v|pprint }}</pre></td></tr>
+      {% endfor %}
+      {% endif %}
+    </table>
+  </details>
+  {% endfor %}
+
+  {# remaining properties, alphabetical, in a table #}
+  <table class="table is-narrow is-fullwidth is-size-7">
+    <tbody>
+      {% for key, val in submission.__dict__.items()|sort %}
+      {% if key not in sub_handled %}
+      <tr>
+        <th style="width: 20%">{{ key }}</th>
+        <td>
+          {% if val is mapping or val is sequence and val is not string %}
+          <pre class="is-size-7">{{ val|pprint }}</pre>
+          {% else %}
+          {{ val }}
+          {% endif %}
+        </td>
+      </tr>
+      {% endif %}
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<h2 class="title is-5 section-header">Events</h2>
 <div class="events">
   {% for event in events %}
   {% set data = event.model_dump() %}
   <details class="box event">
     <summary>
-      <strong>{{ event.NAMED.capitalize() }}</strong>
-      <span class="has-text-grey">{{ event.created|timesince }}</span>
-      <a class="event-json-link is-size-7" href="#"
-         data-json="{{ event.model_dump_json() }}">as json</a>
-      <code class="has-text-grey is-size-7">{{ event.event_id }}</code>
+      <strong class="is-size-5">{{ event.NAMED.capitalize() }}</strong>
+      <span class="has-text-grey" style="float: right; width: 8rem; text-align: right">{{ event.created|timesince }}</span>
+      {% if event.creator %}<span style="float: right; width: 14rem; text-align: left">{{ event.creator.name }}</span>{% endif %}
     </summary>
 
     {# creator: show name, keep the rest collapsed #}
@@ -89,7 +193,12 @@
         {% endfor %}
       </tbody>
     </table>
+    <a class="event-json-link is-size-7" href="#"
+       data-json="{{ event.model_dump_json() }}"
+       data-type="{{ event.event_type }}"
+       data-event-id="{{ event.event_id }}">as json</a>
   </details>
+
   {% endfor %}
 </div>
 
@@ -97,9 +206,11 @@
 <div class="modal" id="event-json-modal">
   <div class="modal-background"></div>
   <div class="modal-card">
-    <header class="modal-card-head">
-      <p class="modal-card-title">Event JSON</p>
-      <button class="delete" aria-label="close"></button>
+    <header class="modal-card-head" style="display: block">
+      <p class="modal-card-title" id="event-json-title">Event JSON</p>
+      <code id="event-json-id" class="has-text-grey is-size-7"
+            title="event_id is a property computed at runtime from created, event_type, and creator.identifier."></code>
+      <button class="delete" aria-label="close" style="position: absolute; right: 20px; top: 20px"></button>
     </header>
     <section class="modal-card-body">
       <pre id="event-json-content" class="is-size-7"></pre>
@@ -111,8 +222,13 @@
 (function () {
   const modal = document.getElementById('event-json-modal');
   const content = document.getElementById('event-json-content');
+  const title = document.getElementById('event-json-title');
+  const idEl = document.getElementById('event-json-id');
 
-  function openModal(json) {
+  function openModal(link) {
+    title.textContent = (link.dataset.type || 'Event') + ' JSON';
+      idEl.textContent = 'event id ' + link.dataset.eventId || '';
+    const json = link.dataset.json;
     try {
       content.textContent = JSON.stringify(JSON.parse(json), null, 2);
     } catch (e) {
@@ -130,7 +246,7 @@
       // Don't toggle the <details> the link lives in.
       e.preventDefault();
       e.stopPropagation();
-      openModal(this.dataset.json);
+      openModal(this);
     });
   });
 

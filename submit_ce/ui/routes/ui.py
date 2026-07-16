@@ -221,14 +221,6 @@ def create_replacement(submission_id: str):
 
 
 @UI.route('/<submission_id>', methods=["GET"])
-@scoped(scopes.VIEW_SUBMISSION, authorizer=is_owner,
-                        unauthorized=redirect_to_login)
-def submission_status(submission_id: str) -> Response:
-    """Display the current state of the submission."""
-    return handle(cntrls.submission_status, 'submit/status.html',
-                  'Submission status', submission_id)
-
-
 @UI.route('/<submission_id>/edit', methods=['GET'])
 @scoped(scopes.VIEW_SUBMISSION, authorizer=is_owner,
                         unauthorized=redirect_to_login)
@@ -647,6 +639,15 @@ def debug_logout() -> Response:
         'Logged out. <a href="/debug/login">Log back in</a>.')
     response.delete_cookie('ARXIVNG_SESSION_ID')
     return response
+
+
+@UI.route('/debug/<submission_id>', methods=["GET"])
+@scoped(scopes.VIEW_SUBMISSION, authorizer=is_admin_or_dev,
+        unauthorized=redirect_to_login)
+def get_debug_submission(submission_id: Optional[str] = None) -> Response:
+    """Display the current state of the submission."""
+    return handle(cntrls.submission_status, 'submit/status.html',
+                  'Submission status', submission_id)
 
 
 @UI.route('/debug/<submission_id>/events', methods=["GET"])
