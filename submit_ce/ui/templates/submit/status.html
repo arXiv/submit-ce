@@ -8,17 +8,138 @@
   layout that communicates what's going on with a user's submission.
 </p>
 
+{% if gs_console_url %}
+<p>
+  Submission directory in GS: <a href="{{ gs_console_url }}" target="_blank" rel="noopener">{{ gs_path }}</a>
+</p>
+{% endif %}
+
 <pre>
-{{ submission|asdict|pprint }}
+{{ submission|pprint }}
 </pre>
 
-{% for event in events %}
-<li class="">
-  {{ event.NAMED.capitalize() }} {{ event.created|timesince }} ({{event.event_id}})
-  <pre>
-  {{ event|pprint }}
-  </pre>
-</li>
-{% endfor %}
+{# Base fields rendered in the header or as their own collapsible sections. #}
+{% set handled_fields = ['creator', 'client', 'created', 'NAME', 'NAMED', 'cause', 'committed', 'submission_id'] %}
+{% set skip_if_none = ['proxy'] %}
+
+<style>
+  .events .event {
+    border-radius: 8px;
+  }
+</style>
+
+<h2 class="title is-5">Events</h2>
+<div class="events">
+  {% for event in events %}
+  {% set data = event.model_dump() %}
+  <details class="box event">
+    <summary>
+      <strong>{{ event.NAMED.capitalize() }}</strong>
+      <span class="has-text-grey">{{ event.created|timesince }}</span>
+      <a class="event-json-link is-size-7" href="#"
+         data-json="{{ event.model_dump_json() }}">as json</a>
+      <code class="has-text-grey is-size-7">{{ event.event_id }}</code>
+    </summary>
+
+    {# creator: show name, keep the rest collapsed #}
+    {% if event.creator %}
+    <details class="agent">
+      <summary><strong>Creator:</strong> {{ event.creator.name }}</summary>
+      <table class="table is-narrow is-size-7" style="margin-left: 1.5rem">
+        {% for key, val in data.get('creator', {}).items()|sort %}
+        <tr><th>{{ key }}</th><td>{{ val }}</td></tr>
+        {% endfor %}
+      </table>
+    </details>
+    {% endif %}
+
+    {# client: show name (or a sensible fallback), keep the rest collapsed #}
+    {% if event.client %}
+    <details class="agent">
+      <summary>
+        <strong>Client:</strong>
+        {% if event.client.name is defined and event.client.name %}{{ event.client.name }}
+        {%- elif event.client.remote_addr %}{{ event.client.remote_addr }}
+        {%- else %}{{ event.client.tool }}{% endif %}
+      </summary>
+      <table class="table is-narrow is-size-7" style="margin-left: 1.5rem">
+        {% for key, val in data.get('client', {}).items()|sort %}
+        <tr><th>{{ key }}</th><td>{{ val }}</td></tr>
+        {% endfor %}
+      </table>
+    </details>
+    {% endif %}
+
+    {# remaining properties, sorted, in a table #}
+    <table class="table is-narrow is-fullwidth is-size-7">
+      <tbody>
+        {% for key, val in data.items()|sort %}
+        {% if key not in handled_fields and (key not in skip_if_none or val )%}
+        <tr>
+          <th style="width: 20%">{{ key }}</th>
+          <td>
+            {% if val is mapping or val is sequence and val is not string %}
+            <pre class="is-size-7">{{ val|pprint }}</pre>
+            {% else %}
+            {{ val }}
+            {% endif %}
+          </td>
+        </tr>
+        {% endif %}
+        {% endfor %}
+      </tbody>
+    </table>
+  </details>
+  {% endfor %}
+</div>
+
+{# Shared modal, populated by JS from the clicked event's data-json. #}
+<div class="modal" id="event-json-modal">
+  <div class="modal-background"></div>
+  <div class="modal-card">
+    <header class="modal-card-head">
+      <p class="modal-card-title">Event JSON</p>
+      <button class="delete" aria-label="close"></button>
+    </header>
+    <section class="modal-card-body">
+      <pre id="event-json-content" class="is-size-7"></pre>
+    </section>
+  </div>
+</div>
+
+<script>
+(function () {
+  const modal = document.getElementById('event-json-modal');
+  const content = document.getElementById('event-json-content');
+
+  function openModal(json) {
+    try {
+      content.textContent = JSON.stringify(JSON.parse(json), null, 2);
+    } catch (e) {
+      content.textContent = json;
+    }
+    modal.classList.add('is-active');
+  }
+
+  function closeModal() {
+    modal.classList.remove('is-active');
+  }
+
+  document.querySelectorAll('.event-json-link').forEach(function (link) {
+    link.addEventListener('click', function (e) {
+      // Don't toggle the <details> the link lives in.
+      e.preventDefault();
+      e.stopPropagation();
+      openModal(this.dataset.json);
+    });
+  });
+
+  modal.querySelector('.modal-background').addEventListener('click', closeModal);
+  modal.querySelector('.delete').addEventListener('click', closeModal);
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') closeModal();
+  });
+})();
+</script>
 
 {% endblock within_content %}
