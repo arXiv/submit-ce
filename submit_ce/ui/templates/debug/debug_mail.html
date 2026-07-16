@@ -1,0 +1,45 @@
+{% extends "base/base.html" %}
+
+{% block addl_head %}
+{% endblock addl_head %}
+
+{% block content %}
+<h1>Debug Mail</h1>
+<p class="help">
+  Email captured in memory (<code>EMAIL_MODE=TESTING</code>). Nothing here was
+  actually dispatched. Newest first. {{ emails | length }} message(s).
+</p>
+
+{% if emails %}
+<table class="table is-striped is-fullwidth">
+  <thead>
+    <tr>
+      <th>To</th>
+      <th>Subject</th>
+      <th>Headers</th>
+      <th>Body</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for m in emails | reverse %}
+    <tr>
+      <td>
+        <div><b>To:</b> {{ m.to | join(', ') }}</div>
+        {% if m.cc %}<div><b>Cc:</b> {{ m.cc | join(', ') }}</div>{% endif %}
+        {% if m.bcc %}<div><b>Bcc:</b> {{ m.bcc | join(', ') }}</div>{% endif %}
+        <div><b>Reply-To:</b> {{ m.reply_to }}</div>
+      </td>
+      <td>{{ m.subject }}</td>
+      <td>
+        {% if m.message_id %}<div><b>Message-ID:</b> {{ m.message_id }}</div>{% endif %}
+        {% if m.references %}<div><b>References:</b> {{ m.references }}</div>{% endif %}
+      </td>
+      <td><pre>{{ m.body }}</pre></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p>No email has been captured yet.</p>
+{% endif %}
+{% endblock content %}

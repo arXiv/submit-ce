@@ -6,7 +6,7 @@ from typing import Optional, Callable, Dict, List, Union, Any
 from arxiv.auth.auth import scopes
 from arxiv.auth.auth.decorators import scoped
 from arxiv.base import logging, alerts
-from flask import Blueprint, make_response, redirect, request, render_template, url_for, send_file
+from flask import Blueprint, make_response, redirect, request, render_template, url_for, send_file, current_app
 from flask import Response as FResponse
 from markupsafe import Markup
 from werkzeug import Response as WResponse
@@ -641,6 +641,28 @@ def debug_logout() -> Response:
         'Logged out. <a href="/debug/login">Log back in</a>.')
     response.delete_cookie('ARXIVNG_SESSION_ID')
     return response
+
+
+@UI.route('/debug/mail', methods=["GET"])
+def get_debug_mail() -> Response:
+    """Dev-only: show email captured by the in-memory email service.
+
+    Only available when ``EMAIL_MODE`` is ``TESTING`` and the configured
+    email service is the in-memory ``EmailInMemory`` capture. In any other
+    mode real mail was dispatched and there is nothing held in process to
+    show, so this returns 404.
+    """
+    from submit_ce.implementations.email.email_in_memory import EmailInMemory
+    if settings.EMAIL_MODE != "TESTING":
+        raise NotFound()
+    service = current_app.api.get_email_service()
+    if not isinstance(service, EmailInMemory):
+        raise NotFound()
+    return make_response(
+        render_template('debug/debug_mail.html',
+                        pagetitle='Debug Mail',
+                        emails=service.sent),
+        200)
 
 
 @UI.route('/debug/<submission_id>', methods=["GET"])

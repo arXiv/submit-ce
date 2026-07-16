@@ -188,6 +188,22 @@ def authorized_client(app, authorized_user_session):
     yield app.test_client(jwt=jwt)
 
 
+@pytest.fixture
+def admin_client(app, authorized_user_session, jwt_secret):
+    """Authorized client whose session carries the classic admin capability.
+
+    Needed for the ``/debug/<submission_id>`` routes, which are gated by
+    ``is_admin_or_dev``. Reuses the same user as ``authorized_client`` so
+    ownership-based fixtures still line up.
+    """
+    from submit_ce.ui import ADMIN_MASK
+    session, _ = authorized_user_session
+    session.authorizations.classic |= ADMIN_MASK
+    jwt = encode(session, jwt_secret)
+    app.test_client_class = ClientArxivAuth
+    yield app.test_client(jwt=jwt)
+
+
 #################### submissions in different stages ####################
 @pytest.fixture(scope="function")
 def sub_created(app, authorized_user):
