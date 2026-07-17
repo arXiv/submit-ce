@@ -42,9 +42,14 @@ def get_device_type(user_agent):
         return user_agent[:25]
 
 
+# Bits of the "classic" capability code produced by
+# arxiv.auth.legacy.util.compute_capabilities:
+#   flag_edit_users   -> 2  (admin)
+#   flag_email_verified -> 4
+#   flag_edit_system  -> 8  (system/"god", i.e. dev)
 # TODO move these to somewhere under arxiv.auth.auth
-ADMIN_MASK = 1
-DEV_MASK = 1<<2
+ADMIN_MASK = 1 << 1
+DEV_MASK = 1 << 3
 
 def is_admin(session: Session)->bool:
     return bool(getattr(session.authorizations, "classic", 0) & ADMIN_MASK)

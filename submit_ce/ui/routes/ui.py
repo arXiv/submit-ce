@@ -6,7 +6,7 @@ from typing import Optional, Callable, Dict, List, Union, Any
 from arxiv.auth.auth import scopes
 from arxiv.auth.auth.decorators import scoped
 from arxiv.base import logging, alerts
-from flask import Blueprint, make_response, redirect, request, render_template, url_for, send_file
+from flask import Blueprint, make_response, redirect, request, render_template, url_for, send_file, current_app
 from flask import Response as FResponse
 from markupsafe import Markup
 from werkzeug import Response as WResponse
@@ -223,21 +223,13 @@ def create_replacement(submission_id: str):
 
 
 @UI.route('/<submission_id>', methods=["GET"])
-@scoped(scopes.VIEW_SUBMISSION, authorizer=is_owner,
-                        unauthorized=redirect_to_login)
-def submission_status(submission_id: str) -> Response:
-    """Display the current state of the submission."""
-    return handle(cntrls.submission_status, 'submit/status.html',
-                  'Submission status', submission_id)
-
-
 @UI.route('/<submission_id>/edit', methods=['GET'])
 @scoped(scopes.VIEW_SUBMISSION, authorizer=is_owner,
                         unauthorized=redirect_to_login)
 @flow_control()
 def submission_edit(submission_id: str) -> Response:
     """Redirects to current edit stage of the submission."""
-    return handle(cntrls.submission_edit, 'submit/status.html',
+    return handle(cntrls.submission_edit, 'debug/status.html',
                   'Submission status', submission_id, flow_controlled=True)
 
 # # TODO: remove me!!
@@ -649,6 +641,39 @@ def debug_logout() -> Response:
         'Logged out. <a href="/debug/login">Log back in</a>.')
     response.delete_cookie('ARXIVNG_SESSION_ID')
     return response
+
+
+@UI.route('/debug/mail', methods=["GET"])
+@scoped(scopes.VIEW_SUBMISSION, authorizer=is_admin_or_dev,
+        unauthorized=redirect_to_login)
+def get_debug_mail() -> Response:
+    """Dev-only: show email captured by the in-memory email service.
+
+    Only available when ``EMAIL_MODE`` is ``TESTING`` and the configured
+    email service is the in-memory ``EmailInMemory`` capture. In any other
+    mode real mail was dispatched and there is nothing held in process to
+    show, so this returns 404.
+    """
+    from submit_ce.implementations.email.email_in_memory import EmailInMemory
+    if settings.EMAIL_MODE != "TESTING":
+        raise NotFound()
+    service = current_app.api.get_email_service()
+    if not isinstance(service, EmailInMemory):
+        raise NotFound()
+    return make_response(
+        render_template('debug/debug_mail.html',
+                        pagetitle='Debug Mail',
+                        emails=service.sent),
+        200)
+
+
+@UI.route('/debug/<submission_id>', methods=["GET"])
+@scoped(scopes.VIEW_SUBMISSION, authorizer=is_admin_or_dev,
+        unauthorized=redirect_to_login)
+def get_debug_submission(submission_id: Optional[str] = None) -> Response:
+    """Display the current state of the submission."""
+    return handle(cntrls.submission_status, 'debug/status.html',
+                  'Submission status', submission_id)
 
 
 @UI.route('/debug/<submission_id>/events', methods=["GET"])

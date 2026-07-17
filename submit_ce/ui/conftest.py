@@ -188,6 +188,26 @@ def authorized_client(app, authorized_user_session):
     yield app.test_client(jwt=jwt)
 
 
+@pytest.fixture
+def admin_client(app, authorized_user_session):
+    """Authorized client whose user has the classic dev/system capability.
+
+    Needed for the ``/debug/<submission_id>`` routes, which are gated by
+    ``is_admin_or_dev``. ``request_auth`` recomputes the ``classic`` capability
+    code from the database user (ignoring whatever is in the JWT), so we flip
+    ``flag_edit_system`` on the underlying TapirUser rather than editing the
+    token. Reuses the same user as ``authorized_client`` so ownership-based
+    fixtures still line up.
+    """
+    session, jwt = authorized_user_session
+    with app.app_context():
+        db_user = Session.get(classic.TapirUser, int(session.user.user_id))
+        db_user.flag_edit_system = 1
+        Session.commit()
+    app.test_client_class = ClientArxivAuth
+    yield app.test_client(jwt=jwt)
+
+
 #################### submissions in different stages ####################
 @pytest.fixture(scope="function")
 def sub_created(app, authorized_user):

@@ -1,8 +1,39 @@
-from typing import List
+from typing import Callable, List
 
 from submit_ce.domain import Submission, Event
-from submit_ce.domain.event.process import StartDirectives
+from submit_ce.domain.event.file import (
+    RemoveAllFiles,
+    RemoveFiles,
+    UploadArchive,
+    UploadFiles,
+)
+from submit_ce.domain.event.process import (
+    PreflightStatus,
+    StartDirectives,
+    StartPreflight,
+)
 from submit_ce.domain.uploads import SourceFormat
+
+# Events that mutate the source workspace. Each of these invalidates the
+# stored preflight via `_common_file_change_execute` in event/file.py.
+_FILE_CHANGE_EVENTS = (UploadArchive, UploadFiles, RemoveFiles, RemoveAllFiles)
+
+# Events that record a preflight run against the current files.
+_PREFLIGHT_EVENTS = (StartPreflight, PreflightStatus)
+
+Condition = Callable[[Submission, List[Event]], bool]
+"""A workflow condition: true when a stage requirement is satisfied."""
+
+
+def OR(*conds: Condition) -> Condition:
+    """Combine conditions so the result is true when *any* of them is true.
+
+    Short-circuits on the first satisfied condition. With no arguments the
+    combined condition is always false (an empty ``or``).
+    """
+    def combined(submission: Submission, events: List[Event]) -> bool:
+        return any(cond(submission, events) for cond in conds)
+    return combined
 
 
 def is_contact_verified(submission: Submission, events: List[Event]) -> bool:
@@ -84,14 +115,32 @@ def is_finalized(submission: Submission, events: List[Event]) -> bool:
     return bool(submission.is_finalized)
 
 
-def has_directives_started(submission: Submission, events: List[Event]) -> bool:
-    """Determine whether a StartDirectives event has been dispatched.
+def has_current_directives(submission: Submission, events: List[Event]) -> bool:
+    """Determine whether directives are current for the uploaded files.
 
     Directives generation is a side-effect of the review-files stage:
     when the user advances past review, a `StartDirectives` event is
     saved and the compile service writes `directives.json`. The event
     history is the authoritative record that this happened.
+
+    Any file-change event invalidates the generated directives (see
+    `_common_file_change_execute` in event/file.py), so a `StartDirectives`
+    only counts if no file-change event has occurred since the most recent
+    one. `events` is in chronological order (oldest first).
     """
-    return (submission.source_format == SourceFormat.PDF
-            or any(isinstance(e, StartDirectives) for e in events)
-            )
+    if submission.source_format == SourceFormat.PDF:
+        return True
+    last_directives = None
+    for i, event in enumerate(events):
+        if isinstance(event, StartDirectives):
+            last_directives = i
+    if last_directives is None:
+        return False
+    return not any(isinstance(event, _FILE_CHANGE_EVENTS)
+                   for event in events[last_directives + 1:])
+
+def source_format_pdf(submission: Submission, events: List[Event]) -> bool:
+    return submission.source_format == SourceFormat.PDF
+
+def source_format_html(submission: Submission, events: List[Event]) -> bool:
+    return submission.source_format == SourceFormat.HTML
