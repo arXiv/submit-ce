@@ -30,6 +30,11 @@ class _Boom(RuntimeError):
     """Distinct exception so tests can assert the original error propagates."""
 
 
+class _RollbackBoom(RuntimeError):
+    """Simulates the DB connection dropping so ``session.rollback()`` itself
+    raises during save()'s except handler (PR #82 review finding #1)."""
+
+
 class _ProbeParticipant(SaveParticipant):
     """Records ``(phase, participant_name)`` calls into a shared list.
 
@@ -242,6 +247,63 @@ def test_on_rollback_raise_never_masks_original(app, authorized_user, sub_create
         assert ("on_rollback", "b") in calls
         assert ("on_rollback", "a") in calls
         assert calls.index(("on_rollback", "b")) < calls.index(("on_rollback", "a"))
+
+
+@pytest.mark.xfail(
+    reason="PR #82 review: unguarded session.rollback() in save()'s "
+           "except block masks the original error and skips on_rollback. Remove "
+           "this marker when the rollback is guarded.",
+    strict=True,
+    raises=_RollbackBoom,
+)
+def test_rollback_failure_keeps_original_error_and_fires_participants(
+        app, authorized_user, sub_created, monkeypatch):
+    """PR #82 review: if the save fails AND ``session.rollback()`` then
+    raises (e.g. the DB connection dropped mid-transaction), save() must still
+
+      (a) propagate the ORIGINAL failure, not the rollback error, and
+      (b) fire ``on_rollback`` so audit/notification participants are not
+          silently skipped on exactly the DB-failure case they exist to catch.
+
+    This currently FAILS: the unguarded ``session.rollback()`` in save()'s
+    except block raises ``_RollbackBoom``, which masks the original ``_Boom``
+    and skips the ``on_rollback`` loop entirely. It should pass once the
+    rollback is guarded (rollback failure logged, original exception preserved,
+    participants still notified).
+    """
+    with app.app_context():
+        sid = str(sub_created.submission_id)
+
+        calls: List[Tuple[str, str]] = []
+        recorder = _ProbeParticipant("recorder", calls)
+        # `trigger` supplies the ORIGINAL failure, from inside the locked txn.
+        trigger = _ProbeParticipant("trigger", calls, raise_in="under_lock")
+        _enlist(recorder, trigger)
+
+        api = current_app.api
+        real_get_session = api.get_session
+
+        def get_session_with_failing_rollback():
+            session = real_get_session()
+
+            def boom_rollback(*args, **kwargs):
+                raise _RollbackBoom("connection dropped during rollback")
+
+            session.rollback = boom_rollback
+            return session
+
+        monkeypatch.setattr(api, "get_session",
+                            get_session_with_failing_rollback)
+
+        probe = _ProbeSideEffect(creator=authorized_user, client=_client(), calls=[])
+        # The caller must see the real cause, not the rollback failure.
+        with pytest.raises(_Boom):
+            api.save(probe, submission_id=sid)
+
+        # on_rollback must still fire despite rollback() raising.
+        assert ("on_rollback", "recorder") in calls
+        assert recorder.failures, "on_rollback participant was never notified"
+        assert isinstance(recorder.failures[0].exc, _Boom)
 
 
 def test_before_commit_sees_final_state(app, authorized_user, sub_created):
