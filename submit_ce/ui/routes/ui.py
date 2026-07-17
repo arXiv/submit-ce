@@ -229,7 +229,7 @@ def create_replacement(submission_id: str):
 @flow_control()
 def submission_edit(submission_id: str) -> Response:
     """Redirects to current edit stage of the submission."""
-    return handle(cntrls.submission_edit, 'submit/status.html',
+    return handle(cntrls.submission_edit, 'debug/status.html',
                   'Submission status', submission_id, flow_controlled=True)
 
 # # TODO: remove me!!
@@ -644,6 +644,8 @@ def debug_logout() -> Response:
 
 
 @UI.route('/debug/mail', methods=["GET"])
+@scoped(scopes.VIEW_SUBMISSION, authorizer=is_admin_or_dev,
+        unauthorized=redirect_to_login)
 def get_debug_mail() -> Response:
     """Dev-only: show email captured by the in-memory email service.
 
@@ -670,7 +672,7 @@ def get_debug_mail() -> Response:
         unauthorized=redirect_to_login)
 def get_debug_submission(submission_id: Optional[str] = None) -> Response:
     """Display the current state of the submission."""
-    return handle(cntrls.submission_status, 'submit/status.html',
+    return handle(cntrls.submission_status, 'debug/status.html',
                   'Submission status', submission_id)
 
 

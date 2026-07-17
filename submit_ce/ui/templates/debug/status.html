@@ -227,7 +227,7 @@ Submission {{submission.submission_id}}:
 
   function openModal(link) {
     title.textContent = (link.dataset.type || 'Event') + ' JSON';
-      idEl.textContent = 'event id ' + link.dataset.eventId || '';
+      idEl.textContent = 'event id ' + link.dataset.eventId;
     const json = link.dataset.json;
     try {
       content.textContent = JSON.stringify(JSON.parse(json), null, 2);
