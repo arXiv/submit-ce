@@ -189,17 +189,21 @@ def authorized_client(app, authorized_user_session):
 
 
 @pytest.fixture
-def admin_client(app, authorized_user_session, jwt_secret):
-    """Authorized client whose session carries the classic admin capability.
+def admin_client(app, authorized_user_session):
+    """Authorized client whose user has the classic dev/system capability.
 
     Needed for the ``/debug/<submission_id>`` routes, which are gated by
-    ``is_admin_or_dev``. Reuses the same user as ``authorized_client`` so
-    ownership-based fixtures still line up.
+    ``is_admin_or_dev``. ``request_auth`` recomputes the ``classic`` capability
+    code from the database user (ignoring whatever is in the JWT), so we flip
+    ``flag_edit_system`` on the underlying TapirUser rather than editing the
+    token. Reuses the same user as ``authorized_client`` so ownership-based
+    fixtures still line up.
     """
-    from submit_ce.ui import ADMIN_MASK
-    session, _ = authorized_user_session
-    session.authorizations.classic |= ADMIN_MASK
-    jwt = encode(session, jwt_secret)
+    session, jwt = authorized_user_session
+    with app.app_context():
+        db_user = Session.get(classic.TapirUser, int(session.user.user_id))
+        db_user.flag_edit_system = 1
+        Session.commit()
     app.test_client_class = ClientArxivAuth
     yield app.test_client(jwt=jwt)
 
