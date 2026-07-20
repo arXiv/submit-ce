@@ -13,6 +13,7 @@ from submit_ce.api import SubmitApi
 from submit_ce.api.email_service import EmailService
 from submit_ce.api.file_store import SubmissionFileStore
 from submit_ce.domain.agent import Client, User
+from submit_ce.domain import Moderator
 from submit_ce.domain.config import SubmitConfig
 from submit_ce.domain.meta import License
 from ...api.compile_service import CompileService
@@ -22,6 +23,7 @@ from ..schedule import next_announcement_time, next_freeze_time
 from .db import to_submission
 from .models import Submission
 from . import models
+from . import moderators
 
 from ...domain.event.base import Event, EventWithSideEffect
 from ...domain.util import get_tzaware_utc_now
@@ -289,6 +291,26 @@ class LegacySubmitImplementation(SubmitApi):
     @override
     def get_email_service(self) -> EmailService:
         return self.email_service
+
+    @override
+    def moderators_for_categories(
+            self,
+            categories: List[str],
+            *,
+            exclude_no_web_email: bool = True,
+            exclude_no_email: bool = False,
+            exclude_no_reply_to: bool = False,
+    ) -> List[Moderator]:
+        # Reuse the current (scoped) session without a `with` block: this is
+        # called from within an event's execute(), inside the save() session, so
+        # closing a nested context here would tear down the in-flight
+        # transaction. The read runs in the same session/transaction.
+        session = self.get_session()
+        return moderators.moderators_for_categories(
+            session, categories,
+            exclude_no_web_email=exclude_no_web_email,
+            exclude_no_email=exclude_no_email,
+            exclude_no_reply_to=exclude_no_reply_to)
 
     @override
     def get_config(self) -> SubmitConfig:

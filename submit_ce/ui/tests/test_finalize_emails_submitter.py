@@ -30,13 +30,15 @@ def test_finalize_sends_submitter_email(app, authorized_user, sub_metadata):
             current_app.api.email_service = original
 
         assert submission.status == Submission.SUBMITTED
-        assert len(service.sent) == 1
-        sent = service.last
-        assert sent.to == [submission.contact_email]
+        # Finalize also notifies moderators; pick out the submitter's email.
+        submitter_emails = [e for e in service.sent
+                            if e.to == [submission.contact_email]]
+        assert len(submitter_emails) == 1
+        sent = submitter_emails[0]
         assert sent.subject == f"arXiv submission {sid}"
         # Reply-To and dashboard URL are resolved from SubmitConfig, which the
         # backend builds from settings (BASE_SERVER substituted into the URL).
-        assert sent.reply_to == "www-admin@arxiv.org"
+        assert sent.reply_to == "EMAIL_REPLY_TO@example.org"
         assert "/user/" in sent.body
         assert current_app.api.get_config().url_for_user_dashboard in sent.body
 

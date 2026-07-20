@@ -268,6 +268,7 @@ def user_and_client_from_session(session: auth_domian.Session) -> Tuple[User, Cl
     if is_admin(session):
         user = StaffUser(
             user_id=session.user.user_id,
+            username=session.user.username,
             name=name,
             email=session.user.email,
             endorsements = get_endorsements(session.user),

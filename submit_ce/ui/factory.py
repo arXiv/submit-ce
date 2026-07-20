@@ -51,6 +51,10 @@ def create_web_app(config: Optional[dict]=None) -> Flask:
     def check_auth():
         if request.path.startswith("/static") or request.path == "/status":
             return
+        elif settings.LOCAL_LOGIN and request.path in ("/debug/login", "/debug/logout"):
+            # Dev-only login/logout routes manage the session cookie, so they
+            # must be reachable without a valid session. See routes.ui.
+            return
         else:
             request_auth()
 

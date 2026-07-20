@@ -60,7 +60,7 @@ dependencies = [
 [[package]]
 name = "arxiv-tex2pdf-tools"
 version = "0.1.0"
-source = { git = "https://github.com/arXiv/submission-tools.git?subdirectory=tex2pdf-tools&branch=master#0ef0c5a8e91cfafa119f46196ff15d9c1f2d4abf" }
+source = { git = "https://github.com/arXiv/submission-tools.git?subdirectory=tex2pdf-tools&branch=master#83a908024c941ef2cd52503075b36be1184ade86" }
 dependencies = [
     { name = "pydantic" },
     { name = "ruamel-yaml" },

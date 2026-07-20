@@ -1,11 +1,12 @@
 """Provides routes for the submission user interface."""
 
+import json
 from typing import Optional, Callable, Dict, List, Union, Any
 
 from arxiv.auth.auth import scopes
 from arxiv.auth.auth.decorators import scoped
 from arxiv.base import logging, alerts
-from flask import Blueprint, make_response, redirect, request, render_template, url_for, send_file
+from flask import Blueprint, make_response, redirect, request, render_template, url_for, send_file, current_app
 from flask import Response as FResponse
 from markupsafe import Markup
 from werkzeug import Response as WResponse
@@ -13,11 +14,13 @@ from werkzeug.datastructures import MultiDict
 from werkzeug.exceptions import NotFound
 from submit_ce.ui import controllers as cntrls
 from submit_ce.ui.controllers.debug import debug_events
+from submit_ce.ui.controllers import qa_metadata as qa_metadata_ctrl
 from submit_ce.ui.controllers.new import upload
 from submit_ce.ui.controllers.new import review
 from submit_ce.ui.controllers.new import upload_delete
 
 from ..auth import is_owner, is_admin_or_dev
+from ..config import settings
 from submit_ce.ui.controllers.new import submission_agreement
 from submit_ce.ui.controllers.new import source_package
 from submit_ce.ui.workflow.processor import WorkflowProcessor
@@ -220,21 +223,13 @@ def create_replacement(submission_id: str):
 
 
 @UI.route('/<submission_id>', methods=["GET"])
-@scoped(scopes.VIEW_SUBMISSION, authorizer=is_owner,
-                        unauthorized=redirect_to_login)
-def submission_status(submission_id: str) -> Response:
-    """Display the current state of the submission."""
-    return handle(cntrls.submission_status, 'submit/status.html',
-                  'Submission status', submission_id)
-
-
 @UI.route('/<submission_id>/edit', methods=['GET'])
 @scoped(scopes.VIEW_SUBMISSION, authorizer=is_owner,
                         unauthorized=redirect_to_login)
 @flow_control()
 def submission_edit(submission_id: str) -> Response:
     """Redirects to current edit stage of the submission."""
-    return handle(cntrls.submission_edit, 'submit/status.html',
+    return handle(cntrls.submission_edit, 'debug/status.html',
                   'Submission status', submission_id, flow_controlled=True)
 
 # # TODO: remove me!!
@@ -609,6 +604,78 @@ def testalerts() -> Response:
     alerts.flash_failure('This is one of those alerts from base alert(): you failed', 'BASE ALERT')
     return make_response(render_template('submit/testalerts.html', **tc), 200)
 
+@UI.route('/debug/login', methods=["GET"])
+def debug_login() -> Response:
+    """Dev-only login: mint a session JWT for the ``LOCAL_LOGIN_USER_ID`` and set
+    it as the ``ARXIVNG_SESSION_ID`` cookie, then redirect to the dashboard.
+
+    Replaces the ModHeader browser extension for local development
+    (SUBMISSION-199): instead of injecting an ``Authorization`` header on every
+    localhost request, visit ``/debug/login`` once to get a session cookie.
+    ``request_auth`` already accepts the JWT from that cookie.
+
+    Only available when ``LOCAL_LOGIN`` is enabled; it must never be true in
+    production.
+    """
+    if not settings.LOCAL_LOGIN:
+        raise NotFound()
+    from submit_ce.make_test_db import jwt_for_user
+    token = jwt_for_user(settings.LOCAL_LOGIN_USER_ID, settings.CLASSIC_DB_URI,
+                         settings.JWT_SECRET)
+    response = redirect(url_for('ui.manage_submissions'))
+    response.set_cookie('ARXIVNG_SESSION_ID', token)
+    return response
+
+
+@UI.route('/debug/logout', methods=["GET"])
+def debug_logout() -> Response:
+    """Dev-only logout: clear the ``ARXIVNG_SESSION_ID`` cookie set by
+    ``/debug/login``.
+
+    Only available when ``LOCAL_LOGIN`` is enabled; it must never be true in
+    production.
+    """
+    if not settings.LOCAL_LOGIN:
+        raise NotFound()
+    response = make_response(
+        'Logged out. <a href="/debug/login">Log back in</a>.')
+    response.delete_cookie('ARXIVNG_SESSION_ID')
+    return response
+
+
+@UI.route('/debug/mail', methods=["GET"])
+@scoped(scopes.VIEW_SUBMISSION, authorizer=is_admin_or_dev,
+        unauthorized=redirect_to_login)
+def get_debug_mail() -> Response:
+    """Dev-only: show email captured by the in-memory email service.
+
+    Only available when ``EMAIL_MODE`` is ``TESTING`` and the configured
+    email service is the in-memory ``EmailInMemory`` capture. In any other
+    mode real mail was dispatched and there is nothing held in process to
+    show, so this returns 404.
+    """
+    from submit_ce.implementations.email.email_in_memory import EmailInMemory
+    if settings.EMAIL_MODE != "TESTING":
+        raise NotFound()
+    service = current_app.api.get_email_service()
+    if not isinstance(service, EmailInMemory):
+        raise NotFound()
+    return make_response(
+        render_template('debug/debug_mail.html',
+                        pagetitle='Debug Mail',
+                        emails=service.sent),
+        200)
+
+
+@UI.route('/debug/<submission_id>', methods=["GET"])
+@scoped(scopes.VIEW_SUBMISSION, authorizer=is_admin_or_dev,
+        unauthorized=redirect_to_login)
+def get_debug_submission(submission_id: Optional[str] = None) -> Response:
+    """Display the current state of the submission."""
+    return handle(cntrls.submission_status, 'debug/status.html',
+                  'Submission status', submission_id)
+
+
 @UI.route('/debug/<submission_id>/events', methods=["GET"])
 @scoped(scopes.VIEW_SUBMISSION, authorizer=is_admin_or_dev,
         unauthorized=redirect_to_login)
@@ -616,6 +683,23 @@ def get_debug_events(submission_id: Optional[str] = None) -> Response:
     return handle(debug_events.debug_events, 'debug/debug_events.html',
                   'Debug Events', submission_id,
                   token=request.environ['token'])
+
+
+@UI.route('/debug/<submission_id>/qa_metadata.json', methods=["GET"])
+@scoped(scopes.VIEW_SUBMISSION, authorizer=is_admin_or_dev,
+        unauthorized=redirect_to_login)
+def get_debug_qa_metadata(submission_id: str) -> Response:
+    """Generate the QA "submission snapshot" metadata JSON for this submission.
+
+    Equivalent to the ``<id>/<id>.meta.json`` the QA pipeline reads (see
+    ``arxiv-qa/metadata/snapshot_md.py``). Admin/dev only; used to verify
+    SUBMISSION-136 parity.
+    """
+    data = qa_metadata_ctrl.build_qa_metadata(submission_id)
+    rv = make_response(json.dumps(data, indent=2, default=str))
+    rv.headers['Content-Type'] = 'application/json'
+    rv.headers['Cache-Control'] = 'no-store'
+    return rv
 
 
 @UI.app_template_filter()

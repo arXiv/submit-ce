@@ -113,16 +113,17 @@ def admin_log(session: SQLAlchemySession,
     """
     if paper_id is None and submission_id is not None:
         paper_id = f'submit/{submission_id}'
-        entry = models.AdminLogEntry(
-            paper_id=paper_id,
-            username=username,
-            host=hostname,
-            program=program,
-            command=command,
-            logtext=text,
-            document_id=document_id,
-            submission_id=submission_id,
-            notify=notify
-        )
-        session.add(entry)
-        return entry
+
+    entry = models.AdminLogEntry(
+        paper_id=paper_id[:20] if paper_id else "",
+        username=username[:20] if username else "",
+        host=hostname[:64] if hostname else "",
+        program=program[:20] if program else "",
+        command=command[:20] if command else "",
+        logtext=text,
+        document_id=document_id,
+        submission_id=submission_id,
+        notify=notify
+    )
+    session.add(entry)
+    return entry

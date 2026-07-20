@@ -120,6 +120,7 @@ def app(legacy_db, jwt_secret):
     sce_settings.JWT_SECRET = jwt_secret
     sce_settings.CLASSIC_DB_URI = uri
     sce_settings.STORE = "null"
+    sce_settings.QA_PUBSUB_ENABLED = False  # no real Pub/Sub in tests
 
     app = create_web_app()
     app.config["CLASSIC_DB_URI"] = uri
@@ -183,6 +184,26 @@ def authorized_user(authorized_user_session, mocker):
 def authorized_client(app, authorized_user_session):
     """Authorized client with db and jwt setup. """
     _, jwt = authorized_user_session
+    app.test_client_class = ClientArxivAuth
+    yield app.test_client(jwt=jwt)
+
+
+@pytest.fixture
+def admin_client(app, authorized_user_session):
+    """Authorized client whose user has the classic dev/system capability.
+
+    Needed for the ``/debug/<submission_id>`` routes, which are gated by
+    ``is_admin_or_dev``. ``request_auth`` recomputes the ``classic`` capability
+    code from the database user (ignoring whatever is in the JWT), so we flip
+    ``flag_edit_system`` on the underlying TapirUser rather than editing the
+    token. Reuses the same user as ``authorized_client`` so ownership-based
+    fixtures still line up.
+    """
+    session, jwt = authorized_user_session
+    with app.app_context():
+        db_user = Session.get(classic.TapirUser, int(session.user.user_id))
+        db_user.flag_edit_system = 1
+        Session.commit()
     app.test_client_class = ClientArxivAuth
     yield app.test_client(jwt=jwt)
 
