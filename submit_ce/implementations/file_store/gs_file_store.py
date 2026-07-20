@@ -230,14 +230,17 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
         return blob.crc32c
 
     @override
-    def store_nostamp_preview(self, submission_id: str,
-                              content: IO[bytes],
-                              chunk_size: int = 4096) -> str:
-        """Store the unstamped PDF at ``<submission_id>-nostamp.pdf``."""
+    def does_nostamp_preview_exist(self, submission_id: str) -> bool:
+        """Whether an unstamped ``<submission_id>-nostamp.pdf`` exists."""
+        return self.bucket.blob(
+            self._nostamp_preview_path(submission_id)).exists()
+
+    @override
+    def delete_nostamp_preview(self, submission_id: str) -> None:
+        """Delete ``<submission_id>-nostamp.pdf`` if it exists."""
         blob = self.bucket.blob(self._nostamp_preview_path(submission_id))
-        blob.upload_from_file(content)
-        blob.reload()
-        return blob.crc32c
+        if blob.exists():
+            blob.delete()
 
     @override
     def store_directives(self, submission_id: str, content: dict) -> str:

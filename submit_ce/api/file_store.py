@@ -168,16 +168,18 @@ class SubmissionFileStore(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def store_nostamp_preview(self, submission_id: str, content: IO[bytes],
-                              chunk_size: int = 4096) -> str:
-        """Store the *unstamped* PDF at ``<submission_id>-nostamp.pdf``.
+    def does_nostamp_preview_exist(self, submission_id: str) -> bool:
+        """Whether an unstamped PDF exists at ``<submission_id>-nostamp.pdf``.
 
-        Mirrors how TeX2PDF keeps both a stamped and an unstamped copy for
-        TeX submissions. For PDF-only submissions Submit 2.0 writes the
-        unstamped upload here and the stamped copy to the preview slot
-        (``store_preview`` / ``<submission_id>.pdf``).
+        For TeX submissions TeX2PDF writes this alongside the stamped preview.
+        PDF-only does not store one (the original PDF lives in ``src/``); this
+        lets the PDF-only install detect and clean up a stale copy left by a
+        prior TeX compile."""
+        pass
 
-        Returns checksum"""
+    @abstractmethod
+    def delete_nostamp_preview(self, submission_id: str) -> None:
+        """Delete ``<submission_id>-nostamp.pdf`` if it exists."""
         pass
 
     @abstractmethod

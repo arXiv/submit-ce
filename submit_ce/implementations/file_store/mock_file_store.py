@@ -200,10 +200,11 @@ class MockFileStore(NullFileStore):
         self._preview[submission_id] = content.read()
         return ""
 
-    def store_nostamp_preview(self, submission_id: str, content: IO[bytes],
-                              chunk_size: int = 4096) -> str:
-        self._nostamp_preview[submission_id] = content.read()
-        return ""
+    def does_nostamp_preview_exist(self, submission_id: str) -> bool:
+        return submission_id in self._nostamp_preview
+
+    def delete_nostamp_preview(self, submission_id: str) -> None:
+        self._nostamp_preview.pop(submission_id, None)
 
     def get_preview(self, submission_id: str) -> FileObj:
         data = self._preview.get(submission_id)

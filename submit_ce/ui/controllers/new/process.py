@@ -90,12 +90,11 @@ def _install_pdf_only_preview(submission_id: str, session: Session) -> None:
 
     Dispatches :class:`.InstallPdfPreview`, whose ``execute()`` runs under
     ``SubmitApi.save``'s submission row lock (see the critical-section note in
-    ``CLAUDE.md``): it copies the uploaded PDF to the unstamped slot
-    ``<id>-nostamp.pdf``, stamps it with the temporary submission watermark,
-    and writes the stamped PDF -- or the unstamped fallback if stamping fails
-    -- to the preview slot ``<id>.pdf``. Without this the preview slot stays
-    empty, ``/preview.pdf`` 404s, ``ConfirmPreview`` never fires, and the
-    Confirm page's Submit button stays disabled.
+    ``CLAUDE.md``): it stamps the uploaded PDF with the temporary submission
+    watermark and writes the stamped PDF -- or the unstamped fallback if
+    stamping fails -- to the preview slot ``<id>.pdf``. Without this the
+    preview slot stays empty, ``/preview.pdf`` 404s, ``ConfirmPreview`` never
+    fires, and the Confirm page's Submit button stays disabled.
 
     Idempotent: no-ops once a preview already exists (e.g., on repeat visits
     to this stage).

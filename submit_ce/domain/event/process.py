@@ -186,20 +186,22 @@ def _stamp_text_and_link(submission: Submission) -> tuple[str, Optional[str]]:
 class InstallPdfPreview(EventWithSideEffect):
     """Install a PDF-only submission's PDF as its (stamped) preview, under lock.
 
-    PDF-only submissions never run ``/convert``, so the stamped + unstamped
-    PDFs that TeX2PDF produces for TeX submissions must be produced on the
-    Submit 2.0 side. Running as an :class:`.EventWithSideEffect`,
-    ``SubmitApi.save`` holds the submission row lock for the whole operation
-    (see the "critical section" note in ``CLAUDE.md``), so a concurrent
-    upload/delete cannot change the file set mid-install. Under the lock this:
+    PDF-only submissions never run ``/convert``, so the stamped preview that
+    TeX2PDF produces for TeX submissions must be produced on the Submit 2.0
+    side. Running as an :class:`.EventWithSideEffect`, ``SubmitApi.save``
+    holds the submission row lock for the whole operation (see the "critical
+    section" note in ``CLAUDE.md``), so a concurrent upload/delete cannot
+    change the file set mid-install. Under the lock this:
 
-    1. copies the single uploaded PDF to the unstamped slot
-       ``<id>-nostamp.pdf``;
-    2. calls the stamp service to watermark it with the temporary submission
-       stamp;
-    3. writes the stamped PDF to the preview slot ``<id>.pdf`` -- or, if
+    1. calls the stamp service to watermark the uploaded PDF with the
+       temporary submission stamp;
+    2. writes the stamped PDF to the preview slot ``<id>.pdf`` -- or, if
        stamping fails, writes the unstamped bytes there so the preview slot is
-       never empty.
+       never empty;
+    3. removes any stale ``<id>-nostamp.pdf`` left by a prior TeX compile
+       (the submitter switched from TeX to PDF-only). PDF-only keeps its
+       original PDF in ``src/``, so no dedicated unstamped copy is stored.
+       [SUBMISSION-196]
 
     :meth:`project` marks the source processed and records the preview, the
     same as the pre-stamping ``ConfirmSourceProcessed`` install did.
@@ -224,7 +226,8 @@ class InstallPdfPreview(EventWithSideEffect):
                 self, "InstallPdfPreview only applies to PDF-only submissions.")
 
     def execute(self, api: 'SubmitApi', submission: Submission) -> None:
-        """Install unstamped + stamped PDFs from the single uploaded PDF."""
+        """Stamp the uploaded PDF, install it as the preview, and drop any
+        stale unstamped copy left by a prior TeX compile."""
         file_store = api.get_file_store()
         sid = submission.submission_id
         workspace = file_store.get_workspace(submission_id=sid)
@@ -241,9 +244,15 @@ class InstallPdfPreview(EventWithSideEffect):
         with source.open('rb') as stream:
             data = stream.read()
 
-        # Always keep the unstamped copy (for the -nostamp slot and as the
-        # fallback preview if stamping fails).
-        file_store.store_nostamp_preview(sid, io.BytesIO(data))
+        # PDF-only keeps its original PDF in src/, so we don't persist a
+        # redundant <id>-nostamp.pdf. If a prior TeX compile left an unstamped
+        # PDF at the top-level slot (the submitter switched from TeX to
+        # PDF-only), remove it so a stale copy can't linger. The stamping
+        # fallback below uses the in-memory `data`, not this slot. [SUBMISSION-196]
+        if file_store.does_nostamp_preview_exist(sid):
+            file_store.delete_nostamp_preview(sid)
+            logger.info(
+                "InstallPdfPreview: removed stale unstamped PDF for %s", sid)
 
         text, link = _stamp_text_and_link(submission)
         stamped_bytes: Optional[bytes] = None
