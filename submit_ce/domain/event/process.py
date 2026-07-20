@@ -277,7 +277,19 @@ class InstallPdfPreview(EventWithSideEffect):
         self.added = datetime.now(timezone.utc)
 
     def project(self, submission: Submission) -> Submission:
-        """Mark source processed and record the preview (as ConfirmSourceProcessed did)."""
+        """Mark source processed and record the preview (as ConfirmSourceProcessed did).
+
+        If :meth:`execute` skipped the install (it found other than exactly
+        one PDF and returned early, leaving ``added`` unset), do not mark the
+        submission processed or record a preview -- otherwise the submission
+        would claim to be processed with an empty/phantom preview and no
+        ``<id>.pdf`` on disk. The early-return is unreachable in normal flow
+        (``source_format == PDF`` implies a single lone PDF; see
+        ``_infer_source_format``), but this keeps the guard honest if future
+        code lets the one-PDF invariant slip. [SUBMISSION-196]
+        """
+        if self.added is None:
+            return submission
         submission.is_source_processed = True
         submission.preview = Preview(
             source_id=-1,
