@@ -263,7 +263,7 @@ def compile_status(params: MultiDict, session: Session, submission_id: str,
 
     """
     submitter, client = user_and_client_from_session(session)
-    submission, events = get_submission(submission_id)
+    submission, _ = get_submission(submission_id)
     form = CompilationForm()
     response_data = {
         'submission_id': submission_id,
@@ -277,15 +277,17 @@ def compile_status(params: MultiDict, session: Session, submission_id: str,
     if file and file.exists():
         response_data['status']="succeeded"
 
-    # Only surface the compile log when it belongs to the current source.
-    # A file change deletes the log (see `_common_file_change_execute`), so a
-    # log that survives should be current; gating on
-    # `has_compiled_current_source` is defense-in-depth against a log orphaned
-    # before that invalidation existed, so the Process page never shows a stale
-    # log from a compile of files that have since changed. [SUBMISSION-75]
+    # Show the compile log whenever one exists. Any source file change deletes
+    # it (see `_common_file_change_execute`), so a log that is present is always
+    # current -- this surfaces the compiler summary on a successful compile and
+    # the errors on a failed one, while a stale log from a since-changed source
+    # can't appear because it has been removed. (Note we must not gate this on
+    # the request-cached event history: `_maybe_autocompile` records the compile
+    # event within this same GET, but `get_submission` caches the pre-compile
+    # snapshot in `g`, so an event-based check would wrongly hide a just-created
+    # current log until the next refresh.) [SUBMISSION-75]
     log = file_store.get_compile_log(str(submission_id))
-    if (log and log.exists()
-            and conditions.has_compiled_current_source(submission, events)):
+    if log and log.exists():
         response_data['compile_log'] = log.download_as_text()
 
     # Determine whether the current state of the uploaded source content has been compiled.
