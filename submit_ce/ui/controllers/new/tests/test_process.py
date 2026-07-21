@@ -152,33 +152,34 @@ def test_file_process_tex_does_not_retry_failed_compile_on_refresh(
     assert counting.compile_calls == 1
 
 
-def test_compile_status_hides_stale_log_without_current_compile(
+def test_compile_status_shows_current_log(
         app, authorized_user_session, sub_files_tex, mocker):
-    """Regression for the reported bug: a compile log left in the store from a
-    prior source (no current compile, no preview) must NOT be displayed on the
-    Process page. [SUBMISSION-75]"""
+    """A compile log that exists is current -- any file change deletes it (see
+    ``_common_file_change_execute``) -- so ``compile_status`` surfaces it on the
+    Process page, whether the compile succeeded or failed. This also guards
+    against the request-cached-event pitfall: the log shows on first arrival,
+    not only after a refresh. [SUBMISSION-75]"""
     session, _ = authorized_user_session
     with app.test_request_context("/"):
         # compile_status instantiates a CSRF form, which needs an active
         # session on the request. We call the controller directly (rather than
-        # via the test client) so we can inject the mock store/compiler and
-        # assert on them, so set request.auth ourselves. [SUBMISSION-75]
+        # via the test client) so we can inject the mock store and assert on the
+        # rendered data, so set request.auth ourselves. [SUBMISSION-75]
         request.auth = session
         sid = str(sub_files_tex.submission_id)
 
         fake = mocker.MagicMock()
-        fake.get_preview.return_value.exists.return_value = False
-        stale_log = mocker.MagicMock()
-        stale_log.exists.return_value = True
-        stale_log.download_as_text.return_value = "STALE LOG FROM OLD SOURCE"
-        fake.get_compile_log.return_value = stale_log
+        fake.get_preview.return_value.exists.return_value = True
+        log = mocker.MagicMock()
+        log.exists.return_value = True
+        log.download_as_text.return_value = "COMPILER LOG OUTPUT"
+        fake.get_compile_log.return_value = log
         mocker.patch.object(app.api, 'get_file_store', return_value=fake)
 
         rdata, code, _ = compile_status(MultiDict(), session, sid, token="")
 
         assert code == status.OK
-        # No current compile event -> the lingering log is suppressed.
-        assert 'compile_log' not in rdata
+        assert rdata.get('compile_log') == "COMPILER LOG OUTPUT"
 
 
 def test_file_process_pdf_only_installs_preview(

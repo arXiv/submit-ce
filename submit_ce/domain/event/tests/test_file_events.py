@@ -2,7 +2,9 @@ from datetime import datetime
 from pytz import UTC
 
 from submit_ce.domain import submission as submod, agent
-from submit_ce.domain.event.file import UploadFiles, RemoveFiles, RemoveAllFiles
+from submit_ce.domain.event.file import (
+    UploadFiles, RemoveFiles, RemoveAllFiles, _common_file_change_execute,
+)
 
 def _now():
     return datetime.now(UTC)
@@ -59,3 +61,17 @@ def test_remove_all_files_clears_package():
     assert s.source_format is None
     assert s.uncompressed_size == 0
     assert s.submitter_confirmed_preview is False
+
+
+def test_file_change_deletes_compile_log(mocker):
+    """Any source file change invalidates the compile log alongside the other
+    derived artifacts, so a stale log can't linger on the Process page after the
+    source it described has changed. [SUBMISSION-75]"""
+    api = mocker.MagicMock()
+    store = api.get_file_store.return_value
+    submission = mocker.MagicMock()
+    submission.submission_id = "123"
+
+    _common_file_change_execute(api, submission)
+
+    store.delete_compile_log.assert_called_once_with("123")
