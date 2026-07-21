@@ -295,7 +295,18 @@ class InstallPdfPreview(EventWithSideEffect):
         self.added = datetime.now(timezone.utc)
 
     def project(self, submission: Submission) -> Submission:
-        """Mark source processed and record the preview (as ConfirmSourceProcessed did).
+        """Mark the source processed and record the preview *artifact*.
+
+        Records ``submission.preview`` (the preview PDF's checksums and size)
+        and sets ``is_source_processed`` -- the same as
+        ``ConfirmSourceProcessed`` did. This does NOT mark the preview as
+        viewed: the "submitter reviewed the preview" bit
+        (``submitter_confirmed_preview``, which gates Submit on the Confirm
+        page) is set only by ``ConfirmPreview`` when the submitter actually
+        opens ``/preview.pdf``. Recording ``submission.preview`` here is in
+        fact the precondition for that step -- ``ConfirmPreview.validate``
+        requires it to be present and checksum-matches it -- not a claim that
+        the submitter previewed anything. [SUBMISSION-196]
 
         The one-PDF precondition is enforced in :meth:`validate_under_lock`, so
         an event that reaches ``project`` has installed a real preview via
