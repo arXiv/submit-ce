@@ -10,7 +10,7 @@ from arxiv.forms import csrf
 from markupsafe import Markup
 
 from submit_ce.domain.event.process import StartCompileSource
-from submit_ce.domain.exceptions import SaveError
+from submit_ce.domain.exceptions import InvalidEvent, SaveError
 from submit_ce.domain.uploads import SourceFormat
 from submit_ce.api.file_store import SubmissionFileStore
 from submit_ce.ui import SUPPORT
@@ -26,6 +26,7 @@ from ..util import validate_command
 from submit_ce.ui.routes.flow_control import (
     ready_for_next, stay_on_this_stage, advance_to_current,
 )
+from submit_ce.ui.workflow import conditions
 from submit_ce.ui.backend import get_submission
 
 
@@ -74,6 +75,7 @@ def file_process(method: str, params: MultiDict, session: Session,
         return advance_to_current(({}, status.OK, {}))
 
     if method == "GET":
+        _maybe_autocompile(params, session, submission_id, token)
         return compile_status(params, session, submission_id, token)
     elif method == "POST":
         if params.get('action') in ['previous', 'next', 'save_exit']:
@@ -173,6 +175,65 @@ def _check_status(params: MultiDict, session: Session,  submission_id: str,
         return ready_for_next(({}, status.OK, {}))
 
 
+def _maybe_autocompile(params: MultiDict, session: Session, submission_id: str,
+                       token: str) -> None:
+    """Compile the source on arrival at the Process page, only when needed.
+
+    Implements SUBMISSION-75: the submitter no longer has to click "Process
+    submission files" to start compilation. On GET we initiate a compile when
+    the source is (La)TeX and there is no current compile to reuse, and we skip
+    it otherwise so revisiting the page (or refreshing) doesn't burn compute.
+
+    Compilation is (re)triggered when *both*:
+
+    * no valid preview exists -- either nothing has been compiled yet, or the
+      previous preview was invalidated by a file change (see
+      ``_common_file_change_execute``); and
+    * no compile has already been attempted against the current source
+      (:func:`conditions.has_compiled_current_source`). This guards the failure
+      case: a compile that failed on TeX errors leaves no preview, but its
+      ``StartCompileSource`` event means we must *not* silently recompile the
+      same broken source on every refresh -- the submitter sees the failure and
+      retries via the Reprocess button (a POST).
+
+    Only TeX source is auto-compiled here; PDF-only is handled earlier in
+    :func:`file_process`, and non-processing formats (e.g. HTML) need no
+    compile. The compile is dispatched as a server-initiated event rather than
+    through :func:`start_compilation` because the latter requires a CSRF token
+    that a GET request does not carry.
+
+    A failure to reach the compile service is logged and flashed but not raised:
+    the page still renders (with no preview), and a manual refresh or Reprocess
+    retries -- better than 500-ing on arrival.
+    """
+    submission, events = get_submission(submission_id)
+    if submission.source_format != SourceFormat.TEX:
+        return
+
+    file_store: SubmissionFileStore = current_app.api.get_file_store()
+    if file_store.does_preview_exist(str(submission_id)):
+        return  # A current compile already exists; reuse it.
+    if conditions.has_compiled_current_source(submission, events):
+        return  # Already attempted for this source (e.g. it failed); don't loop.
+
+    submitter, client = user_and_client_from_session(session)
+    command = StartCompileSource(creator=submitter, client=client,
+                                 source_content_id="BOGUS")
+    try:
+        current_app.api.save(command, submission_id=submission_id)
+        file_store.uncompress_compile_tarball(submission_id)
+    except InvalidEvent as e:
+        # Precondition failed under the lock (e.g. empty source). Nothing to
+        # compile; leave the page to render its not-started state.
+        logger.info('Skipped auto-compile for %s: %s', submission_id, e)
+    except SaveError as e:
+        logger.error('Auto-compile failed for %s: %s', submission_id, e)
+        alerts.flash_failure(
+            f"We couldn't process your submission automatically. Use the"
+            f" Process button to try again. {SUPPORT}",
+            title="Processing failed")
+
+
 def compile_status(params: MultiDict, session: Session, submission_id: str,
                    token: str, **kwargs: Any) -> Response:
     """
@@ -202,7 +263,7 @@ def compile_status(params: MultiDict, session: Session, submission_id: str,
 
     """
     submitter, client = user_and_client_from_session(session)
-    submission, _ = get_submission(submission_id)
+    submission, events = get_submission(submission_id)
     form = CompilationForm()
     response_data = {
         'submission_id': submission_id,
@@ -216,8 +277,15 @@ def compile_status(params: MultiDict, session: Session, submission_id: str,
     if file and file.exists():
         response_data['status']="succeeded"
 
+    # Only surface the compile log when it belongs to the current source.
+    # A file change deletes the log (see `_common_file_change_execute`), so a
+    # log that survives should be current; gating on
+    # `has_compiled_current_source` is defense-in-depth against a log orphaned
+    # before that invalidation existed, so the Process page never shows a stale
+    # log from a compile of files that have since changed. [SUBMISSION-75]
     log = file_store.get_compile_log(str(submission_id))
-    if log and log.exists():
+    if (log and log.exists()
+            and conditions.has_compiled_current_source(submission, events)):
         response_data['compile_log'] = log.download_as_text()
 
     # Determine whether the current state of the uploaded source content has been compiled.

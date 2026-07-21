@@ -9,6 +9,7 @@ from submit_ce.domain.event.file import (
 )
 from submit_ce.domain.event.process import (
     PreflightStatus,
+    StartCompileSource,
     StartDirectives,
     StartPreflight,
 )
@@ -138,6 +139,38 @@ def has_current_directives(submission: Submission, events: List[Event]) -> bool:
         return False
     return not any(isinstance(event, _FILE_CHANGE_EVENTS)
                    for event in events[last_directives + 1:])
+
+def has_compiled_current_source(submission: Submission, events: List[Event]) -> bool:
+    """Determine whether a compile has been attempted against the *current* source.
+
+    Used by the Process stage to decide whether compilation needs to be
+    (re)triggered on arrival. A compile counts as "current" only if no
+    file-change event has occurred since the most recent ``StartCompileSource``:
+    any file change invalidates the prior compile (and deletes its preview and
+    log via ``_common_file_change_execute`` in event/file.py), so the source
+    must be recompiled.
+
+    Returns True when the latest compile is current, meaning no new compile is
+    needed. Returns False when there has never been a compile, or when the
+    source has changed since the last one -- either way, compilation should be
+    initiated. ``events`` is in chronological order (oldest first).
+
+    Note this reflects that a compile was *attempted*, not that it produced a
+    usable PDF: a compile that fails on TeX errors still records a
+    ``StartCompileSource`` event, so the submitter is shown the failure/log and
+    can retry rather than having the Process page silently recompile broken
+    source on every refresh. Whether a valid PDF exists is a separate check
+    (``does_preview_exist``). [SUBMISSION-75]
+    """
+    last_compile = None
+    for i, event in enumerate(events):
+        if isinstance(event, StartCompileSource):
+            last_compile = i
+    if last_compile is None:
+        return False
+    return not any(isinstance(event, _FILE_CHANGE_EVENTS)
+                   for event in events[last_compile + 1:])
+
 
 def source_format_pdf(submission: Submission, events: List[Event]) -> bool:
     return submission.source_format == SourceFormat.PDF

@@ -47,6 +47,11 @@ def _common_file_change_execute(api: SubmitApi, submission: Submission) -> None:
       this is also stale.
     * **preview** -- the compiled PDF that was produced from the
       previous source.
+    * **compile_log** -- the TeX compiler log produced alongside that
+      preview. It belongs to the previous source, so leaving it behind
+      lets the Process page render a stale log (from a compile of files
+      that no longer exist) even though the preview it described is gone.
+      [SUBMISSION-75]
 
     Submit 1.5 had separate ``clear_preflight`` and
     ``clear_directives_data`` routines in ``Submit.pm`` that were
@@ -72,6 +77,7 @@ def _common_file_change_execute(api: SubmitApi, submission: Submission) -> None:
     file_store.delete_user_decisions(sid)
     file_store.delete_directives(sid)
     file_store.delete_preview(sid)
+    file_store.delete_compile_log(sid)
 
 
 def _add_evaluate_oversize(api: SubmitApi,
