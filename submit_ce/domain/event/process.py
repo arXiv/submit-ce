@@ -225,21 +225,39 @@ class InstallPdfPreview(EventWithSideEffect):
             raise InvalidEvent(
                 self, "InstallPdfPreview only applies to PDF-only submissions.")
 
-    def execute(self, api: 'SubmitApi', submission: Submission) -> None:
-        """Stamp the uploaded PDF, install it as the preview, and drop any
-        stale unstamped copy left by a prior TeX compile."""
+    def validate_under_lock(self, api: 'SubmitApi', submission: Submission) -> None:
+        """Require exactly one PDF in the source workspace before installing.
+
+        Runs inside the submission row lock, so the file set cannot change
+        between this check and :meth:`execute`. For a PDF-only submission the
+        workspace is a single lone PDF (see ``_infer_source_format``); if that
+        invariant is violated we reject the event here rather than install a
+        partial or absent preview -- the caller degrades gracefully on the
+        resulting :class:`.InvalidEvent`. [SUBMISSION-196]
+        """
         file_store = api.get_file_store()
         sid = submission.submission_id
         workspace = file_store.get_workspace(submission_id=sid)
         pdfs = [f for f in (workspace.files if workspace else [])
                 if f.name.lower().endswith('.pdf')]
         if len(pdfs) != 1:
-            logger.warning(
-                "InstallPdfPreview: expected exactly one PDF for %s, found "
-                "%d; skipping install", sid, len(pdfs))
-            return
+            raise InvalidEvent(
+                self,
+                f"Expected exactly one PDF for PDF-only submission {sid}, "
+                f"found {len(pdfs)}.")
 
-        pdf = pdfs[0]
+    def execute(self, api: 'SubmitApi', submission: Submission) -> None:
+        """Stamp the uploaded PDF, install it as the preview, and drop any
+        stale unstamped copy left by a prior TeX compile.
+
+        :meth:`validate_under_lock` has already guaranteed exactly one PDF in
+        the workspace under the same lock, so we take it directly.
+        """
+        file_store = api.get_file_store()
+        sid = submission.submission_id
+        workspace = file_store.get_workspace(submission_id=sid)
+        pdf = [f for f in workspace.files
+               if f.name.lower().endswith('.pdf')][0]
         source = file_store.get_source_file(sid, pdf.path)
         with source.open('rb') as stream:
             data = stream.read()
@@ -279,17 +297,10 @@ class InstallPdfPreview(EventWithSideEffect):
     def project(self, submission: Submission) -> Submission:
         """Mark source processed and record the preview (as ConfirmSourceProcessed did).
 
-        If :meth:`execute` skipped the install (it found other than exactly
-        one PDF and returned early, leaving ``added`` unset), do not mark the
-        submission processed or record a preview -- otherwise the submission
-        would claim to be processed with an empty/phantom preview and no
-        ``<id>.pdf`` on disk. The early-return is unreachable in normal flow
-        (``source_format == PDF`` implies a single lone PDF; see
-        ``_infer_source_format``), but this keeps the guard honest if future
-        code lets the one-PDF invariant slip. [SUBMISSION-196]
+        The one-PDF precondition is enforced in :meth:`validate_under_lock`, so
+        an event that reaches ``project`` has installed a real preview via
+        ``execute`` (``added`` is set).
         """
-        if self.added is None:
-            return submission
         submission.is_source_processed = True
         submission.preview = Preview(
             source_id=-1,

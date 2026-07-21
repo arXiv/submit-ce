@@ -1,21 +1,23 @@
-"""Tests for InstallPdfPreview's skip-guard behavior. [SUBMISSION-196]
+"""Tests for InstallPdfPreview.validate_under_lock. [SUBMISSION-196]
 
-If ``execute()`` finds other than exactly one PDF in the source workspace it
-returns early without installing anything; ``project()`` must then NOT mark
-the submission source-processed or record a phantom preview.
+The event requires exactly one PDF in the source workspace. That precondition
+lives in ``validate_under_lock`` (run under the submission row lock), so a
+violated invariant rejects the event cleanly -- raising ``InvalidEvent`` --
+instead of installing a partial or absent preview.
 
-This path is unreachable in normal flow -- ``source_format == PDF`` implies a
-single lone PDF (see ``_infer_source_format``) -- so these tests guard against
-a future change that lets the one-PDF invariant slip.
+Unreachable in normal flow (``source_format == PDF`` implies a single lone PDF;
+see ``_infer_source_format``); these tests guard the invariant.
 """
 
 from datetime import datetime
 from types import SimpleNamespace
 
+import pytest
 from pytz import UTC
 
 from submit_ce.domain import submission as submod, agent
 from submit_ce.domain.uploads import SourceFormat
+from submit_ce.domain.exceptions import InvalidEvent
 from submit_ce.domain.event.process import InstallPdfPreview
 
 
@@ -52,21 +54,22 @@ def _pdf_file(name):
     return SimpleNamespace(name=name, path=name, crc32c="c", bytes=10)
 
 
-def _execute_then_project(files):
+def _validate(files):
     s = _pdf_submission()
     api = _FakeApi(files)
-    e = InstallPdfPreview(creator=s.creator)
-    e.execute(api, s)          # skips (returns early) when != 1 PDF
-    return e.project(s)
+    InstallPdfPreview(creator=s.creator).validate_under_lock(api, s)
 
 
-def test_zero_pdfs_does_not_mark_processed():
-    s = _execute_then_project([])
-    assert s.is_source_processed is False
-    assert s.preview is None
+def test_zero_pdfs_rejected():
+    with pytest.raises(InvalidEvent):
+        _validate([])
 
 
-def test_multiple_pdfs_does_not_mark_processed():
-    s = _execute_then_project([_pdf_file("a.pdf"), _pdf_file("b.pdf")])
-    assert s.is_source_processed is False
-    assert s.preview is None
+def test_multiple_pdfs_rejected():
+    with pytest.raises(InvalidEvent):
+        _validate([_pdf_file("a.pdf"), _pdf_file("b.pdf")])
+
+
+def test_exactly_one_pdf_passes():
+    # Should not raise.
+    _validate([_pdf_file("paper.pdf")])

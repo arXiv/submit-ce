@@ -9,7 +9,7 @@ from arxiv.forms import csrf
 from markupsafe import Markup
 
 from submit_ce.domain.event.process import StartCompileSource
-from submit_ce.domain.exceptions import SaveError
+from submit_ce.domain.exceptions import InvalidEvent, SaveError
 from submit_ce.domain.uploads import SourceFormat
 from submit_ce.api.file_store import SubmissionFileStore
 from submit_ce.ui import SUPPORT
@@ -109,6 +109,13 @@ def _install_pdf_only_preview(submission_id: str, session: Session) -> None:
             InstallPdfPreview(creator=submitter, client=client),
             submission_id=submission_id,
         )
+    except InvalidEvent as e:
+        # Precondition failed under the lock (e.g. not exactly one PDF in the
+        # workspace). Unreachable in normal PDF-only flow; log and skip rather
+        # than 500 -- the empty preview slot keeps Submit disabled. [SUBMISSION-196]
+        logger.warning('Skipped PDF-only preview install for %s: %s',
+                       submission_id, e)
+        return
     except SaveError as e:
         logger.error('Failed to install PDF-only preview for %s: %s',
                      submission_id, e)

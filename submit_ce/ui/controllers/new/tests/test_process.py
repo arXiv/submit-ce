@@ -107,6 +107,35 @@ def test_file_process_pdf_only_removes_stale_nostamp_from_prior_tex(
         assert store.get_preview(sid).download_as_bytes() == b"STAMPED:" + src
 
 
+def test_file_process_pdf_only_skips_install_when_not_one_pdf(
+        app, authorized_user, authorized_user_session, sub_primary):
+    """If a PDF-only submission has other than exactly one PDF, the install is
+    rejected under the lock (InvalidEvent) and handled gracefully: no 500, no
+    preview installed, submission not marked source-processed. [SUBMISSION-196]"""
+    session, _ = authorized_user_session
+    ua = InternalClient(name="test_pdf_only")
+    with app.app_context():
+        sid = str(sub_primary.submission_id)
+
+        store = MockFileStore()
+        current_app.api.store = store
+        current_app.api.compiler = MockCompileMimesisPdf()
+        # PDF-only by format, but two PDFs in the workspace (invariant violated).
+        store._source[sid] = {"a.pdf": b"%PDF-1.4\n%%EOF\n",
+                              "b.pdf": b"%PDF-1.4\n%%EOF\n"}
+        current_app.api.save(
+            SetSourceFormat(creator=authorized_user, client=ua,
+                            source_format=SourceFormat.PDF.value),
+            submission_id=sid)
+
+        _, code, _ = file_process("GET", MultiDict(), session, sid, token="")
+
+        assert code == status.OK
+        assert not store.does_preview_exist(sid)
+        submission, _ = current_app.api.get_with_history(sid)
+        assert submission.is_source_processed is False
+
+
 def test_file_process_pdf_only_falls_back_to_unstamped_on_stamp_failure(
         app, authorized_user, authorized_user_session, sub_primary):
     """If stamping fails, the preview slot must still be populated -- with the
