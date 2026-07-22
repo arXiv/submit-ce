@@ -169,3 +169,36 @@ class CompileService(ABC):
             `True` if service is configured and available.
         """
         ...
+
+    @abstractmethod
+    def stamp(self, pdf_bytes: bytes, watermark_text: str,
+              watermark_link: Optional[str] = None) -> bytes:
+        """
+        Apply the temporary submission watermark/stamp to a PDF.
+
+        Used for PDF-only submissions, which never run ``/convert`` (TeX
+        submissions are stamped by the compile service during conversion).
+        The stamped PDF is returned so the caller can install it; nothing is
+        written to the file store here.
+
+        Parameters
+        ----------
+        pdf_bytes : bytes
+            The unstamped PDF.
+        watermark_text : str
+            Stamp text, e.g. ``arXiv:submit/1234567  [cs.LG]  15 Jan 2026``.
+        watermark_link : Optional[str]
+            Optional link embedded in the stamp.
+
+        Returns
+        -------
+        bytes
+            The stamped PDF.
+
+        Raises
+        ------
+        Exception
+            If stamping fails; the caller is expected to fall back to the
+            unstamped PDF so the preview slot is never empty.
+        """
+        ...

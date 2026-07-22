@@ -168,6 +168,21 @@ class SubmissionFileStore(metaclass=ABCMeta):
         pass
 
     @abstractmethod
+    def does_nostamp_preview_exist(self, submission_id: str) -> bool:
+        """Whether an unstamped PDF exists at ``<submission_id>-nostamp.pdf``.
+
+        For TeX submissions TeX2PDF writes this alongside the stamped preview.
+        PDF-only does not store one (the original PDF lives in ``src/``); this
+        lets the PDF-only install detect and clean up a stale copy left by a
+        prior TeX compile."""
+        pass
+
+    @abstractmethod
+    def delete_nostamp_preview(self, submission_id: str) -> None:
+        """Delete ``<submission_id>-nostamp.pdf`` if it exists."""
+        pass
+
+    @abstractmethod
     def store_directives(self, submission_id: str, content: dict) -> str:
         """Store directives.json for a submission.
 

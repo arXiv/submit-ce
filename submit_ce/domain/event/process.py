@@ -1,5 +1,7 @@
 """Events related to external or long-running processes."""
-from datetime import datetime
+import io
+import logging
+from datetime import datetime, timezone
 import json
 from typing import Optional
 
@@ -9,12 +11,16 @@ from arxiv.files.object_store import FileDoesNotExist
 from pydantic import BaseModel
 
 from ..exceptions import InvalidEvent
+from ..preview import Preview
 from ..submission import Submission
 from ..process import ProcessStatus
+from ..uploads import SourceFormat
 from .base import Event, EventWithSideEffect
 
 
 from submit_ce.api import SubmitApi
+
+logger = logging.getLogger(__name__)
 
 
 class ProcessInfo(BaseModel):
@@ -198,6 +204,168 @@ class StoreZzrm(EventWithSideEffect):
 
     def project(self, submission: Submission) -> Submission:
         """No submission-state change; the side effects are the file writes."""
+        return submission
+
+
+def _stamp_text_and_link(submission: Submission) -> tuple[str, Optional[str]]:
+    """Build the temporary submission stamp text and link.
+
+    Mirrors ``arXiv::Submit::Util::stamp_and_link`` (arxiv-lib):
+    ``arXiv:submit/<id>  [<primary category>]  <D Mon YYYY>`` -- two spaces
+    between segments, category in brackets, day not zero-padded, three-letter
+    month. A working submission has no submit_time yet, so the date is "now".
+    """
+    sid = submission.submission_id
+    text = f"arXiv:submit/{sid}"
+    try:
+        category = submission.primary_category
+    except Exception:
+        category = None
+    if category:
+        text += f"  [{category}]"
+    now = datetime.now(timezone.utc)
+    text += f"  {now.day} {now.strftime('%b %Y')}"
+    link = f"https://arxiv.org/submit/{sid}/pdf"
+    return text, link
+
+
+class InstallPdfPreview(EventWithSideEffect):
+    """Install a PDF-only submission's PDF as its (stamped) preview, under lock.
+
+    PDF-only submissions never run ``/convert``, so the stamped preview that
+    TeX2PDF produces for TeX submissions must be produced on the Submit 2.0
+    side. Running as an :class:`.EventWithSideEffect`, ``SubmitApi.save``
+    holds the submission row lock for the whole operation (see the "critical
+    section" note in ``CLAUDE.md``), so a concurrent upload/delete cannot
+    change the file set mid-install. Under the lock this:
+
+    1. calls the stamp service to watermark the uploaded PDF with the
+       temporary submission stamp;
+    2. writes the stamped PDF to the preview slot ``<id>.pdf`` -- or, if
+       stamping fails, writes the unstamped bytes there so the preview slot is
+       never empty;
+    3. removes any stale ``<id>-nostamp.pdf`` left by a prior TeX compile
+       (the submitter switched from TeX to PDF-only). PDF-only keeps its
+       original PDF in ``src/``, so no dedicated unstamped copy is stored.
+       [SUBMISSION-196]
+
+    :meth:`project` marks the source processed and records the preview, the
+    same as the pre-stamping ``ConfirmSourceProcessed`` install did.
+    """
+
+    NAME = "install pdf preview"
+    NAMED = "installed pdf preview"
+
+    source_checksum: str = field(default='')
+    preview_checksum: str = field(default='')
+    size_bytes: int = field(default=-1)
+    stamped: bool = field(default=False)
+    added: Optional[datetime] = field(default=None)
+
+    def validate_pre_lock(self, submission: Submission) -> None:
+        """Only applies to PDF-only submissions with an id."""
+        if not submission.submission_id:
+            raise InvalidEvent(
+                self, "Cannot install PDF preview: submission has no id.")
+        if submission.source_format != SourceFormat.PDF:
+            raise InvalidEvent(
+                self, "InstallPdfPreview only applies to PDF-only submissions.")
+
+    def validate_under_lock(self, api: 'SubmitApi', submission: Submission) -> None:
+        """Require exactly one PDF in the source workspace before installing.
+
+        Runs inside the submission row lock, so the file set cannot change
+        between this check and :meth:`execute`. For a PDF-only submission the
+        workspace is a single lone PDF (see ``_infer_source_format``); if that
+        invariant is violated we reject the event here rather than install a
+        partial or absent preview -- the caller degrades gracefully on the
+        resulting :class:`.InvalidEvent`. [SUBMISSION-196]
+        """
+        file_store = api.get_file_store()
+        sid = submission.submission_id
+        workspace = file_store.get_workspace(submission_id=sid)
+        pdfs = [f for f in (workspace.files if workspace else [])
+                if f.name.lower().endswith('.pdf')]
+        if len(pdfs) != 1:
+            raise InvalidEvent(
+                self,
+                f"Expected exactly one PDF for PDF-only submission {sid}, "
+                f"found {len(pdfs)}.")
+
+    def execute(self, api: 'SubmitApi', submission: Submission) -> None:
+        """Stamp the uploaded PDF, install it as the preview, and drop any
+        stale unstamped copy left by a prior TeX compile.
+
+        :meth:`validate_under_lock` has already guaranteed exactly one PDF in
+        the workspace under the same lock, so we take it directly.
+        """
+        file_store = api.get_file_store()
+        sid = submission.submission_id
+        workspace = file_store.get_workspace(submission_id=sid)
+        pdf = [f for f in workspace.files
+               if f.name.lower().endswith('.pdf')][0]
+        source = file_store.get_source_file(sid, pdf.path)
+        with source.open('rb') as stream:
+            data = stream.read()
+
+        # PDF-only keeps its original PDF in src/, so we don't persist a
+        # redundant <id>-nostamp.pdf. If a prior TeX compile left an unstamped
+        # PDF at the top-level slot (the submitter switched from TeX to
+        # PDF-only), remove it so a stale copy can't linger. The stamping
+        # fallback below uses the in-memory `data`, not this slot. [SUBMISSION-196]
+        if file_store.does_nostamp_preview_exist(sid):
+            file_store.delete_nostamp_preview(sid)
+            logger.info(
+                "InstallPdfPreview: removed stale unstamped PDF for %s", sid)
+
+        text, link = _stamp_text_and_link(submission)
+        stamped_bytes: Optional[bytes] = None
+        try:
+            stamped_bytes = api.get_compiler().stamp(data, text, link)
+        except Exception as exc:
+            logger.error(
+                "InstallPdfPreview: stamping failed for %s: %s; installing "
+                "unstamped preview instead", sid, exc)
+
+        if stamped_bytes:
+            self.preview_checksum = file_store.store_preview(
+                sid, io.BytesIO(stamped_bytes))
+            self.stamped = True
+        else:
+            self.preview_checksum = file_store.store_preview(
+                sid, io.BytesIO(data))
+            self.stamped = False
+
+        self.source_checksum = pdf.crc32c
+        self.size_bytes = pdf.bytes
+        self.added = datetime.now(timezone.utc)
+
+    def project(self, submission: Submission) -> Submission:
+        """Mark the source processed and record the preview *artifact*.
+
+        Records ``submission.preview`` (the preview PDF's checksums and size)
+        and sets ``is_source_processed`` -- the same as
+        ``ConfirmSourceProcessed`` did. This does NOT mark the preview as
+        viewed: the "submitter reviewed the preview" bit
+        (``submitter_confirmed_preview``, which gates Submit on the Confirm
+        page) is set only by ``ConfirmPreview`` when the submitter actually
+        opens ``/preview.pdf``. Recording ``submission.preview`` here is in
+        fact the precondition for that step -- ``ConfirmPreview.validate``
+        requires it to be present and checksum-matches it -- not a claim that
+        the submitter previewed anything. [SUBMISSION-196]
+
+        The one-PDF precondition is enforced in :meth:`validate_under_lock`, so
+        an event that reaches ``project`` has installed a real preview via
+        ``execute`` (``added`` is set).
+        """
+        submission.is_source_processed = True
+        submission.preview = Preview(
+            source_id=-1,
+            source_checksum=self.source_checksum,
+            preview_checksum=self.preview_checksum,
+            size_bytes=self.size_bytes,
+            added=self.added,
+        )
         return submission
 
 
