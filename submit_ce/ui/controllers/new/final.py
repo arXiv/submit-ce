@@ -16,6 +16,7 @@ from flask import current_app
 
 from submit_ce.ui.auth import user_and_client_from_session
 from submit_ce.domain.event import FinalizeSubmission
+from submit_ce.domain.event.process import BuildSourcePackage
 from submit_ce.domain.exceptions import SaveError
 from submit_ce.ui.controllers.util import validate_command
 from submit_ce.ui.routes.flow_control import ready_for_next, stay_on_this_stage
@@ -25,6 +26,33 @@ from submit_ce.ui.backend import get_submission
 logger = logging.getLogger(__name__)  # pylint: disable=C0103
 
 Response = Tuple[Dict[str, Any], int, Dict[str, Any]]  # pylint: disable=C0103
+
+
+def _rebuild_source_package_for_qa(submission_id: str, submitter, client) -> None:
+    """Rebuild ``<id>.tar.gz`` under the lock before the QA snapshot reads it.
+
+    The QA snapshot (``get_qa_artifact_info``) references the persisted
+    source package directly and does NOT build one, so if the tar is
+    stale or absent at finalize the snapshot ships a stale/omitted
+    source. Dispatching ``BuildSourcePackage`` rebuilds it inside the
+    submission row lock (see the critical-section note in ``CLAUDE.md``)
+    so the snapshot captures current source, including ``00README.json``.
+    [SUBMISSION-205]
+
+    Best-effort and gated on QA being enabled: a failure here must never
+    fail the submission itself.
+    """
+    from submit_ce.ui.config import settings
+    if not (settings.QA_GS_UPLOAD_ENABLED or settings.QA_PUBSUB_ENABLED):
+        return
+    try:
+        current_app.api.save(
+            BuildSourcePackage(creator=submitter, client=client),
+            submission_id=submission_id,
+        )
+    except Exception:  # noqa: BLE001 - QA rebuild must not break finalize
+        logger.exception(
+            "Failed to rebuild source package for QA snapshot %s", submission_id)
 
 
 def _upload_qa_metadata(file_store, submission_id: str) -> None:
@@ -68,7 +96,7 @@ def _pubsub_qa_metadata(submission_id: str) -> None:
 
 def finalize(method: str, params: MultiDict, session: Session,
              submission_id: str, **kwargs) -> Response:
-    submitter, _ = user_and_client_from_session(session)
+    submitter, client = user_and_client_from_session(session)
 
     logger.debug(f'method: {method}, ui-app: {submission_id}. {params}')
     submission, submission_events = get_submission(submission_id)
@@ -130,6 +158,7 @@ def finalize(method: str, params: MultiDict, session: Session,
         except SaveError as e:
             logger.error('Could not save primary event')
             raise InternalServerError(response_data) from e
+        _rebuild_source_package_for_qa(submission_id, submitter, client)
         _upload_qa_metadata(file_store, submission_id)
         _pubsub_qa_metadata(submission_id)
         return ready_for_next((response_data, status.OK, {}))

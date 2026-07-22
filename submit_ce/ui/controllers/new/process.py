@@ -2,7 +2,6 @@
 
 from http import HTTPStatus as status
 from typing import Tuple, Dict, Any
-from datetime import datetime, timezone
 import logging
 from flask import current_app
 from arxiv.base import alerts
@@ -17,6 +16,7 @@ from submit_ce.ui import SUPPORT
 
 from ...auth import user_and_client_from_session
 from submit_ce.domain.event import ConfirmSourceProcessed
+from submit_ce.domain.event.process import InstallPdfPreview
 from arxiv.auth.domain import Session
 from werkzeug.datastructures import MultiDict
 from werkzeug.exceptions import InternalServerError, MethodNotAllowed
@@ -88,59 +88,41 @@ def file_process(method: str, params: MultiDict, session: Session,
 
 
 def _install_pdf_only_preview(submission_id: str, session: Session) -> None:
-    """Promote a PDF-only submission's uploaded PDF to its preview slot.
+    """Install a PDF-only submission's PDF as its stamped preview.
 
-    Submit 1.5's ``Source->process()`` copies a PDF-only upload to the
-    canonical ``<filepath>.pdf`` so the submitter can review it before
-    submitting. Submit 2.0 does the equivalent for TeX (compile writes the
-    PDF to the top-level preview slot ``<id>.pdf``), but PDF-only uploads
-    never run compile, so without this step the preview slot stays empty:
-    ``/preview.pdf`` 404s, ``ConfirmPreview`` never fires, and the Confirm
-    page's Submit button stays disabled.
+    Dispatches :class:`.InstallPdfPreview`, whose ``execute()`` runs under
+    ``SubmitApi.save``'s submission row lock (see the critical-section note in
+    ``CLAUDE.md``): it stamps the uploaded PDF with the temporary submission
+    watermark and writes the stamped PDF -- or the unstamped fallback if
+    stamping fails -- to the preview slot ``<id>.pdf``. Without this the
+    preview slot stays empty, ``/preview.pdf`` 404s, ``ConfirmPreview`` never
+    fires, and the Confirm page's Submit button stays disabled.
 
-    This copies the single uploaded PDF from the source workspace into the
-    preview slot via :meth:`store_preview` and fires
-    :class:`.ConfirmSourceProcessed` so ``submission.preview`` is populated
-    with the real preview checksum and size. It is idempotent -- it no-ops
-    once a preview already exists (e.g., on repeat visits to this stage).
+    Idempotent: no-ops once a preview already exists (e.g., on repeat visits
+    to this stage).
     """
     file_store: SubmissionFileStore = current_app.api.get_file_store()
     if file_store.does_preview_exist(submission_id):
         return
 
-    workspace = file_store.get_workspace(submission_id=submission_id)
-    pdfs = [f for f in workspace.files if f.name.lower().endswith('.pdf')]
-    if len(pdfs) != 1:
-        # Not a clean single-PDF submission; nothing to promote. Log so the
-        # gap is visible rather than silently leaving an empty preview slot.
-        logger.warning(
-            'PDF-only preview install skipped for %s: expected exactly one '
-            'PDF in workspace, found %d', submission_id, len(pdfs))
-        return
-
-    pdf = pdfs[0]
-    source = file_store.get_source_file(submission_id, pdf.path)
-    with source.open('rb') as stream:
-        preview_checksum = file_store.store_preview(submission_id, stream)
-
     submitter, client = user_and_client_from_session(session)
-    command = ConfirmSourceProcessed(
-        creator=submitter,
-        client=client,
-        source_checksum=pdf.crc32c,
-        preview_checksum=preview_checksum,
-        size_bytes=pdf.bytes,
-        added=datetime.now(timezone.utc),
-    )
     try:
-        current_app.api.save(command, submission_id=submission_id)
+        current_app.api.save(
+            InstallPdfPreview(creator=submitter, client=client),
+            submission_id=submission_id,
+        )
+    except InvalidEvent as e:
+        # Precondition failed under the lock (e.g. not exactly one PDF in the
+        # workspace). Unreachable in normal PDF-only flow; log and skip rather
+        # than 500 -- the empty preview slot keeps Submit disabled. [SUBMISSION-196]
+        logger.warning('Skipped PDF-only preview install for %s: %s',
+                       submission_id, e)
+        return
     except SaveError as e:
-        logger.error('Failed to confirm PDF-only source processed for %s: %s',
+        logger.error('Failed to install PDF-only preview for %s: %s',
                      submission_id, e)
         raise InternalServerError('Could not install PDF preview') from e
-    logger.info('Installed PDF-only preview for submission %s '
-                '(preview_checksum=%s, size_bytes=%d)',
-                submission_id, preview_checksum, pdf.bytes)
+    logger.info('Installed PDF-only preview for submission %s', submission_id)
 
 
 def _check_status(params: MultiDict, session: Session,  submission_id: str,
