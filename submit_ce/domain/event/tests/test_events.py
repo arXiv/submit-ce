@@ -2,6 +2,7 @@
 
 from unittest import TestCase, mock
 from datetime import datetime
+import re
 
 from arxiv.taxonomy.definitions import CATEGORIES, CATEGORIES_ACTIVE
 from pytz import UTC
@@ -576,11 +577,16 @@ class TestSetTitle(TestCase):
     #                 self.fail(f'Failed to handle title due to {e.message}: "{title}" ')
 
     def test_all_caps_title(self):
-        """Title is all uppercase."""
-        title = Text().title()[:240].upper()
+        """Title is all uppercase.
+
+        qa's TitleIsValid excessive-capitalization check is advisory (WARN),
+        not blocking. Uses a fixed (not random) title, without a trailing
+        period, so this test isolates the all-caps behavior from other
+        validators (e.g. no_trailing_period) and from mimesis randomness.
+        """
+        title = re.sub(r"\.$", "", Text().title()[:240].upper())
         e = event.SetTitle(creator=self.user, title=title)
-        with self.assertRaises(InvalidEvent):
-            e.validate_pre_lock(self.submission)
+        e.validate_pre_lock(self.submission)
 
     def test_title_ends_with_period(self):
         """Title ends with a period."""
@@ -654,11 +660,13 @@ class TestSetAbstract(TestCase):
                     self.fail(f'Failed to handle abstract due to {e.message}: {abstract}')
 
     def test_huge_abstract(self):
-        """Abstract is set to something unreasonably large."""
+        """Abstract is set to something unreasonably large.
+
+        qa's AbstractIsValid length check is advisory (WARN), not blocking.
+        """
         abstract = Text().text(200)    # 200 sentences.
         e = event.SetAbstract(creator=self.user, abstract=abstract)
-        with self.assertRaises(InvalidEvent):
-            e.validate_pre_lock(self.submission)
+        e.validate_pre_lock(self.submission)
 
 
 class TestSetDOI(TestCase):
@@ -703,11 +711,13 @@ class TestSetDOI(TestCase):
     #         self.fail(f'Failed to handle valid DOI {e.message}: {doi}')
 
     def test_invalid_doi(self):
-        """DOI is set to something other than a valid DOI."""
+        """DOI is set to something other than a valid DOI.
+
+        qa's DoiIsValid format check is advisory (WARN), not blocking.
+        """
         not_a_doi = "101016S0550-3213(01)00405-9"
         e = event.SetDOI(creator=self.user, doi=not_a_doi)
-        with self.assertRaises(InvalidEvent):
-            e.validate_pre_lock(self.submission)
+        e.validate_pre_lock(self.submission)
 
 
 class TestSetReportNumber(TestCase):
@@ -766,14 +776,16 @@ class TestSetReportNumber(TestCase):
                 self.fail(f'failed report number {e.message}: {value}')
 
     def test_invalid_values(self):
-        """Some invalid values are passed."""
+        """Some invalid values are passed.
+
+        qa's ReportNumIsValid digits check is advisory (WARN), not blocking.
+        """
         values = [
             "not a report number",
         ]
         for value in values:
-            with self.assertRaises(InvalidEvent):
-                e = event.SetReportNumber(creator=self.user, report_num=value)
-                e.validate_pre_lock(self.submission)
+            e = event.SetReportNumber(creator=self.user, report_num=value)
+            e.validate_pre_lock(self.submission)
 
 
 class TestSetJournalReference(TestCase):

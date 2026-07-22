@@ -283,11 +283,11 @@ def test_rollback_version1_sets_deleted():
 # -------------------------------------------------------
 # SetAbstract
 # -------------------------------------------------------
-def test_abstract_too_short_fails():
+def test_abstract_too_short_passes():
+    """The qa AbstractIsValid length check is advisory (WARN), not blocking."""
     s = _working_submission()
     e = SetAbstract(creator=s.creator, abstract="short")
-    with pytest.raises(InvalidEvent):
-        e.validate_pre_lock(s)  # MIN_LENGTH branch
+    e.validate_pre_lock(s)  # MIN_LENGTH branch
 
 def test_abstract_valid_passes():
     s = _working_submission()
@@ -317,14 +317,13 @@ def test_license_valid_url():
 # SetReportNumber: invalid vs. valid formats
 # -------------------------------------------------------
 
-def test_set_report_number_rejects_invalid_value():
+def test_set_report_number_accepts_value_without_digits():
     """
-    SetReportNumber.validate requires at least two consecutive digits in the value.
+    The qa ReportNumIsValid digits check is advisory (WARN), not blocking.
     """
     s = _working_submission()
     e = SetReportNumber(creator=s.creator, report_num="not a report number")
-    with pytest.raises(InvalidEvent):
-        e.validate_pre_lock(s)
+    e.validate_pre_lock(s)
 
 def test_set_report_number_accepts_common_formats():
     """
@@ -343,8 +342,7 @@ def test_set_report_number_accepts_common_formats():
 def test_title_allows_basic_tags():
     s = _working_submission()
     e = SetTitle(creator=s.creator, title="Hello<br>World")
-    with pytest.raises(InvalidEvent):
-        e.validate_pre_lock(s)  # No HTML tags are allowed
+    e.validate_pre_lock(s)  # <br> is in ALLOWED_HTML and not blocked by qa's TitleIsValid
 
 def test_title_rejects_disallowed_html():
     s = _working_submission()

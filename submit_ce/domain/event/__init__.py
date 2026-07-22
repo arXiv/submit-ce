@@ -54,7 +54,16 @@ from datetime import datetime
 from typing import Optional, List, Union, ClassVar
 
 from arxiv.license import LICENSES
-from arxiv.metadata import metacheck
+from qa.checks.models import Disposition
+from qa.checks.metadata.title import TitleIsValid
+from qa.checks.metadata.authors import AuthorsAreValid
+from qa.checks.metadata.abstract import AbstractIsValid
+from qa.checks.metadata.comments import CommentsAreValid
+from qa.checks.metadata.report_num import ReportNumIsValid
+from qa.checks.metadata.journal_ref import JournalRefIsValid
+from qa.checks.metadata.doi import DoiIsValid
+from qa.checks.metadata.msc_class import MscClassIsValid
+from qa.checks.metadata.acm_class import AcmClassIsValid
 import bleach
 from arxiv.taxonomy.definitions import CATEGORIES
 from pytz import UTC
@@ -506,8 +515,8 @@ class SetTitle(Event):
     def validate_pre_lock(self, submission: Submission) -> None:
         """Validate the title value."""
         validators.submission_is_not_finalized(self, submission)
-        check = metacheck.check_title(self.title)
-        if check and check.disposition != metacheck.OK:
+        check = TitleIsValid.check(self.title)
+        if check and check.disposition != Disposition.OK:
             raise InvalidEvent(self, "", check)
         self._does_not_contain_html_escapes(submission)
         validators.no_trailing_period(self, submission, self.title)
@@ -565,8 +574,8 @@ class SetAbstract(Event):
     def validate_pre_lock(self, submission: Submission) -> None:
         """Validate the abstract value."""
         validators.submission_is_not_finalized(self, submission)
-        check = metacheck.check_abstract(self.abstract)
-        if check and check.disposition != metacheck.OK:
+        check = AbstractIsValid.check(self.abstract)
+        if check and check.disposition != Disposition.OK:
             raise InvalidEvent(self, "", check)
 
     def project(self, submission: Submission) -> Submission:
@@ -621,8 +630,8 @@ class SetDOI(Event):
             raise InvalidEvent(self, 'Cannot edit a finalized submission')
         if not self.doi:    # Can be blank.
             return
-        check = metacheck.check_doi(self.doi)
-        if check and check.disposition != metacheck.OK:
+        check = DoiIsValid.check(self.doi)
+        if check and check.disposition != Disposition.OK:
             raise InvalidEvent(self, "", check)
 
     def project(self, submission: Submission) -> Submission:
@@ -661,8 +670,8 @@ class SetMSCClassification(Event):
         validators.submission_is_not_finalized(self, submission)
         if not self.msc_class:    # Blank values are OK.
             return
-        check = metacheck.check_msc_class(self.msc_class)
-        if check and check.disposition != metacheck.OK:
+        check = MscClassIsValid.check(self.msc_class)
+        if check and check.disposition != Disposition.OK:
             raise InvalidEvent(self, "", check)
 
     def project(self, submission: Submission) -> Submission:
@@ -703,8 +712,8 @@ class SetACMClassification(Event):
         validators.submission_is_not_finalized(self, submission)
         if not self.acm_class:    # Blank values are OK.
             return
-        check = metacheck.check_acm_class(self.acm_class)
-        if check and check.disposition != metacheck.OK:
+        check = AcmClassIsValid.check(self.acm_class)
+        if check and check.disposition != Disposition.OK:
             raise InvalidEvent(self, "", check)
 
     def project(self, submission: Submission) -> Submission:
@@ -752,8 +761,8 @@ class SetJournalReference(Event):
         """Validate the journal reference value."""
         if not self.journal_ref:    # Blank values are OK.
             return
-        check = metacheck.check_journal_ref(self.journal_ref)
-        if check and check.disposition != metacheck.OK:
+        check = JournalRefIsValid.check(self.journal_ref)
+        if check and check.disposition != Disposition.OK:
             raise InvalidEvent(self, "", check)
 
     def project(self, submission: Submission) -> Submission:
@@ -800,8 +809,8 @@ class SetReportNumber(Event):
         """Validate the report number value."""
         if not self.report_num:    # Blank values are OK.
             return
-        check = metacheck.check_report_num(self.report_num)
-        if check and check.disposition != metacheck.OK:
+        check = ReportNumIsValid.check(self.report_num)
+        if check and check.disposition != Disposition.OK:
             raise InvalidEvent(self, "", check)
 
     def project(self, submission: Submission) -> Submission:
@@ -836,8 +845,8 @@ class SetComments(Event):
         validators.submission_is_not_finalized(self, submission)
         if not self.comments:    # Blank values are OK.
             return
-        check = metacheck.check_comments(self.comments)
-        if check and check.disposition != metacheck.OK:
+        check = CommentsAreValid.check(self.comments)
+        if check and check.disposition != Disposition.OK:
             raise InvalidEvent(self, "", check)
 
     def project(self, submission: Submission) -> Submission:
@@ -876,8 +885,8 @@ class SetAuthors(Event):
     def validate_pre_lock(self, submission: Submission) -> None:
         """May not apply to a finalized submission."""
         validators.submission_is_not_finalized(self, submission)
-        check = metacheck.check_authors(self.authors_display)
-        if check and check.disposition != metacheck.OK:
+        check = AuthorsAreValid.check(self.authors_display)
+        if check and check.disposition != Disposition.OK:
             raise InvalidEvent(self, "", check)
 
     def _canonical_author_string(self) -> str:
