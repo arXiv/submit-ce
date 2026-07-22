@@ -65,6 +65,9 @@ class _FakeStore:
     def delete_preview(self, sid):
         pass
 
+    def delete_compile_log(self, sid):
+        pass
+
 
 class _FakeApi:
     def __init__(self, workspace=None, limits=None, unpacked=None):
