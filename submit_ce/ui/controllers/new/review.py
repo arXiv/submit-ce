@@ -13,6 +13,7 @@ from submit_ce.domain.event.process import (
     SetDirectivesAndCleanup,
     StartPreflight,
     StartDirectives,  # noqa: F401 (StartDirectives used below)
+    StoreZzrm,
 )
 from submit_ce.domain.event import SetSourceFormat
 from ...auth import user_and_client_from_session
@@ -211,7 +212,14 @@ def review_files(method: str, params: MultiDict, session: Session,
                 zzrm.from_dict(user_decisions_data)
             zzrm.update_from_preflight(PreflightResponse(**preflight_data))
             logger.warning("ZeroZeroReadMe after update_from_preflight: %s", zzrm.to_json())
-            current_app.api.get_file_store().store_zzrm(submission_id, zzrm.to_dict())
+            # Write 00README.json under the submission row lock and invalidate
+            # the now-stale source package, rather than a bare (unlocked)
+            # store_zzrm call. See StoreZzrm and the critical-section note in
+            # CLAUDE.md. [SUBMISSION-205]
+            current_app.api.save(
+                StoreZzrm(creator=submitter, client=client, zzrm=zzrm.to_dict()),
+                submission_id=submission_id,
+            )
 
             return ready_for_next((rdata, status.OK, {}))
 

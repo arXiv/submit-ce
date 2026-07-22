@@ -125,7 +125,8 @@ def test_review_files_post_no_changes_no_preflight_flashes(
 def test_review_files_post_no_changes_stores_zzrm_and_advances(
         app, authorized_client, sub_files_tex, mocker):
     """End-to-end POST: when there are no changes and preflight is present,
-    the controller stores the merged zzrm and advances to the next stage."""
+    the controller dispatches a StoreZzrm event (write 00README under the
+    submission row lock) and advances to the next stage. [SUBMISSION-205]"""
     url = f"/{sub_files_tex.submission_id}/review_files"
     csrf = _get_csrf(authorized_client, url, mocker)
 
@@ -140,17 +141,23 @@ def test_review_files_post_no_changes_stores_zzrm_and_advances(
     fake_zzrm.to_dict.return_value = {'merged': True}
     mocker.patch.object(review, 'ZeroZeroReadMe', return_value=fake_zzrm)
 
-    mock_store = MagicMock()
-    mocker.patch.object(app.api, 'get_file_store', return_value=mock_store)
+    # The 00README write now goes through save() as a StoreZzrm event, not a
+    # bare (unlocked) store_zzrm file-store call.
+    mock_save = mocker.patch.object(app.api, 'save',
+                                    return_value=(MagicMock(), []))
 
     resp = authorized_client.post(url, data={'csrf_token': csrf, 'action': 'next'})
 
     assert resp.status_code == status.SEE_OTHER
     fake_zzrm.from_dict.assert_called_once_with({'sources': []})
     fake_zzrm.update_from_preflight.assert_called_once()
-    mock_store.store_zzrm.assert_called_once_with(
-        str(sub_files_tex.submission_id), {'merged': True}
-    )
+
+    zzrm_calls = [c for c in mock_save.call_args_list
+                  if c.args and isinstance(c.args[0], review.StoreZzrm)]
+    assert len(zzrm_calls) == 1
+    event = zzrm_calls[0].args[0]
+    assert event.zzrm == {'merged': True}
+    assert zzrm_calls[0].kwargs['submission_id'] == str(sub_files_tex.submission_id)
 
 
 def _make_workspace(*paths):

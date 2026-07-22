@@ -161,6 +161,52 @@ class BuildSourcePackage(EventWithSideEffect):
         return submission
 
 
+class StoreZzrm(EventWithSideEffect):
+    """Write ``00README.json`` into ``src/`` and invalidate the stale tar.
+
+    The 00README build directives are derived from preflight and the
+    submitter's decisions and written into the source directory as
+    ``00README.json``. Writing a source file changes the file set the
+    persisted ``<id>.tar.gz`` was built from, so that package is now
+    stale (it predates 00README). By running as an
+    :class:`.EventWithSideEffect`, ``SubmitApi.save`` holds the
+    submission row lock for the duration of :meth:`execute`, so the
+    write and the invalidation happen atomically and cannot interleave
+    with a concurrent upload/delete. See the "critical section" design
+    note in ``CLAUDE.md``.
+
+    We *delete* the source package rather than rebuild it here, matching
+    the lazy-invalidation pattern in
+    ``domain/event/file.py::_common_file_change_execute``: the tar's
+    consumers (preflight, the Download Package button) rebuild it before
+    reading, and the finalize path rebuilds it for the QA snapshot. We
+    deliberately do NOT call ``_common_file_change_execute`` -- that
+    would also drop the preflight/user_decisions/directives we just
+    generated, which are still valid for this file set.
+    """
+
+    NAME = "store 00README"
+    NAMED = "stored 00README"
+
+    zzrm: dict
+
+    def validate_pre_lock(self, submission: Submission) -> None:
+        """The submission must exist to have 00README written."""
+        if not submission.submission_id:
+            raise InvalidEvent(
+                self, "Cannot store 00README: submission has no id.")
+
+    def execute(self, api: 'SubmitApi', submission: Submission) -> None:
+        """Write 00README.json to src/ and drop the now-stale tar, under lock."""
+        file_store = api.get_file_store()
+        file_store.store_zzrm(submission.submission_id, self.zzrm)
+        file_store.delete_source_package(submission.submission_id)
+
+    def project(self, submission: Submission) -> Submission:
+        """No submission-state change; the side effects are the file writes."""
+        return submission
+
+
 def _stamp_text_and_link(submission: Submission) -> tuple[str, Optional[str]]:
     """Build the temporary submission stamp text and link.
 
