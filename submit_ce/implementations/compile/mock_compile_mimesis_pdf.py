@@ -149,3 +149,14 @@ class MockCompileMimesisPdf(CompileService):
     @override
     def is_available(self) -> bool:
         return True
+
+    @override
+    def stamp(self, pdf_bytes: bytes, watermark_text: str,
+              watermark_link: Optional[str] = None) -> bytes:
+        """Pretend to stamp by prepending a marker.
+
+        The marker lets tests distinguish the stamped preview from the
+        unstamped fallback without inspecting PDF pixels, and keeps stamping
+        offline/deterministic.
+        """
+        return b"STAMPED:" + pdf_bytes

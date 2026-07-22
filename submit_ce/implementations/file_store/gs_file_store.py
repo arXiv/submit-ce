@@ -230,6 +230,19 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
         return blob.crc32c
 
     @override
+    def does_nostamp_preview_exist(self, submission_id: str) -> bool:
+        """Whether an unstamped ``<submission_id>-nostamp.pdf`` exists."""
+        return self.bucket.blob(
+            self._nostamp_preview_path(submission_id)).exists()
+
+    @override
+    def delete_nostamp_preview(self, submission_id: str) -> None:
+        """Delete ``<submission_id>-nostamp.pdf`` if it exists."""
+        blob = self.bucket.blob(self._nostamp_preview_path(submission_id))
+        if blob.exists():
+            blob.delete()
+
+    @override
     def store_directives(self, submission_id: str, content: dict) -> str:
         """Store directives.json for a submission."""
         directives_path = self._directives_path(submission_id)
@@ -644,6 +657,9 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
 
     def _preview_path(self, submission_id: str) -> str:
         return posixpath.join(self._submission_path(submission_id), f'{submission_id}.pdf')
+
+    def _nostamp_preview_path(self, submission_id: str) -> str:
+        return posixpath.join(self._submission_path(submission_id), f'{submission_id}-nostamp.pdf')
 
     def _qa_meta_json_path(self, submission_id: str) -> str:
         """QA-bucket object path, e.g. ``{qa_prefix}/4848983/4848983.meta.json``."""

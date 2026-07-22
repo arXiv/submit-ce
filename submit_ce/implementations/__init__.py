@@ -132,6 +132,12 @@ class NullFileStore(SubmissionFileStore):  # pragma: no cover
     def store_preview(self, submission_id: str, content: IO[bytes], chunk_size: int) -> str:
         return "not really stored, NullFileStore"
 
+    def does_nostamp_preview_exist(self, submission_id: str) -> bool:
+        return False
+
+    def delete_nostamp_preview(self, submission_id: str) -> None:
+        pass
+
     def store_compile_log(self, submission_id: str, content: IO[bytes], chunk_size: int = 4096) -> str:
         return "not really stored, NullFileStore"
 

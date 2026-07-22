@@ -92,6 +92,7 @@ class MockFileStore(NullFileStore):
         self._source: Dict[str, Dict[str, bytes]] = {}
         # single-blob slots
         self._preview: Dict[str, bytes] = {}
+        self._nostamp_preview: Dict[str, bytes] = {}
         self._preflight: Dict[str, bytes] = {}
         self._directives: Dict[str, bytes] = {}
         self._user_decisions: Dict[str, bytes] = {}
@@ -198,6 +199,12 @@ class MockFileStore(NullFileStore):
                       chunk_size: int = 4096) -> str:
         self._preview[submission_id] = content.read()
         return ""
+
+    def does_nostamp_preview_exist(self, submission_id: str) -> bool:
+        return submission_id in self._nostamp_preview
+
+    def delete_nostamp_preview(self, submission_id: str) -> None:
+        self._nostamp_preview.pop(submission_id, None)
 
     def get_preview(self, submission_id: str) -> FileObj:
         data = self._preview.get(submission_id)
