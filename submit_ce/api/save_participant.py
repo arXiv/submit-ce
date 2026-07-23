@@ -107,9 +107,9 @@ class SaveContext:
 
 @dataclass(frozen=True)
 class SaveFailure:
-    """Why and where a save transaction rolled back.
+    """Why and where a save failed, and whether the rollback succeeded.
 
-    Passed to :meth:`SaveParticipant.on_rollback`. ``phase`` says where the
+    Passed to :meth:`SaveParticipant.on_save_failed`. ``phase`` says where the
     exception escaped; the context (``ctx.committed``, each event's
     ``executed`` timestamp) says what had already happened. Both are needed:
     alerting keys off ``phase``, cleanup keys off what executed. An event with
@@ -120,6 +120,11 @@ class SaveFailure:
 
     exc: BaseException
     phase: SavePhase
+
+    rolledback: bool
+    """If the db rollback successfully ran or not. If this is `False` the state of the db
+    is unknown, the data may or may not have been saved."""
+
     event: Optional[Event] = None
     """The event being processed when the exception escaped, if any."""
 
@@ -133,7 +138,7 @@ class SaveParticipant(ABC):
     All methods default to no-ops; override only the phases you care about.
 
     Ordering: implementations call ``under_lock`` in participant list order
-    and ``before_commit``, ``after_commit`` and ``on_rollback`` in reverse
+    and ``before_commit``, ``after_commit`` and ``on_save_failed`` in reverse
     list order (onion semantics).
     """
 
@@ -165,10 +170,22 @@ class SaveParticipant(ABC):
         raised here are logged and swallowed, never propagated.
         """
 
-    def on_rollback(self, ctx: SaveContext, failure: SaveFailure) -> None:
-        """Called after the transaction rolled back.
+    def on_save_failed(self, ctx: SaveContext, failure: SaveFailure) -> None:
+        """Called after the save failed and a rollback was attempted.
 
-        Fires only on an actual rollback — not for ``after_commit`` failures.
+        Fires whenever the transaction did not commit — not for
+        ``after_commit`` failures, where the save already succeeded.
+
+        A DB rollback is attempted before this runs, but it may not have
+        succeeded: check ``failure.rolledback``. When it is ``False`` the
+        rollback itself raised (e.g. the DB connection dropped) and the durable
+        DB state is unknown, so participants should alert rather than attempt
+        compensation.
+
+        Because the rollback may have left the session unusable, participants
+        should not read or write to the db. Do out-of-band work here (log,
+        metric, external notification) rather than ``ctx`` database access.
+
         Exceptions raised here are logged and never mask the original
         exception, which propagates to the caller unchanged.
         """

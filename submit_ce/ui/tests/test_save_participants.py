@@ -1,12 +1,5 @@
 """Tests for `SaveParticipant` phases fired by ``SubmitApi.save()``.
 
-Participants are enlisted in the save transaction (see
-``submit_ce.api.save_participant``): ``under_lock`` fires inside the locked
-transaction before any event runs, ``before_commit`` after all events are
-persisted but before commit, ``after_commit`` after a successful commit, and
-``on_rollback`` (with a `SaveFailure` naming the failed `SavePhase`) when the
-transaction rolls back.
-
 These tests exercise the real ``FlaskSubmitImplementation`` save path (via the
 ``app`` fixture) using throw-away participants and side-effect events, in the
 style of ``test_save_validate_under_lock.py``. Participants are injected by
@@ -39,7 +32,7 @@ class _ProbeParticipant(SaveParticipant):
     """Records ``(phase, participant_name)`` calls into a shared list.
 
     ``raise_in`` makes the named phase raise `_Boom`. ``failures`` collects
-    the `SaveFailure` passed to ``on_rollback``.
+    the `SaveFailure` passed to ``on_save_failed``.
     """
 
     def __init__(self, name: str, calls: List[Tuple[str, str]],
@@ -68,9 +61,9 @@ class _ProbeParticipant(SaveParticipant):
     def after_commit(self, ctx: SaveContext) -> None:
         self._fire("after_commit")
 
-    def on_rollback(self, ctx: SaveContext, failure: SaveFailure) -> None:
+    def on_save_failed(self, ctx: SaveContext, failure: SaveFailure) -> None:
         self.failures.append(failure)
-        self._fire("on_rollback")
+        self._fire("on_save_failed")
 
 
 class _ProbeSideEffect(EventWithSideEffect):
@@ -167,7 +160,7 @@ def test_phase_ordering_two_participants(app, authorized_user, sub_created):
 
 def test_under_lock_raise_aborts_cleanly(app, authorized_user, sub_created):
     """Raising in under_lock is the clean abort: no event ran, nothing
-    committed, on_rollback fires with the participant phase and identity."""
+    committed, on_save_failed fires with the participant phase and identity."""
     with app.app_context():
         sid = str(sub_created.submission_id)
         _, history_before = current_app.api.get_with_history(sid)
@@ -184,7 +177,7 @@ def test_under_lock_raise_aborts_cleanly(app, authorized_user, sub_created):
         assert probe.calls == []  # no event validated or executed
         assert calls == [
             ("under_lock", "a"), ("under_lock", "b"),
-            ("on_rollback", "b"), ("on_rollback", "a"),  # reverse order
+            ("on_save_failed", "b"), ("on_save_failed", "a"),  # reverse order
         ]
         failure = a.failures[0]
         assert failure.phase == SavePhase.PARTICIPANT_UNDER_LOCK
@@ -222,7 +215,7 @@ def test_before_commit_raise_rolls_back_db(app, authorized_user, sub_created):
 
 
 def test_event_validate_under_lock_failure_reported(app, authorized_user, sub_created):
-    """An event rejected under the lock reaches on_rollback with the event
+    """An event rejected under the lock reaches on_save_failed with the event
     phase and the event itself; InvalidEvent propagates unchanged."""
     with app.app_context():
         sid = str(sub_created.submission_id)
@@ -275,7 +268,7 @@ def test_event_consequences_failure_reported(app, authorized_user, sub_created):
 
 def test_after_commit_raise_is_swallowed(app, authorized_user, sub_created):
     """The save already committed: an after_commit failure is logged and
-    swallowed, save() returns normally and on_rollback does NOT fire."""
+    swallowed, save() returns normally and on_save_failed does NOT fire."""
     with app.app_context():
         sid = str(sub_created.submission_id)
         _, history_before = current_app.api.get_with_history(sid)
@@ -288,19 +281,19 @@ def test_after_commit_raise_is_swallowed(app, authorized_user, sub_created):
         current_app.api.save(probe, submission_id=sid)  # must not raise
 
         assert a.failures == []  # no rollback happened
-        assert ("on_rollback", "a") not in calls
+        assert ("on_save_failed", "a") not in calls
         _, history_after = current_app.api.get_with_history(sid)
         assert len(history_after) == len(history_before) + 1
 
 
-def test_on_rollback_raise_never_masks_original(app, authorized_user, sub_created):
-    """A participant blowing up in on_rollback is logged; the other
+def test_on_save_failed_raise_never_masks_original(app, authorized_user, sub_created):
+    """A participant blowing up in on_save_failed is logged; the other
     participants are still notified and the ORIGINAL exception propagates."""
     with app.app_context():
         sid = str(sub_created.submission_id)
         calls: List[Tuple[str, str]] = []
         a = _ProbeParticipant("a", calls)
-        b = _ProbeParticipant("b", calls, raise_in="on_rollback")
+        b = _ProbeParticipant("b", calls, raise_in="on_save_failed")
         _enlist(a, b)
 
         probe = _ProbeSideEffect(creator=authorized_user, client=_client(),
@@ -308,33 +301,23 @@ def test_on_rollback_raise_never_masks_original(app, authorized_user, sub_create
         with pytest.raises(InvalidEvent):  # original, not b's _Boom
             current_app.api.save(probe, submission_id=sid)
 
-        # b raised in on_rollback, but a was still notified after it.
-        assert ("on_rollback", "b") in calls
-        assert ("on_rollback", "a") in calls
-        assert calls.index(("on_rollback", "b")) < calls.index(("on_rollback", "a"))
+        # b raised in on_save_failed, but a was still notified after it.
+        assert ("on_save_failed", "b") in calls
+        assert ("on_save_failed", "a") in calls
+        assert calls.index(("on_save_failed", "b")) < calls.index(("on_save_failed", "a"))
 
 
-@pytest.mark.xfail(
-    reason="PR #82 review: unguarded session.rollback() in save()'s "
-           "except block masks the original error and skips on_rollback. Remove "
-           "this marker when the rollback is guarded.",
-    strict=True,
-    raises=_RollbackBoom,
-)
 def test_rollback_failure_keeps_original_error_and_fires_participants(
         app, authorized_user, sub_created, monkeypatch):
     """PR #82 review: if the save fails AND ``session.rollback()`` then
     raises (e.g. the DB connection dropped mid-transaction), save() must still
 
-      (a) propagate the ORIGINAL failure, not the rollback error, and
-      (b) fire ``on_rollback`` so audit/notification participants are not
-          silently skipped on exactly the DB-failure case they exist to catch.
-
-    This currently FAILS: the unguarded ``session.rollback()`` in save()'s
-    except block raises ``_RollbackBoom``, which masks the original ``_Boom``
-    and skips the ``on_rollback`` loop entirely. It should pass once the
-    rollback is guarded (rollback failure logged, original exception preserved,
-    participants still notified).
+      (a) propagate the ORIGINAL failure, not the rollback error,
+      (b) fire ``on_save_failed`` so audit/notification participants are not
+          silently skipped on exactly the DB-failure case they exist to catch,
+          and
+      (c) tell those participants the rollback did not succeed, via
+          ``SaveFailure.rolledback``, so they know the DB state is unknown.
     """
     with app.app_context():
         sid = str(sub_created.submission_id)
@@ -365,10 +348,12 @@ def test_rollback_failure_keeps_original_error_and_fires_participants(
         with pytest.raises(_Boom):
             api.save(probe, submission_id=sid)
 
-        # on_rollback must still fire despite rollback() raising.
-        assert ("on_rollback", "recorder") in calls
-        assert recorder.failures, "on_rollback participant was never notified"
+        # on_save_failed must still fire despite rollback() raising.
+        assert ("on_save_failed", "recorder") in calls
+        assert recorder.failures, "on_save_failed participant was never notified"
         assert isinstance(recorder.failures[0].exc, _Boom)
+        # The failed rollback is signalled so participants know DB state is unknown.
+        assert recorder.failures[0].rolledback is False
 
 
 def test_before_commit_sees_final_state(app, authorized_user, sub_created):

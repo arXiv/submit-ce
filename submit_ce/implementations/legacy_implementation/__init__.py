@@ -196,34 +196,29 @@ class LegacySubmitImplementation(SubmitApi):
                                         existing_events=existing_events, ctx=ctx)
             except BaseException as exc:
                 # Roll back explicitly (rather than relying on the session
-                # context manager) so on_rollback participants observe
-                # post-rollback state. The original exception propagates
-                # unchanged; participant failures are logged, never masking it.
+                # context manager) so on_save_failed participants observe
+                # post-rollback state. If the rollback itself raises, the
+                # failure is recorded (rolledback=False) and participants are
+                # still notified. The original exception propagates unchanged;
+                # participant failures are logged, never masking it.
 
-
-                session.rollback()
-                # PR #82 review: session.rollback() can itself raise
-                # (e.g. the DB connection dropped mid-transaction), masking the
-                # original exception and skipping the on_rollback loop below --
-                # exactly the DB-failure case participants exist to catch. The
-                # guard below preserves the original error and still notifies
-                # participants. See the xfail test
-                # test_rollback_failure_keeps_original_error_and_fires_participants.
-                # try:
-                #     session.rollback()
-                # except Exception:
-                #     logger.exception("session.rollback() failed during save "
-                #                      "error handling; original error preserved")
-
+                rolledback=False
+                try:
+                    session.rollback()
+                    rolledback=True
+                except Exception:
+                     logger.exception("session.rollback() failed during save "
+                                      "error handling; original error preserved")
 
                 failure = SaveFailure(exc=exc, phase=ctx.phase,
+                                      rolledback=rolledback,
                                       event=ctx.current_event,
                                       participant=ctx.current_participant)
                 for participant in reversed(self.participants):
                     try:
-                        participant.on_rollback(ctx, failure)
+                        participant.on_save_failed(ctx, failure)
                     except Exception:
-                        logger.exception("on_rollback failed for participant %r",
+                        logger.exception("on_save_failed handler raised for participant %r",
                                          participant)
                 raise
         self._participants_after_commit(ctx)
