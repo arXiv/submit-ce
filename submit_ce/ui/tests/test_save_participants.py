@@ -21,7 +21,7 @@ from flask import current_app
 from submit_ce.api.save_participant import (SaveContext, SaveFailure,
                                             SaveParticipant, SavePhase)
 from submit_ce.domain.agent import InternalClient
-from submit_ce.domain.event.base import EventWithSideEffect
+from submit_ce.domain.event.base import Event, EventWithSideEffect
 from submit_ce.domain.event.legacy import Withdraw
 from submit_ce.domain.exceptions import InvalidEvent
 
@@ -90,6 +90,40 @@ class _ProbeSideEffect(EventWithSideEffect):
 
     def project(self, submission):
         return submission
+
+
+class _UndeclaredConsequence(Event):
+    """A plain no-op event, used only as an undeclared consequence type."""
+
+    NAME = "undeclared consequence"
+    NAMED = "undeclared consequence"
+
+    def validate_pre_lock(self, submission) -> None:
+        pass
+
+    def project(self, submission):
+        return submission
+
+
+class _ProbeEmitsUndeclaredConsequence(Event):
+    """An event whose `consequences()` returns a type missing from its own
+    `CONSEQUENCE_TYPES` — i.e. it violates the declared-consequence contract
+    that `Event.get_consequences()` enforces at runtime."""
+
+    NAME = "probe emits undeclared consequence"
+    NAMED = "probe emits undeclared consequence"
+
+    # Deliberately does NOT declare _UndeclaredConsequence.
+    CONSEQUENCE_TYPES = frozenset()
+
+    def validate_pre_lock(self, submission) -> None:
+        pass
+
+    def project(self, submission):
+        return submission
+
+    def consequences(self, submission):
+        return [_UndeclaredConsequence(creator=self.creator, client=self.client)]
 
 
 def _client() -> InternalClient:
@@ -201,6 +235,37 @@ def test_event_validate_under_lock_failure_reported(app, authorized_user, sub_cr
         assert failure.event is probe
         assert failure.participant is None
         assert isinstance(failure.exc, InvalidEvent)
+
+
+def test_event_consequences_failure_reported(app, authorized_user, sub_created):
+    """`Event.get_consequences()` raises `RuntimeError` when an event returns
+    a consequence type it did not declare in `CONSEQUENCE_TYPES` (the runtime
+    check in `Event.get_consequences`, domain/event/base.py:196-200). The save
+    loop must report this as `SavePhase.EVENT_CONSEQUENCES`, name the
+    offending event, and roll back — including the parent event's own write,
+    even though it was persisted earlier in the same transaction."""
+    with app.app_context():
+        sid = str(sub_created.submission_id)
+        _, history_before = current_app.api.get_with_history(sid)
+
+        calls: List[Tuple[str, str]] = []
+        a = _ProbeParticipant("a", calls)
+        _enlist(a)
+
+        probe = _ProbeEmitsUndeclaredConsequence(creator=authorized_user, client=_client())
+        with pytest.raises(RuntimeError, match="undeclared consequence"):
+            current_app.api.save(probe, submission_id=sid)
+
+        failure = a.failures[0]
+        assert failure.phase == SavePhase.EVENT_CONSEQUENCES
+        assert failure.event is probe
+        assert failure.participant is None
+        assert isinstance(failure.exc, RuntimeError)
+
+        # The parent event's own persisted write is rolled back too, even
+        # though get_consequences() raised after store_event() ran.
+        _, history_after = current_app.api.get_with_history(sid)
+        assert len(history_after) == len(history_before)
 
 
 def test_after_commit_raise_is_swallowed(app, authorized_user, sub_created):

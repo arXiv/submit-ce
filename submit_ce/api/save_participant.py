@@ -47,6 +47,9 @@ class SavePhase(str, Enum):
     PARTICIPANT_UNDER_LOCK = "participant_under_lock"
     """A participant's :meth:`SaveParticipant.under_lock` is running."""
 
+    EVENT_CONSEQUENCES = "event_consequences"
+    """A runtime check that the Event only emits consequences of the type defined in the class."""
+
     EVENT_VALIDATE_UNDER_LOCK = "event_validate_under_lock"
     """An event's ``validate_under_lock()`` is running."""
 

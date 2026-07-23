@@ -291,13 +291,14 @@ class LegacySubmitImplementation(SubmitApi):
             after = event.apply(before)
             if not event.committed:
                 ctx.phase = SavePhase.EVENT_PERSIST
-                consequent_event, after = db.store_event(session, event, before, after)
-                committed.append(consequent_event)
+                stored_event, after = db.store_event(session, event, before, after)
+                committed.append(stored_event)
 
             before = after  # Prepare for the next event.
             ctx.after = after
 
             # Queue any follow-on events implied by this one, given the new state.
+            ctx.phase = SavePhase.EVENT_CONSEQUENCES
             for consequence in reversed(event.get_consequences(after)):
                 queue.insert(0, consequence)
 
