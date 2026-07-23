@@ -25,7 +25,7 @@ def test_jref_get_announced_returns_prepopulated_form(monkeypatch, authorized_us
         lambda session: (authorized_user, InternalClient(name="test-client"))
     )
 
-    # ❗Disable CSRF on the form class via module path (no need for request/session)
+    # Disable CSRF on the form class via module path (no need for request/session)
     monkeypatch.setattr(
         "submit_ce.ui.controllers.jref.JREFForm.Meta.csrf",
         False,

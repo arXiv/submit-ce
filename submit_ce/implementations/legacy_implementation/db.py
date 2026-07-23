@@ -490,7 +490,9 @@ def _create_replacement(document_id: int, paper_id: str, version: int,
     incremented version number. This requires a new row in the database.
     """
     dbs = models.Submission(type=models.Submission.REPLACEMENT,
-                            document_id=document_id, version=version)
+                            document_id=document_id, version=version,
+                            remote_addr=submission.client.remote_addr,
+                            remote_host=submission.client.remote_host)
     dbs.update_from_submission(submission)
     dbs.created = created
     dbs.updated = created

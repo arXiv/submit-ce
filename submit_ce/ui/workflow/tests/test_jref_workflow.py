@@ -2,11 +2,12 @@
 from http import HTTPStatus as status
 
 from arxiv.db import models as classic
-
-
-from submit_ce.ui.tests.csrf_util import parse_csrf_token
-
 from arxiv.db import Session
+from flask import current_app
+
+from submit_ce.domain.agent import InternalClient
+from submit_ce.domain.event import CreateSubmissionVersion
+from submit_ce.ui.tests.csrf_util import parse_csrf_token
 
 
 # @pytest.fixture
@@ -115,7 +116,7 @@ from arxiv.db import Session
     # self.submission_id = self.submission.submission_id
 
 
-def test_create_submission(app, authorized_client, published_submission):
+def test_create_jref_submission(app, authorized_client, published_submission):
     """Test user creates a jref submission via web UI."""
     submission, paper_id = published_submission
     submission_id = submission.submission_id
@@ -144,6 +145,185 @@ def test_create_submission(app, authorized_client, published_submission):
 
     with app.app_context():
         with Session() as session:
-            db_submission = session.query(classic.Submission) \
-                                   .filter(classic.Submission.doc_paper_id == paper_id)
-            assert db_submission.count() == 2, "Creates a second row for the JREF"
+            rows = session.query(classic.Submission) \
+                          .filter(classic.Submission.doc_paper_id == paper_id) \
+                          .all()
+            assert len(rows) == 2, "Creates a second row for the JREF"
+
+            # The original announced row and the new jref row.
+            orig = next(r for r in rows if r.type != 'jref')
+            jref = next(r for r in rows if r.type == 'jref')
+
+            # Identity: it is a jref row for the same document/paper, same version.
+            assert jref.type == 'jref'
+            assert jref.doc_paper_id == paper_id
+            assert jref.document_id is not None
+            assert jref.document_id == orig.document_id, \
+                "jref shares the announced paper's document"
+            assert jref.version == orig.version, "jref does not bump the version"
+            assert jref.submission_id != orig.submission_id, "jref is a distinct row"
+
+            # The jref-specific fields carry the edited values.
+            assert jref.doi == '10.1000/182'
+            assert jref.journal_ref == 'foo journal 1992'
+            assert jref.report_num == 'abc report 42'
+
+            # The rest of the metadata is copied from the announced paper.
+            assert jref.title == submission.metadata.title
+            assert jref.abstract == submission.metadata.abstract
+            assert jref.authors == submission.metadata.authors_display
+            assert jref.comments == submission.metadata.comments
+
+
+def test_jref_on_unannounced_submission(app, authorized_client, sub_created):
+    """A jref cannot be made against a submission that is not yet announced."""
+    submission_id = sub_created.submission_id
+    endpoint = f'/{submission_id}/jref'
+
+    def jref_count():
+        with app.app_context():
+            with Session() as session:
+                return session.query(classic.Submission) \
+                              .filter(classic.Submission.type == 'jref') \
+                              .count()
+
+    before = jref_count()
+
+    # GET is rejected: the submission has never been announced, so there is
+    # nothing to add a journal reference to. The user is redirected away.
+    response = authorized_client.get(endpoint)
+    assert response.status_code == status.SEE_OTHER
+
+    # POST is rejected the same way, and no jref row is created.
+    response = authorized_client.post(
+        endpoint,
+        data={'doi': '10.1000/182',
+              'journal_ref': 'foo journal 1992',
+              'report_num': 'abc report 42',
+              'confirmed': True})
+    assert response.status_code == status.SEE_OTHER
+
+    assert jref_count() == before, "No jref row for an unannounced submission"
+
+
+def test_second_jref_absorbed_into_first(app, authorized_client,
+                                         published_submission):
+    """A second jref edit on a published paper updates the existing jref row
+    rather than creating another one."""
+    submission, paper_id = published_submission
+    submission_id = submission.submission_id
+    endpoint = f'/{submission_id}/jref'
+
+    def submit_jref(doi, journal_ref, report_num):
+        """Run the two-step confirm-and-submit jref flow."""
+        response = authorized_client.get(endpoint)
+        data = {'doi': doi, 'journal_ref': journal_ref,
+                'report_num': report_num,
+                'csrf_token': parse_csrf_token(response)}
+        # First POST previews and asks for confirmation.
+        response = authorized_client.post(endpoint, data=data)
+        assert response.status_code == status.OK
+        assert b'Confirm and Submit' in response.data
+        # Second POST, confirmed, commits.
+        data['confirmed'] = True
+        data['csrf_token'] = parse_csrf_token(response)
+        response = authorized_client.post(endpoint, data=data)
+        assert response.status_code == status.SEE_OTHER
+
+    # First jref submission.
+    submit_jref('10.1000/182', 'foo journal 1992', 'abc report 42')
+    # Second jref submission with different values.
+    submit_jref('10.2000/999', 'bar journal 2001', 'xyz report 77')
+
+    with app.app_context():
+        with Session() as session:
+            rows = session.query(classic.Submission) \
+                          .filter(classic.Submission.doc_paper_id == paper_id) \
+                          .all()
+            # Still just the original announced row plus a single jref row: the
+            # second jref was absorbed into the first, not added as a new row.
+            assert len(rows) == 2, \
+                "Second jref is absorbed into the first jref row"
+
+            jref_rows = [r for r in rows if r.type == 'jref']
+            assert len(jref_rows) == 1
+            jref = jref_rows[0]
+
+            # The single jref row carries the values from the second edit.
+            assert jref.doi == '10.2000/999'
+            assert jref.journal_ref == 'bar journal 2001'
+            assert jref.report_num == 'xyz report 77'
+
+
+def test_jref_with_inprogress_replacement(app, authorized_user,
+                                          authorized_client,
+                                          published_submission):
+    """A jref on a paper that has an unpublished replacement in progress must
+    create its own jref row, not fold the edits into the replacement row."""
+    submission, paper_id = published_submission
+    submission_id = submission.submission_id
+
+    # Start a new version but do not submit it: an in-progress (WORKING) rep.
+    with app.app_context():
+        ua = InternalClient(name=f"test_client_{__file__}")
+        current_app.api.save(
+            CreateSubmissionVersion(creator=authorized_user, client=ua),
+            submission_id=submission_id)
+
+    # Capture the replacement row's jref-relevant fields before the jref, so we
+    # can prove the jref leaves them untouched.
+    with app.app_context():
+        with Session() as session:
+            rep_before = session.query(classic.Submission) \
+                                .filter(classic.Submission.doc_paper_id == paper_id) \
+                                .filter(classic.Submission.type == 'rep').one()
+            rep_id = rep_before.submission_id
+            rep_version = rep_before.version
+            rep_doi = rep_before.doi
+            rep_journal_ref = rep_before.journal_ref
+            rep_report_num = rep_before.report_num
+
+    # Run the two-step confirm-and-submit jref flow.
+    endpoint = f'/{submission_id}/jref'
+    response = authorized_client.get(endpoint)
+    assert response.status_code == status.OK
+    data = {'doi': '10.1000/182', 'journal_ref': 'foo journal 1992',
+            'report_num': 'abc report 42',
+            'csrf_token': parse_csrf_token(response)}
+    response = authorized_client.post(endpoint, data=data)
+    assert response.status_code == status.OK
+    data['confirmed'] = True
+    data['csrf_token'] = parse_csrf_token(response)
+    response = authorized_client.post(endpoint, data=data)
+    assert response.status_code == status.SEE_OTHER
+
+    with app.app_context():
+        with Session() as session:
+            rows = session.query(classic.Submission) \
+                          .filter(classic.Submission.doc_paper_id == paper_id) \
+                          .all()
+            by_type = {r.type: r for r in rows}
+            # Three distinct rows now: the announced new, the in-progress rep,
+            # and a brand new jref row.
+            assert len(rows) == 3
+            assert set(by_type) == {'new', 'rep', 'jref'}
+
+            jref = by_type['jref']
+            rep = by_type['rep']
+
+            # The jref got its own row at the announced version, carrying the
+            # edits.
+            assert jref.submission_id not in (submission_id, rep_id)
+            assert jref.version == by_type['new'].version
+            assert jref.doi == '10.1000/182'
+            assert jref.journal_ref == 'foo journal 1992'
+            assert jref.report_num == 'abc report 42'
+
+            # The in-progress replacement must be left completely untouched: the
+            # jref edits must not be absorbed into it.
+            assert rep.submission_id == rep_id
+            assert rep.version == rep_version == by_type['new'].version + 1
+            assert rep.status == 0
+            assert rep.doi == rep_doi
+            assert rep.journal_ref == rep_journal_ref
+            assert rep.report_num == rep_report_num
