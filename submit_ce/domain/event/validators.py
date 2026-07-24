@@ -10,7 +10,7 @@ from ..submission import Submission
 from ..exceptions import InvalidEvent
 
 
-def passes_qa_checks(event: Event, check_result: Result | None) -> None:
+def passes_qa_checks(event: Event, check_result: Result) -> None:
     """
     Verify that the input passes quality assurance checks.
 
@@ -22,10 +22,10 @@ def passes_qa_checks(event: Event, check_result: Result | None) -> None:
     Raises
     ------
     :class:`.InvalidEvent`
-        Raised if `Result` is present and includes `Disposition.REJECT`.
+        Raised if `check_result.disposition` is `REJECT`.
 
     """
-    if check_result and check_result.disposition == Disposition.REJECT:
+    if check_result.disposition == Disposition.REJECT:
         raise InvalidEvent(event, check_result.message)
 
 

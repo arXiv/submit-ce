@@ -54,10 +54,6 @@ def test_warn_disposition_does_not_raise():
     validators.passes_qa_checks(_event(), result)  # should not raise
 
 
-def test_none_does_not_raise():
-    validators.passes_qa_checks(_event(), None)  # should not raise
-
-
 def test_reject_disposition_raises_with_aggregate_message():
     """Mirrors the empty/missing-field path: no sub-results, just the
     aggregate's own failure message."""
