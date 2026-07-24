@@ -3,10 +3,24 @@
 import re
 
 from arxiv.taxonomy.definitions import CATEGORIES
+from qa.checks.models import Disposition, Result
 
 from .base import Event
 from ..submission import Submission
 from ..exceptions import InvalidEvent
+
+
+def passes_qa_checks(event: Event, check_result: Result | None) -> None:
+    """Raise :class:`.InvalidEvent` if a qa metadata check result is REJECTed.
+
+    Centralizes how a ``REJECT`` :class:`~qa.checks.models.Result` disposition
+    (produced when a required field is empty or missing) is handled, so that
+    behavior is independent of how any individual qa sub-check's
+    ``on_failure_policy`` happens to be configured. A ``WARN`` disposition is
+    advisory and never blocks the event.
+    """
+    if check_result and check_result.disposition == Disposition.REJECT:
+        raise InvalidEvent(event, "", check_result)
 
 
 def submission_is_not_finalized(event: Event, submission: Submission) -> None:

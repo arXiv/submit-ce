@@ -1,4 +1,4 @@
-"""Tests for :func:`submit_ce.domain.event._enforce_check`.
+"""Tests for :func:`submit_ce.domain.event.validators.passes_qa_checks`.
 
 These tests construct :class:`qa.checks.models.Result` objects directly,
 rather than exercising real qa checks against real-world strings. That
@@ -11,7 +11,7 @@ responsibility to test).
 from qa.checks.models import Disposition, OnFailurePolicy, Result
 
 from submit_ce.domain import agent
-from submit_ce.domain.event import SetTitle, _enforce_check
+from submit_ce.domain.event import SetTitle, validators
 from submit_ce.domain.exceptions import InvalidEvent
 
 user = agent.PublicUser(
@@ -23,7 +23,7 @@ user = agent.PublicUser(
 
 
 def _event() -> SetTitle:
-    """Any Event instance works; _enforce_check only needs .event_type."""
+    """Any Event instance works; passes_qa_checks only needs .event_type."""
     return SetTitle(creator=user, title="A perfectly fine title")
 
 
@@ -39,7 +39,7 @@ def _sub_result(policy: OnFailurePolicy, message: str) -> Result:
 
 def test_ok_disposition_does_not_raise():
     result = Result(check_config={}, passed=True, disposition=Disposition.OK, message="")
-    _enforce_check(_event(), result)  # should not raise
+    validators.passes_qa_checks(_event(), result)  # should not raise
 
 
 def test_warn_disposition_does_not_raise():
@@ -51,11 +51,11 @@ def test_warn_disposition_does_not_raise():
         message="",
         results=[_sub_result(OnFailurePolicy.WARN, "Excessive capitalization.")],
     )
-    _enforce_check(_event(), result)  # should not raise
+    validators.passes_qa_checks(_event(), result)  # should not raise
 
 
 def test_none_does_not_raise():
-    _enforce_check(_event(), None)  # should not raise
+    validators.passes_qa_checks(_event(), None)  # should not raise
 
 
 def test_reject_disposition_without_results_raises_with_aggregate_message():
@@ -69,7 +69,7 @@ def test_reject_disposition_without_results_raises_with_aggregate_message():
         results=[],
     )
     try:
-        _enforce_check(_event(), result)
+        validators.passes_qa_checks(_event(), result)
         assert False, "expected InvalidEvent to be raised"
     except InvalidEvent as e:
         assert e.check_result is result
@@ -90,7 +90,7 @@ def test_reject_disposition_with_results_joins_only_reject_policy_messages():
         ],
     )
     try:
-        _enforce_check(_event(), result)
+        validators.passes_qa_checks(_event(), result)
         assert False, "expected InvalidEvent to be raised"
     except InvalidEvent as e:
         assert e.message == "Title is invalid or empty.: Cannot be empty."
@@ -109,7 +109,7 @@ def test_reject_disposition_with_no_reject_policy_results_has_empty_tail():
         results=[_sub_result(OnFailurePolicy.WARN, "Excessive capitalization.")],
     )
     try:
-        _enforce_check(_event(), result)
+        validators.passes_qa_checks(_event(), result)
         assert False, "expected InvalidEvent to be raised"
     except InvalidEvent as e:
         assert e.message == "Title is invalid or empty.: "
