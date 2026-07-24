@@ -218,17 +218,19 @@ class LegacySubmitImplementation(SubmitApi):
             # Since the event may refer to its own ID which in future versions should be based on the
             # creation time, this must be set before the event is applied.
             event.created = datetime.now(UTC)
+
+            # validate_under_lock runs inside the locked transaction so it can
+            # inspect DB / on-disk / FileStore state without racing against
+            # another writer. Raising InvalidEvent here rolls the DB transaction
+            # back. Any earlier EventWithSideEffect.execute() is not rolled back.
+            # The caller's `except InvalidEvent` decides UX. It runs for every
+            # event, and for an EventWithSideEffect it runs before execute().
+            event.validate_under_lock(self, before)
+
             if isinstance(event, EventWithSideEffect):
                 if event.executed:
                     raise RuntimeError("Must not save and execute an already executed event. "
                                        "{event.event_id} {event.NAME} executed {event.executed}")
-                # validate_under_lock runs inside the locked
-                # transaction so it can inspect on-disk / FileStore
-                # state without racing against another writer. Raising
-                # InvalidEvent here rolls the DB transaction back.
-                # Any earlier EventWithSideEffect.execute() is not rolled back.
-                # The caller's `except InvalidEvent` decides UX.
-                event.validate_under_lock(self, before)
                 logger.debug('Execute event %s: %s', event.event_id, event.NAME)
                 event.execute(self, before)
                 if not event.executed:

@@ -258,8 +258,12 @@ def test_second_jref_absorbed_into_first(app, authorized_client,
 def test_jref_with_inprogress_replacement(app, authorized_user,
                                           authorized_client,
                                           published_submission):
-    """A jref on a paper that has an unpublished replacement in progress must
-    create its own jref row, not fold the edits into the replacement row."""
+    """A jref is rejected when the paper has an in-progress replacement.
+
+    The guard lives in the jref events' ``validate_under_lock``, so it fires
+    when the confirmed jref is saved. A friendly GET-time redirect is a later
+    phase; for now the uncaught ``InvalidEvent`` surfaces as a 500. Either way
+    no jref row is created and the replacement is left untouched."""
     submission, paper_id = published_submission
     submission_id = submission.submission_id
 
@@ -283,7 +287,8 @@ def test_jref_with_inprogress_replacement(app, authorized_user,
             rep_journal_ref = rep_before.journal_ref
             rep_report_num = rep_before.report_num
 
-    # Run the two-step confirm-and-submit jref flow.
+    # Run the two-step confirm-and-submit jref flow. The confirmed POST is
+    # rejected under the row lock because a replacement is in progress.
     endpoint = f'/{submission_id}/jref'
     response = authorized_client.get(endpoint)
     assert response.status_code == status.OK
@@ -295,7 +300,7 @@ def test_jref_with_inprogress_replacement(app, authorized_user,
     data['confirmed'] = True
     data['csrf_token'] = parse_csrf_token(response)
     response = authorized_client.post(endpoint, data=data)
-    assert response.status_code == status.SEE_OTHER
+    assert response.status_code == status.INTERNAL_SERVER_ERROR
 
     with app.app_context():
         with Session() as session:
@@ -303,24 +308,12 @@ def test_jref_with_inprogress_replacement(app, authorized_user,
                           .filter(classic.Submission.doc_paper_id == paper_id) \
                           .all()
             by_type = {r.type: r for r in rows}
-            # Three distinct rows now: the announced new, the in-progress rep,
-            # and a brand new jref row.
-            assert len(rows) == 3
-            assert set(by_type) == {'new', 'rep', 'jref'}
+            # No jref row was created: only the announced new row and the rep.
+            assert set(by_type) == {'new', 'rep'}
+            assert 'jref' not in by_type
 
-            jref = by_type['jref']
+            # The in-progress replacement is left completely untouched.
             rep = by_type['rep']
-
-            # The jref got its own row at the announced version, carrying the
-            # edits.
-            assert jref.submission_id not in (submission_id, rep_id)
-            assert jref.version == by_type['new'].version
-            assert jref.doi == '10.1000/182'
-            assert jref.journal_ref == 'foo journal 1992'
-            assert jref.report_num == 'abc report 42'
-
-            # The in-progress replacement must be left completely untouched: the
-            # jref edits must not be absorbed into it.
             assert rep.submission_id == rep_id
             assert rep.version == rep_version == by_type['new'].version + 1
             assert rep.status == 0

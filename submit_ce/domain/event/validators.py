@@ -5,7 +5,7 @@ import re
 from arxiv.taxonomy.definitions import CATEGORIES
 
 from .base import Event
-from ..submission import Submission
+from ..submission import Submission, SubmissionType
 from ..exceptions import InvalidEvent
 
 
@@ -26,6 +26,41 @@ def submission_is_not_finalized(event: Event, submission: Submission) -> None:
     """
     if submission.is_finalized:
         raise InvalidEvent(event, "Cannot apply to a finalized submission")
+
+
+def no_conflicting_active_submission(event: Event, api,
+                                     submission: Submission) -> None:
+    """Reject a journal reference when the paper has a conflicting submission.
+
+    An in-progress *jref* is allowed: a paper's several journal-reference edits
+    share a single jref row, and the events of one such edit would otherwise
+    reject one another. Any other in-progress submission (replacement,
+    withdrawal, cross-list) blocks the journal reference.
+
+    Parameters
+    ----------
+    event : :class:`.Event`
+    api : :class:`submit_ce.api.submit.SubmitApi`
+        Used to look up other submissions on the paper.
+    submission : :class:`.domain.submission.Submission`
+        The state before the event is applied.
+
+    Raises
+    ------
+    :class:`.InvalidEvent`
+        If the announced paper already has a non-jref submission in progress.
+
+    """
+    if submission is None or not submission.is_announced:
+        return
+    document = api.get_document(submission.arxiv_id)
+    conflicting = [s for s in document.active_submissions
+                   if s.submission_type != SubmissionType.JOURNAL_REFERENCE]
+    if conflicting:
+        raise InvalidEvent(
+            event,
+            "This paper already has a submission in progress; finish or cancel "
+            "it before adding a journal reference.")
 
 
 def no_trailing_period(event: Event, submission: Submission,

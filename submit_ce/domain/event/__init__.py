@@ -625,6 +625,10 @@ class SetDOI(Event):
         if check and check.disposition != metacheck.OK:
             raise InvalidEvent(self, "", check)
 
+    def validate_under_lock(self, api, submission) -> None:
+        """Reject if the announced paper has a conflicting submission."""
+        validators.no_conflicting_active_submission(self, api, submission)
+
     def project(self, submission: Submission) -> Submission:
         """Update the doi on a :class:`.domain.submission.Submission`."""
         submission.metadata.doi = self.doi
@@ -756,6 +760,10 @@ class SetJournalReference(Event):
         if check and check.disposition != metacheck.OK:
             raise InvalidEvent(self, "", check)
 
+    def validate_under_lock(self, api, submission) -> None:
+        """Reject if the announced paper has a conflicting submission."""
+        validators.no_conflicting_active_submission(self, api, submission)
+
     def project(self, submission: Submission) -> Submission:
         """Update the journal reference on a :class:`.domain.submission.Submission`."""
         submission.metadata.journal_ref = self.journal_ref
@@ -803,6 +811,10 @@ class SetReportNumber(Event):
         check = metacheck.check_report_num(self.report_num)
         if check and check.disposition != metacheck.OK:
             raise InvalidEvent(self, "", check)
+
+    def validate_under_lock(self, api, submission) -> None:
+        """Reject if the announced paper has a conflicting submission."""
+        validators.no_conflicting_active_submission(self, api, submission)
 
     def project(self, submission: Submission) -> Submission:
         """Set report number on a :class:`.domain.submission.Submission`."""
