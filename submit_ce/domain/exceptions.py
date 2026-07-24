@@ -1,6 +1,5 @@
 """Exceptions raised during event handling."""
 
-# from qa.checks.models import OnFailurePolicy, Result
 from submit_ce.domain.event.base import Event
 
 
