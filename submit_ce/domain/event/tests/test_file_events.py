@@ -2,6 +2,7 @@ from datetime import datetime
 from pytz import UTC
 
 from submit_ce.domain import submission as submod, agent
+from submit_ce.domain.preview import Preview
 from submit_ce.domain.event.file import (
     UploadFiles, RemoveFiles, RemoveAllFiles, _common_file_change_execute,
 )
@@ -60,6 +61,42 @@ def test_remove_all_files_clears_package():
 
     assert s.source_format is None
     assert s.uncompressed_size == 0
+    assert s.submitter_confirmed_preview is False
+
+
+def _processed_submission():
+    """A submission that has already been processed, with a preview recorded."""
+    s = _blank_submission()
+    s.is_source_processed = True
+    s.submitter_confirmed_preview = True
+    s.preview = Preview(source_id=1, source_checksum="a",
+                        preview_checksum="b", size_bytes=10, added=_now())
+    return s
+
+
+def test_upload_resets_processing_state():
+    """Uploading files after a submission is processed marks it unprocessed and
+    drops the stale preview, so Process re-runs on the new source. [SUBMISSION-207]"""
+    s = _processed_submission()
+    e = UploadFiles(creator=s.creator, files=[])
+    e.validate_pre_lock(s)
+    s = e.project(s)
+
+    assert s.is_source_processed is False
+    assert s.preview is None
+    assert s.submitter_confirmed_preview is False
+
+
+def test_remove_all_resets_processing_state():
+    """RemoveAllFiles (e.g. swapping a processed PDF-only submission's file) also
+    resets the processing state and clears the preview. [SUBMISSION-207]"""
+    s = _processed_submission()
+    e = RemoveAllFiles(creator=s.creator)
+    e.validate_pre_lock(s)
+    s = e.project(s)
+
+    assert s.is_source_processed is False
+    assert s.preview is None
     assert s.submitter_confirmed_preview is False
 
 
