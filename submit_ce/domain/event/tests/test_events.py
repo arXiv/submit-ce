@@ -1,16 +1,16 @@
 """Tests for :class:`.Event` instances in :mod:`arxiv.submission.domain.event`."""
 
-from unittest import TestCase, mock
-from datetime import datetime
 import re
+from datetime import datetime
+from unittest import TestCase, mock
 
 from arxiv.taxonomy.definitions import CATEGORIES, CATEGORIES_ACTIVE
-from pytz import UTC
 from mimesis import Text
+from pytz import UTC
 
-from submit_ce.domain import event, agent, submission, meta
-from submit_ce.domain.uploads import SourceFormat
+from submit_ce.domain import agent, event, meta, submission
 from submit_ce.domain.exceptions import InvalidEvent
+from submit_ce.domain.uploads import SourceFormat
 
 user = agent.PublicUser(
     name="Bob Somebody",
@@ -605,11 +605,15 @@ class TestSetTitle(TestCase):
             self.fail("Should accept ellipsis")
 
     def test_huge_title(self):
-        """Title is set to something unreasonably large."""
-        title = Text().text(200)    # 200 sentences.
+        """Title is set to something unreasonably large.
+
+        qa's TitleIsValid length check is advisory (WARN), not blocking. The
+        trailing period is stripped so this test isolates the length
+        behavior from validators.no_trailing_period and mimesis randomness.
+        """
+        title = re.sub(r"\.$", "", Text().text(200))    # 200 sentences.
         e = event.SetTitle(creator=self.user, title=title)
-        with self.assertRaises(InvalidEvent):
-            e.validate_pre_lock(self.submission)
+        e.validate_pre_lock(self.submission)
 
     def test_title_with_html_escapes(self):
         """Title should not allow HTML escapes."""

@@ -1701,7 +1701,7 @@ wheels = [
 [[package]]
 name = "qa"
 version = "0.1.0"
-source = { git = "https://github.com/arXiv/arxiv-base.git?subdirectory=qa&branch=develop#7f1d6b4b83fdfe5a7b34ff0673210fc6dd882a36" }
+source = { git = "https://github.com/arXiv/arxiv-base.git?subdirectory=qa&branch=develop#622c505259cb38b132c5b90c4ccf7b57d12399c9" }
 dependencies = [
     { name = "arxiv-base" },
     { name = "pydantic" },
