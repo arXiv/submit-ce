@@ -58,7 +58,7 @@ def test_none_does_not_raise():
     validators.passes_qa_checks(_event(), None)  # should not raise
 
 
-def test_reject_disposition_without_results_raises_with_aggregate_message():
+def test_reject_disposition_raises_with_aggregate_message():
     """Mirrors the empty/missing-field path: no sub-results, just the
     aggregate's own failure message."""
     result = Result(
@@ -72,13 +72,12 @@ def test_reject_disposition_without_results_raises_with_aggregate_message():
         validators.passes_qa_checks(_event(), result)
         assert False, "expected InvalidEvent to be raised"
     except InvalidEvent as e:
-        assert e.check_result is result
         assert e.message == "Title is invalid or empty."
 
 
-def test_reject_disposition_with_results_joins_only_reject_policy_messages():
-    """Only sub-results whose own on_failure_policy is REJECT are joined
-    into the exception message; WARN-tier sub-results are omitted."""
+def test_reject_disposition_message_ignores_sub_results():
+    """The exception message is always the aggregate's own message; the
+    content of check_result.results does not affect it."""
     result = Result(
         check_config={},
         passed=False,
@@ -93,23 +92,4 @@ def test_reject_disposition_with_results_joins_only_reject_policy_messages():
         validators.passes_qa_checks(_event(), result)
         assert False, "expected InvalidEvent to be raised"
     except InvalidEvent as e:
-        assert e.message == "Title is invalid or empty.: Cannot be empty."
-
-
-def test_reject_disposition_with_no_reject_policy_results_has_empty_tail():
-    """If no sub-result carries a REJECT policy, the joined tail is empty
-    (this is the current real-world qa configuration: every sub-check is
-    WARN-tier, so REJECT is only ever reached via the empty-field path,
-    which passes results=[] -- see the test above)."""
-    result = Result(
-        check_config={},
-        passed=False,
-        disposition=Disposition.REJECT,
-        message="Title is invalid or empty.",
-        results=[_sub_result(OnFailurePolicy.WARN, "Excessive capitalization.")],
-    )
-    try:
-        validators.passes_qa_checks(_event(), result)
-        assert False, "expected InvalidEvent to be raised"
-    except InvalidEvent as e:
-        assert e.message == "Title is invalid or empty.: "
+        assert e.message == "Title is invalid or empty."

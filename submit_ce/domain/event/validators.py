@@ -11,16 +11,22 @@ from ..exceptions import InvalidEvent
 
 
 def passes_qa_checks(event: Event, check_result: Result | None) -> None:
-    """Raise :class:`.InvalidEvent` if a qa metadata check result is REJECTed.
+    """
+    Verify that the input passes quality assurance checks.
 
-    Centralizes how a ``REJECT`` :class:`~qa.checks.models.Result` disposition
-    (produced when a required field is empty or missing) is handled, so that
-    behavior is independent of how any individual qa sub-check's
-    ``on_failure_policy`` happens to be configured. A ``WARN`` disposition is
-    advisory and never blocks the event.
+    Parameters
+    ----------
+    event : :class:`.Event`
+    check_result : :class:`qa.checks.models.Result`
+
+    Raises
+    ------
+    :class:`.InvalidEvent`
+        Raised if `Result` is present and includes `Disposition.REJECT`.
+
     """
     if check_result and check_result.disposition == Disposition.REJECT:
-        raise InvalidEvent(event, "", check_result)
+        raise InvalidEvent(event, check_result.message)
 
 
 def submission_is_not_finalized(event: Event, submission: Submission) -> None:

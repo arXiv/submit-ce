@@ -54,15 +54,7 @@ from datetime import datetime
 from typing import Optional, List, Union, ClassVar
 
 from arxiv.license import LICENSES
-from qa.checks.metadata.title import TitleIsValid
-from qa.checks.metadata.authors import AuthorsAreValid
-from qa.checks.metadata.abstract import AbstractIsValid
-from qa.checks.metadata.comments import CommentsAreValid
-from qa.checks.metadata.report_num import ReportNumIsValid
-from qa.checks.metadata.journal_ref import JournalRefIsValid
-from qa.checks.metadata.doi import DoiIsValid
-from qa.checks.metadata.msc_class import MscClassIsValid
-from qa.checks.metadata.acm_class import AcmClassIsValid
+from qa import checks
 import bleach
 from arxiv.taxonomy.definitions import CATEGORIES
 from pytz import UTC
@@ -513,7 +505,7 @@ class SetTitle(Event):
     def validate_pre_lock(self, submission: Submission) -> None:
         """Validate the title value."""
         validators.submission_is_not_finalized(self, submission)
-        validators.passes_qa_checks(self, TitleIsValid.check(self.title))
+        validators.passes_qa_checks(self, checks.TitleIsValid.check(self.title))
         self._does_not_contain_html_escapes(submission)
         validators.no_trailing_period(self, submission, self.title)
         self._check_for_html(submission)
@@ -570,7 +562,7 @@ class SetAbstract(Event):
     def validate_pre_lock(self, submission: Submission) -> None:
         """Validate the abstract value."""
         validators.submission_is_not_finalized(self, submission)
-        validators.passes_qa_checks(self, AbstractIsValid.check(self.abstract))
+        validators.passes_qa_checks(self, checks.AbstractIsValid.check(self.abstract))
 
     def project(self, submission: Submission) -> Submission:
         """Update the abstract on a :class:`.domain.submission.Submission`."""
@@ -624,7 +616,7 @@ class SetDOI(Event):
             raise InvalidEvent(self, 'Cannot edit a finalized submission')
         if not self.doi:    # Can be blank.
             return
-        validators.passes_qa_checks(self, DoiIsValid.check(self.doi))
+        validators.passes_qa_checks(self, checks.DoiIsValid.check(self.doi))
 
     def project(self, submission: Submission) -> Submission:
         """Update the doi on a :class:`.domain.submission.Submission`."""
@@ -662,7 +654,7 @@ class SetMSCClassification(Event):
         validators.submission_is_not_finalized(self, submission)
         if not self.msc_class:    # Blank values are OK.
             return
-        validators.passes_qa_checks(self, MscClassIsValid.check(self.msc_class))
+        validators.passes_qa_checks(self, checks.MscClassIsValid.check(self.msc_class))
 
     def project(self, submission: Submission) -> Submission:
         """Update the MSC classification on a :class:`.domain.submission.Submission`."""
@@ -702,7 +694,7 @@ class SetACMClassification(Event):
         validators.submission_is_not_finalized(self, submission)
         if not self.acm_class:    # Blank values are OK.
             return
-        validators.passes_qa_checks(self, AcmClassIsValid.check(self.acm_class))
+        validators.passes_qa_checks(self, checks.AcmClassIsValid.check(self.acm_class))
 
     def project(self, submission: Submission) -> Submission:
         """Update the ACM classification on a :class:`.domain.submission.Submission`."""
@@ -749,7 +741,7 @@ class SetJournalReference(Event):
         """Validate the journal reference value."""
         if not self.journal_ref:    # Blank values are OK.
             return
-        validators.passes_qa_checks(self, JournalRefIsValid.check(self.journal_ref))
+        validators.passes_qa_checks(self, checks.JournalRefIsValid.check(self.journal_ref))
 
     def project(self, submission: Submission) -> Submission:
         """Update the journal reference on a :class:`.domain.submission.Submission`."""
@@ -795,7 +787,7 @@ class SetReportNumber(Event):
         """Validate the report number value."""
         if not self.report_num:    # Blank values are OK.
             return
-        validators.passes_qa_checks(self, ReportNumIsValid.check(self.report_num))
+        validators.passes_qa_checks(self, checks.ReportNumIsValid.check(self.report_num))
 
     def project(self, submission: Submission) -> Submission:
         """Set report number on a :class:`.domain.submission.Submission`."""
@@ -829,7 +821,7 @@ class SetComments(Event):
         validators.submission_is_not_finalized(self, submission)
         if not self.comments:    # Blank values are OK.
             return
-        validators.passes_qa_checks(self, CommentsAreValid.check(self.comments))
+        validators.passes_qa_checks(self, checks.CommentsAreValid.check(self.comments))
 
     def project(self, submission: Submission) -> Submission:
         """Update the comments on a :class:`.domain.submission.Submission`."""
@@ -867,7 +859,7 @@ class SetAuthors(Event):
     def validate_pre_lock(self, submission: Submission) -> None:
         """May not apply to a finalized submission."""
         validators.submission_is_not_finalized(self, submission)
-        validators.passes_qa_checks(self, AuthorsAreValid.check(self.authors_display))
+        validators.passes_qa_checks(self, checks.AuthorsAreValid.check(self.authors_display))
 
     def _canonical_author_string(self) -> str:
         """Canonical representation of authors, using display names."""

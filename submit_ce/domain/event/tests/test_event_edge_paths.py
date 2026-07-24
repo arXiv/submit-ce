@@ -18,6 +18,7 @@ import copy
 import pytest
 from unittest import mock
 
+from qa.checks import TitleIsValid
 from qa.checks.models import Disposition, Result
 
 # Domain models and helpers
@@ -37,7 +38,6 @@ from submit_ce.domain.event import (
     SetLicense,
     SetReportNumber,
     SetTitle,
-    TitleIsValid,
     InvalidEvent,
 )
 
