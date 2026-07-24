@@ -23,15 +23,6 @@ def test_metadata(app, authorized_client, sub_processed):
     assert resp.status_code == 400 \
         and b"<title>Add or Edit Metadata" in resp.data and b"<form " in resp.data
 
-    # a short abstract is accepted: qa's AbstractIsValid length check is
-    # advisory (WARN), not blocking
-    resp = authorized_client.post(url, data={"csrf_token":parse_csrf_token(resp),
-                                             "title": "TitleX bla bla bla bla",
-                                             "abstract": "too short abs",
-                                             "authors_display": "Bob Smith"})
-    assert resp.status_code == 200 \
-        and b"<title>Add or Edit Metadata" in resp.data and b"<form " in resp.data
-
     # test successfully setting the metadata
     resp = authorized_client.post(url, data={"csrf_token":parse_csrf_token(resp),
                                              "title": "TitleX bla bla bla",

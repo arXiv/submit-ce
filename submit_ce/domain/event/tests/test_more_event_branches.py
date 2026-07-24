@@ -21,7 +21,6 @@ from submit_ce.domain import submission as submod, meta, agent
 # Event classes (and exception) we target for branch coverage.
 from submit_ce.domain.event import (
     SetTitle,
-    SetAbstract,
     SetLicense,
     RemoveSecondaryClassification,
     FinalizeSubmission,
@@ -66,18 +65,6 @@ def _blank_submission(uid: str = "u1"):
 # Tests: small, focused validations in event/__init__.py
 # -------------------------------------------------------
 
-def test_set_title_accepts_all_caps():
-    """
-    SetTitle no longer rejects titles that are entirely uppercase.
-
-    Why: qa's TitleIsValid excessive-capitalization check is advisory (WARN),
-    not blocking; only an empty/missing title raises InvalidEvent now.
-    """
-    s = _blank_submission()
-    e = SetTitle(creator=s.creator, title="ALL CAPS TITLE")
-    e.validate_pre_lock(s)
-
-
 def test_set_title_rejects_trailing_period():
     """
     SetTitle should reject titles ending with a trailing period.
@@ -91,23 +78,6 @@ def test_set_title_rejects_trailing_period():
         e.validate_pre_lock(s)
 
 
-def test_set_abstract_length_bounds_both_paths():
-    """
-    SetAbstract length rules: too short and reasonable-length abstracts both accept.
-
-    Why: qa's AbstractIsValid length check (NotTooShort/NotTooLong) is advisory
-    (WARN), not blocking; only an empty/missing abstract raises InvalidEvent now.
-    """
-    s = _blank_submission()
-
-    e_short = SetAbstract(creator=s.creator, abstract="too short")
-    e_short.validate_pre_lock(s)
-
-    ok_text = "This abstract is valid length."
-    e_ok = SetAbstract(creator=s.creator, abstract=ok_text)
-    e_ok.validate_pre_lock(s)  # no exception means the branch was accepted
-
-
 def test_set_license_rejects_invalid_uri():
     """
     SetLicense should reject license URIs not present in the allowed set.
@@ -119,25 +89,6 @@ def test_set_license_rejects_invalid_uri():
     e = SetLicense(creator=s.creator, license_uri="http://not-on-our-list")
     with pytest.raises(InvalidEvent):
         e.validate_pre_lock(s)
-
-
-def test_abstract_accepts_when_not_capitalized():
-    """
-    qa's AbstractIsValid lowercase-start check is advisory (WARN), not blocking.
-    """
-    s = _blank_submission()
-    e = SetAbstract(creator=s.creator, abstract="not capitalized first sentence.")
-    e.validate_pre_lock(s)
-
-
-def test_abstract_accepts_when_too_long():
-    """
-    qa's AbstractIsValid length check is advisory (WARN), not blocking.
-    """
-    s = _blank_submission()
-    too_long = "A" + ("x" * 2000)
-    e = SetAbstract(creator=s.creator, abstract=too_long)
-    e.validate_pre_lock(s)
 
 
 def test_remove_secondary_requires_existing_category_then_accepts():

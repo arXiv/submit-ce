@@ -54,7 +54,7 @@ from datetime import datetime
 from typing import Optional, List, Union, ClassVar
 
 from arxiv.license import LICENSES
-from qa.checks.models import Disposition
+from qa.checks.models import Disposition, Result
 from qa.checks.metadata.title import TitleIsValid
 from qa.checks.metadata.authors import AuthorsAreValid
 from qa.checks.metadata.abstract import AbstractIsValid
@@ -124,6 +124,18 @@ ActiveCategory = str
 Category = str
 """Type for a category active or inactive."""
 
+
+def _enforce_check(event: Event, check_result: Result | None) -> None:
+    """Raise :class:`.InvalidEvent` if a qa metadata check result is REJECTed.
+
+    Centralizes how a ``REJECT`` :class:`~qa.checks.models.Result` disposition
+    (produced when a required field is empty or missing) is handled, so that
+    behavior is independent of how any individual qa sub-check's
+    ``on_failure_policy`` happens to be configured. A ``WARN`` disposition is
+    advisory and never blocks the event.
+    """
+    if check_result and check_result.disposition == Disposition.REJECT:
+        raise InvalidEvent(event, "", check_result)
 
 
 class CreateSubmission(Event):
@@ -515,9 +527,7 @@ class SetTitle(Event):
     def validate_pre_lock(self, submission: Submission) -> None:
         """Validate the title value."""
         validators.submission_is_not_finalized(self, submission)
-        check = TitleIsValid.check(self.title)
-        if check and check.disposition != Disposition.OK:
-            raise InvalidEvent(self, "", check)
+        _enforce_check(self, TitleIsValid.check(self.title))
         self._does_not_contain_html_escapes(submission)
         validators.no_trailing_period(self, submission, self.title)
         self._check_for_html(submission)
@@ -574,9 +584,7 @@ class SetAbstract(Event):
     def validate_pre_lock(self, submission: Submission) -> None:
         """Validate the abstract value."""
         validators.submission_is_not_finalized(self, submission)
-        check = AbstractIsValid.check(self.abstract)
-        if check and check.disposition != Disposition.OK:
-            raise InvalidEvent(self, "", check)
+        _enforce_check(self, AbstractIsValid.check(self.abstract))
 
     def project(self, submission: Submission) -> Submission:
         """Update the abstract on a :class:`.domain.submission.Submission`."""
@@ -630,9 +638,7 @@ class SetDOI(Event):
             raise InvalidEvent(self, 'Cannot edit a finalized submission')
         if not self.doi:    # Can be blank.
             return
-        check = DoiIsValid.check(self.doi)
-        if check and check.disposition != Disposition.OK:
-            raise InvalidEvent(self, "", check)
+        _enforce_check(self, DoiIsValid.check(self.doi))
 
     def project(self, submission: Submission) -> Submission:
         """Update the doi on a :class:`.domain.submission.Submission`."""
@@ -670,9 +676,7 @@ class SetMSCClassification(Event):
         validators.submission_is_not_finalized(self, submission)
         if not self.msc_class:    # Blank values are OK.
             return
-        check = MscClassIsValid.check(self.msc_class)
-        if check and check.disposition != Disposition.OK:
-            raise InvalidEvent(self, "", check)
+        _enforce_check(self, MscClassIsValid.check(self.msc_class))
 
     def project(self, submission: Submission) -> Submission:
         """Update the MSC classification on a :class:`.domain.submission.Submission`."""
@@ -712,9 +716,7 @@ class SetACMClassification(Event):
         validators.submission_is_not_finalized(self, submission)
         if not self.acm_class:    # Blank values are OK.
             return
-        check = AcmClassIsValid.check(self.acm_class)
-        if check and check.disposition != Disposition.OK:
-            raise InvalidEvent(self, "", check)
+        _enforce_check(self, AcmClassIsValid.check(self.acm_class))
 
     def project(self, submission: Submission) -> Submission:
         """Update the ACM classification on a :class:`.domain.submission.Submission`."""
@@ -761,9 +763,7 @@ class SetJournalReference(Event):
         """Validate the journal reference value."""
         if not self.journal_ref:    # Blank values are OK.
             return
-        check = JournalRefIsValid.check(self.journal_ref)
-        if check and check.disposition != Disposition.OK:
-            raise InvalidEvent(self, "", check)
+        _enforce_check(self, JournalRefIsValid.check(self.journal_ref))
 
     def project(self, submission: Submission) -> Submission:
         """Update the journal reference on a :class:`.domain.submission.Submission`."""
@@ -809,9 +809,7 @@ class SetReportNumber(Event):
         """Validate the report number value."""
         if not self.report_num:    # Blank values are OK.
             return
-        check = ReportNumIsValid.check(self.report_num)
-        if check and check.disposition != Disposition.OK:
-            raise InvalidEvent(self, "", check)
+        _enforce_check(self, ReportNumIsValid.check(self.report_num))
 
     def project(self, submission: Submission) -> Submission:
         """Set report number on a :class:`.domain.submission.Submission`."""
@@ -845,9 +843,7 @@ class SetComments(Event):
         validators.submission_is_not_finalized(self, submission)
         if not self.comments:    # Blank values are OK.
             return
-        check = CommentsAreValid.check(self.comments)
-        if check and check.disposition != Disposition.OK:
-            raise InvalidEvent(self, "", check)
+        _enforce_check(self, CommentsAreValid.check(self.comments))
 
     def project(self, submission: Submission) -> Submission:
         """Update the comments on a :class:`.domain.submission.Submission`."""
@@ -885,9 +881,7 @@ class SetAuthors(Event):
     def validate_pre_lock(self, submission: Submission) -> None:
         """May not apply to a finalized submission."""
         validators.submission_is_not_finalized(self, submission)
-        check = AuthorsAreValid.check(self.authors_display)
-        if check and check.disposition != Disposition.OK:
-            raise InvalidEvent(self, "", check)
+        _enforce_check(self, AuthorsAreValid.check(self.authors_display))
 
     def _canonical_author_string(self) -> str:
         """Canonical representation of authors, using display names."""

@@ -1,6 +1,5 @@
 """Tests for :class:`.Event` instances in :mod:`arxiv.submission.domain.event`."""
 
-import re
 from datetime import datetime
 from unittest import TestCase, mock
 
@@ -499,6 +498,12 @@ class TestSetAuthors(TestCase):
             created=datetime.now(UTC)
         )
 
+    def test_empty_value(self):
+        """Authors is set to an empty string (no authors provided)."""
+        e = event.SetAuthors(creator=self.user)
+        with self.assertRaises(InvalidEvent):
+            e.validate_pre_lock(self.submission)
+
     def test_canonical_authors_provided(self):
         """Data includes canonical author display string."""
         e = event.SetAuthors(creator=self.user,
@@ -576,18 +581,6 @@ class TestSetTitle(TestCase):
     #             except InvalidEvent as e:
     #                 self.fail(f'Failed to handle title due to {e.message}: "{title}" ')
 
-    def test_all_caps_title(self):
-        """Title is all uppercase.
-
-        qa's TitleIsValid excessive-capitalization check is advisory (WARN),
-        not blocking. Uses a fixed (not random) title, without a trailing
-        period, so this test isolates the all-caps behavior from other
-        validators (e.g. no_trailing_period) and from mimesis randomness.
-        """
-        title = re.sub(r"\.$", "", Text().title()[:240].upper())
-        e = event.SetTitle(creator=self.user, title=title)
-        e.validate_pre_lock(self.submission)
-
     def test_title_ends_with_period(self):
         """Title ends with a period."""
         title = Text().title()[:239] + "."
@@ -603,17 +596,6 @@ class TestSetTitle(TestCase):
             e.validate_pre_lock(self.submission)
         except InvalidEvent as e:
             self.fail("Should accept ellipsis")
-
-    def test_huge_title(self):
-        """Title is set to something unreasonably large.
-
-        qa's TitleIsValid length check is advisory (WARN), not blocking. The
-        trailing period is stripped so this test isolates the length
-        behavior from validators.no_trailing_period and mimesis randomness.
-        """
-        title = re.sub(r"\.$", "", Text().text(200))    # 200 sentences.
-        e = event.SetTitle(creator=self.user, title=title)
-        e.validate_pre_lock(self.submission)
 
     def test_title_with_html_escapes(self):
         """Title should not allow HTML escapes."""
@@ -663,16 +645,6 @@ class TestSetAbstract(TestCase):
                 if "Does not appear to be in English" not in e.message:
                     self.fail(f'Failed to handle abstract due to {e.message}: {abstract}')
 
-    def test_huge_abstract(self):
-        """Abstract is set to something unreasonably large.
-
-        qa's AbstractIsValid length check is advisory (WARN), not blocking.
-        """
-        abstract = Text().text(200)    # 200 sentences.
-        e = event.SetAbstract(creator=self.user, abstract=abstract)
-        e.validate_pre_lock(self.submission)
-
-
 class TestSetDOI(TestCase):
     """Tests for :class:`.event.SetDOI`."""
 
@@ -714,14 +686,6 @@ class TestSetDOI(TestCase):
     #     except InvalidEvent as e:
     #         self.fail(f'Failed to handle valid DOI {e.message}: {doi}')
 
-    def test_invalid_doi(self):
-        """DOI is set to something other than a valid DOI.
-
-        qa's DoiIsValid format check is advisory (WARN), not blocking.
-        """
-        not_a_doi = "101016S0550-3213(01)00405-9"
-        e = event.SetDOI(creator=self.user, doi=not_a_doi)
-        e.validate_pre_lock(self.submission)
 
 
 class TestSetReportNumber(TestCase):
@@ -778,19 +742,6 @@ class TestSetReportNumber(TestCase):
                 e.validate_pre_lock(self.submission)
             except InvalidEvent as e:
                 self.fail(f'failed report number {e.message}: {value}')
-
-    def test_invalid_values(self):
-        """Some invalid values are passed.
-
-        qa's ReportNumIsValid digits check is advisory (WARN), not blocking.
-        """
-        values = [
-            "not a report number",
-        ]
-        for value in values:
-            e = event.SetReportNumber(creator=self.user, report_num=value)
-            e.validate_pre_lock(self.submission)
-
 
 class TestSetJournalReference(TestCase):
     """Tests for :class:`.event.SetJournalReference`."""

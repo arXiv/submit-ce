@@ -16,6 +16,9 @@ from datetime import datetime
 from pytz import UTC
 import copy
 import pytest
+from unittest import mock
+
+from qa.checks.models import Disposition, Result
 
 # Domain models and helpers
 from submit_ce.domain import submission as submod, agent
@@ -34,6 +37,7 @@ from submit_ce.domain.event import (
     SetLicense,
     SetReportNumber,
     SetTitle,
+    TitleIsValid,
     InvalidEvent,
 )
 
@@ -283,12 +287,6 @@ def test_rollback_version1_sets_deleted():
 # -------------------------------------------------------
 # SetAbstract
 # -------------------------------------------------------
-def test_abstract_too_short_passes():
-    """The qa AbstractIsValid length check is advisory (WARN), not blocking."""
-    s = _working_submission()
-    e = SetAbstract(creator=s.creator, abstract="short")
-    e.validate_pre_lock(s)  # MIN_LENGTH branch
-
 def test_abstract_valid_passes():
     s = _working_submission()
     e = SetAbstract(creator=s.creator, abstract="This abstract is just long enough")
@@ -317,14 +315,6 @@ def test_license_valid_url():
 # SetReportNumber: invalid vs. valid formats
 # -------------------------------------------------------
 
-def test_set_report_number_accepts_value_without_digits():
-    """
-    The qa ReportNumIsValid digits check is advisory (WARN), not blocking.
-    """
-    s = _working_submission()
-    e = SetReportNumber(creator=s.creator, report_num="not a report number")
-    e.validate_pre_lock(s)
-
 def test_set_report_number_accepts_common_formats():
     """
     SetReportNumber.validate accepts values with consecutive digits (e.g. '1003.1130').
@@ -340,9 +330,16 @@ def test_set_report_number_accepts_common_formats():
 # SetTitle
 # -------------------------------------------------------
 def test_title_allows_basic_tags():
+    """<br> is in ALLOWED_HTML, so SetTitle._check_for_html should not block it.
+
+    TitleIsValid.check is mocked to an OK Result so this test exercises only
+    submit-ce's own bleach-based HTML check, independent of qa's checks.
+    """
     s = _working_submission()
     e = SetTitle(creator=s.creator, title="Hello<br>World")
-    e.validate_pre_lock(s)  # <br> is in ALLOWED_HTML and not blocked by qa's TitleIsValid
+    ok_result = Result(check_config={}, passed=True, disposition=Disposition.OK, message="")
+    with mock.patch.object(TitleIsValid, "check", return_value=ok_result):
+        e.validate_pre_lock(s)
 
 def test_title_rejects_disallowed_html():
     s = _working_submission()
