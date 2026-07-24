@@ -13,7 +13,7 @@ from arxiv.db.models import (
     SubmissionAbsClassifierDatum,
     SubmissionClassifierDatum,
 )
-from arxiv.metadata.checksum import checksum_metadata
+from qa.checks.utils.checksum import checksum_metadata
 
 from submit_ce.domain.qa_metadata import ARXIV_SUBMISSIONS_FIELDS
 from submit_ce.ui.controllers import qa_metadata as ctrl
