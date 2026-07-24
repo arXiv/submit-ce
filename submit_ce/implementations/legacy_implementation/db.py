@@ -60,7 +60,7 @@ from submit_ce.domain import Event, Submission, User, WithdrawalRequest, CrossLi
 from submit_ce.domain.submission import SubmissionType
 from submit_ce.domain.event import SetJournalReference, SetDOI, SetReportNumber, CreateSubmission, Rollback, \
     ProposeClassification
-from submit_ce.domain.exceptions import NoSuchSubmission
+from submit_ce.domain.exceptions import NoSuchSubmission, NoSuchDocument
 
 logger = logging.getLogger(__name__)
 logger.propagate = False
@@ -808,6 +808,107 @@ def _to_proposal(row: models.CategoryProposal) -> domain.Proposal:
         comment=comment,
         status=status,
         classic_proposal_id=row.proposal_id,
+    )
+
+
+def _to_document_metadata(row: models.Metadata) -> domain.DocMetadata:
+    """Build a domain :class:`.DocMetadata` from an ``arXiv_metadata`` row."""
+    return domain.DocMetadata(
+        version=row.version,
+        title=row.title,
+        abstract=row.abstract,
+        authors=row.authors,
+        categories=row.abs_categories,
+        comments=row.comments,
+        report_num=row.report_num,
+        msc_class=row.msc_class,
+        acm_class=row.acm_class,
+        journal_ref=row.journal_ref,
+        doi=row.doi,
+        license=row.license,
+        source_size=row.source_size,
+        source_format=row.source_format,
+        submitter_name=row.submitter_name,
+        submitter_email=row.submitter_email,
+        submitter_id=row.submitter_id,
+        created=row.created,
+        updated=row.updated,
+        is_current=bool(row.is_current),
+        is_withdrawn=bool(row.is_withdrawn),
+    )
+
+
+def has_active_submission(session: SQLAlchemySession, paper_id: str,
+                          exclude_submission_id: Optional[str] = None) -> bool:
+    """Whether ``paper_id`` has an in-progress (non-announced, non-deleted) row.
+
+    ``exclude_submission_id`` is ignored when checking, so a submission does not
+    count itself as a conflict.
+    """
+    rows = session.query(models.Submission) \
+        .filter(models.Submission.doc_paper_id == paper_id).all()
+    for row in rows:
+        if exclude_submission_id is not None \
+                and str(row.submission_id) == str(exclude_submission_id):
+            continue
+        if row.is_active():
+            return True
+    return False
+
+
+def to_document(session: SQLAlchemySession, paper_id: str) -> domain.Document:
+    """Build a :class:`.domain.document.Document` for an announced paper.
+
+    Composes the announced state from three classic tables: the submission rows
+    (``arXiv_submissions``) for identity, version and the list of submissions;
+    the per-version metadata (``arXiv_metadata``); and the current published
+    categories (``arXiv_document_category``).
+
+    Raises
+    ------
+    :class:`.NoSuchDocument`
+        If there is no announced submission row for ``paper_id``.
+    """
+    rows = session.query(models.Submission) \
+        .filter(models.Submission.doc_paper_id == paper_id) \
+        .order_by(models.Submission.version.asc(),
+                  models.Submission.submission_id.asc()) \
+        .all()
+    announced = [row for row in rows if row.is_announced()]
+    if not announced:
+        raise NoSuchDocument(f"No announced paper {paper_id}")
+
+    latest = max(announced, key=lambda r: (r.version, r.submission_id))
+    document_id = latest.document_id
+
+    md_rows = session.query(models.Metadata) \
+        .filter(models.Metadata.paper_id == paper_id) \
+        .order_by(models.Metadata.version.asc()) \
+        .all()
+    metadata = [_to_document_metadata(m) for m in md_rows]
+
+    primary_clsn: Optional[domain.Classification] = None
+    secondary_clsn: List[domain.Classification] = []
+    if document_id is not None:
+        cat_rows = session.query(models.DocumentCategory) \
+            .filter(models.DocumentCategory.document_id == document_id).all()
+        for cat in cat_rows:
+            if cat.is_primary:
+                primary_clsn = domain.Classification(category=cat.category)
+            else:
+                secondary_clsn.append(domain.Classification(category=cat.category))
+
+    return domain.Document(
+        paper_id=paper_id,
+        document_id=document_id,
+        latest_version=latest.version,
+        primary_classification=primary_clsn,
+        secondary_classification=secondary_clsn,
+        metadata=metadata,
+        submitter_email=latest.submitter_email,
+        submitter_id=latest.submitter_id,
+        created=announced[0].get_created(),
+        submissions=[to_submission(row) for row in rows],
     )
 
 

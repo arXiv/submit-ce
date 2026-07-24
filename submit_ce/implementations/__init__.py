@@ -10,7 +10,8 @@ from submit_ce.api.email_service import EmailService
 from submit_ce.domain.uploads import SubmitFile
 from submit_ce.domain.uploads import FileStatus, UploadStatus, UploadLifecycleStates
 from submit_ce.domain import Event, Submission, License, User, Client, Workspace, \
-    Moderator
+    Moderator, Document
+from submit_ce.domain.exceptions import NoSuchDocument
 from submit_ce.domain.event.process import Result
 from submit_ce.domain.process import ProcessStatus
 from submit_ce.implementations.schedule import next_announcement_time, next_freeze_time
@@ -315,6 +316,13 @@ class NullImplementation(SubmitApi):  # pragma: no cover
 
     def load_submissions_for_user(self, user_id: int) -> List[Submission]:
         return []
+
+    def get_document(self, paper_id: str) -> Document:
+        raise NoSuchDocument(paper_id)
+
+    def has_active_submission(self, paper_id: str,
+                              exclude_submission_id: Optional[str] = None) -> bool:
+        return False
 
     def save(self, *events: Event, submission_id: Optional[str] = None) -> Tuple[Submission, List[Event]]:
         submission = self.get_with_history(submission_id)

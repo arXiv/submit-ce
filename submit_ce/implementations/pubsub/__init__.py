@@ -7,7 +7,7 @@ import logging
 from google.cloud import pubsub_v1
 
 from submit_ce.api import SubmitApi, SubmissionFileStore
-from submit_ce.domain import Event, Submission, Moderator
+from submit_ce.domain import Event, Submission, Moderator, Document
 from submit_ce.api.compile_service import CompileService
 from submit_ce.api.email_service import EmailService
 from submit_ce.domain.config import SubmitConfig
@@ -44,6 +44,13 @@ class PubsubEventSubmitImplementation(SubmitApi):
 
     def load_submissions_for_user(self, user_id: int) -> List[Submission]:
         return self.inner_api.load_submissions_for_user(user_id)
+
+    def get_document(self, paper_id: str) -> Document:
+        return self.inner_api.get_document(paper_id)
+
+    def has_active_submission(self, paper_id: str,
+                              exclude_submission_id: Optional[str] = None) -> bool:
+        return self.inner_api.has_active_submission(paper_id, exclude_submission_id)
 
     def get_file_store(self) -> SubmissionFileStore:
         return self.inner_api.get_file_store()

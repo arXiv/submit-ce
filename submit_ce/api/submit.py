@@ -65,7 +65,7 @@ from typing import Tuple, List, Optional
 
 from submit_ce.api.compile_service import CompileService
 from submit_ce.api.email_service import EmailService
-from submit_ce.domain import Submission, Event, License, Moderator
+from submit_ce.domain import Submission, Event, License, Moderator, Document
 from submit_ce.domain.config import SubmitConfig
 from submit_ce.domain.size_limits import SIZE_LIMIT_POLICY, SizeLimits
 from submit_ce.api.file_store import SubmissionFileStore
@@ -153,6 +153,49 @@ class SubmitApi(ABC):
 
             """
             ...
+
+    @abstractmethod
+    def get_document(self, paper_id: str) -> Document:
+        """Get the announced :class:`.domain.document.Document` for a paper.
+
+        Parameters
+        ----------
+        paper_id : str
+            The canonical announced arXiv identifier, e.g. ``1234.56789``.
+
+        Returns
+        -------
+        :class:`.domain.document.Document`
+            The announced paper, its per-version metadata, and all submissions
+            made against it.
+
+        Raises
+        ------
+        :class:`submit_ce.domain.exceptions.NoSuchDocument`
+            If no announced paper matches ``paper_id``.
+        """
+        ...
+
+    @abstractmethod
+    def has_active_submission(self, paper_id: str,
+                              exclude_submission_id: Optional[str] = None) -> bool:
+        """Whether a paper has an in-progress submission.
+
+        Parameters
+        ----------
+        paper_id : str
+            The canonical announced arXiv identifier.
+        exclude_submission_id : str, optional
+            A submission id to ignore when checking (e.g. the submission being
+            edited), so a submission does not count itself as a conflict.
+
+        Returns
+        -------
+        bool
+            ``True`` if the paper has a non-announced, non-deleted submission
+            other than ``exclude_submission_id``.
+        """
+        ...
 
     @abstractmethod
     def get_file_store(self) -> SubmissionFileStore:

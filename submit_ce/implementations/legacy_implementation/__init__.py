@@ -13,7 +13,7 @@ from submit_ce.api import SubmitApi
 from submit_ce.api.email_service import EmailService
 from submit_ce.api.file_store import SubmissionFileStore
 from submit_ce.domain.agent import Client, User
-from submit_ce.domain import Moderator
+from submit_ce.domain import Moderator, Document
 from submit_ce.domain.config import SubmitConfig
 from submit_ce.domain.meta import License
 from ...api.compile_service import CompileService
@@ -114,6 +114,16 @@ class LegacySubmitImplementation(SubmitApi):
             .order_by(Submission.submission_id.desc())
         return [to_submission(row) for row in
                 session.execute(stmt).unique().scalars().all()]
+
+    @override
+    def get_document(self, paper_id: str) -> Document:
+        return db.to_document(self.get_session(), paper_id)
+
+    @override
+    def has_active_submission(self, paper_id: str,
+                              exclude_submission_id: Optional[str] = None) -> bool:
+        return db.has_active_submission(self.get_session(), paper_id,
+                                        exclude_submission_id)
 
     def _load(self, session: SqlalchemySession, submission_id: str, lock_row: bool = False) \
             -> Tuple[Submission, List[Event]]:
