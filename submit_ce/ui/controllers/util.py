@@ -7,10 +7,45 @@ from wtforms.validators import StopValidation
 from wtforms.widgets import Select, html_params
 from wtforms import SelectField, Form
 from wtforms.fields.core import UnboundField
-from submit_ce.domain import Event, Submission
-from submit_ce.domain.exceptions import InvalidEvent
+from submit_ce.domain import Event, Submission, SubmissionType
+from submit_ce.domain.exceptions import InvalidEvent, ActiveSubmissionExists
 
 Response = Tuple[Dict[str, Any], int, Dict[str, Any]]   # pylint: disable=C0103
+
+
+def require_no_active_submission(api, paper_id: str,
+                                 allowed_types: Iterable[SubmissionType] = ()) \
+        -> None:
+    """Raise if the paper already has a conflicting in-progress submission.
+
+    A reusable controller pre-check (run on GET and POST) that blocks starting a
+    new submission against an announced paper when another is in progress. It
+    mirrors the under-lock guard in the events' ``validate_under_lock`` so the
+    user gets the error page before the form is shown.
+
+    Parameters
+    ----------
+    api : :class:`submit_ce.api.submit.SubmitApi`
+    paper_id : str
+        The announced arXiv identifier.
+    allowed_types : iterable of :class:`.SubmissionType`
+        In-progress submission types that do not conflict (e.g. an in-progress
+        jref does not block another jref edit).
+
+    Raises
+    ------
+    :class:`.ActiveSubmissionExists`
+        If the paper has a conflicting in-progress submission.
+    """
+    allowed = tuple(allowed_types)
+    document = api.get_document(paper_id)
+    conflicting = [s for s in document.active_submissions
+                   if s.submission_type not in allowed]
+    if conflicting:
+        raise ActiveSubmissionExists(
+            message="This paper already has a submission in progress; finish "
+                    "or cancel it before starting another submission.",
+            conflicting_submission_id=str(conflicting[0].submission_id))
 
 
 class OptGroupSelectWidget(Select):

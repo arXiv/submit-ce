@@ -20,6 +20,28 @@ class InvalidEvent(ValueError):
         super(InvalidEvent, self).__init__(r)
 
 
+class ActiveSubmissionExists(InvalidEvent):
+    """A paper already has an in-progress submission that blocks a new one.
+
+    A subclass of :class:`InvalidEvent` so the event ``save()`` path treats it
+    like any other validation failure, but distinct so the UI can render a
+    dedicated "submission in progress" page. It may be raised from an event's
+    ``validate_under_lock`` (with an ``event``) or from a controller pre-check
+    (with just a ``message``).
+    """
+
+    def __init__(self, event: Event | None = None, message: str = '',
+                 conflicting_submission_id: str | None = None) -> None:
+        self.conflicting_submission_id = conflicting_submission_id
+        if event is not None:
+            super().__init__(event, message)
+        else:
+            self.event = None
+            self.message = message
+            self.report = None
+            ValueError.__init__(self, message)
+
+
 class NoSuchSubmission(RuntimeError):
     """An operation was performed on/for a submission that does not exist."""
 

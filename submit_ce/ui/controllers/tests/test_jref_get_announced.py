@@ -1,4 +1,6 @@
 """Tests for :mod:`submit_ce.controllers.jref` - test for announced submission."""
+from types import SimpleNamespace
+
 import pytest
 from werkzeug.datastructures import MultiDict
 from submit_ce.domain.agent import InternalClient
@@ -13,12 +15,24 @@ def test_jref_get_announced_returns_prepopulated_form(monkeypatch, authorized_us
 
     class Sub:
         is_announced = True
+        arxiv_id = "1234.5678"
         metadata = Meta()
 
     # Backend + auth patches in the controller namespace
     monkeypatch.setattr(
         "submit_ce.ui.controllers.jref.get_submission",
         lambda sid: (Sub(), [])
+    )
+    # The active-submission pre-check is exercised elsewhere; neutralize it here.
+    monkeypatch.setattr(
+        "submit_ce.ui.controllers.jref.require_no_active_submission",
+        lambda *a, **k: None
+    )
+    # The pre-check reads current_app.api; this GET test runs without an app
+    # context, so stub current_app in the controller namespace.
+    monkeypatch.setattr(
+        "submit_ce.ui.controllers.jref.current_app",
+        SimpleNamespace(api=None), raising=False
     )
     monkeypatch.setattr(
         "submit_ce.ui.controllers.jref.user_and_client_from_session",

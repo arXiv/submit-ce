@@ -12,11 +12,14 @@ def test_jref_post_confirmed_but_unchanged(monkeypatch):
         report_num = "SU-4240-720"
     class Sub:
         is_announced=True
+        arxiv_id="1234.5678"
         metadata=Meta()
 
     # Controller-namespace patches
     monkeypatch.setattr("submit_ce.ui.controllers.jref.get_submission",
                         lambda sid: (Sub(), []))
+    monkeypatch.setattr("submit_ce.ui.controllers.jref.require_no_active_submission",
+                        lambda *a, **k: None)
     monkeypatch.setattr("submit_ce.ui.controllers.jref.user_and_client_from_session",
                         lambda session: ("creator", "client"))
 

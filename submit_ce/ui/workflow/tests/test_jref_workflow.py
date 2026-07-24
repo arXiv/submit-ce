@@ -260,10 +260,10 @@ def test_jref_with_inprogress_replacement(app, authorized_user,
                                           published_submission):
     """A jref is rejected when the paper has an in-progress replacement.
 
-    The guard lives in the jref events' ``validate_under_lock``, so it fires
-    when the confirmed jref is saved. A friendly GET-time redirect is a later
-    phase; for now the uncaught ``InvalidEvent`` surfaces as a 500. Either way
-    no jref row is created and the replacement is left untouched."""
+    A controller pre-check blocks the jref on GET with the shared
+    "submission in progress" error page (HTTP 409), so the form is never shown
+    and no jref row is created. The events' ``validate_under_lock`` is the
+    under-lock safety net for the same rule."""
     submission, paper_id = published_submission
     submission_id = submission.submission_id
 
@@ -287,20 +287,14 @@ def test_jref_with_inprogress_replacement(app, authorized_user,
             rep_journal_ref = rep_before.journal_ref
             rep_report_num = rep_before.report_num
 
-    # Run the two-step confirm-and-submit jref flow. The confirmed POST is
-    # rejected under the row lock because a replacement is in progress.
+    # The jref page is blocked on GET: the paper has a replacement in progress.
     endpoint = f'/{submission_id}/jref'
     response = authorized_client.get(endpoint)
-    assert response.status_code == status.OK
-    data = {'doi': '10.1000/182', 'journal_ref': 'foo journal 1992',
-            'report_num': 'abc report 42',
-            'csrf_token': parse_csrf_token(response)}
-    response = authorized_client.post(endpoint, data=data)
-    assert response.status_code == status.OK
-    data['confirmed'] = True
-    data['csrf_token'] = parse_csrf_token(response)
-    response = authorized_client.post(endpoint, data=data)
-    assert response.status_code == status.INTERNAL_SERVER_ERROR
+    assert response.status_code == status.CONFLICT
+    assert b'submission in progress' in response.data
+    # The error page links back to the user's submissions and to the rep.
+    assert b'Back to your submissions' in response.data
+    assert f'/{rep_id}'.encode() in response.data
 
     with app.app_context():
         with Session() as session:

@@ -3,12 +3,13 @@ from pathlib import Path
 from typing import Optional
 
 from flask.logging import default_handler
-from flask import Flask, request
+from flask import Flask, request, render_template
 
-from arxiv.base import Base
+from arxiv.base import Base, alerts
 from arxiv.config import settings as base_settings
 from arxiv import db
 
+from submit_ce.domain.exceptions import ActiveSubmissionExists
 from .auth import request_auth
 from .config import settings
 from . import backend, filters
@@ -38,6 +39,19 @@ def create_web_app(config: Optional[dict]=None) -> Flask:
     db.init(settings)
     Base(app)
     app.register_blueprint(UI)
+
+    @app.errorhandler(ActiveSubmissionExists)
+    def _submission_in_progress(exc: ActiveSubmissionExists):
+        """Render the shared "a submission is already in progress" page.
+
+        Raised (from an event's ``validate_under_lock`` or a controller
+        pre-check) when a new submission is blocked by an in-progress one on the
+        same paper. Reused across jref/withdrawal/cross-list/replacement.
+        """
+        alerts.flash_failure(exc.message)
+        return render_template(
+            'submit/submission_blocked.html',
+            conflicting_submission_id=exc.conflicting_submission_id), 409
 
     app.jinja_env.add_extension('jinja2.ext.do')
     for filter_name, filter_func in filters.get_filters():

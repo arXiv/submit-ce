@@ -14,13 +14,13 @@ from wtforms.validators import optional
 
 from arxiv.base import logging, alerts
 from arxiv.forms import csrf
-from submit_ce.domain import  Event, User, Client, Submission
+from submit_ce.domain import  Event, User, Client, Submission, SubmissionType
 from submit_ce.domain.event import SetDOI, SetJournalReference
 from submit_ce.domain.exceptions import SaveError
 from submit_ce.domain.event import SetReportNumber
 from submit_ce.ui.backend import get_submission
 from ..auth import user_and_client_from_session
-from .util import FieldMixin, validate_command
+from .util import FieldMixin, validate_command, require_no_active_submission
 
 
 logger = logging.getLogger(__name__)  # pylint: disable=C0103
@@ -70,6 +70,13 @@ def jref(method: str, params: MultiDict, session: Session,
                                     "the arXiv help pages</a> for details."))
         status_url = url_for('ui.create_submission')
         return {}, status.SEE_OTHER, {'Location': status_url}
+
+    # A jref cannot be started while another submission is in progress for the
+    # paper. An in-progress jref is fine (it is edited in place). Raises
+    # ActiveSubmissionExists -> rendered as the "submission in progress" page.
+    require_no_active_submission(
+        current_app.api, submission.arxiv_id,
+        allowed_types=(SubmissionType.JOURNAL_REFERENCE,))
 
     # The form should be prepopulated based on the current state of the
     # submission.

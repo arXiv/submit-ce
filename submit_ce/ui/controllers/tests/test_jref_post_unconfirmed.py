@@ -12,11 +12,14 @@ def test_jref_post_valid_but_unconfirmed(monkeypatch):
         report_num=None
     class Sub:
         is_announced=True
+        arxiv_id="1234.5678"
         metadata=Meta()
 
     # Patch where the controller looks these up
     monkeypatch.setattr("submit_ce.ui.controllers.jref.get_submission",
                         lambda sid: (Sub(), []))
+    monkeypatch.setattr("submit_ce.ui.controllers.jref.require_no_active_submission",
+                        lambda *a, **k: None)
     monkeypatch.setattr("submit_ce.ui.controllers.jref.user_and_client_from_session",
                         lambda session: ("creator", "client"))
 
