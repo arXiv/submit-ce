@@ -8,6 +8,7 @@ needs to guarantee how it reacts to a given disposition, not which real
 input strings currently produce which disposition (that's qa's own
 responsibility to test).
 """
+import pytest
 from qa.checks.models import Disposition, Result
 
 from submit_ce.domain import agent
@@ -56,11 +57,9 @@ def test_reject_disposition_raises_with_aggregate_message():
         message="Title is invalid or empty.",
         results=[],
     )
-    try:
+    with pytest.raises(InvalidEvent) as excinfo:
         validators.passes_qa_checks(_event(), result)
-        assert False, "expected InvalidEvent to be raised"
-    except InvalidEvent as e:
-        assert e.message == "Title is invalid or empty."
+    assert excinfo.value.message == "Title is invalid or empty."
 
 
 def test_reject_disposition_message_includes_only_reject_sub_results():
@@ -77,11 +76,9 @@ def test_reject_disposition_message_includes_only_reject_sub_results():
             Result(check_config={}, passed=False, disposition=Disposition.WARN, message="Excessive capitalization."),
         ],
     )
-    try:
+    with pytest.raises(InvalidEvent) as excinfo:
         validators.passes_qa_checks(_event(), result)
-        assert False, "expected InvalidEvent to be raised"
-    except InvalidEvent as e:
-        assert e.message == "Cannot be empty."
+    assert excinfo.value.message == "Cannot be empty."
 
 
 def test_reject_disposition_message_joins_multiple_reject_sub_results():
@@ -96,8 +93,6 @@ def test_reject_disposition_message_joins_multiple_reject_sub_results():
             Result(check_config={}, passed=False, disposition=Disposition.REJECT, message="Must contain letters."),
         ],
     )
-    try:
+    with pytest.raises(InvalidEvent) as excinfo:
         validators.passes_qa_checks(_event(), result)
-        assert False, "expected InvalidEvent to be raised"
-    except InvalidEvent as e:
-        assert e.message == "Cannot be empty.\nMust contain letters."
+    assert excinfo.value.message == "Cannot be empty.\nMust contain letters."
