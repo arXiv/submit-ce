@@ -18,6 +18,7 @@ class FlaskSubmitImplementation(LegacySubmitImplementation):
                  compiler=None,
                  email_service=None,
                  config=None,
+                 participants=None,
     ):
         from submit_ce.domain.config import SubmitConfig
         from submit_ce.implementations import NullEmailService
@@ -27,4 +28,5 @@ class FlaskSubmitImplementation(LegacySubmitImplementation):
             email_service=email_service or NullEmailService(),
             config=config or SubmitConfig(),
             get_session=flask_get_session,
+            participants=participants,
         )
