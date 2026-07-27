@@ -1701,7 +1701,7 @@ wheels = [
 [[package]]
 name = "qa"
 version = "0.1.0"
-source = { git = "https://github.com/arXiv/arxiv-base.git?subdirectory=qa&branch=QA-250-return-all-messages#aca82083b3df51a8fd3692500263363262c1d87b" }
+source = { git = "https://github.com/arXiv/arxiv-base.git?subdirectory=qa&branch=master#ba44887ddcb6be17ef4f4790939293010acccf7a" }
 dependencies = [
     { name = "arxiv-base" },
     { name = "pydantic" },
@@ -2259,7 +2259,7 @@ requires-dist = [
     { name = "python-multipart", specifier = "==0.0.9" },
     { name = "pytz", specifier = "==2018.7" },
     { name = "pyyaml", specifier = "==6.0.2" },
-    { name = "qa", git = "https://github.com/arXiv/arxiv-base.git?subdirectory=qa&branch=QA-250-return-all-messages" },
+    { name = "qa", git = "https://github.com/arXiv/arxiv-base.git?subdirectory=qa&branch=master" },
     { name = "referencing", specifier = "==0.35.1" },
     { name = "reportlab", specifier = ">=4.2.0" },
     { name = "requests", specifier = "==2.32.3" },
