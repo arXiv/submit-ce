@@ -117,7 +117,7 @@ class LegacySubmitImplementation(SubmitApi):
         session = self.get_session()
         stmt = select(models.Submission) \
             .where(models.Submission.submitter_id == int(user_id),
-                   models.Submission.status.in_([0, 1, 2, 4])) \
+                   models.Submission.status.in_([0, 1, 2, 4, 8])) \
             .order_by(Submission.submission_id.desc())
         return [to_submission(row) for row in
                 session.execute(stmt).unique().scalars().all()]
