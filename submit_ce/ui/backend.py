@@ -43,7 +43,10 @@ def config_backend_api(settings: Settings) -> SubmitApi:
         store=store,
         compiler=CompileApiService(),
         email_service=email_service,
-        config=SubmitConfig.from_config(settings))
+        config=SubmitConfig.from_config(settings),
+        # This is where SaveParticipants get wired into every save()
+        # transaction. See submit_ce.api.save_participant.
+        participants=[])
 
 
 def email_service_from_settings(settings: Settings):
