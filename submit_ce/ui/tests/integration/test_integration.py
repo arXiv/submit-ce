@@ -101,7 +101,7 @@ class TestSubmissionIntegration(unittest.TestCase):
         self.assertIn('policy', self.next_page, "URL should be to policy")
         res = self.client.get(self.next_page)
         self.assertEqual(res.status_code, 200)
-        self.assertIn('Read and accept the Submission Agreement before proceeding', res.text)
+        self.assertIn('Scroll to read and accept the arXiv Submission Agreement before proceeding', res.text)
         res = self.client.post(self.next_page,
                             data={'policy': 'y',
                                   'action': 'next',
