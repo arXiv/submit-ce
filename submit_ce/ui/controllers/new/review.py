@@ -154,6 +154,7 @@ def review_files(method: str, params: MultiDict, session: Session,
         'form': form,
         'preflight_files': {},
         'file_notes': {},
+        'selected_top_level_files': [],
     }
 
     if not workspace:
@@ -187,6 +188,7 @@ def review_files(method: str, params: MultiDict, session: Session,
 
         rdata['file_notes'] = dm.get_files_from_preflight(preflight_data)
         _populate_form(form, preflight_data, user_decisions_data)
+        rdata['selected_top_level_files'] = [f for f in [form.source_file.data] if f]
         rdata['immediate_notifications'] = _get_notifications(submission_id, preflight_data)
 
         return stay_on_this_stage((rdata, status.OK, {}))
@@ -244,9 +246,40 @@ def _get_user_decisions_data(submission_id: str) -> Optional[dict]:
         return None
     return json.loads(blob.download_as_text())
 
+def _selected_top_level_files(params: MultiDict) -> list[str]:
+    """Return the top-level TeX file(s) the user has selected, in order.
+
+    Supports the current single ``source_file`` field and a future multi-select
+    (``top_level_tex_files[]``), so the delete guard already handles one or more
+    selected top-level files (SUBMISSION-209 / C2).
+    """
+    values = list(params.getlist('source_file')) + \
+        list(params.getlist('top_level_tex_files[]'))
+    seen: list[str] = []
+    for value in values:
+        if value and value not in seen:
+            seen.append(value)
+    return seen
+
+
 def _update_preflight(params: MultiDict, submission_id: str, workspace: Workspace, submitter, client) -> bool:
     existing_paths = {f.path for f in workspace.files}
     files_to_delete = [p for p in params.getlist('selected_files') if p in existing_paths]
+
+    # Never delete a file the user has selected as a top-level TeX file -- that's
+    # what we're about to compile (SUBMISSION-209). The template disables these
+    # checkboxes, but a crafted or stale POST can still carry them, so we filter
+    # here and warn the user. The authoritative guard is in SetDecisions.execute,
+    # which runs under the submission row lock.
+    selected_top_levels = _selected_top_level_files(params)
+    protected = [p for p in files_to_delete if p in selected_top_levels]
+    if protected:
+        files_to_delete = [p for p in files_to_delete if p not in selected_top_levels]
+        alerts.flash_warning(
+            "We kept your selected top-level TeX file(s) and did not delete "
+            f"them: {', '.join(protected)}. To delete one, first remove it from "
+            "the Top-Level TeX selection.",
+            title="Top-level file not deleted")
 
     # If the POST carries none of the review-form fields, the user clicked
     # "next" without changing anything; don't invalidate preflight.
