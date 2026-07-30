@@ -12,9 +12,10 @@
    files (one or more) so we can render "Used: top-level file" for each and
    disable its delete checkbox -- a selected top-level file is what we're about
    to compile and must not be deletable here (SUBMISSION-209).
+   ``file_issues`` maps filename -> per-file preflight issue badges (SUBMISSION-210).
    00README.json likewise gets a dedicated label and a disabled delete
    checkbox -- it's a build-directives file, not a candidate for deletion. #}
-{% macro display_preflight_tree(key, item, top_level_filenames) %}
+{% macro display_preflight_tree(key, item, top_level_filenames, file_issues) %}
   {% if 'filename' in item %}
   <tr>
     <td class="has-text-centered">
@@ -33,6 +34,12 @@
     </td>
     <td>{{ item.filename }}</td>
     <td>
+      {# Preflight issue badges (SUBMISSION-210), severity-colored, before the
+         auto-detected usage note. #}
+      {% set file_issue_list = file_issues.get(item.filename) if file_issues else None %}
+      {% if file_issue_list %}
+        {% for issue in file_issue_list %}<span class="tag is-{{ issue.severity }}">{{ issue.label }}</span> {% endfor %}<br>
+      {% endif %}
       {% if item.filename == '00README.json' %}
         Build directives file
       {% elif item.filename in top_level_filenames %}
@@ -47,7 +54,7 @@
   {% else %}
   <tr><td colspan="3"><em>{{ key }}/</em></td></tr>
   {% for k, subitem in item.items() %}
-    {{ display_preflight_tree(k, subitem, top_level_filenames) }}
+    {{ display_preflight_tree(k, subitem, top_level_filenames, file_issues) }}
   {% endfor %}
   {% endif %}
 {% endmacro %}
@@ -112,9 +119,14 @@
   {% for notification in immediate_notifications %}
   <div class="notification is-{{ notification.severity }}" role="alert" aria-atomic="true">
     {% if notification.title %}<h2 class="is-size-5 is-marginless">{{ notification.title }}</h2>{% endif %}
+    {% if notification.body %}
     <p>
-      {{ notification.body}}
+      {{ notification.body }}
     </p>
+    {% endif %}
+    {% if notification.url %}
+    <p><a href="{{ notification.url }}">{{ notification.link_text }}</a></p>
+    {% endif %}
   </div>
   {% endfor %}
 {% endif %}
@@ -208,7 +220,7 @@
       </thead>
       <tbody>
         {% for k, item in (file_notes | group_preflight_files).items() %}
-          {{ display_preflight_tree(k, item, selected_top_level_files) }}
+          {{ display_preflight_tree(k, item, selected_top_level_files, file_issues) }}
         {% endfor %}
       </tbody>
     </table>
