@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Tuple
 
-from submit_ce.ui.controllers.new.preflight_issue_table import (
+from submit_ce.ui.preflight.issue_table import (
     DEFAULT_DIRECTIVE,
     PREFLIGHT_ISSUE_DIRECTIVES,
     SEVERITY_RANK,

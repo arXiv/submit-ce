@@ -30,7 +30,7 @@ from wtforms.validators import DataRequired
 from submit_ce.domain.uploads import Workspace, SourceFormat
 from submit_ce.domain.exceptions import InvalidEvent, SaveError
 from submit_ce.ui.controllers.util import validate_command
-from submit_ce.ui.controllers.new.preflight_issues import build_issue_context
+from submit_ce.ui.preflight.issues import build_issue_context
 from submit_ce.ui.routes.flow_control import (
     stay_on_this_stage, ready_for_next, return_to_parent_stage,
     return_to_previous_stage, advance_to_current,

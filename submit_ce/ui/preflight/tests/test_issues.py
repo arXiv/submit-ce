@@ -1,8 +1,8 @@
-"""Tests for :mod:`submit_ce.ui.controllers.new.preflight_issues`. [SUBMISSION-210]"""
+"""Tests for :mod:`submit_ce.ui.preflight.issues`. [SUBMISSION-210]"""
 
 import pytest
 
-from submit_ce.ui.controllers.new.preflight_issues import (
+from submit_ce.ui.preflight.issues import (
     PREFLIGHT_ISSUE_DIRECTIVES,
     build_issue_context,
 )
