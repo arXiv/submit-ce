@@ -4,7 +4,7 @@
 (that lives with ``build_issue_context`` and is tested separately). The point is
 to catch drift while the team reviews severities and copy.
 """
-from submit_ce.ui.controllers.new.preflight_issue_table import (
+from submit_ce.ui.preflight.issue_table import (
     DEFAULT_DIRECTIVE,
     PREFLIGHT_ISSUE_DIRECTIVES,
     SEVERITY_RANK,
