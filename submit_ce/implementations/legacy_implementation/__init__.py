@@ -30,7 +30,7 @@ from . import moderators
 from ...domain.event.base import Event, EventWithSideEffect
 from ...domain.util import get_tzaware_utc_now
 
-from ...domain.event import CreateSubmission
+from ...domain.event import CreateSubmission, CreateJrefSubmission
 from ...domain.event.legacy import Withdraw
 from ...domain.exceptions import NoSuchSubmission, NothingToDo, SaveError
 from . import db
@@ -155,11 +155,18 @@ class LegacySubmitImplementation(SubmitApi):
         if isinstance(events[0], Withdraw) and len(events) > 1:
             # BDC I don't love how the Withdraw is handled. I'd perfer if it were done in a side effect
             raise SaveError("Must save Withdraw as the only item in the list of Events")
+        if isinstance(events[0], CreateJrefSubmission) and len(events) > 1:
+            # Same shape as Withdraw: this event creates its own submission, so
+            # it cannot share a save with events aimed at another submission.
+            raise SaveError("Must save CreateJrefSubmission as the only item "
+                            "in the list of Events")
         ctx = SaveContext(api=self, submission_id=submission_id, requested_events=events)
         with self.get_session() as session:
             try:
                 if isinstance(events[0], Withdraw):
                     result = self._save_withdrawal(events[0], session, ctx)
+                elif isinstance(events[0], CreateJrefSubmission):
+                    result = self._save_jref_create(events[0], session, ctx)
                 else:
                     before: Optional[Submission] = None
                     existing_events: List[Event] = []
@@ -367,6 +374,40 @@ class LegacySubmitImplementation(SubmitApi):
         ctx.phase = SavePhase.COMMIT
         session.commit()
         return after, [consequent]
+
+    def _save_jref_create(self, event: CreateJrefSubmission, session,
+                          ctx: SaveContext) -> Tuple[Submission, List[Event]]:
+        """Save a `CreateJrefSubmission`, creating a new ``jref`` submission.
+
+        A journal reference is its own submission, seeded from the announced
+        paper's current metadata rather than from a submission being edited, so
+        it takes this path instead of the usual load-by-id one. There is no
+        file side effect, so unlike `Withdraw` nothing needs to run after the
+        new row's id exists.
+        """
+        event.created = datetime.now(UTC)
+
+        ctx.phase = SavePhase.LOAD_LOCK
+        document = db.to_document(session, event.paper_id)
+        seed = document.seed_submission(event.creator, event.client)
+        ctx.before = seed
+
+        self._participants_under_lock(ctx)
+        ctx.current_event = event
+
+        ctx.phase = SavePhase.EVENT_VALIDATE_UNDER_LOCK
+        event.validate_under_lock(self, seed)
+
+        ctx.phase = SavePhase.EVENT_PERSIST
+        saved_event, after = db.store_jref_create(session, event, seed)
+
+        ctx.after = after
+        ctx.committed.append(saved_event)
+        ctx.current_event = None
+        self._participants_before_commit(ctx)
+        ctx.phase = SavePhase.COMMIT
+        session.commit()
+        return after, [saved_event]
 
     @override
     def get_service_status(self, impl_data: dict):

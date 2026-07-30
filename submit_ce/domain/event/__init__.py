@@ -141,6 +141,85 @@ class CreateSubmission(Event):
                           client=self.client)
 
 
+class CreateJrefSubmission(Event):
+    """Create a ``jref`` submission recording citation data for a paper.
+
+    A journal reference is its own submission -- its own classic DB row, its own
+    submission id, its own status -- made against an already-announced paper.
+    It carries any combination of a journal reference, a DOI and a report
+    number.
+
+    This starts from the *announced paper's* state. The version is **not**
+    incremented -- a journal reference annotates the current version rather than
+    creating a new one.
+
+    Field cleanup and validation are shared with :class:`SetDOI`,
+    :class:`SetJournalReference` and :class:`SetReportNumber`,
+    so a value behaves the same whether it arrives at create time or in a
+    later edit.
+
+    """
+
+    NAME = "create a journal reference submission"
+    NAMED = "journal reference submission created"
+
+    paper_id: str
+    """Announced arXiv id of the paper being annotated."""
+
+    doi: str = ''
+    journal_ref: str = ''
+    report_num: str = ''
+
+    def model_post_init(self, *args, **kwargs) -> None:
+        """Apply the same light cleanup as the individual ``Set*`` events."""
+        self.doi = SetDOI.cleanup(self.doi)
+        self.journal_ref = SetJournalReference.cleanup(self.journal_ref)
+        self.report_num = SetReportNumber.cleanup(self.report_num)
+
+    def validate_pre_lock(self, submission: Submission) -> None:
+        """Require an announced paper and at least one valid value."""
+        if submission is None or not submission.is_announced:
+            raise InvalidEvent(self, "Paper must already be announced")
+        if not (self.doi or self.journal_ref or self.report_num):
+            raise InvalidEvent(self, "Provide a journal reference, DOI or"
+                                     " report number")
+        for value, check in ((self.doi, metacheck.check_doi),
+                             (self.journal_ref, metacheck.check_journal_ref),
+                             (self.report_num, metacheck.check_report_num)):
+            if not value:
+                continue
+            result = check(value)
+            if result and result.disposition != metacheck.OK:
+                raise InvalidEvent(self, "", result)
+
+    def validate_under_lock(self, api, submission) -> None:
+        """Reject if the paper has *any* submission already in progress."""
+        validators.no_conflicting_active_submission(self, api, submission)
+
+    def project(self, submission: Submission) -> Submission:
+        """Turn the announced-paper seed into a new ``jref`` submission."""
+        submission.submission_type = SubmissionType.JOURNAL_REFERENCE
+        submission.status = Submission.WORKING
+        submission.submitted = None
+        # The row does not exist yet; its id is assigned when it is created.
+        submission.submission_id = None
+        submission.arxiv_id = self.paper_id
+        submission.creator = self.creator
+        submission.owner = self.creator
+        submission.proxy = self.proxy
+        submission.client = self.client
+        submission.created = self.created
+        # NB: `version` is intentionally left as seeded. A journal reference
+        # annotates the current announced version; it does not make a new one.
+        if self.doi:
+            submission.metadata.doi = self.doi
+        if self.journal_ref:
+            submission.metadata.journal_ref = self.journal_ref
+        if self.report_num:
+            submission.metadata.report_num = self.report_num
+        return submission
+
+
 class CreateSubmissionVersion(Event):
     """Creates a new version of a submission.
 
@@ -626,8 +705,15 @@ class SetDOI(Event):
             raise InvalidEvent(self, "", check)
 
     def validate_under_lock(self, api, submission) -> None:
-        """Reject if the announced paper has a conflicting submission."""
-        validators.no_conflicting_active_submission(self, api, submission)
+        """Reject if the announced paper has a conflicting submission.
+
+        An in-progress jref is exempt: on the legacy path these events are
+        saved against the *announced* submission, and the first of them creates
+        the jref row that the rest would otherwise reject themselves on.
+        """
+        validators.no_conflicting_active_submission(
+            self, api, submission,
+            allowed_types=(SubmissionType.JOURNAL_REFERENCE,))
 
     def project(self, submission: Submission) -> Submission:
         """Update the doi on a :class:`.domain.submission.Submission`."""
@@ -761,8 +847,15 @@ class SetJournalReference(Event):
             raise InvalidEvent(self, "", check)
 
     def validate_under_lock(self, api, submission) -> None:
-        """Reject if the announced paper has a conflicting submission."""
-        validators.no_conflicting_active_submission(self, api, submission)
+        """Reject if the announced paper has a conflicting submission.
+
+        An in-progress jref is exempt: on the legacy path these events are
+        saved against the *announced* submission, and the first of them creates
+        the jref row that the rest would otherwise reject themselves on.
+        """
+        validators.no_conflicting_active_submission(
+            self, api, submission,
+            allowed_types=(SubmissionType.JOURNAL_REFERENCE,))
 
     def project(self, submission: Submission) -> Submission:
         """Update the journal reference on a :class:`.domain.submission.Submission`."""
@@ -813,8 +906,15 @@ class SetReportNumber(Event):
             raise InvalidEvent(self, "", check)
 
     def validate_under_lock(self, api, submission) -> None:
-        """Reject if the announced paper has a conflicting submission."""
-        validators.no_conflicting_active_submission(self, api, submission)
+        """Reject if the announced paper has a conflicting submission.
+
+        An in-progress jref is exempt: on the legacy path these events are
+        saved against the *announced* submission, and the first of them creates
+        the jref row that the rest would otherwise reject themselves on.
+        """
+        validators.no_conflicting_active_submission(
+            self, api, submission,
+            allowed_types=(SubmissionType.JOURNAL_REFERENCE,))
 
     def project(self, submission: Submission) -> Submission:
         """Set report number on a :class:`.domain.submission.Submission`."""

@@ -58,8 +58,8 @@ from submit_ce import domain
 from submit_ce.domain.uploads import SourceFormat
 from submit_ce.domain import Event, Submission, User, WithdrawalRequest, CrossListClassificationRequest,  License
 from submit_ce.domain.submission import SubmissionType
-from submit_ce.domain.event import SetJournalReference, SetDOI, SetReportNumber, CreateSubmission, Rollback, \
-    ProposeClassification
+from submit_ce.domain.event import SetJournalReference, SetDOI, SetReportNumber, CreateSubmission, \
+    CreateJrefSubmission, Rollback, ProposeClassification
 from submit_ce.domain.exceptions import NoSuchSubmission, NoSuchDocument
 
 logger = logging.getLogger(__name__)
@@ -313,6 +313,16 @@ def store_event(session: SQLAlchemySession, event: Event, before: Optional[Submi
 
             elif isinstance(event, CancelRequest):
                 dbs = _cancel_request(session, event, before, after)
+
+            # A jref is its own row, but it carries the announced paper's
+            # `doc_paper_id`, so it lands in this branch. It must be loaded by
+            # its own submission id: `_load` by paper_id defaults to the
+            # new/rep rows and would return the announced row instead.
+            elif before.submission_type == SubmissionType.JOURNAL_REFERENCE:
+                dbs = _load(session, submission_id=before.submission_id,
+                            row_type=models.Submission.JOURNAL_REFERENCE)
+                _preserve_sticky_hold(dbs, before, after, event)
+                dbs.update_from_submission(after)
 
             # The submission has been announced.
             # TODO Redundant logic in this next clause
@@ -574,6 +584,60 @@ def store_withdrawal(session: SQLAlchemySession, event: Withdraw,
     session.flush([dbs])
 
     # The new row owns its own workspace, keyed by the new submission id.
+    after.submission_id = str(dbs.submission_id)
+    dbs.package = str(dbs.submission_id)
+    event.submission_id = str(dbs.submission_id)
+
+    db_event = _new_dbevent(event)
+    session.add(db_event)
+    event.committed = True
+
+    log.handle(session, event, seed, after)
+    return event, after
+
+
+def store_jref_create(session: SQLAlchemySession, event: CreateJrefSubmission,
+                      seed: Submission) -> Tuple[Event, Submission]:
+    """Create a new ``jref`` submission row from a `CreateJrefSubmission`.
+
+    Like :func:`store_withdrawal`, and unlike :func:`store_event`, this
+    *creates* a row rather than updating the one the event was saved against:
+    a journal reference is its own submission. The row is flushed here so the
+    returned ``after`` carries the new submission id.
+
+    The row is left at ``WORKING``; a journal reference is not submitted until
+    it is finalized, which matches legacy, where ``create_submission(...,
+    'jref')`` makes the row at status 0.
+    """
+    if event.committed:
+        raise ValueError(f'{event.event_type} {event.event_id} already committed')
+    if event.created is None:
+        raise ValueError('Event creation timestamp not set')
+
+    after = event.apply(seed)
+
+    # The version is not incremented for a jref, so this resolves the document
+    # of the announced version being annotated.
+    doc_id = _load_document_id(session, event.paper_id, after.version)
+
+    # These columns are NOT NULL, so fall back to empty rather than None.
+    client = after.client
+    dbs = models.Submission(
+        type=models.Submission.JOURNAL_REFERENCE,
+        document_id=doc_id,
+        version=after.version,
+        remote_addr=str(client.remote_addr) if client and client.remote_addr else "",
+        remote_host=(client.remote_host or "") if client else "")
+    dbs.update_from_submission(after)
+    dbs.created = event.created
+    dbs.updated = event.created
+    dbs.doc_paper_id = event.paper_id
+
+    # Flush to assign the autoincrement submission id for the new row.
+    session.add(dbs)
+    session.flush([dbs])
+
+    # Set the new db rows id on the event
     after.submission_id = str(dbs.submission_id)
     dbs.package = str(dbs.submission_id)
     event.submission_id = str(dbs.submission_id)

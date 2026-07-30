@@ -1,6 +1,7 @@
 """Reusable validators for events."""
 
 import re
+from typing import Sequence
 
 from arxiv.taxonomy.definitions import CATEGORIES
 
@@ -28,14 +29,13 @@ def submission_is_not_finalized(event: Event, submission: Submission) -> None:
         raise InvalidEvent(event, "Cannot apply to a finalized submission")
 
 
-def no_conflicting_active_submission(event: Event, api,
-                                     submission: Submission) -> None:
+def no_conflicting_active_submission(
+        event: Event, api, submission: Submission,
+        allowed_types: Sequence[SubmissionType] = ()) -> None:
     """Reject a journal reference when the paper has a conflicting submission.
 
-    An in-progress *jref* is allowed: a paper's several journal-reference edits
-    share a single jref row, and the events of one such edit would otherwise
-    reject one another. Any other in-progress submission (replacement,
-    withdrawal, cross-list) blocks the journal reference.
+    By default *any* in-progress submission on the paper conflicts. Pass
+    ``allowed_types`` to exempt particular types.
 
     Parameters
     ----------
@@ -43,19 +43,24 @@ def no_conflicting_active_submission(event: Event, api,
     api : :class:`submit_ce.api.submit.SubmitApi`
         Used to look up other submissions on the paper.
     submission : :class:`.domain.submission.Submission`
-        The state before the event is applied.
+        The state before the event is applied. Checks are skipped unless this
+        is the announced paper, since only then are there sibling submissions
+        to conflict with.
+    allowed_types : sequence of :class:`.SubmissionType`
+        Submission types that do *not* conflict. Empty (the default) means an
+        in-progress submission of any type blocks the event.
 
     Raises
     ------
     :class:`.InvalidEvent`
-        If the announced paper already has a non-jref submission in progress.
+        If the announced paper already has a conflicting submission in progress.
 
     """
     if submission is None or not submission.is_announced:
         return
     document = api.get_document(submission.arxiv_id)
     conflicting = [s for s in document.active_submissions
-                   if s.submission_type != SubmissionType.JOURNAL_REFERENCE]
+                   if s.submission_type not in allowed_types]
     if conflicting:
         raise InvalidEvent(
             event,

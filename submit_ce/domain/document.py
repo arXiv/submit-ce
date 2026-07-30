@@ -16,12 +16,16 @@ lifetime, but only the announced ones contribute to its published state.
 :class:`submit_ce.api.submit.SubmitApi`; nothing here mutates the database.
 """
 
+import copy
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import List, Optional
 
-from .meta import Classification
-from .submission import Submission
+from arxiv.license import LICENSES
+
+from .agent import Client, User
+from .meta import Classification, License
+from .submission import Submission, SubmissionMetadata
 
 
 @dataclass
@@ -108,3 +112,57 @@ class Document:
             if md.is_current:
                 return md
         return self.metadata[-1] if self.metadata else None
+
+    def seed_submission(self, creator: User,
+                        client: Optional[Client] = None) -> Submission:
+        """Build a :class:`.Submission` from a paper's announced state.
+
+        This is the ``before`` state that events creating a new submission
+        against an announced paper (a journal reference, a replacement, a
+        withdrawal) project from. It reproduces what legacy calls
+        ``fields_for_submission``: the fields of the *current*
+        :class:`.DocMetadata` version, plus the paper's current
+        classifications.
+
+        Deliberately **not** seeded, matching legacy:
+
+        - ``source_format`` / ``uncompressed_size`` / ``is_oversize`` --
+          ``fields_for_submission`` does not copy the source fields, which is
+          why the format and oversize auto-holds are no-ops on a journal
+          reference.
+        - Moderation state (holds, waivers, flags, comments, proposals,
+          requests) belongs to the submission that carried it, not the paper.
+
+        ``creator`` is the user making the new submission, not the original
+        submitter; the classic row's submitter is projected from it.
+        """
+        md = self.current_metadata
+        license: Optional[License] = None
+        if md is not None and md.license:
+            label = LICENSES.get(md.license, {}).get('label')
+            license = License(uri=md.license, name=label)
+
+        return Submission(
+            creator=creator,
+            owner=creator,
+            client=client,
+            arxiv_id=self.paper_id,
+            version=md.version if md is not None else self.latest_version,
+            status=Submission.ANNOUNCED,  # TODO is this what legacy does or should this be WORKING?
+            created=self.created,  # TODO Is this what legacy does or should this be now?
+            license=license,
+            primary_classification=copy.deepcopy(self.primary_classification),
+            secondary_classification=copy.deepcopy(
+                self.secondary_classification),
+            metadata=SubmissionMetadata(
+                title=md.title if md else None,
+                abstract=md.abstract if md else None,
+                authors_display=(md.authors or '') if md else '',
+                comments=(md.comments or '') if md else '',
+                report_num=md.report_num if md else None,
+                journal_ref=md.journal_ref if md else None,
+                doi=md.doi if md else None,
+                msc_class=md.msc_class if md else None,
+                acm_class=md.acm_class if md else None,
+            ),
+        )
