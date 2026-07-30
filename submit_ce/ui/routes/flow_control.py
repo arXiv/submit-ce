@@ -110,6 +110,20 @@ def put_seen(seen: Dict[str, bool]) -> None:
     session['steps_seen'] = seen
 
 
+NON_WORKFLOW_TYPES = frozenset({
+    SubmissionType.JOURNAL_REFERENCE,
+    SubmissionType.WITHDRAWAL,
+    SubmissionType.CROSS_LIST,
+})
+"""Submission types that have no stage workflow.
+
+Their pages are single controllers rather than a staged flow (see
+``handle(..., flow_controlled=False)``), so no :class:`.WorkflowProcessor` is
+resolved for them and ``request.workflow`` stays ``None``. Reaching
+:func:`get_workflow` with one of these is a bug, and it raises.
+"""
+
+
 def get_workflow(submission: Optional[Submission],
                  events: List[Event]) -> WorkflowProcessor:
     """Guesses the workflow based on the submission and its version."""

@@ -51,7 +51,7 @@
   <ol>
     <li>The paper cannot be completely removed. Previous versions will remain accessible.<br />See help pages on: <a href="{{ url_for('help_withdraw') }}">withdrawals</a>, <a href="{{ url_for('help_version') }}">versions</a> and <a href="{{ url_for('help_license') }}">licenses</a>.</li>
     <li>Inappropriate withdrawal requests will be denied.</li>
-    <li>It is not appropriate to withdraw a paper because it is published or submitted to a journal. Instead you could submit a <a href="{{ url_for('ui.jref', submission_id=submission.submission_id) }}">journal-ref</a>.</li>
+    <li>It is not appropriate to withdraw a paper because it is published or submitted to a journal. Instead you could submit a <a href="{{ url_for('ui.manage_submissions') }}">journal-ref</a> from your submissions page.</li>
     <li>It is not appropriate to withdraw a paper because it is being updated. Instead you could submit a <a href="{{ url_for('ui.create_replacement', submission_id=submission.submission_id) }}">replacement</a>.</li>
     <li>You may modify the abstract field only if the comments field is inadequate for your explanation. Removing the abstract totally is inappropriate and will result in a denial of your withdrawal request.</li>
   </ol>

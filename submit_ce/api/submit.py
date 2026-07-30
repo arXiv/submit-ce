@@ -155,6 +155,23 @@ class SubmitApi(ABC):
             ...
 
     @abstractmethod
+    def load_documents_for_user(self, user_id: int) -> List[Document]:
+        """Load the announced papers a specific user.
+
+        Parameters
+        ----------
+        user_id : int
+            Unique identifier for the user.
+
+        Returns
+        -------
+        list
+            Items are :class:`.domain.document.Document` instances, most
+            recently submitted first.
+        """
+        ...
+
+    @abstractmethod
     def get_document(self, paper_id: str) -> Document:
         """Get the announced :class:`.domain.document.Document` for a paper.
 

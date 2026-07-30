@@ -113,6 +113,57 @@ class Document:
                 return md
         return self.metadata[-1] if self.metadata else None
 
+    @property
+    def display_metadata(self) -> Optional[DocMetadata]:
+        """Metadata for the current version, from whichever source has it.
+
+        :attr:`current_metadata` for a paper that legacy has written
+        ``arXiv_metadata`` for, standing in from the announced submission
+        otherwise (see :attr:`latest_announced_submission`). What to show a user
+        about a paper, and the same rule :meth:`seed_submission` builds from.
+        """
+        return self.current_metadata or self._metadata_from_announced()
+
+    @property
+    def latest_announced_submission(self) -> Optional[Submission]:
+        """The announced submission for the highest announced version.
+
+        The fallback source for a paper's announced state. ``arXiv_metadata``
+        and ``arXiv_document_category`` are written by the legacy publish
+        pipeline, not by this system, so a paper announced here may have
+        neither -- but it always has an announced submission row.
+        """
+        announced = [s for s in self.submissions
+                     if s.status == Submission.ANNOUNCED]
+        if not announced:
+            return None
+        return max(announced, key=lambda s: s.version)
+
+    def _metadata_from_announced(self) -> Optional[DocMetadata]:
+        """Stand-in :class:`.DocMetadata` built from the announced submission.
+
+        Used when the paper has no ``arXiv_metadata`` row, so that a new
+        submission is not seeded with an empty title and abstract. See
+        :attr:`latest_announced_submission`.
+        """
+        latest = self.latest_announced_submission
+        if latest is None:
+            return None
+        md = latest.metadata
+        return DocMetadata(
+            version=latest.version,
+            title=md.title,
+            abstract=md.abstract,
+            authors=md.authors_display,
+            comments=md.comments,
+            report_num=md.report_num,
+            journal_ref=md.journal_ref,
+            doi=md.doi,
+            msc_class=md.msc_class,
+            acm_class=md.acm_class,
+            license=latest.license.uri if latest.license else None,
+            is_current=True)
+
     def seed_submission(self, creator: User,
                         client: Optional[Client] = None) -> Submission:
         """Build a :class:`.Submission` from a paper's announced state.
@@ -136,11 +187,21 @@ class Document:
         ``creator`` is the user making the new submission, not the original
         submitter; the classic row's submitter is projected from it.
         """
-        md = self.current_metadata
+        md = self.display_metadata
         license: Optional[License] = None
         if md is not None and md.license:
             label = LICENSES.get(md.license, {}).get('label')
             license = License(uri=md.license, name=label)
+
+        # Current categories come from arXiv_document_category; fall back to the
+        # announced submission's when the paper has no rows there.
+        primary = self.primary_classification
+        secondaries = self.secondary_classification
+        if primary is None:
+            latest = self.latest_announced_submission
+            if latest is not None:
+                primary = latest.primary_classification
+                secondaries = latest.secondary_classification
 
         return Submission(
             creator=creator,
@@ -151,9 +212,8 @@ class Document:
             status=Submission.ANNOUNCED,  # TODO is this what legacy does or should this be WORKING?
             created=self.created,  # TODO Is this what legacy does or should this be now?
             license=license,
-            primary_classification=copy.deepcopy(self.primary_classification),
-            secondary_classification=copy.deepcopy(
-                self.secondary_classification),
+            primary_classification=copy.deepcopy(primary),
+            secondary_classification=copy.deepcopy(secondaries),
             metadata=SubmissionMetadata(
                 title=md.title if md else None,
                 abstract=md.abstract if md else None,

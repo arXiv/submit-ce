@@ -123,6 +123,10 @@ class LegacySubmitImplementation(SubmitApi):
                 session.execute(stmt).unique().scalars().all()]
 
     @override
+    def load_documents_for_user(self, user_id: str) -> List[Document]:
+        return db.to_documents_for_user(self.get_session(), user_id)
+
+    @override
     def get_document(self, paper_id: str) -> Document:
         return db.to_document(self.get_session(), paper_id)
 

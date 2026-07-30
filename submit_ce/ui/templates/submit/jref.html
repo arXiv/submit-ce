@@ -40,7 +40,7 @@
   {% endif %}
 
 
-  <form method="POST" action="{{ url_for('ui.jref', submission_id=submission_id) }}">
+  <form method="POST" action="{{ url_for(form_action, submission_id=submission_id) }}">
     <div class="columns">
       <div class="column">
         {{ form.csrf_token }}

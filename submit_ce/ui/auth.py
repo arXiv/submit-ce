@@ -7,7 +7,7 @@ import jwt
 from arxiv.auth.legacy import util
 from arxiv.db.models import Demographic, TapirNickname, TapirUser
 from arxiv.db import Session as DB  # renamed due to too many session
-from flask import has_request_context, request
+from flask import current_app, has_request_context, request
 from pydantic_core import ValidationError
 from werkzeug.datastructures import MultiDict
 from werkzeug.exceptions import Unauthorized, NotFound
@@ -20,12 +20,13 @@ from arxiv.auth.legacy.endorsements import explicit_endorsements
 
 from submit_ce.domain import User, PublicUser, HttpClient, Client
 from submit_ce.domain.agent import StaffUser
+from submit_ce.domain.exceptions import NoSuchDocument
 from submit_ce.ui import backend, get_device_type, is_admin, is_dev
 from submit_ce.ui.config import settings
 
 
 logger = logging.getLogger(__name__)
-
+logger.setLevel(logging.DEBUG)
 
 def _to_datetime(time:str|int|datetime|None)-> datetime:
     if isinstance(time, datetime):
@@ -312,3 +313,20 @@ def is_owner(session: auth_domian.Session, submission_id: str, **kw) -> bool:
                  submission.owner.identifier,
                  session.user.user_id)
     return str(submission.owner.user_id) == str(session.user.user_id)
+
+
+def is_paper_owner(session: auth_domian.Session, paper_id: str, **kw) -> bool:
+    """Check whether the user has privileges to submit against a paper.
+
+    This runs as a `scoped` authorizer, before the view, so the `NoSuchDocument`
+    from an unknown paper is turned into a 404 here; left alone it is a plain
+    `RuntimeError` and the request 500s.
+    """
+    try:
+        paper = current_app.api.get_document(paper_id)
+    except NoSuchDocument as e:
+        raise NotFound('No such paper') from e
+
+    logger.debug('Paper owned by %s; request is from %s',
+                 paper.submitter_id, session.user.user_id)
+    return str(paper.submitter_id) == str(session.user.user_id)

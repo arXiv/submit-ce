@@ -317,6 +317,9 @@ class NullImplementation(SubmitApi):  # pragma: no cover
     def load_submissions_for_user(self, user_id: int) -> List[Submission]:
         return []
 
+    def load_documents_for_user(self, user_id: int) -> List[Document]:
+        return []
+
     def get_document(self, paper_id: str) -> Document:
         raise NoSuchDocument(paper_id)
 

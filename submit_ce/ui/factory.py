@@ -12,6 +12,7 @@ from arxiv import db
 from .auth import request_auth
 from .config import settings
 from . import backend, filters
+from .routes.paper_id_ui import PAPER_ID_UI
 from .routes.ui import UI
 
 
@@ -38,6 +39,7 @@ def create_web_app(config: Optional[dict]=None) -> Flask:
     db.init(settings)
     Base(app)
     app.register_blueprint(UI)
+    app.register_blueprint(PAPER_ID_UI)
 
     app.jinja_env.add_extension('jinja2.ext.do')
     for filter_name, filter_func in filters.get_filters():

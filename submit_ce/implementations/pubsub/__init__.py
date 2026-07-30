@@ -45,6 +45,9 @@ class PubsubEventSubmitImplementation(SubmitApi):
     def load_submissions_for_user(self, user_id: int) -> List[Submission]:
         return self.inner_api.load_submissions_for_user(user_id)
 
+    def load_documents_for_user(self, user_id: int) -> List[Document]:
+        return self.inner_api.load_documents_for_user(user_id)
+
     def get_document(self, paper_id: str) -> Document:
         return self.inner_api.get_document(paper_id)
 

@@ -1,0 +1,26 @@
+{%- extends "submit/base.html" %}
+{% import "svg.html" as svg %}
+
+{% block title %}Submission Already in Progress{% endblock title %}
+
+{% block within_content %}
+  <div class="content">
+    <p>
+      This paper already has a submission in progress. arXiv allows only one
+      active submission per paper at a time. Finish or cancel the submission in
+      progress before starting another.
+    </p>
+  </div>
+
+  <div class="buttons">
+    {% if conflicting_submission_id %}
+      <a class="button is-link"
+         href="{{ url_for('ui.submission_edit', submission_id=conflicting_submission_id) }}">
+        Go to the submission in progress
+      </a>
+    {% endif %}
+    <a class="button" href="{{ url_for('ui.manage_submissions') }}">
+      Back to your submissions
+    </a>
+  </div>
+{% endblock within_content %}

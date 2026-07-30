@@ -85,8 +85,13 @@ def test_creates_its_own_jref_row(app, authorized_user, announced_paper):
         before_rows = _rows_for(paper_id)
 
         after, events = current_app.api.save(CreateJrefSubmission(
-            creator=authorized_user, client=ua, paper_id=paper_id,
-            journal_ref=JOURNAL_REF, doi='10.1000/182'))
+            creator=authorized_user, client=ua, paper_id=paper_id))
+        # The values are set on the new jref, not carried by the create event.
+        current_app.api.save(
+            SetJournalReference(creator=authorized_user, client=ua,
+                                journal_ref=JOURNAL_REF),
+            SetDOI(creator=authorized_user, client=ua, doi='10.1000/182'),
+            submission_id=after.submission_id)
 
         # A brand new submission, not the announced one.
         assert after.submission_id is not None
@@ -136,8 +141,11 @@ def test_replays_as_a_jref(app, authorized_user, announced_paper):
 
     with app.app_context():
         after, _ = current_app.api.save(CreateJrefSubmission(
-            creator=authorized_user, client=ua, paper_id=paper_id,
-            journal_ref=JOURNAL_REF))
+            creator=authorized_user, client=ua, paper_id=paper_id))
+        current_app.api.save(
+            SetJournalReference(creator=authorized_user, client=ua,
+                                journal_ref=JOURNAL_REF),
+            submission_id=after.submission_id)
 
         loaded = current_app.api.get(after.submission_id)
 
@@ -212,18 +220,13 @@ def test_event_survives_a_serialization_round_trip(app, authorized_user,
 
     with app.app_context():
         after, _ = current_app.api.save(CreateJrefSubmission(
-            creator=authorized_user, client=ua, paper_id=paper_id,
-            journal_ref=JOURNAL_REF, doi='10.1000/182',
-            report_num='CERN-PH-EP/2999-018'))
+            creator=authorized_user, client=ua, paper_id=paper_id))
 
         _, events = current_app.api.get_with_history(after.submission_id)
 
         created = [e for e in events if isinstance(e, CreateJrefSubmission)]
         assert len(created) == 1
         assert created[0].paper_id == paper_id
-        assert created[0].journal_ref == JOURNAL_REF
-        assert created[0].doi == '10.1000/182'
-        assert created[0].report_num == 'CERN-PH-EP/2999-018'
         assert created[0].creator.user_id == authorized_user.user_id
 
 
@@ -266,8 +269,11 @@ def test_a_second_jref_is_rejected(app, authorized_user, announced_paper):
 
     with app.app_context():
         first, _ = current_app.api.save(CreateJrefSubmission(
-            creator=authorized_user, client=ua, paper_id=paper_id,
-            journal_ref='first ref 1999'))
+            creator=authorized_user, client=ua, paper_id=paper_id))
+        current_app.api.save(
+            SetJournalReference(creator=authorized_user, client=ua,
+                                journal_ref='first ref 1999'),
+            submission_id=first.submission_id)
 
         with pytest.raises(InvalidEvent, match='already has a submission'):
             current_app.api.save(CreateJrefSubmission(

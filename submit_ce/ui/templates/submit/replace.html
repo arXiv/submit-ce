@@ -22,7 +22,7 @@
   <li>After the fifth revision, papers will not be announced in the daily mailings.</li>
 </ul>
 
-<p>You can add a DOI, journal reference, or report number without submitting a replacement if that is the only change being made. To do so, cancel this replacement and <a href="{{ url_for('ui.jref', submission_id=submission.submission_id) }}">submit a journal reference.</a></p>
+<p>You can add a DOI, journal reference, or report number without submitting a replacement if that is the only change being made. To do so, cancel this replacement and <a href="{{ url_for('ui.manage_submissions') }}">submit a journal reference</a> from your submissions page.</p>
 
 <form class="form" method="POST" action="{{ url_for('ui.create_replacement', submission_id=submission.submission_id) }}">
   {{ form.csrf_token }}
