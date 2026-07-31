@@ -642,6 +642,57 @@ class DocumentCategory(Base):    # type: ignore
     document = relationship('Document')
 
 
+class Metadata(Base):    # type: ignore
+    """Announced metadata for one version of an arXiv paper.
+
+    One row per ``(paper_id, version)``. This is the canonical published
+    metadata, written by the announcement process; the submission system reads
+    it to reconstruct a :class:`submit_ce.domain.document.Document`.
+    """
+
+    __tablename__ = 'arXiv_metadata'
+
+    metadata_id = Column(Integer, primary_key=True)
+    document_id = Column(
+        ForeignKey('arXiv_documents.document_id', ondelete='CASCADE',
+                   onupdate='CASCADE'),
+        nullable=False, index=True)
+    paper_id = Column(String(64), nullable=False)
+    created = Column(DateTime)
+    updated = Column(DateTime)
+    submitter_id = Column(ForeignKey('tapir_users.user_id'), index=True)
+    submitter_name = Column(String(64), nullable=False)
+    submitter_email = Column(String(64), nullable=False)
+    source_size = Column(Integer)
+    source_format = Column(String(12))
+    source_flags = Column(String(12))
+    title = Column(Text)
+    authors = Column(Text)
+    abs_categories = Column(String(255))
+    comments = Column(Text)
+    proxy = Column(String(255))
+    report_num = Column(Text)
+    msc_class = Column(String(255))
+    acm_class = Column(String(255))
+    journal_ref = Column(Text)
+    doi = Column(String(255))
+    abstract = Column(Text)
+    license = Column(ForeignKey('arXiv_licenses.name'), index=True)
+    version = Column(Integer, nullable=False, server_default=text("'1'"))
+    modtime = Column(Integer)
+    is_current = Column(Integer, server_default=text("'1'"))
+    is_withdrawn = Column(Integer, nullable=False, server_default=text("'0'"))
+
+    document = relationship('Document')
+    submitter = relationship('User')
+
+    def is_current_version(self) -> bool:
+        return bool(self.is_current)
+
+    def is_withdrawn_version(self) -> bool:
+        return bool(self.is_withdrawn)
+
+
 class User(Base):    # type: ignore
     """Represents an arXiv user."""
 

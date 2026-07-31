@@ -9,6 +9,7 @@ from .preview import Preview
 from .proposal import Proposal, ProposalStatus
 from .submission import Submission, SubmissionMetadata, SubmissionType, Author, \
     Hold, WithdrawalRequest, UserRequest, CrossListClassificationRequest
+from .document import Document, DocMetadata
 from .uploads import Workspace
 
 __all__ = [
@@ -37,5 +38,7 @@ __all__ = [
     WithdrawalRequest,
     UserRequest,
     CrossListClassificationRequest,
+    Document,
+    DocMetadata,
     Workspace,
 ]

@@ -1,113 +1,62 @@
-"""Tests for :mod:`submit_ce.controllers.jref`."""
+"""Tests for the jref edit controller, ``GET|POST /<submission_id>/jref``.
 
-import pytest
-from unittest import mock
-from werkzeug.datastructures import MultiDict
+`submission_id` is the *jref's own* id; creating one is `paper.add_jref`, and
+covered by `ui/tests/test_add_jref.py`. The happy path -- prefilled form,
+preview, confirm -- is covered end to end by
+`ui/workflow/tests/test_jref_workflow.py`. These are the two rejection branches
+that flow does not reach.
+"""
 from http import HTTPStatus as status
 
-from submit_ce.ui.tests import CtrlBase
-from submit_ce.ui.controllers import jref
+from submit_ce.ui.tests.csrf_util import parse_csrf_token
 
 
-def mock_save(*events, submission_id=None):
-    for event in events:
-        event.submission_id = submission_id
-    return mock.MagicMock(submission_id=submission_id), events
+def _csrf_token(client, path='/'):
+    response = client.get(path)
+    assert response.status_code == status.OK
+    return parse_csrf_token(response)
 
 
-class TestJREFSubmission(CtrlBase):
-    """Test behavior of :func:`.jref` controller."""
+def _create_jref(client, paper_id):
+    """Press the dashboard's Add Journal Reference button, return the jref path."""
+    response = client.post(f'/{paper_id}/add_jref',
+                           data={'csrf_token': _csrf_token(client)})
+    assert response.status_code == status.SEE_OTHER
+    return response.headers['Location']
 
-    @pytest.mark.skip
-    @mock.patch(f'{jref.__name__}.JREFForm.Meta.csrf', False)
-    @mock.patch(f'{jref.__name__}.alerts')
-    @mock.patch(f'{jref.__name__}.url_for')
-    @mock.patch('submit_ce.ui.backend.api.get_with_history')
-    def test_GET_with_unannounced(self, mock_load, mock_url_for, mock_alerts):
-        """GET request for an unannounced submission."""
-        submission_id = 2
-        before = mock.MagicMock(submission_id=submission_id,
-                                is_announced=False,
-                                arxiv_id=None, version=1)
-        mock_load.return_value = (before, [])
-        mock_url_for.return_value = "/url/for/submission/status"
-        data, code, headers = jref.jref('GET', MultiDict(), self.session,
-                                        submission_id)
-        self.assertEqual(code, status.SEE_OTHER, "Returns See Other")
-        self.assertIn('Location', headers, "Returns Location header")
-        self.assertTrue(
-            mock_url_for.called_with('ui.submission_status', submission_id=2),
-            "Gets the URL for the submission status page"
-        )
-        self.assertEqual(headers['Location'], "/url/for/submission/status",
-                         "Returns the URL for the submission status page")
-        self.assertEqual(mock_alerts.flash_failure.call_count, 1,
-                         "An informative message is shown to the user")
-    @pytest.mark.skip
-    @mock.patch(f'{jref.__name__}.JREFForm.Meta.csrf', False)
-    @mock.patch(f'{jref.__name__}.alerts')
-    @mock.patch(f'{jref.__name__}.url_for')
-    @mock.patch('submit_ce.ui.backend.api.get_with_history')
-    def test_POST_with_unannounced(self, mock_load, mock_url_for, mock_alerts):
-        """POST request for an unannounced submission."""
-        submission_id = 2
-        before = mock.MagicMock(submission_id=submission_id,
-                                is_announced=False,
-                                arxiv_id=None, version=1)
-        mock_load.return_value = (before, [])
-        mock_url_for.return_value = "/url/for/submission/status"
-        params = MultiDict({'doi': '10.1000/182'})    # Valid.
-        data, code, headers = jref.jref('POST', params, self.session,
-                                        submission_id)
-        self.assertEqual(code, status.SEE_OTHER, "Returns See Other")
-        self.assertIn('Location', headers, "Returns Location header")
-        self.assertTrue(
-            mock_url_for.called_with('ui.submission_status', submission_id=2),
-            "Gets the URL for the submission status page"
-        )
-        self.assertEqual(headers['Location'], "/url/for/submission/status",
-                         "Returns the URL for the submission status page")
-        self.assertEqual(mock_alerts.flash_failure.call_count, 1,
-                         "An informative message is shown to the user")
-    @pytest.mark.skip
-    @mock.patch(f'{jref.__name__}.JREFForm.Meta.csrf', False)
-    @mock.patch('submit_ce.ui.backend.api.get_with_history')
-    def test_GET_with_announced(self, mock_load):
-        """GET request for a announced submission."""
-        submission_id = 2
-        before = mock.MagicMock(submission_id=submission_id, is_announced=True,
-                                arxiv_id='2002.01234', version=1)
-        mock_load.return_value = (before, [])
-        params = MultiDict()
-        data, code, _ = jref.jref('GET', params, self.session, submission_id)
-        self.assertEqual(code, status.OK, "Returns 200 OK")
-        self.assertIn('form', data, "Returns form in response data")
 
-    # @pytest.skip("test broken due to not mocking _load() of submission during the save")
-    # @mock.patch(f'{jref.__name__}.alerts')
-    # @mock.patch(f'{jref.__name__}.url_for')
-    # @mock.patch(f'{jref.__name__}.JREFForm.Meta.csrf', False)
-    # @mock.patch('submit_ce.ui.backend.api.get_with_history')
-    # def test_POST_with_announced(self, mock_load, mock_url_for, mock_alerts):
-    #     """POST request for a announced submission."""
-    #     submission_id = 2
-    #     before = mock.MagicMock(submission_id=submission_id, is_announced=True,
-    #                             arxiv_id='2002.01234', version=1)
-    #     mock_load.return_value = (before, [])
-    #     mock_url_for.return_value = "/url/for/submission/status"
-    #     params = MultiDict({'doi': '10.1000/182'})
-    #     _, code, _ = jref.jref('POST', params, self.session, submission_id)
-    #     self.assertEqual(code, status.OK, "Returns 200 OK")
+def test_get_on_a_submission_that_is_not_a_jref(app, authorized_client,
+                                                sub_created):
+    """The endpoint edits a journal reference; it will not edit anything else.
 
-    #     params['confirmed'] = True
-    #     data, code, headers = jref.jref('POST', params, self.session, submission_id)
-    #     self.assertEqual(code, status.SEE_OTHER, "Returns See Other")
-    #     self.assertIn('Location', headers, "Returns Location header")
-    #     self.assertTrue(
-    #         mock_url_for.called_with('ui.submission_status', submission_id=2),
-    #         "Gets the URL for the submission status page"
-    #     )
-    #     self.assertEqual(headers['Location'], "/url/for/submission/status",
-    #                      "Returns the URL for the submission status page")
-    #     self.assertEqual(mock_alerts.flash_success.call_count, 1,
-    #                      "An informative message is shown to the user")
+    The id here is a plain working submission the user does own, so this is the
+    type check rather than an authorization failure.
+    """
+    response = authorized_client.get(f'/{sub_created.submission_id}/jref')
+
+    assert response.status_code == status.SEE_OTHER
+    # Sent back to the dashboard, with a flash explaining why.
+    assert response.headers['Location'].endswith('/')
+
+    dashboard = authorized_client.get('/')
+    assert b'not a journal reference submission' in dashboard.data
+
+
+def test_post_without_csrf_token_is_rejected(app, authorized_client,
+                                             published_submission):
+    """A POST that fails form validation is a bad request, not a silent no-op."""
+    _, paper_id = published_submission
+    jref_path = _create_jref(authorized_client, paper_id)
+
+    response = authorized_client.post(jref_path,
+                                      data={'journal_ref': 'Nucl.Phys. B1'})
+
+    assert response.status_code == status.BAD_REQUEST
+
+    # Control: the same POST with a token is accepted (and asks the user to
+    # confirm), so it is the missing token that made the difference.
+    with_token = authorized_client.post(
+        jref_path, data={'journal_ref': 'Nucl.Phys. B1',
+                         'csrf_token': _csrf_token(authorized_client,
+                                                   jref_path)})
+    assert with_token.status_code == status.OK

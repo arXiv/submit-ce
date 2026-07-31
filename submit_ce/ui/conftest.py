@@ -4,6 +4,7 @@ import shutil
 import tempfile
 import uuid
 import logging
+from datetime import datetime, UTC
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -570,7 +571,10 @@ def published_submission(app, authorized_user):
                 paper_id=paper_id,
                 title=submission.metadata.title,
                 submitter_email=submission.creator.email,
-                # submitter=submission.creator.user_id,
+                # `submitter_id` and `created` are what legacy's publish sets,
+                # and `load_documents_for_user` selects and orders on them.
+                submitter_id=int(submission.creator.user_id),
+                created=datetime.now(UTC),
             )
             db_submission.doc_paper_id = paper_id
             db_submission.document = db_document

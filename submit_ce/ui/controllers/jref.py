@@ -1,13 +1,23 @@
-"""Controller for JREF submissions."""
+"""Controllers for JREF submissions.
 
+A journal reference is its own submission, so there are two controllers,
+mirroring legacy:
+
+- :func:`add_jref` -- create one, keyed on the *announced* submission
+  (legacy ``/user/<doc>/jref``).
+- :func:`jref` -- edit one, keyed on the *jref's own* submission
+  (legacy ``/submit/<id>/jref``).
+"""
+
+import copy
 from http import HTTPStatus as status
-from typing import Tuple, Dict, Any, List
+from typing import Tuple, Dict, Any, List, Optional
 
 from arxiv.auth.domain import Session
 from flask import url_for, current_app
 from markupsafe import Markup
 from werkzeug.datastructures import MultiDict
-from werkzeug.exceptions import InternalServerError, BadRequest
+from werkzeug.exceptions import InternalServerError, BadRequest, NotFound
 from wtforms.fields import BooleanField
 from wtforms.fields.simple import StringField
 from wtforms.validators import optional
@@ -15,9 +25,11 @@ from wtforms.validators import optional
 from arxiv.base import logging, alerts
 from arxiv.forms import csrf
 from submit_ce.domain import  Event, User, Client, Submission
-from submit_ce.domain.event import SetDOI, SetJournalReference
-from submit_ce.domain.exceptions import SaveError
+from submit_ce.domain.event import CreateJrefSubmission, \
+    FinalizeJrefSubmission, SetDOI, SetJournalReference
+from submit_ce.domain.exceptions import InvalidEvent, NoSuchDocument, SaveError
 from submit_ce.domain.event import SetReportNumber
+from submit_ce.domain.submission import SubmissionType
 from submit_ce.ui.backend import get_submission
 from ..auth import user_and_client_from_session
 from .util import FieldMixin, validate_command
@@ -26,6 +38,15 @@ from .util import FieldMixin, validate_command
 logger = logging.getLogger(__name__)  # pylint: disable=C0103
 
 Response = Tuple[Dict[str, Any], int, Dict[str, Any]]  # pylint: disable=C0103
+
+
+class AddJREFForm(csrf.CSRFForm):
+    """No fields; exists only to CSRF-protect the create POST.
+
+    The token is bound to the session nonce and the remote address rather than
+    to a set of fields (see ``arxiv.forms.csrf``), so the token rendered on the
+    dashboard -- where the button lives -- validates here.
+    """
 
 
 class JREFForm(csrf.CSRFForm, FieldMixin):
@@ -54,25 +75,114 @@ class JREFForm(csrf.CSRFForm, FieldMixin):
                              false_values=('false', False, 0, '0', ''))
 
 
+def _active_submission_id(paper_id: str,
+                          submission_type: Optional[SubmissionType] = None) \
+        -> Optional[str]:
+    """Id of the paper's in-progress submission, if it has one.
+
+    A paper gets one active submission at a time, so this answers both of the
+    questions :func:`add_jref` asks. Pass ``submission_type`` to count only
+    submissions of that type -- an in-progress journal reference is one to
+    resume, where an in-progress anything-else is one that blocks. With no
+    type, any in-progress submission counts.
+
+    Returns ``None`` for a paper that does not exist, leaving the caller to
+    decide whether that is a 404 or just nothing to resume.
+    """
+    try:
+        document = current_app.api.get_document(paper_id)
+    except NoSuchDocument:
+        return None
+    for sub in document.active_submissions:
+        if submission_type is None or sub.submission_type == submission_type:
+            return str(sub.submission_id)
+    return None
+
+
+def add_jref(method: str, params: MultiDict, session: Session,
+             submission_id: Optional[str] = None,
+             paper_id: Optional[str] = None) -> Response:
+    """Create a journal reference submission for an announced paper.
+
+    ``paper_id`` is the *announced* paper being annotated; ``submission_id`` is
+    unused and only here to match the controller signature ``handle()`` calls
+    with. On success a new jref submission is created and the user is
+    redirected to its own edit page (:func:`jref`), where the journal
+    reference, DOI and report number are entered.
+
+    Creating a submission is a write, so this is POST only.
+    """
+    if method != 'POST':
+        return {}, status.METHOD_NOT_ALLOWED, {}
+    if not paper_id:
+        return {}, status.BAD_REQUEST, {}
+    if not AddJREFForm(params).validate():
+        raise BadRequest('Invalid or missing CSRF token')
+
+    # A paper gets one journal reference at a time, so a second press of the
+    # button (or a browser refresh) resumes the one already in progress rather
+    # than failing on `CreateJrefSubmission.validate_under_lock`.
+    existing = _active_submission_id(paper_id,
+                                     SubmissionType.JOURNAL_REFERENCE)
+    if existing is not None:
+        logger.debug('Paper %s already has jref %s', paper_id, existing)
+        return {}, status.SEE_OTHER, {
+            'Location': url_for('ui.jref', submission_id=existing)}
+
+    creator, client = user_and_client_from_session(session)
+    command = CreateJrefSubmission(creator=creator, client=client,
+                                   paper_id=paper_id)
+    try:
+        jref_submission, _ = current_app.api.save(command)
+    except NoSuchDocument as e:
+        raise NotFound(f'No such paper: {paper_id}') from e
+    except InvalidEvent:
+        # The paper has some other submission in progress (a replacement, a
+        # withdrawal, a cross-list), so it cannot take a journal reference yet.
+        logger.debug('Paper %s cannot take a jref right now', paper_id)
+        # Re-read rather than reuse the lookup above: the rejection came from
+        # under the row lock, so this is the fresher answer.
+        return ({'conflicting_submission_id': _active_submission_id(paper_id)},
+                status.OK, {})
+    except SaveError as e:
+        logger.error('Could not save jref submission')
+        raise InternalServerError("Could not start jref submission") from e
+
+    return {}, status.SEE_OTHER, {
+        'Location': url_for(
+            'ui.jref',
+            submission_id=jref_submission.submission_id)}
+
+
 def jref(method: str, params: MultiDict, session: Session,
          submission_id: str, **kwargs) -> Response:
-    """Set journal reference metadata on a announced submission."""
+    """Edit an existing journal reference submission.
+
+    ``submission_id`` is the *jref's own* submission id. Use
+    :func:`add_jref` to create one.
+    """
     creator, client = user_and_client_from_session(session)
     logger.debug(f'method: {method}, submission: {submission_id}. {params}')
 
     # Will raise NotFound if there is no such submission.
     submission, submission_events = get_submission(submission_id)
 
-    # The submission must be announced for this to be a real JREF submission.
-    if not submission.is_announced:
-        alerts.flash_failure(Markup("Submission must first be announced. See "
-                                    "<a href='https://arxiv.org/help/jref'>"
-                                    "the arXiv help pages</a> for details."))
-        status_url = url_for('ui.create_submission')
+    # This endpoint edits a jref; it does not create one.
+    if submission.submission_type != SubmissionType.JOURNAL_REFERENCE:
+        alerts.flash_failure(Markup(
+            "That is not a journal reference submission. See "
+            "<a href='https://arxiv.org/help/jref'>the arXiv help pages</a>"
+            " for details."))
+        status_url = url_for('ui.manage_submissions')
         return {}, status.SEE_OTHER, {'Location': status_url}
 
-    # The form should be prepopulated based on the current state of the
-    # submission.
+    if submission.is_finalized:
+        alerts.flash_warning(
+            "That journal reference has already been submitted. It will appear"
+            " on the article's abstract page after the next announcement.")
+        return {}, status.SEE_OTHER, {
+            'Location': url_for('ui.manage_submissions')}
+
     if method == 'GET':
         params = MultiDict({
             'doi': submission.metadata.doi,
@@ -86,6 +196,7 @@ def jref(method: str, params: MultiDict, session: Session,
         'submission_id': submission_id,
         'submission': submission,
         'form': form,
+        'form_action': 'ui.jref',
     }
 
     if method == 'POST':
@@ -103,7 +214,12 @@ def jref(method: str, params: MultiDict, session: Session,
 
         commands, valid = _generate_commands(form, submission, creator, client)
 
-        if commands:    # Metadata has changed; we have things to do.
+        if commands:    # Metadata has changed
+            finalize = FinalizeJrefSubmission(creator=creator, client=client)
+            valid.append(validate_command(
+                form, finalize, _prospective(submission, commands)))
+            commands.append(finalize)
+
             if not all(valid):
                 raise BadRequest(response_data)
 
@@ -112,17 +228,44 @@ def jref(method: str, params: MultiDict, session: Session,
             try:
                 # Save the events created during form validation.
                 submission, _ = current_app.api.save(*commands, submission_id=submission_id)
+            except InvalidEvent as e:
+                logger.debug('Could not submit jref %s: %s', submission_id, e)
+                alerts.flash_failure(e.message)
+                raise BadRequest(response_data) from e
             except SaveError as e:
                 logger.error('Could not save metadata event')
                 raise InternalServerError(response_data) from e
             response_data['submission'] = submission
 
             # Success! Send user back to the submission page.
-            alerts.flash_success("Journal reference updated")
-            status_url = url_for('ui.create_submission')
+            alerts.flash_success("Journal reference submitted")
+            status_url = url_for('ui.manage_submissions')
             return {}, status.SEE_OTHER, {'Location': status_url}
+
+        alerts.flash_warning(
+            "No changes to submit. Enter a journal reference, DOI or report"
+            " number.")
     logger.debug('Nothing to do, return 200')
     return response_data, status.OK, {}
+
+
+def _prospective(submission: Submission, commands: List[Event]) -> Submission:
+    """The submission as ``commands`` would leave it, for pre-validation.
+
+    `FinalizeJrefSubmission` requires citation data, which is exactly what the
+    pending `Set*` events are about to supply -- validating it against the
+    submission as it stands would reject the first journal reference on every
+    jref. Everything else it checks (the inherited metadata and classification)
+    is untouched by those events.
+
+    ``project`` rather than ``apply``: it is the pure field update, so this
+    neither re-runs validation nor leaves ``_before``/``_after`` on the command
+    objects that :meth:`save` is about to apply for real.
+    """
+    prospective = copy.deepcopy(submission)
+    for command in commands:
+        prospective = command.project(prospective)
+    return prospective
 
 
 def _generate_commands(form: JREFForm, submission: Submission, creator: User,

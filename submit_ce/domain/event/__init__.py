@@ -141,6 +141,56 @@ class CreateSubmission(Event):
                           client=self.client)
 
 
+class CreateJrefSubmission(Event):
+    """Create a ``jref`` submission recording citation data for a paper.
+
+    A journal reference is its own submission -- its own classic DB row, its own
+    submission id, its own status -- made against an already-announced paper.
+    It carries any combination of a journal reference, a DOI and a report
+    number.
+
+    This starts from the *announced paper's* state. The version is **not**
+    incremented -- a journal reference annotates the current version rather than
+    creating a new one.
+
+    Field cleanup and validation are shared with :class:`SetDOI`,
+    :class:`SetJournalReference` and :class:`SetReportNumber`,
+    so a value behaves the same whether it arrives at create time or in a
+    later edit.
+
+    """
+
+    NAME = "create a journal reference submission"
+    NAMED = "journal reference submission created"
+
+    paper_id: str
+    """Announced arXiv id of the paper being annotated."""
+
+    def validate_pre_lock(self, submission: Submission) -> None:
+        """Require an announced paper and at least one valid value."""
+        if submission is None or not submission.is_announced:
+            raise InvalidEvent(self, "Paper must already be announced")
+
+    def validate_under_lock(self, api, submission) -> None:
+        """Reject if the paper has *any* submission already in progress."""
+        validators.no_conflicting_active_submission(self, api, submission)
+
+    def project(self, submission: Submission) -> Submission:
+        """Turn the announced-paper seed into a new ``jref`` submission."""
+        submission.submission_type = SubmissionType.JOURNAL_REFERENCE
+        submission.status = Submission.WORKING
+        submission.submitted = None
+        # The row does not exist yet; its id is assigned when it is created.
+        submission.submission_id = None
+        submission.arxiv_id = self.paper_id
+        submission.creator = self.creator
+        submission.owner = self.creator
+        submission.proxy = self.proxy
+        submission.client = self.client
+        submission.created = self.created
+        return submission
+
+
 class CreateSubmissionVersion(Event):
     """Creates a new version of a submission.
 
@@ -625,6 +675,12 @@ class SetDOI(Event):
         if check and check.disposition != metacheck.OK:
             raise InvalidEvent(self, "", check)
 
+    def validate_under_lock(self, api, submission) -> None:
+        """Reject if the announced paper has a conflicting submission."""
+        validators.no_conflicting_active_submission(
+            self, api, submission,
+            allowed_types=(SubmissionType.JOURNAL_REFERENCE,))
+
     def project(self, submission: Submission) -> Submission:
         """Update the doi on a :class:`.domain.submission.Submission`."""
         submission.metadata.doi = self.doi
@@ -750,11 +806,20 @@ class SetJournalReference(Event):
 
     def validate_pre_lock(self, submission: Submission) -> None:
         """Validate the journal reference value."""
+        if submission.status == Submission.SUBMITTED \
+                and not submission.is_announced:
+            raise InvalidEvent(self, 'Cannot edit a finalized submission')
         if not self.journal_ref:    # Blank values are OK.
             return
         check = metacheck.check_journal_ref(self.journal_ref)
         if check and check.disposition != metacheck.OK:
             raise InvalidEvent(self, "", check)
+
+    def validate_under_lock(self, api, submission) -> None:
+        """Reject if the announced paper has a conflicting submission."""
+        validators.no_conflicting_active_submission(
+            self, api, submission,
+            allowed_types=(SubmissionType.JOURNAL_REFERENCE,))
 
     def project(self, submission: Submission) -> Submission:
         """Update the journal reference on a :class:`.domain.submission.Submission`."""
@@ -798,11 +863,20 @@ class SetReportNumber(Event):
 
     def validate_pre_lock(self, submission: Submission) -> None:
         """Validate the report number value."""
+        if submission.status == Submission.SUBMITTED \
+                and not submission.is_announced:
+            raise InvalidEvent(self, 'Cannot edit a finalized submission')
         if not self.report_num:    # Blank values are OK.
             return
         check = metacheck.check_report_num(self.report_num)
         if check and check.disposition != metacheck.OK:
             raise InvalidEvent(self, "", check)
+
+    def validate_under_lock(self, api, submission) -> None:
+        """Reject if the announced paper has a conflicting submission."""
+        validators.no_conflicting_active_submission(
+            self, api, submission,
+            allowed_types=(SubmissionType.JOURNAL_REFERENCE,))
 
     def project(self, submission: Submission) -> Submission:
         """Set report number on a :class:`.domain.submission.Submission`."""
@@ -1142,6 +1216,105 @@ class FinalizeSubmission(Event):
         for key in self.REQUIRED_METADATA:
             if not getattr(submission.metadata, key):
                 raise InvalidEvent(self, f"Missing {key}")
+
+
+class FinalizeJrefSubmission(Event):
+    """Send a ``jref`` submission to the queue for announcement.
+
+    The journal-reference counterpart of :class:`FinalizeSubmission`, and a
+    separate event rather than a branch in it: a journal reference does not
+    change the paper's files, so most of what finalizing a ``new``/``rep``
+    submission checks and does is either meaningless or wrong here.
+
+    Deliberately **not** done, each a no-op or a hazard for a journal reference:
+    - **File and preview checks.** ``FinalizeSubmission`` requires
+      ``source_format``, and the workflow requires a processed, confirmed
+      preview. A jref is seeded by :meth:`.Document.seed_submission`, which does
+      not copy the source fields, and it carries no upload of its own -- the
+      announced paper's files are unchanged and are what will be announced.
+    - **The oversize auto-hold.** Not needed since files should not be changing
+    - **The moderator email.** A journal reference never reaches moderation; its
+      type is excluded from the moderator queues. Only the submitter is notified.
+    - **``no_secondaries_on_general_primary``.** Every category on a jref is
+      inherited from the announced paper so no need to do anything related
+      to categories.    
+    - **``submitter_accepts_policy`` / ``submitter_contact_verified``.**
+      The jref form asks neither, so requiring them here would
+      reject every journal reference.
+
+    TODO(freeze window): legacy sends a jref submitted between the freeze and
+    the following publish run to classic status 4 (``NEXT_PUBLISH_DAY``) This
+    sets ``SUBMITTED`` unconditionally. The pieces that decision needs do not
+    exist yet.
+    """
+
+    NAME = "finalize journal reference submission for announcement"
+    NAMED = "journal reference submission finalized"
+
+    REQUIRED: ClassVar[List[str]] = ['creator', 'primary_classification',
+                                     'metadata']
+    """Fields inherited from the announced paper that must have survived."""
+
+    REQUIRED_METADATA: ClassVar[List[str]] = ['title', 'abstract',
+                                              'authors_display']
+
+    CITATION_FIELDS: ClassVar[List[str]] = ['journal_ref', 'doi', 'report_num']
+    """The values a journal reference exists to record; at least one is needed."""
+
+    CONSEQUENCE_TYPES = frozenset({EmailSubmitterFinalizeMsg})
+
+    def validate_pre_lock(self, submission: Submission) -> None:
+        """Ensure this is an unsubmitted jref with something to announce."""
+        if submission.submission_type != SubmissionType.JOURNAL_REFERENCE:
+            raise InvalidEvent(
+                self, f"Not a journal reference submission:"
+                      f" {submission.submission_type}")
+        if submission.is_finalized:
+            raise InvalidEvent(self, "Submission already finalized")
+        if not submission.is_active:
+            raise InvalidEvent(self, "Submission must be active")
+        self._required_fields_are_complete(submission)
+        self._has_citation_data(submission)
+
+    def project(self, submission: Submission) -> Submission:
+        """Mark the journal reference submitted, and record when."""
+        submission.status = Submission.SUBMITTED
+        # `created` rather than `now()`: `project` is replayed on every read of
+        # the submission, so a wall-clock read here would give the submission a
+        # different submit time on each load. It is also what the classic row's
+        # `submit_time` is written from.
+        submission.submitted = self.created or datetime.now(UTC)
+        return submission
+
+    def consequences(self, submission: Submission) -> List[Event]:
+        """Notify the submitter, and no one else.
+
+        The submitter's confirmation is the only mail a journal reference
+        generates -- no moderator email, no auto-hold. The
+        :class:`.EmailSubmitterFinalizeMsg` send is failure-isolated, so a mail
+        problem cannot abort the submit.
+        """
+        sid = submission.submission_id
+        return [EmailSubmitterFinalizeMsg(
+            creator=System(name=__name__),
+            email_to=self.creator,
+            submission_id=str(sid) if sid is not None else None)]
+
+    def _required_fields_are_complete(self, submission: Submission) -> None:
+        """Verify the inherited fields a journal reference cannot do without."""
+        for key in self.REQUIRED:
+            if not getattr(submission, key):
+                raise InvalidEvent(self, f"Missing {key}")
+        for key in self.REQUIRED_METADATA:
+            if not getattr(submission.metadata, key):
+                raise InvalidEvent(self, f"Missing {key}")
+
+    def _has_citation_data(self, submission: Submission) -> None:
+        """A journal reference must carry at least one citation value."""
+        if not any(getattr(submission.metadata, key)
+                   for key in self.CITATION_FIELDS):
+            raise InvalidEvent(
+                self, "Must have a journal reference, a DOI or a report number")
 
 
 class UnFinalizeSubmission(Event):

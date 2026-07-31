@@ -31,7 +31,10 @@ def create(method: str, params: MultiDict, session: Session, *args,
     submitter, client = user_and_client_from_session(session)
     response_data = {}
     if method == 'GET':     # Display a splash page.
+        # Renders `manage_submissions.html`, which lists both the user's active
+        # submissions and their announced papers -- two separate queries.
         response_data['user_submissions'] = current_app.api.load_submissions_for_user(session.user.user_id)
+        response_data['user_documents'] = current_app.api.load_documents_for_user(session.user.user_id)
         params = MultiDict()
 
     # We're using a form here for CSRF protection.

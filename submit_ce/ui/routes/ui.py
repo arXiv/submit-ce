@@ -25,7 +25,8 @@ from submit_ce.ui.controllers.new import submission_agreement
 from submit_ce.ui.controllers.new import source_package
 from submit_ce.ui.workflow.processor import WorkflowProcessor
 from submit_ce.ui.workflow.stages import FileUpload
-from .flow_control import flow_control, get_workflow, endpoint_name
+from .flow_control import flow_control, get_workflow, endpoint_name, \
+    NON_WORKFLOW_TYPES
 from ..backend import get_submission
 
 
@@ -60,6 +61,16 @@ def load_submission() -> None:
         return
     submission_id = request.view_args['submission_id']
     submission, events = get_submission(submission_id)  # this may throw NotFound
+
+    # A jref/wdr/cross submission has no stage workflow, so there is nothing to
+    # resolve. This is reachable once a route is keyed on one of those rows'
+    # own ids (e.g. editing a jref); templates default these to None.
+    if submission.submission_type in NON_WORKFLOW_TYPES:
+        request.workflow = None
+        request.current_stage = None
+        request.this_stage = None
+        return
+
     wfp = get_workflow(submission, events)
 
     # These should probably be moved to flask.g since reqeust doesn't always work well
@@ -557,12 +568,18 @@ def confirmation(submission_id: str) -> Response:
 # Other workflows.
 
 
-# Jref is a single controller and not a workflow
+# Jref is a single controller and not a workflow.
+#
+# A journal reference is its own submission, so creating and editing one are
+# separate endpoints, mirroring legacy (`/user/<doc>/jref` and
+# `/submit/<id>/jref`). Creating one is keyed on the *announced paper*, so it
+# lives with the other paper-keyed routes as `paper.add_jref` (see
+# `routes/paper_id_ui.py`); this endpoint edits the jref's own submission.
 @UI.route('/<submission_id>/jref', methods=["GET", "POST"])
 @scoped(scopes.EDIT_SUBMISSION, authorizer=is_owner,
                         unauthorized=redirect_to_login)
 def jref(submission_id: Optional[str] = None) -> Response:
-    """Render the JREF submission page."""
+    """Render the edit page for an existing JREF submission."""
     return handle(cntrls.jref.jref, 'submit/jref.html',
                   'Add journal reference', submission_id,
                   flow_controlled=False)
