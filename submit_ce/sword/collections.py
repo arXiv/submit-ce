@@ -148,9 +148,10 @@ def categories_for_group(group_id_: str) -> List[CategoryTerm]:
         return []
 
     terms: List[CategoryTerm] = []
+    # get_archives() already excludes defunct archives, which is exactly the
+    # %IN_GROUP_NOT_DEFUNCT set legacy iterated (ServiceDoc.pm:189). There are
+    # plenty of them -- acc-phys, chao-dyn, q-alg, supr-con and a dozen more.
     for archive in sorted(group.get_archives(), key=lambda a: a.id):
-        if not archive.is_active:
-            continue
         classes = _subject_classes(archive)
         if classes:
             terms.extend(

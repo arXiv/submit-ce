@@ -795,6 +795,46 @@ Without that the app under test would quietly read the repo's checked-in
 `legacy.db`. This is also why the fixture uses a file rather than `:memory:` — two
 engines have to see the same schema.
 
+### Step 7 — deposit staging store and id allocator ✅ (2026-07-31)
+
+- `submit_ce/sword/deposits.py` — `DepositStore` (abstract, with the allocation
+  retry loop shared by every backend), `InMemoryDepositStore`, the media-type →
+  extension mapping, and the `YYMM####` id format.
+- `submit_ce/sword/gs_deposits.py` — `GsDepositStore`, mirroring legacy's
+  `/cache/atomdeposits` tree onto a bucket, with `flock` replaced by
+  `if_generation_match` on the counter object.
+- 75 new tests; suite now 840 passed. **The whole `submit_ce/sword` package is at
+  100% statement and branch coverage.**
+
+Notable points:
+
+1. **The GCS backend is fully tested, not coverage-omitted.** `GsDepositStore`
+   takes an injectable `client` the way `GsFileStore` does, so a fake bucket that
+   tracks generations and raises `PreconditionFailed` exercises the whole
+   conditional-write path — including a competing writer landing between our read
+   and our write, and permanent contention producing ENAVL. Its sibling
+   `gs_file_store.py` is in the coverage `omit` list; this one did not need to be.
+2. **Legacy expresses the extension mapping twice and the two agree.** A
+   content-type dispatch table for storing (`AtomPP.pm:262-274`) and a MIME-subtype
+   rule for resolving wrapper links (`AtomPP.pm:1109-1116`) produce identical
+   results for every supported type, so one function serves both. They were free
+   to drift; now they cannot.
+3. **Ownership is recorded explicitly** (GCS object metadata) rather than
+   recovered by re-parsing the `.atom` sidecar's `<author><name>` as legacy does
+   (`AtomPP.pm:379,1124-1129`). One authoritative field beats re-deriving it from a
+   document we also generate.
+4. **`Group.get_archives()` already excludes defunct archives**, which is exactly
+   the `%IN_GROUP_NOT_DEFUNCT` set `ServiceDoc.pm:189` iterated. An explicit
+   `is_active` filter in `collections.py` was therefore dead code and was removed;
+   the behaviour is asserted instead (there are 18 defunct archives — `acc-phys`,
+   `chao-dyn`, `q-alg`, `supr-con` and more).
+5. **ENAVL, not a crash, on allocation failure.** Exhausting the retry budget
+   raises `SwordFault("ENAVL")` → 503, which is what legacy answers when it cannot
+   take the counter lock (`AtomPP.pm:256-260`).
+
+Retention (≥30 days) is left to a bucket lifecycle rule rather than application
+code; nothing here purges.
+
 ### Remaining items to watch
 
 1. **Finalize sequencing.** The plan finalizes after a successful compile. The exact

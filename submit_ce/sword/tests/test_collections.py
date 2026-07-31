@@ -175,6 +175,23 @@ def test_unknown_group_has_no_categories():
     assert collections.categories_for_group("grp_nope") == []
 
 
+@pytest.mark.parametrize("defunct", ["acc-phys", "chao-dyn", "supr-con"])
+def test_defunct_archives_are_not_advertised(defunct):
+    """Legacy iterated %IN_GROUP_NOT_DEFUNCT (ServiceDoc.pm:189).
+
+    ``Group.get_archives()`` already excludes inactive archives, so this holds
+    without an explicit filter -- but it is the behaviour that matters, so it is
+    asserted rather than assumed.
+    """
+    terms = {t.term for t in collections.categories_for_group("grp_physics")}
+    assert f"http://arxiv.org/terms/arXiv/{defunct}" not in terms
+
+
+def test_active_archives_are_advertised():
+    terms = {t.term for t in collections.categories_for_group("grp_physics")}
+    assert "http://arxiv.org/terms/arXiv/hep-ex" in terms
+
+
 # -------------------------------------------------------- general categories
 
 
