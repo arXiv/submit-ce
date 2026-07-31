@@ -835,6 +835,63 @@ Notable points:
 Retention (≥30 days) is left to a bucket lifecycle rule rather than application
 code; nothing here purges.
 
+### Step 8 — media deposit ✅ (2026-07-31)
+
+`POST /sword-app/<collection>-collection` → 201 with a media link entry.
+
+- `submit_ce/sword/request.py` — SWORD header parsing (`X-On-Behalf-Of`,
+  `X-Verbose`, `X-No-Op`, `X-Packaging`, `Content-Disposition`) and `Content-MD5`
+  verification in both encodings.
+- `render_media_entry` in `atom/render.py` — output matches
+  `submit_sword.md:909-931` element for element, differing only in the two already
+  documented ways (`http://` namespaces, generator `1.1`).
+- The route, plus `build_deposit_store` selecting GCS or in-memory from `STORE`.
+- 92 new tests; suite now 928 passed. `submit_ce/sword` remains at **100%**
+  statement and branch coverage.
+
+`02-deposit.t`'s media half and the live suite's `test_paper_upload` now run
+in-process against mock stores instead of only against a deployed service. So does
+`04-suspect.t`'s second case — a flagged contact author is refused at the **media**
+step, because `process_sword_headers` runs on media POSTs too
+(`AtomPP.pm:885-890`).
+
+**A tenth docs/code discrepancy, and it changes behaviour.** The manual documents
+an unknown collection as EVCOL with `invalid collection: foobar`
+(`submit_sword.md:845-875`), but legacy cannot produce that: it tests group
+permission *first*, with `grep {/$group/}` over the user's `grp_*` names
+(`AtomPP.pm:222`), and no bogus collection name matches any of them — so an unknown
+collection answers **EAUTH**, and the documented EVCOL example is unreachable.
+Implemented as documented: unknown collection → EVCOL, known-but-not-permitted →
+EAUTH. That also drops legacy's substring matching, under which `c` would have
+matched `grp_cs`.
+
+Two further deliberate differences:
+
+1. **RFC 2606 reserved domains are refused** in `X-On-Behalf-Of`
+   (`.invalid`, `.localhost`, `.test`). `Email::Valid->address` is syntax-only, so
+   legacy accepted them. The contact address exists so arXiv can send the
+   identifier and paper password (`submit_sword.md:68-72`); accepting an address
+   that provably cannot receive mail guarantees that never arrives. Deliverability
+   is *not* checked — that would put a DNS query in every deposit.
+2. **`X-Packaging: …dataconservancy.org/package` is refused** (415) rather than
+   accepted-then-failed-deeper-in, since its handler is out of scope (decision 2).
+   `mets/dspace` was already refused: `Config.pm:201` maps it to `0`, which
+   `AtomPP.pm:907` treats as unsupported.
+
+Faithfully reproduced quirks: `X-No-Op` is enabled by *any* value except the
+literal `false`, so an empty-but-present header switches it on
+(`AtomPP.pm:896-901`); a no-op deposit answers 200 and sends no `Location`; and
+`Content-Disposition` is parsed only to be echoed back.
+
+One implementation note: request bodies arrive as a declared `bytes` parameter, not
+via `await request.body()`. A sync endpoint cannot await, and driving the coroutine
+on a private event loop — which I tried first — is wrong, because Starlette's
+`receive()` is bound to the serving loop. FastAPI reads the body on the event loop
+before dispatching to the threadpool.
+
+Wrapper deposits (`application/atom+xml`) currently answer 501 with an explicit
+"not yet available"; step 10 replaces that.
+
 ### Remaining items to watch
 
 1. **Finalize sequencing.** The plan finalizes after a successful compile. The exact

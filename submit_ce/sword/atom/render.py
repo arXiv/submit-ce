@@ -100,3 +100,101 @@ def render_error(fault: SwordFault,
 
     return etree.tostring(root, xml_declaration=True, encoding="utf-8",
                           pretty_print=True)
+
+
+ENTRY_CONTENT_TYPE = "application/atom+xml;type=entry"
+"""Content-Type of a deposit response (``AtomPP.pm:644,679``)."""
+
+MEDIA_TITLE = "Accepted media deposit to arXiv"
+MEDIA_TREATMENT = "stored in author's workspace"
+MEDIA_VERBOSE = "stored as is"
+"""Fixed strings from ``AtomPP.pm:1385-1388``."""
+
+
+def render_media_entry(*,
+                       deposit_id: str,
+                       depositor: str,
+                       content_type: str,
+                       collection: str,
+                       group_name: str,
+                       site: str,
+                       timestamp: Optional[datetime] = None,
+                       contact_name: Optional[str] = None,
+                       contact_email: Optional[str] = None,
+                       no_op: bool = False,
+                       verbose: bool = False,
+                       packaging: Optional[str] = None,
+                       user_agent: Optional[str] = None) -> bytes:
+    """The media link entry returned by a successful media deposit.
+
+    ``AtomPP.pm:1375-1484`` with ``wrapper`` unset. Element order is legacy's.
+
+    The ``arxiv:primary_category`` here names the **collection**, not a real
+    category: at media-deposit time the subject category is not yet known, which
+    the manual calls out explicitly (``submit_sword.md:386``). Its text is the
+    group's display name.
+
+    Unlike the wrapper response this carries no ``rel="alternate"`` link -- there is
+    nothing to track until a wrapper initiates ingestion.
+    """
+    moment = timestamp or datetime.now(timezone.utc)
+
+    root = etree.Element(ns.qname(ns.ATOM, "entry"), nsmap=ns.NSMAP)
+
+    author = etree.SubElement(root, ns.qname(ns.ATOM, "author"))
+    etree.SubElement(author, ns.qname(ns.ATOM, "name")).text = depositor
+
+    # The mediated user becomes a contributor (AtomPP.pm:1406-1416).
+    if contact_email or contact_name:
+        contributor = etree.SubElement(root, ns.qname(ns.ATOM, "contributor"))
+        if contact_name:
+            etree.SubElement(contributor, ns.qname(ns.ATOM, "name")).text = contact_name
+        if contact_email:
+            etree.SubElement(contributor, ns.qname(ns.ATOM, "email")).text = contact_email
+
+    etree.SubElement(root, ns.qname(ns.ATOM, "title")).text = MEDIA_TITLE
+    etree.SubElement(root, ns.qname(ns.ATOM, "id")).text = \
+        f"info:arxiv/app/{deposit_id}"
+    etree.SubElement(root, ns.qname(ns.ATOM, "updated")).text = iso_z(moment)
+
+    content = etree.SubElement(root, ns.qname(ns.ATOM, "content"))
+    content.set("type", content_type)
+    content.set("src", f"https://{site}/sword-app/edit/{deposit_id}")
+
+    source = etree.SubElement(root, ns.qname(ns.ATOM, "source"))
+    generator = etree.SubElement(source, ns.qname(ns.ATOM, "generator"))
+    generator.text = ns.GENERATOR_NAME
+    # https here, unlike the error document's http (AtomPP.pm:1435 vs Error.pm:63).
+    generator.set("uri", f"https://{site}/sword-app/")
+    generator.set("version", ns.GENERATOR_VERSION)
+
+    etree.SubElement(root, ns.qname(ns.ATOM, "summary")).text = (
+        f'A media deposit of type "{content_type}" was stored in the '
+        "author's workspace")
+
+    etree.SubElement(root, ns.qname(ns.SWORD, "treatment")).text = MEDIA_TREATMENT
+    if verbose:
+        etree.SubElement(root, ns.qname(ns.SWORD, "verboseDescription")).text = \
+            MEDIA_VERBOSE
+    etree.SubElement(root, ns.qname(ns.SWORD, "noOp")).text = \
+        "true" if no_op else "false"
+    if packaging:
+        etree.SubElement(root, ns.qname(ns.SWORD, "packaging")).text = packaging
+    if user_agent:
+        etree.SubElement(root, ns.qname(ns.SWORD, "userAgent")).text = user_agent
+
+    primary = etree.SubElement(root, ns.qname(ns.ARXIV, "primary_category"))
+    primary.set("scheme", ns.ARXIV_SCHEME)
+    primary.set("term", ns.ARXIV_SCHEME + collection)
+    primary.text = group_name
+
+    edit_media = etree.SubElement(root, ns.qname(ns.ATOM, "link"))
+    edit_media.set("rel", "edit-media")
+    edit_media.set("href", f"https://{site}/sword-app/edit/{deposit_id}")
+
+    edit = etree.SubElement(root, ns.qname(ns.ATOM, "link"))
+    edit.set("rel", "edit")
+    edit.set("href", f"https://{site}/sword-app/edit/{deposit_id}.atom")
+
+    return etree.tostring(root, xml_declaration=True, encoding="utf-8",
+                          pretty_print=True)
