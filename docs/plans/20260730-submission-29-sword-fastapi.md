@@ -196,10 +196,13 @@ reproduce the helper's behaviour:
 3. `<report_no>` is emitted **without** the `arxiv:` prefix, so it can never match
    `getElementsByTagNameNS(ARXIVNS, 'report_no')` (`AtomPP.pm:1163-1168`).
 4. `my $ATOMNS` is declared twice; the xhtml div namespace is misspelled `xhmtl`.
+5. `contributor` never emits `arxiv:affiliation` at all, even though `02-deposit.t`
+   and `04-suspect.t` pass an `affiliation` into the contributor hash — it is
+   silently dropped.
 
-Consequence: extraction of `comment`, `journal_ref`, `doi` and `report_no`
-(`AtomPP.pm:1163-1168`) has effectively **zero** legacy test coverage. Our port needs
-first-class tests for it.
+Consequence: extraction of `comment`, `journal_ref`, `doi`, `report_no`
+(`AtomPP.pm:1163-1168`) and `affiliation` (`AtomPP.pm:940-942`) has effectively
+**zero** legacy test coverage. Our port needs first-class tests for it.
 
 `data/sample.xml` is also stale: it declares `xmlns:arXiv="http://arxiv.org/schemas/atom"`
 — no trailing slash, capital X — which does not match `ARXIVNS`
@@ -696,6 +699,46 @@ reports ~1264 findings across the package, almost all `UP045` (`Optional[X]`) an
 previously clean against (`--select E4,E7,E9,F`) every new file passes and the
 package still shows only the 3 known pre-existing errors. Worth pinning ruff in
 `[dependency-groups] dev` to stop this drifting again.
+
+### Step 5 — test scaffolding ✅ (2026-07-31)
+
+Ported from the Perl helpers, landed before the endpoints so later steps have
+their assertions ready.
+
+- `submit_ce/sword/tests/wrapper.py` — wrapper-entry builder replacing
+  `Test::Sword::Metadata.pm`, with all five helper defects fixed, plus
+  `malformed_namespace_entry()` reproducing `data/sample.xml`'s broken namespace
+  as a deliberate ENPCT negative fixture.
+- `submit_ce/sword/tests/client.py` — depositor client replacing
+  `Test::Sword.pm`: `content_md5`/`content_md5_hex`, `deposit_headers`,
+  `basic_auth`, response-link extractors, and a `SwordClient` over any
+  httpx-shaped object. No hardcoded credentials.
+- `submit_ce/sword/tests/conftest.py` — four depositor fixtures on a
+  function-scoped sqlite database: `depositor` (privileged + licensed),
+  `unlicensed_depositor` (privileged, no license → isolates 412 ENLIC from 401
+  EAUTH), `plain_user` (neither flag), `suspect_author` (`flag_suspect`).
+- 55 new tests (`test_wrapper.py`, `test_client.py`, `test_depositors.py`),
+  bringing the suite to 675.
+
+Request construction is tested against a recording stub rather than a live app,
+so all of it passes before any route exists. `test_depositors.py` pins the
+fixtures against what `auth.t` asserts, so the authorization step cannot pass for
+the wrong reason.
+
+Two findings:
+
+1. **`SwordLicense.updated` must be supplied explicitly on sqlite.** It is
+   `NOT NULL` with `server_default=FetchedValue()`, which is a marker meaning "the
+   database provides this" rather than DDL — MySQL fills it from
+   `CURRENT_TIMESTAMP`, but `create_all` on sqlite emits no default and the insert
+   fails. Expect the same for other `FetchedValue()` NOT NULL columns as later
+   steps write more tables.
+2. **A fifth defect in `Test::Sword::Metadata.pm`** (recorded above):
+   `arxiv:affiliation` was never emitted, so the affiliation path was untested too.
+
+Also corrected in passing: an assertion of mine that read
+`check_password(...) is not False`, which is vacuous — `check_password` returns
+`True` or raises `PasswordAuthenticationFailed`. Now asserts both directions.
 
 ### Remaining items to watch
 
