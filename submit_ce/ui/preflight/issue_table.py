@@ -23,8 +23,8 @@ Provenance of each row (see the inline comments):
 * codes WITHOUT a ``# NEW`` comment mirror 1.5's table (severity == 1.5's);
 * codes marked ``# NEW`` did not exist in 1.5's table -- their severity/copy are
   **proposed** and pending team review (SUBMISSION-211);
-* a few severities intentionally **differ** from 1.5 and are marked
-  ``# CHANGED`` with the reason.
+* one severity intentionally **differs** from current 1.5 (``no_top_level_file``,
+  marked ``# CHANGED``): 1.5 keeps it silent; we surface it as a blocking danger.
 
 The ``message`` may contain the token ``{n}``, replaced at render time by the
 count of issues with that code. Links are kept as separate, trusted, static
@@ -52,12 +52,12 @@ PREFLIGHT_ISSUE_DIRECTIVES: Dict[str, Dict[str, Any]] = {
         "message": "Your .bbl file was built with an older BibTeX and needs "
                    "TeX Live 2023. Select TeX Live 2023, or regenerate the .bbl.",
     },
-    "multiple_bibliography_types": {  # CHANGED: 1.5 default=warning; proposed danger (bib fails) -- PENDING team decision
+    "multiple_bibliography_types": {  # matches current 1.5 (danger); 1.5 blocks on missing/mismatched bibliography (commit ada6b18a)
         "severity": "danger",
         "message": "The scan detected multiple bibliography types. Please use a "
                    "single bibliography method.",
     },
-    "bbl_usage_mismatch": {  # CHANGED: 1.5 default=warning; proposed danger (bib fails) -- PENDING team decision
+    "bbl_usage_mismatch": {  # matches current 1.5 (danger); 1.5 blocks on missing/mismatched bibliography (commit ada6b18a)
         "severity": "danger",
         "message": "The scan found a .bbl/.bib processor mismatch (for example a "
                    "biber .bbl used with bibtex). Regenerate the .bbl with the "
@@ -67,7 +67,7 @@ PREFLIGHT_ISSUE_DIRECTIVES: Dict[str, Dict[str, Any]] = {
         "severity": "warning",
         "message": "The scan did not find an expected .bbl file.",
     },
-    "bbl_bib_file_missing": {  # CHANGED: 1.5 default=warning; proposed danger (bib fails) -- PENDING team decision
+    "bbl_bib_file_missing": {  # matches current 1.5 (danger); 1.5 blocks on missing/mismatched bibliography (commit ada6b18a)
         "severity": "danger",
         "message": "The scan did not detect a bibliography. Please include one.",
     },
@@ -105,21 +105,21 @@ PREFLIGHT_ISSUE_DIRECTIVES: Dict[str, Dict[str, Any]] = {
         "url": "https://info.arxiv.org/help/submit_tex.html#supported-processors",
         "link_text": "Read about arXiv's supported processing",
     },
-    "unsupported_compiler_type_latex209": {  # CHANGED: 1.5 default=warning; danger (cannot compile)
+    "unsupported_compiler_type_latex209": {  # matches current 1.5 (danger); compiler unavailable at arXiv
         "severity": "danger",
         "message": "LaTeX 2.09 is no longer supported. Please update your source "
                    "to a supported LaTeX and re-upload.",
         "url": "https://info.arxiv.org/help/submit_tex.html#supported-processors",
         "link_text": "Read about arXiv's supported processing",
     },
-    "unsupported_compiler_type_image_mix": {  # CHANGED: 1.5 default=warning; danger (cannot compile)
+    "unsupported_compiler_type_image_mix": {  # matches current 1.5 (danger); compiler unavailable at arXiv
         "severity": "danger",
         "message": "The scan detected a mix of image types requiring conflicting "
                    "compilers. Use a single image family and re-upload.",
         "url": "https://info.arxiv.org/help/submit_tex.html#supported-processors",
         "link_text": "Read about arXiv's supported processing",
     },
-    "unsupported_compiler_type_unicode": {  # CHANGED: 1.5 default=warning; danger (cannot compile)
+    "unsupported_compiler_type_unicode": {  # matches current 1.5 (danger); compiler unavailable at arXiv
         "severity": "danger",
         "message": "The submission requires a Unicode TeX engine (XeTeX or "
                    "LuaTeX) that is not available at arXiv. In these cases please "
@@ -159,7 +159,7 @@ PREFLIGHT_ISSUE_DIRECTIVES: Dict[str, Dict[str, Any]] = {
         "message": "The scan found JavaScript embedded in {n} PDF(s). arXiv does "
                    "not accept PDFs containing JavaScript.",
     },
-    "graphics_driver_option": {  # NEW since 1.5 (proposed); info (was default warning in 1.5)
+    "graphics_driver_option": {  # NEW since 1.5 (no precedent); proposed info
         "severity": "info",
         "message": "A graphics package was loaded with an explicit driver "
                    "option; this can cause issues under our processors.",
