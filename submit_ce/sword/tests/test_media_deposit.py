@@ -331,13 +331,24 @@ def test_no_content_disposition_when_none_was_sent(client, depositor):
     assert "Content-Disposition" not in response.headers
 
 
-# ------------------------------------------------------------- wrapper deferral
+# --------------------------------------------------------- wrapper vs media split
 
 
-def test_wrapper_deposit_is_not_yet_implemented(client, depositor):
-    """Removed in step 10, when a wrapper starts creating submissions."""
+def test_an_atom_content_type_is_routed_to_the_wrapper_path(client, depositor):
+    """The same URL serves both; Content-Type decides (AtomPP.pm:262-274).
+
+    An empty entry reaches the wrapper validator and is refused there for having no
+    contact email, rather than being stored as media. Wrapper behaviour proper is
+    covered in test_wrapper_deposit.py.
+    """
     response = _post(client, depositor,
                      content_type="application/atom+xml;type=entry",
-                     payload=b"<entry/>")
-    assert response.status_code == 501
-    assert b"not yet available" in response.content
+                     payload=b'<entry xmlns="http://www.w3.org/2005/Atom"/>')
+    assert response.status_code == 400
+    assert b"<arxiv:errorcode>256</arxiv:errorcode>" in response.content
+
+
+def test_an_atom_wrapper_is_not_stored_as_media(client, depositor, sword_app):
+    _post(client, depositor, content_type="application/atom+xml;type=entry",
+          payload=b'<entry xmlns="http://www.w3.org/2005/Atom"/>')
+    assert sword_app.state.deposits.deposits == {}

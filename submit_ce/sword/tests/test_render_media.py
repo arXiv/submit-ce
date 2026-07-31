@@ -79,3 +79,53 @@ def test_entry_matches_the_manual_example_ordering():
     assert tags == ["author", "title", "id", "updated", "content", "source",
                     "summary", "treatment", "noOp", "packaging", "userAgent",
                     "primary_category", "link", "link"]
+
+
+# ---------------------------------------------------- wrapper entry conditionals
+
+
+def test_wrapper_entry_optional_elements():
+    """The wrapper variant's own conditionals (AtomPP.pm:1400-1446)."""
+    from submit_ce.sword.atom.render import render_wrapper_entry
+
+    def tree(**kwargs):
+        return etree.fromstring(render_wrapper_entry(
+            deposit_id="08050007", depositor="schwande", summary="An abstract",
+            primary_category="hep-th", site="arxiv.org", timestamp=MOMENT,
+            **kwargs))
+
+    plain = tree()
+    assert plain.find(ns.qname(ns.ATOM, "contributor")) is None
+    assert plain.find(ns.qname(ns.SWORD, "packaging")) is None
+    assert plain.find(ns.qname(ns.SWORD, "userAgent")) is None
+    assert plain.find(ns.qname(ns.SWORD, "verboseDescription")) is None
+
+    name_only = tree(contact_name="A. Scientist")
+    contributor = name_only.find(ns.qname(ns.ATOM, "contributor"))
+    assert contributor.findtext(ns.qname(ns.ATOM, "name")) == "A. Scientist"
+    assert contributor.find(ns.qname(ns.ATOM, "email")) is None
+
+    email_only = tree(contact_email="a@example.org")
+    contributor = email_only.find(ns.qname(ns.ATOM, "contributor"))
+    assert contributor.find(ns.qname(ns.ATOM, "name")) is None
+    assert contributor.findtext(ns.qname(ns.ATOM, "email")) == "a@example.org"
+
+    extras = tree(packaging="http://purl.org/net/sword-types/bagit",
+                  user_agent="arXiv SWORD demo 1.1")
+    assert extras.findtext(ns.qname(ns.SWORD, "packaging"))
+    assert extras.findtext(ns.qname(ns.SWORD, "userAgent"))
+
+
+def test_replacement_verbose_description_differs():
+    """AtomPP.pm:1382 picks a different string for a replacement."""
+    from submit_ce.sword.atom.render import render_wrapper_entry
+
+    def described(replacing):
+        root = etree.fromstring(render_wrapper_entry(
+            deposit_id="08050007", depositor="schwande", summary="An abstract",
+            primary_category="hep-th", site="arxiv.org", timestamp=MOMENT,
+            verbose=True, replacing=replacing))
+        return root.findtext(ns.qname(ns.SWORD, "verboseDescription"))
+
+    assert described(False) == "release pending"
+    assert described(True) == "replacement being processed"

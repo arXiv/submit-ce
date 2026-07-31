@@ -198,3 +198,105 @@ def render_media_entry(*,
 
     return etree.tostring(root, xml_declaration=True, encoding="utf-8",
                           pretty_print=True)
+
+
+WRAPPER_TITLE = "Accepted deposit wrapper to arXiv"
+WRAPPER_TREATMENT = "atom wrapper used to initiate ingestion into arXiv"
+WRAPPER_VERBOSE_NEW = "release pending"
+WRAPPER_VERBOSE_REPLACEMENT = "replacement being processed"
+"""``AtomPP.pm:1379-1383``."""
+
+
+def render_wrapper_entry(*,
+                         deposit_id: str,
+                         depositor: str,
+                         summary: str,
+                         primary_category: str,
+                         site: str,
+                         secondary_categories: Optional[list] = None,
+                         timestamp: Optional[datetime] = None,
+                         contact_name: Optional[str] = None,
+                         contact_email: Optional[str] = None,
+                         no_op: bool = False,
+                         verbose: bool = False,
+                         packaging: Optional[str] = None,
+                         user_agent: Optional[str] = None,
+                         replacing: bool = False) -> bytes:
+    """The entry returned when a metadata wrapper initiates ingestion.
+
+    ``AtomPP.pm:1375-1484`` with ``wrapper`` set. Differs from the media entry in
+    four ways: the fixed strings, the summary is the submission's abstract, the
+    ``arxiv:primary_category`` carries a real category and **no text**
+    (``AtomPP.pm:1450-1462``), and there is a ``rel="alternate"`` tracking link.
+
+    That alternate link is ``http``, not ``https``, while the sibling ``edit`` links
+    on the same element are ``https`` (``AtomPP.pm:1477-1481``). Legacy is
+    inconsistent; each is reproduced as it is.
+    """
+    moment = timestamp or datetime.now(timezone.utc)
+    content_type = ENTRY_CONTENT_TYPE
+
+    root = etree.Element(ns.qname(ns.ATOM, "entry"), nsmap=ns.NSMAP)
+
+    author = etree.SubElement(root, ns.qname(ns.ATOM, "author"))
+    etree.SubElement(author, ns.qname(ns.ATOM, "name")).text = depositor
+
+    if contact_email or contact_name:
+        contributor = etree.SubElement(root, ns.qname(ns.ATOM, "contributor"))
+        if contact_name:
+            etree.SubElement(contributor, ns.qname(ns.ATOM, "name")).text = contact_name
+        if contact_email:
+            etree.SubElement(contributor, ns.qname(ns.ATOM, "email")).text = contact_email
+
+    etree.SubElement(root, ns.qname(ns.ATOM, "title")).text = WRAPPER_TITLE
+    etree.SubElement(root, ns.qname(ns.ATOM, "id")).text = \
+        f"info:arxiv/app/{deposit_id}"
+    etree.SubElement(root, ns.qname(ns.ATOM, "updated")).text = iso_z(moment)
+
+    content = etree.SubElement(root, ns.qname(ns.ATOM, "content"))
+    content.set("type", content_type)
+    content.set("src", f"https://{site}/sword-app/edit/{deposit_id}")
+
+    source = etree.SubElement(root, ns.qname(ns.ATOM, "source"))
+    generator = etree.SubElement(source, ns.qname(ns.ATOM, "generator"))
+    generator.text = ns.GENERATOR_NAME
+    generator.set("uri", f"https://{site}/sword-app/")
+    generator.set("version", ns.GENERATOR_VERSION)
+
+    etree.SubElement(root, ns.qname(ns.ATOM, "summary")).text = summary
+
+    etree.SubElement(root, ns.qname(ns.SWORD, "treatment")).text = WRAPPER_TREATMENT
+    if verbose:
+        etree.SubElement(root, ns.qname(ns.SWORD, "verboseDescription")).text = (
+            WRAPPER_VERBOSE_REPLACEMENT if replacing else WRAPPER_VERBOSE_NEW)
+    etree.SubElement(root, ns.qname(ns.SWORD, "noOp")).text = \
+        "true" if no_op else "false"
+    if packaging:
+        etree.SubElement(root, ns.qname(ns.SWORD, "packaging")).text = packaging
+    if user_agent:
+        etree.SubElement(root, ns.qname(ns.SWORD, "userAgent")).text = user_agent
+
+    # No text content here, unlike the media entry's group name.
+    primary = etree.SubElement(root, ns.qname(ns.ARXIV, "primary_category"))
+    primary.set("scheme", ns.ARXIV_SCHEME)
+    primary.set("term", ns.ARXIV_SCHEME + primary_category)
+
+    for category in (secondary_categories or []):
+        element = etree.SubElement(root, ns.qname(ns.ATOM, "category"))
+        element.set("scheme", ns.ARXIV_SCHEME)
+        element.set("term", ns.ARXIV_SCHEME + category)
+
+    edit_media = etree.SubElement(root, ns.qname(ns.ATOM, "link"))
+    edit_media.set("rel", "edit-media")
+    edit_media.set("href", f"https://{site}/sword-app/edit/{deposit_id}")
+
+    edit = etree.SubElement(root, ns.qname(ns.ATOM, "link"))
+    edit.set("rel", "edit")
+    edit.set("href", f"https://{site}/sword-app/edit/{deposit_id}.atom")
+
+    alternate = etree.SubElement(root, ns.qname(ns.ATOM, "link"))
+    alternate.set("rel", "alternate")
+    alternate.set("href", f"http://{site}/resolve/app/{deposit_id}")
+
+    return etree.tostring(root, xml_declaration=True, encoding="utf-8",
+                          pretty_print=True)

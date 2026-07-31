@@ -944,6 +944,68 @@ regex allows no digits (`AtomPP.pm:980`), which is safe only because no arXiv
 category id contains one; and the secondary-term regex is *unanchored*
 (`AtomPP.pm:1018`), so it extracts a category from anywhere in the attribute.
 
+### Step 10 — wrapper deposit and ingest ✅ (2026-07-31)
+
+A metadata wrapper POST now creates a real submission and answers 202.
+
+- `submit_ce/sword/ingest.py` — `metadata_events()` / `upload_events()` (pure,
+  over a `WrapperMetadata`), `record_tracking()`, and `ingest_wrapper()`.
+- `render_wrapper_entry` in `atom/render.py` — the 202 body, with the
+  `rel="alternate"` tracking link.
+- The wrapper branch of the collection POST route.
+- 68 new tests; suite now **1058 passed**, `submit_ce/sword` back to **100%**
+  statement and branch coverage.
+
+`02-deposit.t`'s second half and the live suite's `test_metadata_upload` now run
+in-process. The tests assert on *submission state*, not just the response document:
+title, abstract, authors, proxy, contact, license, categories and both tracking
+links.
+
+Everything goes through a **single `SubmitApi.save()`**, so a deposit is one
+transaction — a validation failure anywhere leaves no partial submission, which
+there is a test for.
+
+**One event covers three legacy columns.** `SetProxyInformation` sets
+`proxied_name`/`proxied_email` → `submission.creator.name`/`.email` → legacy
+`submitter_name`/`submitter_email`, and `proxy_name` → `proxy`. That is exactly what
+legacy SWORD wrote (`AtomPP.pm:1193-1195`), so the plan's separate
+`ConfirmContactInformation` row turned out to be unnecessary.
+
+**The endorsement gate needed a decision.** `SetPrimaryClassification` requires the
+creator to be endorsed for the category (`domain/event/__init__.py:311-323`); legacy
+SWORD has no such check, because deposit permission *is* the `flag_group_*` bit,
+granted per collection by arXiv admins alongside `flag_xml`/`flag_proxy`. Requiring
+personal endorsements as well would be stricter than legacy and would break exactly
+the proxy depositors — conference organisers, journal editors — that `flag_proxy`
+exists for. So `collections.endorsement_wildcards()` turns each permitted group into
+`<archive>.*` for its archives: the same permission, in the vocabulary the events
+understand. `AddSecondaryClassification` is not endorsement-checked at all, so
+cross-listing outside a depositor's groups still works, as in legacy.
+
+**`ConfirmPolicy` is emitted on the depositor's behalf.** `FinalizeSubmission`
+requires `submitter_accepts_policy`, and SWORD has no interactive agreement step.
+Acceptance rests on what the protocol already requires out of band: admin
+authorisation (`submit_sword.md:98-101`) and a registered default license
+(`:122-127`), the latter a hard precondition of every request.
+
+Also of note: a zip becomes `UploadArchive` so it is unpacked, while loose files
+(PDF, figures) become one `UploadFiles` — the two shapes the manual describes
+(`submit_sword.md:317`). `X-No-Op` is a true no-op: validated, reported on, nothing
+created, and there is a test asserting neither a submission nor a tracking row
+appears.
+
+Two things still deferred, both requiring compile:
+
+1. **`SetSourceFormat` + `FinalizeSubmission`.** `source_format` only comes from
+   preflight, so finalizing stays on the async compile path.
+2. **`test.*` categories are all flagged inactive**, and both
+   `SetPrimaryClassification` and `AddSecondaryClassification` validate against
+   `ActiveCategory`. A deposit to the `test` collection will therefore be rejected
+   by the domain even though the service document advertises it and the live
+   regression suite uses it on non-dev environments. Needs resolving before the
+   acceptance gate — either the taxonomy's `test` entries change, or the events need
+   to accept them.
+
 ### Remaining items to watch
 
 1. **Finalize sequencing.** The plan finalizes after a successful compile. The exact

@@ -97,6 +97,33 @@ def user_may_post_to(session: SqlalchemySession, user_id: int,
     return group_id(collection) in set(groups_for_user(session, user_id))
 
 
+def endorsement_wildcards(session: SqlalchemySession,
+                          user_id: int) -> List[str]:
+    """Endorsements implied by a depositor's group flags.
+
+    submit-ce gates `SetPrimaryClassification` on the creator being endorsed for
+    the category (``domain/event/__init__.py:311-323``). Legacy SWORD has no such
+    check: deposit permission *is* the ``flag_group_*`` bit, granted per collection
+    by arXiv admins alongside ``flag_xml``/``flag_proxy``
+    (``submit_sword.md:98-101``). Requiring personal endorsements as well would be
+    stricter than legacy and would break exactly the proxy depositors -- conference
+    organisers, journal editors -- that ``flag_proxy`` exists to accommodate.
+
+    So each permitted group becomes ``<archive>.*`` for every archive it contains,
+    which is the same permission expressed in the vocabulary the events understand.
+    An ``<archive>.*`` wildcard also covers archives whose category *is* the archive
+    (``hep-ex``), because the check resolves the category's archive first.
+
+    Secondary classifications are not endorsement-checked at all, so cross-listing
+    outside a depositor's groups keeps working, as it did in legacy.
+    """
+    wildcards = []
+    for group in groups_for_user(session, user_id):
+        for archive in GROUPS[group].get_archives():
+            wildcards.append(f"{archive.id}.*")
+    return sorted(set(wildcards))
+
+
 def nickname_to_user_id(session: SqlalchemySession,
                         nickname: str) -> Optional[int]:
     """Resolve a tapir nickname to a user id.

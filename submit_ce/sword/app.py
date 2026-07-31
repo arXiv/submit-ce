@@ -33,15 +33,19 @@ from submit_ce.implementations.legacy_implementation.fastapi_impl import (
     fastapi_get_session,
     remove_session,
 )
+from submit_ce.domain.agent import HttpClient, PublicUser
 from submit_ce.implementations.wiring import config_backend_api
 from submit_ce.sword import auth as sword_auth
 from submit_ce.sword import collections as sword_collections
+from submit_ce.sword.atom.parse import parse_wrapper
 from submit_ce.sword.atom.render import (
     ENTRY_CONTENT_TYPE,
     ERROR_CONTENT_TYPE,
     render_error,
     render_media_entry,
+    render_wrapper_entry,
 )
+from submit_ce.sword.ingest import ingest_wrapper
 from submit_ce.sword.atom.servicedoc import (
     SERVICE_DOCUMENT_CONTENT_TYPE,
     render_service_document,
@@ -227,12 +231,12 @@ def create_sword_app() -> FastAPI:
 
         verify_md5(payload, headers.md5)
 
-        if headers.content_type.split(";", 1)[0].strip() == ATOM_ENTRY_TYPE:
-            # TODO(step 10): a wrapper deposit creates the submission.
-            raise SwordFault(
-                "EIMPL", "metadata wrapper deposits are not yet available")
-
         store = request.app.state.deposits
+
+        if headers.content_type.split(";", 1)[0].strip() == ATOM_ENTRY_TYPE:
+            return _deposit_wrapper(request, collection, payload, headers,
+                                    credentials, site)
+
         deposit_id = store.allocate_id()
         store.save(deposit_id, depositor.nickname, headers.content_type, payload)
 
@@ -270,3 +274,107 @@ def create_sword_app() -> FastAPI:
     # later steps.
 
     return app
+
+
+def _deposit_wrapper(request: Request, collection: str, payload: bytes,
+                     headers, credentials, site: str) -> Response:
+    """A metadata wrapper: validate it, create the submission, answer 202.
+
+    Called from the collection POST route once the content type marks the body as
+    an Atom entry rather than media.
+    """
+    store = request.app.state.deposits
+    api = request.app.state.api
+
+    with sword_session() as session:
+        depositor = sword_auth.depositor_from_credentials(
+            session, credentials.username, credentials.password, site)
+
+        contact_override = None
+        if headers.contact_email:
+            contact_override = (headers.contact_name, headers.contact_email)
+
+        metadata = parse_wrapper(
+            payload,
+            collection=collection,
+            depositor=depositor.nickname,
+            contact_override=contact_override,
+            is_suspect_email=lambda email: sword_auth.is_suspect_email(
+                session, email),
+            deposit_extensions=store.extensions,
+            deposit_owner=lambda deposit_id: (
+                store.get(deposit_id).owner if store.get(deposit_id) else None),
+        )
+
+        sword_id = store.allocate_id()
+
+        entry = render_wrapper_entry(
+            deposit_id=sword_id,
+            depositor=depositor.nickname,
+            summary=metadata.summary,
+            primary_category=metadata.primary_category,
+            secondary_categories=metadata.secondary_categories,
+            site=site,
+            contact_name=metadata.contact_name,
+            contact_email=metadata.contact_email,
+            no_op=headers.no_op,
+            verbose=headers.verbose,
+            packaging=headers.packaging,
+            user_agent=headers.user_agent,
+        )
+
+        # A true no-op: validated and reported on, nothing created. Legacy still
+        # built the submission object before checking the flag
+        # (``AtomPP.pm:1280-1291``), so a no-op could leave rows behind; the plan's
+        # decision 4 is not to reproduce that.
+        if not headers.no_op:
+            endorsements = sword_collections.endorsement_wildcards(
+                session, depositor.user_id)
+            ingest_wrapper(api, store, session, metadata,
+                           creator=depositor_user(depositor, endorsements),
+                           client=deposit_client(request, headers),
+                           depositor=depositor.nickname,
+                           license_uri=depositor.license,
+                           sword_id=sword_id)
+            store.save_entry(sword_id, entry)
+
+    response_headers = {}
+    if not headers.no_op:
+        response_headers["Location"] = \
+            f"https://{site}/sword-app/getid/app/{sword_id}"
+
+    return Response(content=entry,
+                    status_code=200 if headers.no_op else 202,
+                    media_type=ENTRY_CONTENT_TYPE,
+                    headers=response_headers)
+
+
+def depositor_user(depositor, endorsements) -> PublicUser:
+    """The `User` recorded as the creator of a SWORD submission.
+
+    The depositing account, not the contact author -- the contact reaches the
+    submission through `SetProxyInformation`.
+
+    ``endorsements`` comes from `collections.endorsement_wildcards`, which turns the
+    depositor's group flags into the wildcards `SetPrimaryClassification` expects.
+    """
+    return PublicUser(user_id=str(depositor.user_id),
+                      name=depositor.nickname,
+                      email=depositor.email,
+                      endorsements=list(endorsements))
+
+
+def deposit_client(request: Request, headers) -> HttpClient:
+    """The `Client` recorded for a deposit.
+
+    ``version`` carries the depositor's ``User-Agent``, which SWORD also echoes
+    back in ``<sword:userAgent>``. The address is taken from
+    ``X-Forwarded-For``'s last hop when present, matching how the Flask UI reads it
+    behind the load balancer (`submit_ce.ui.auth._ip_address`).
+    """
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        remote_addr = forwarded.split(",")[-1].strip()
+    else:
+        remote_addr = request.client.host if request.client else "unknown"
+    return HttpClient(remote_addr=remote_addr, version=headers.user_agent)

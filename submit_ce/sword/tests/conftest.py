@@ -138,9 +138,20 @@ def sword_db():
 
 @pytest.fixture
 def sword_app(sword_db):
-    """The SWORD FastAPI app, wired to the fixture database."""
+    """The SWORD FastAPI app, wired to the fixture database.
+
+    The root conftest pins ``STORE=null`` so nothing can reach GCS, but
+    `NullFileStore` refuses writes outright -- so a `MockFileStore` is swapped in
+    for the submission workspace, the same way `submit_ce.ui.conftest`'s
+    ``mocked_file_store`` does for the Flask tests. The SWORD *deposit* store stays
+    in-memory.
+    """
+    from submit_ce.implementations.file_store.mock_file_store import MockFileStore
     from submit_ce.sword.app import create_sword_app
-    return create_sword_app()
+
+    app = create_sword_app()
+    app.state.api.store = MockFileStore()
+    return app
 
 
 @pytest.fixture

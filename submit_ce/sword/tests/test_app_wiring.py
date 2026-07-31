@@ -53,3 +53,41 @@ def test_gs_prefix_nests_under_the_per_developer_prefix(monkeypatch):
 def test_app_exposes_a_deposit_store(sword_app):
     """The app under test runs with STORE=null, pinned by the root conftest."""
     assert isinstance(sword_app.state.deposits, InMemoryDepositStore)
+
+
+# ------------------------------------------------------------------ deposit client
+
+
+def test_deposit_client_uses_the_forwarded_address():
+    """Behind the load balancer the real address is the last X-Forwarded-For hop.
+
+    Mirrors how the Flask UI reads it (`submit_ce.ui.auth._ip_address`).
+    """
+    from submit_ce.sword.app import deposit_client
+
+    request = SimpleNamespace(
+        headers={"X-Forwarded-For": "203.0.113.7, 10.0.0.1"},
+        client=SimpleNamespace(host="10.0.0.1"))
+    client = deposit_client(request, SimpleNamespace(user_agent="demo/1.1"))
+
+    assert client.remote_addr == "10.0.0.1"
+    assert client.version == "demo/1.1"
+
+
+def test_deposit_client_falls_back_to_the_socket_address():
+    from submit_ce.sword.app import deposit_client
+
+    request = SimpleNamespace(headers={},
+                              client=SimpleNamespace(host="198.51.100.4"))
+    client = deposit_client(request, SimpleNamespace(user_agent=None))
+    assert client.remote_addr == "198.51.100.4"
+    assert client.version is None
+
+
+def test_deposit_client_without_a_peer():
+    """Starlette leaves ``client`` unset for some transports."""
+    from submit_ce.sword.app import deposit_client
+
+    request = SimpleNamespace(headers={}, client=None)
+    assert deposit_client(request, SimpleNamespace(user_agent=None)).remote_addr \
+        == "unknown"
