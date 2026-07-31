@@ -37,6 +37,6 @@ jobs:
 
     - name: Ruff lint check
       run: |
-        uv pip install ruff
+        # ruff is pinned in the dev dependency group installed by uv sync above.
         uv run ruff check --output-format=github submit_ce
       continue-on-error: true

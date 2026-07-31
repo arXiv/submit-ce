@@ -6,5 +6,6 @@ uv run pytest \
    submit_ce/api \
    submit_ce/implementations \
    submit_ce/domain \
+   submit_ce/sword \
    submit_ce/tests \
    submit_ce/ui
