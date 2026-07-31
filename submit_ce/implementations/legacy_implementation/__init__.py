@@ -309,6 +309,7 @@ class LegacySubmitImplementation(SubmitApi):
             # back. Any earlier EventWithSideEffect.execute() is not rolled back.
             # The caller's `except InvalidEvent` decides UX. It runs for every
             # event, and for an EventWithSideEffect it runs before execute().
+            ctx.phase = SavePhase.EVENT_VALIDATE_UNDER_LOCK
             event.validate_under_lock(self, before)
 
             if isinstance(event, EventWithSideEffect):
