@@ -26,7 +26,7 @@ from submit_ce.ui.config import settings
 
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
+
 
 def _to_datetime(time:str|int|datetime|None)-> datetime:
     if isinstance(time, datetime):

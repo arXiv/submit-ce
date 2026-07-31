@@ -6,7 +6,10 @@ from arxiv.db import Session
 from flask import current_app
 
 from submit_ce.domain.agent import InternalClient
-from submit_ce.domain.event import CreateSubmissionVersion
+from submit_ce.domain.event import CreateSubmissionVersion, \
+    EmailSubmitterFinalizeMsg, FinalizeJrefSubmission
+from submit_ce.implementations.legacy_implementation.models import \
+    Submission as LegacyRow
 from submit_ce.ui.tests.csrf_util import parse_csrf_token
 
 
@@ -77,6 +80,16 @@ def test_create_jref_submission(app, authorized_client, published_submission):
                 "jref is a distinct row"
             assert edit_endpoint.endswith(f'/{jref.submission_id}/jref')
 
+            # Confirming submits it for announcement. Without this the row sits
+            # at WORKING and the publish pipeline never sees it, however
+            # complete its metadata is.
+            assert jref.status == LegacyRow.SUBMITTED, \
+                "Confirm and Submit must finalize the jref"
+            assert jref.submit_time is not None
+
+            # The announced row is not dragged along with it.
+            assert orig.status == LegacyRow.ANNOUNCED
+
             # The jref-specific fields carry the edited values.
             assert jref.doi == '10.1000/182'
             assert jref.journal_ref == 'foo journal 1992'
@@ -110,14 +123,14 @@ def test_jref_on_unannounced_submission(app, authorized_client, sub_created):
     assert jref_count() == before, "No jref row for an unannounced submission"
 
 
-def test_second_jref_edits_the_first(app, authorized_client,
-                                     published_submission):
-    """A paper accumulates journal-reference edits on a single jref row.
+def test_a_submitted_jref_is_not_edited_again(app, authorized_client,
+                                              published_submission):
+    """A jref is submitted once, and a paper never gets a second one.
 
-    A jref is its own submission, so the first press creates one and hands off
-    to its edit page. Pressing the button again while that jref is still in
-    progress returns there rather than starting a second one, so the paper still
-    ends up with exactly one jref row carrying the latest values.
+    A submitted jref is still `is_active`, so pressing Add Journal Reference
+    again resumes to it rather than starting a second one -- and its edit page
+    then sends the user back to the dashboard instead of offering a form that
+    `SetJournalReference` would reject.
     """
     _, paper_id = published_submission
 
@@ -127,33 +140,149 @@ def test_second_jref_edits_the_first(app, authorized_client,
     _submit_jref_form(authorized_client, edit_endpoint, '10.1000/182',
                       'foo journal 1992', 'abc report 42')
 
-    # Pressing the button again returns to the jref already in progress.
+    # Pressing the button again resumes to the same jref, without creating one.
     again = _press_add_jref(authorized_client, paper_id)
     assert again.status_code == status.SEE_OTHER
     assert again.headers['Location'] == edit_endpoint
 
-    # Editing that jref updates it in place.
-    _submit_jref_form(authorized_client, edit_endpoint, '10.2000/999',
-                      'bar journal 2001', 'xyz report 77')
+    # Its edit page is closed now that it has been submitted.
+    reopened = authorized_client.get(edit_endpoint)
+    assert reopened.status_code == status.SEE_OTHER
+    dashboard = authorized_client.get(reopened.headers['Location'])
+    assert b'already been submitted' in dashboard.data
+
+    # A confirmed POST does not slip past the redirect either.
+    resubmit = authorized_client.post(
+        edit_endpoint, data={'doi': '10.2000/999',
+                             'journal_ref': 'bar journal 2001',
+                             'report_num': 'xyz report 77',
+                             'confirmed': True,
+                             'csrf_token': parse_csrf_token(dashboard)})
+    assert resubmit.status_code == status.SEE_OTHER
 
     with app.app_context():
         with Session() as session:
             rows = session.query(classic.Submission) \
                           .filter(classic.Submission.doc_paper_id == paper_id) \
                           .all()
-            # Still just the original announced row plus a single jref row: the
-            # second jref was absorbed into the first, not added as a new row.
-            assert len(rows) == 2, \
-                "Second jref is absorbed into the first jref row"
+            # The announced row plus exactly one jref row.
+            assert len(rows) == 2
 
             jref_rows = [r for r in rows if r.type == 'jref']
             assert len(jref_rows) == 1
             jref = jref_rows[0]
 
-            # The single jref row carries the values from the second edit.
-            assert jref.doi == '10.2000/999'
-            assert jref.journal_ref == 'bar journal 2001'
-            assert jref.report_num == 'xyz report 77'
+            # Still carrying the submitted values, not the rejected edit.
+            assert jref.status == LegacyRow.SUBMITTED
+            assert jref.doi == '10.1000/182'
+            assert jref.journal_ref == 'foo journal 1992'
+            assert jref.report_num == 'abc report 42'
+
+
+def test_submitting_emails_the_submitter(app, authorized_client,
+                                         published_submission):
+    """Submitting through the UI sends the one confirmation mail, and no more.
+
+    The email is a consequence of `FinalizeJrefSubmission`, so it is also
+    evidence that the finalize actually ran.
+    """
+    _, paper_id = published_submission
+
+    edit_endpoint = _press_add_jref(authorized_client,
+                                    paper_id).headers['Location']
+    with app.app_context():
+        before = len(current_app.api.email_service.sent)
+
+    _submit_jref_form(authorized_client, edit_endpoint, '10.1000/182',
+                      'foo journal 1992', 'abc report 42')
+
+    with app.app_context():
+        service = current_app.api.email_service
+        assert len(service.sent) == before + 1, \
+            "Exactly one mail: no moderator notification for a jref"
+        assert service.last.subject == f"arXiv journal ref for {paper_id}"
+
+        # And it is recorded in the jref's own history, having been sent.
+        submission_id = edit_endpoint.rstrip('/').split('/')[-2]
+        _, history = current_app.api.get_with_history(submission_id)
+        assert len([e for e in history
+                    if isinstance(e, FinalizeJrefSubmission)]) == 1
+        emails = [e for e in history
+                  if isinstance(e, EmailSubmitterFinalizeMsg)]
+        assert len(emails) == 1
+        assert emails[0].error is None
+
+
+def test_confirming_with_no_changes_does_not_submit(app, authorized_client,
+                                                   published_submission):
+    """Nothing changed means nothing to announce, so the jref is not submitted.
+
+    A jref is seeded from the announced paper, so its citation fields can
+    already be populated when the form first opens. Confirming that unchanged
+    form must not fire an empty announcement.
+    """
+    _, paper_id = published_submission
+
+    edit_endpoint = _press_add_jref(authorized_client,
+                                    paper_id).headers['Location']
+
+    page = authorized_client.get(edit_endpoint)
+    assert page.status_code == status.OK
+    # Post the form back exactly as rendered, already confirmed.
+    response = authorized_client.post(
+        edit_endpoint, data={'doi': '', 'journal_ref': '', 'report_num': '',
+                             'confirmed': True,
+                             'csrf_token': parse_csrf_token(page)})
+
+    assert response.status_code == status.OK
+    assert b'No changes to submit' in response.data
+
+    with app.app_context():
+        with Session() as session:
+            jref = session.query(classic.Submission) \
+                          .filter(classic.Submission.doc_paper_id == paper_id) \
+                          .filter(classic.Submission.type == 'jref').one()
+        assert jref.status == LegacyRow.WORKING
+        assert jref.submit_time is None
+
+        submission_id = edit_endpoint.rstrip('/').split('/')[-2]
+        _, history = current_app.api.get_with_history(submission_id)
+        assert not [e for e in history
+                    if isinstance(e, FinalizeJrefSubmission)]
+
+
+def test_an_invalid_value_submits_nothing(app, authorized_client,
+                                          published_submission):
+    """The values and the submit land together, or neither does.
+
+    The `Set*` events and `FinalizeJrefSubmission` go in one `save`, so a
+    rejected value must not leave a jref that is submitted, or one carrying
+    half the edit.
+    """
+    _, paper_id = published_submission
+
+    edit_endpoint = _press_add_jref(authorized_client,
+                                    paper_id).headers['Location']
+    page = authorized_client.get(edit_endpoint)
+
+    response = authorized_client.post(
+        edit_endpoint,
+        data={'doi': 'not-a-doi', 'journal_ref': 'foo journal 1992',
+              'report_num': 'abc report 42', 'confirmed': True,
+              'csrf_token': parse_csrf_token(page)})
+
+    assert response.status_code == status.BAD_REQUEST
+
+    with app.app_context():
+        with Session() as session:
+            jref = session.query(classic.Submission) \
+                          .filter(classic.Submission.doc_paper_id == paper_id) \
+                          .filter(classic.Submission.type == 'jref').one()
+        # Not submitted, and the good values did not land either.
+        assert jref.status == LegacyRow.WORKING
+        assert jref.submit_time is None
+        assert jref.journal_ref in (None, '')
+        assert jref.doi in (None, '')
 
 
 def test_jref_with_inprogress_replacement(app, authorized_user,

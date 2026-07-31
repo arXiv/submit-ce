@@ -676,12 +676,7 @@ class SetDOI(Event):
             raise InvalidEvent(self, "", check)
 
     def validate_under_lock(self, api, submission) -> None:
-        """Reject if the announced paper has a conflicting submission.
-
-        An in-progress jref is exempt: on the legacy path these events are
-        saved against the *announced* submission, and the first of them creates
-        the jref row that the rest would otherwise reject themselves on.
-        """
+        """Reject if the announced paper has a conflicting submission."""
         validators.no_conflicting_active_submission(
             self, api, submission,
             allowed_types=(SubmissionType.JOURNAL_REFERENCE,))
@@ -811,6 +806,9 @@ class SetJournalReference(Event):
 
     def validate_pre_lock(self, submission: Submission) -> None:
         """Validate the journal reference value."""
+        if submission.status == Submission.SUBMITTED \
+                and not submission.is_announced:
+            raise InvalidEvent(self, 'Cannot edit a finalized submission')
         if not self.journal_ref:    # Blank values are OK.
             return
         check = metacheck.check_journal_ref(self.journal_ref)
@@ -818,12 +816,7 @@ class SetJournalReference(Event):
             raise InvalidEvent(self, "", check)
 
     def validate_under_lock(self, api, submission) -> None:
-        """Reject if the announced paper has a conflicting submission.
-
-        An in-progress jref is exempt: on the legacy path these events are
-        saved against the *announced* submission, and the first of them creates
-        the jref row that the rest would otherwise reject themselves on.
-        """
+        """Reject if the announced paper has a conflicting submission."""
         validators.no_conflicting_active_submission(
             self, api, submission,
             allowed_types=(SubmissionType.JOURNAL_REFERENCE,))
@@ -870,6 +863,9 @@ class SetReportNumber(Event):
 
     def validate_pre_lock(self, submission: Submission) -> None:
         """Validate the report number value."""
+        if submission.status == Submission.SUBMITTED \
+                and not submission.is_announced:
+            raise InvalidEvent(self, 'Cannot edit a finalized submission')
         if not self.report_num:    # Blank values are OK.
             return
         check = metacheck.check_report_num(self.report_num)
@@ -877,12 +873,7 @@ class SetReportNumber(Event):
             raise InvalidEvent(self, "", check)
 
     def validate_under_lock(self, api, submission) -> None:
-        """Reject if the announced paper has a conflicting submission.
-
-        An in-progress jref is exempt: on the legacy path these events are
-        saved against the *announced* submission, and the first of them creates
-        the jref row that the rest would otherwise reject themselves on.
-        """
+        """Reject if the announced paper has a conflicting submission."""
         validators.no_conflicting_active_submission(
             self, api, submission,
             allowed_types=(SubmissionType.JOURNAL_REFERENCE,))

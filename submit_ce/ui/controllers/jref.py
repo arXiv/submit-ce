@@ -9,6 +9,7 @@ mirroring legacy:
   (legacy ``/submit/<id>/jref``).
 """
 
+import copy
 from http import HTTPStatus as status
 from typing import Tuple, Dict, Any, List, Optional
 
@@ -24,8 +25,8 @@ from wtforms.validators import optional
 from arxiv.base import logging, alerts
 from arxiv.forms import csrf
 from submit_ce.domain import  Event, User, Client, Submission
-from submit_ce.domain.event import CreateJrefSubmission, SetDOI, \
-    SetJournalReference
+from submit_ce.domain.event import CreateJrefSubmission, \
+    FinalizeJrefSubmission, SetDOI, SetJournalReference
 from submit_ce.domain.exceptions import InvalidEvent, NoSuchDocument, SaveError
 from submit_ce.domain.event import SetReportNumber
 from submit_ce.domain.submission import SubmissionType
@@ -172,11 +173,16 @@ def jref(method: str, params: MultiDict, session: Session,
             "That is not a journal reference submission. See "
             "<a href='https://arxiv.org/help/jref'>the arXiv help pages</a>"
             " for details."))
-        status_url = url_for('ui.create_submission')
+        status_url = url_for('ui.manage_submissions')
         return {}, status.SEE_OTHER, {'Location': status_url}
 
-    # The form should be prepopulated based on the current state of the
-    # submission.
+    if submission.is_finalized:
+        alerts.flash_warning(
+            "That journal reference has already been submitted. It will appear"
+            " on the article's abstract page after the next announcement.")
+        return {}, status.SEE_OTHER, {
+            'Location': url_for('ui.manage_submissions')}
+
     if method == 'GET':
         params = MultiDict({
             'doi': submission.metadata.doi,
@@ -208,7 +214,12 @@ def jref(method: str, params: MultiDict, session: Session,
 
         commands, valid = _generate_commands(form, submission, creator, client)
 
-        if commands:    # Metadata has changed; we have things to do.
+        if commands:    # Metadata has changed
+            finalize = FinalizeJrefSubmission(creator=creator, client=client)
+            valid.append(validate_command(
+                form, finalize, _prospective(submission, commands)))
+            commands.append(finalize)
+
             if not all(valid):
                 raise BadRequest(response_data)
 
@@ -217,17 +228,44 @@ def jref(method: str, params: MultiDict, session: Session,
             try:
                 # Save the events created during form validation.
                 submission, _ = current_app.api.save(*commands, submission_id=submission_id)
+            except InvalidEvent as e:
+                logger.debug('Could not submit jref %s: %s', submission_id, e)
+                alerts.flash_failure(e.message)
+                raise BadRequest(response_data) from e
             except SaveError as e:
                 logger.error('Could not save metadata event')
                 raise InternalServerError(response_data) from e
             response_data['submission'] = submission
 
             # Success! Send user back to the submission page.
-            alerts.flash_success("Journal reference updated")
-            status_url = url_for('ui.create_submission')
+            alerts.flash_success("Journal reference submitted")
+            status_url = url_for('ui.manage_submissions')
             return {}, status.SEE_OTHER, {'Location': status_url}
+
+        alerts.flash_warning(
+            "No changes to submit. Enter a journal reference, DOI or report"
+            " number.")
     logger.debug('Nothing to do, return 200')
     return response_data, status.OK, {}
+
+
+def _prospective(submission: Submission, commands: List[Event]) -> Submission:
+    """The submission as ``commands`` would leave it, for pre-validation.
+
+    `FinalizeJrefSubmission` requires citation data, which is exactly what the
+    pending `Set*` events are about to supply -- validating it against the
+    submission as it stands would reject the first journal reference on every
+    jref. Everything else it checks (the inherited metadata and classification)
+    is untouched by those events.
+
+    ``project`` rather than ``apply``: it is the pure field update, so this
+    neither re-runs validation nor leaves ``_before``/``_after`` on the command
+    objects that :meth:`save` is about to apply for real.
+    """
+    prospective = copy.deepcopy(submission)
+    for command in commands:
+        prospective = command.project(prospective)
+    return prospective
 
 
 def _generate_commands(form: JREFForm, submission: Submission, creator: User,
