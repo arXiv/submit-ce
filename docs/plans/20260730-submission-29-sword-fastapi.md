@@ -892,6 +892,58 @@ before dispatching to the threadpool.
 Wrapper deposits (`application/atom+xml`) currently answer 501 with an explicit
 "not yet available"; step 10 replaces that.
 
+### Step 9 — wrapper validation ladder ✅ (2026-07-31)
+
+`submit_ce/sword/atom/parse.py` — `parse_wrapper()` returning a validated
+`WrapperMetadata`, plus 77 tests. Suite now **1005 passed**; `submit_ce/sword`
+back to **100%** statement and branch coverage. Not yet wired to a route; step 10
+does that.
+
+Deliberately I/O-free so the whole ladder is unit-testable: `is_suspect_email`,
+`deposit_extensions` and `deposit_owner` are injected callables. Check order is
+legacy's and is asserted — categories are validated **before** the summary, so a
+wrapper wrong in both ways reports the category error.
+
+All six `03-cross.t` cases now pass against real parsing, matching the exact
+substrings that suite greps for, as do `04-suspect.t`'s error code 512 and "must
+submit directly".
+
+**`is_valid_category_strict` needed real care.** The naive mapping — "is it in
+`CATEGORIES`?" — is wrong in both directions:
+
+* `cond-mat` **is** in `CATEGORIES` (inactive), yet `03-cross.t:358-362` requires
+  it to be rejected.
+* `test.dis-nn` is **also** inactive, yet it must be accepted — it is what the test
+  collection deposits.
+
+So active/inactive is not the discriminator. The rule that reproduces legacy
+(`Categories.pm:1164-1178`) is: a dotted id must exist; a **bare archive name is
+valid only when that archive has no subject classes**. `cond-mat` has
+`cond-mat.*`, so bare is invalid; `hep-ex` has only itself, so bare is fine.
+Verified against 14 cases before writing a line of the parser.
+
+**One security fix, worth a decision.** Legacy checks whether a referenced media
+deposit belongs to the depositor, then only `carp`s about it — with
+`## FIXME: this should be fatal` on the next line (`AtomPP.pm:1126-1129`). Without
+enforcement a depositor can attach *another user's* staged files to their own
+submission. `parse_wrapper` raises ENOWN instead. This is a behaviour change from
+legacy, and the one place in this port where I have deliberately closed a
+vulnerability rather than reproduced it.
+
+**Two unreachable paths identified, one removed.** After the `rel="related"` loop,
+legacy does `if (@files) {...} else { ENMDE }` (`AtomPP.pm:1156-1161`) — but every
+related link either errors out or appends a file, so the list is non-empty whenever
+the count is. The branch cannot be reached in legacy either. Not reproduced; ENMDE
+stays in the error table for completeness but has no live caller. (`ENTIT` is the
+other: defined, documented, never raised, because `AtomPP.pm:1183` reads
+`$entry->title()` unchecked. An untitled wrapper is accepted, and there is a test
+pinning that.)
+
+Also confirmed against the code rather than the manual: the primary-category term
+regex allows no digits (`AtomPP.pm:980`), which is safe only because no arXiv
+category id contains one; and the secondary-term regex is *unanchored*
+(`AtomPP.pm:1018`), so it extracts a category from anywhere in the attribute.
+
 ### Remaining items to watch
 
 1. **Finalize sequencing.** The plan finalizes after a successful compile. The exact
