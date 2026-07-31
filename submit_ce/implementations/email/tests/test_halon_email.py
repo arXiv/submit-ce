@@ -217,7 +217,6 @@ def test_parse_uri_percent_encoded_password():
 
 
 def test_parse_uri_missing_hostname_raises():
-    import pytest
     with pytest.raises(RuntimeError, match="hostname"):
         SmtpCreds.parse("smtps://")
 
