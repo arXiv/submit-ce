@@ -154,8 +154,8 @@ PREFLIGHT_ISSUE_DIRECTIVES: Dict[str, Dict[str, Any]] = {
         "severity": "danger",
         "message": "The scan found {n} file(s) that do not look like valid PDFs.",
     },
-    "pdf_javascript": {  # NEW since 1.5 (proposed)
-        "severity": "warning",
+    "pdf_javascript": {  # NEW since 1.5; danger -- arXiv rejects JS-bearing PDFs; UI blocks (tex2pdf currently keeps the PDF, so blocking here is required). Revisit to warning if the service deletes JS PDFs.
+        "severity": "danger",
         "message": "The scan found JavaScript embedded in {n} PDF(s). arXiv does "
                    "not accept PDFs containing JavaScript.",
     },
@@ -169,8 +169,8 @@ PREFLIGHT_ISSUE_DIRECTIVES: Dict[str, Dict[str, Any]] = {
         "message": "A graphics package was loaded with an unsupported driver "
                    "option. Please remove or change it and re-upload.",
     },
-    "unsupported_zzrm_format": {  # NEW since 1.5 (proposed)
-        "severity": "warning",
+    "unsupported_zzrm_format": {  # NEW since 1.5; danger (decided in review) -- block until the unsupported 00README is converted to .json, rather than silently ignoring it
+        "severity": "danger",
         "message": "Your 00README format is no longer supported; only "
                    "00README.json is accepted.",
     },
