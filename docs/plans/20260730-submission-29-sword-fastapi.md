@@ -130,7 +130,13 @@ These matter because clients are built against observed behaviour, not the manua
    tracking link uses `http://` (`AtomPP.pm:1480`), as does Error.pm's generator uri.
 7. **`ENTIT` ("No title") is never raised.** `$entry->title()` is used unchecked
    (`AtomPP.pm:1183`). `ENNAM` ("No author name") is likewise defined but unused.
-8. **`X-No-Op` still has side effects.** The forked child constructs
+8. **The manual's error examples show elements the code never emits.** Both worked
+   examples include `<sword:userAgent>` and one includes `<sword:packaging>`
+   (`submit_sword.md:412-413,869-871`), but `Error.pm:44-121` emits neither, and
+   `show_error` builds a fresh Error object with nothing added
+   (`AtomPP.pm:1518-1536`). The code is authoritative; those two elements are
+   omitted here.
+9. **`X-No-Op` still has side effects.** The forked child constructs
    `arXiv::Submit::Submission->new(...)` *before* checking noop and exiting
    (`AtomPP.pm:1280-1291`), so a no-op deposit can still create rows. Per decision 4,
    we do not reproduce this.
@@ -649,6 +655,47 @@ gcloud is absent.
 **Implication for step 5:** SWORD tests inherit these guards, so the media-deposit
 staging store and the `sword_id` allocator must be testable against a fake or an
 emulator — a real GCS client will be blocked, not silently exercised.
+
+### Step 4 — errors and error rendering ✅ (2026-07-31)
+
+Also added ahead of it, at the user's request: `local_sword.py` plus a minimal
+`submit_ce/sword/app.py` (factory, `db.init`, non-Flask `SubmitApi` on
+`app.state.api`, one I/O-free `GET /status`). Verified running: `/status` → `ok`
+200 on port 8001, alongside `local_ui.py` on 8000.
+
+- `submit_ce/sword/atom/ns.py` — namespaces, schemes, versions. All `http://`.
+- `submit_ce/sword/errors.py` — all 39 codes with message, href and default HTTP
+  status, plus a `SwordFault` exception carrying the `": detail"` summary suffix.
+- `submit_ce/sword/atom/render.py` — `render_error()` producing the
+  `<sword:error>` document, with injectable timestamp/id for determinism.
+- 80 tests in `submit_ce/sword/tests/`, including an independently transcribed
+  mnemonic→code table, and the exact substrings `03-cross.t` and `04-suspect.t`
+  assert on. Added `submit_ce/sword` to `test.sh`.
+- `lxml` added as a dependency: it gives per-tree `nsmap` control, so the root
+  `<sword:error>` can sit in the sword namespace while its children default to
+  Atom, without `ElementTree.register_namespace`'s process-global state.
+
+Two deliberate deviations from legacy, both documented in the code:
+
+1. **Fresh UUID per error.** The Perl builds a name-based UUID from constant
+   inputs (`Error.pm:57`), so every legacy error carries an identical id — useless
+   for correlating a client report with a log line, and contradicted by the
+   manual's own varying examples.
+2. **`sword:packaging` / `sword:userAgent` omitted** from error documents, per
+   discrepancy 8 above.
+
+Deferred to the steps that produce them: the service document and the deposit
+response entries, both of which need collection and deposit data that does not
+exist yet.
+
+**Environment note:** `uv add lxml` re-synced the venv and pruned `ruff`, which is
+not a declared dependency (`lint.sh` installs it ad hoc). Reinstalling brought
+ruff 0.16.1, whose default rule set now includes pyupgrade; `./lint.sh` therefore
+reports ~1264 findings across the package, almost all `UP045` (`Optional[X]`) and
+`UP017` (`timezone.utc`) on pre-existing code. Under the rule set the repo was
+previously clean against (`--select E4,E7,E9,F`) every new file passes and the
+package still shows only the 3 known pre-existing errors. Worth pinning ruff in
+`[dependency-groups] dev` to stop this drifting again.
 
 ### Remaining items to watch
 
