@@ -5,7 +5,6 @@ import httpx
 import time
 import urllib.parse
 from typing_extensions import override
-from flask import current_app
 
 import google.auth
 import google.auth.transport.requests
@@ -118,7 +117,7 @@ class CompileApiService(CompileService):
         # (one bucket call); per preflight click the build is one extraction
         # of N source files, so cost is linear in workspace size, not in
         # number of preceding file events.
-        file_store = current_app.api.get_file_store()
+        file_store = api.get_file_store()
         file_store.write_source_package(submission.submission_id)
 
         source_path = file_store.get_full_source_package_path(submission.submission_id)
@@ -185,7 +184,7 @@ class CompileApiService(CompileService):
                       source_package_id: Optional[str] = None) -> Result:
         logger.info("start_compile, submission %s", submission.submission_id)
 
-        file_store = current_app.api.get_file_store()
+        file_store = api.get_file_store()
         source_path = f"{file_store.get_full_submission_source_path(submission.submission_id)}"
         outcome_path = file_store.get_full_outcome_path(submission.submission_id)
 
@@ -284,8 +283,8 @@ class CompileApiService(CompileService):
     ) -> Result:
         logger.info("start_directives, submission %s", submission.submission_id)
 
-        submission_path = f"{current_app.api.get_file_store().get_full_submission_path(submission.submission_id)}/"
-        directives_path = current_app.api.get_file_store().get_full_directives_package_path(submission.submission_id)
+        submission_path = f"{api.get_file_store().get_full_submission_path(submission.submission_id)}/"
+        directives_path = api.get_file_store().get_full_directives_package_path(submission.submission_id)
 
         query_params = {
             'source': submission_path,
