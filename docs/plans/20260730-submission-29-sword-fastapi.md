@@ -740,6 +740,61 @@ Also corrected in passing: an assertion of mine that read
 `check_password(...) is not False`, which is vacuous — `check_password` returns
 `True` or raises `PasswordAuthenticationFailed`. Now asserts both directions.
 
+### Step 6 — auth, collections, service document ✅ (2026-07-31)
+
+- `submit_ce/sword/auth.py` — the three gates in legacy's order: Basic credentials,
+  then `flag_xml`/`flag_proxy`/`veto_status`/`flag_banned`, then the
+  `arXiv_sword_licenses` precondition. Plus `is_suspect_email` for `04-suspect.t`.
+- `submit_ce/sword/collections.py` — collection↔group mapping, `flag_group_*`
+  permissions, and per-collection category terms off `arxiv.taxonomy`.
+- `submit_ce/sword/atom/servicedoc.py` — the service document.
+- `GET /sword-app/servicedocument` wired in `app.py`, with a `SwordFault`
+  exception handler that renders `sword:error`, and the 405 method whitelist.
+- 90 new tests; suite now 765 passed, coverage 82.14%.
+
+**Password verification is new code.** Legacy never checked credentials in-process
+— Apache did, via `mod_authnz_external` → `cgi-bin/authenticate.pl`
+(`sword.conf:10-13`), so the CGI trusted `REMOTE_USER`. Now done against
+`arxiv.auth.legacy.passwords.check_password`.
+
+Deliberate differences, each documented at its call site:
+
+1. **A no-groups depositor gets an empty workspace.** `ServiceDoc.pm:104-107`
+   defaulted to *every* group with a warning, advertising collections the
+   depositor cannot post to.
+2. **Collection permission is an exact match.** `AtomPP.pm:222` used a regex, so
+   `c` matched `grp_cs` by substring.
+3. **A 401 carries a `sword:error` body plus `WWW-Authenticate`**, where legacy
+   returned Apache's stock HTML page. Every other failure is already a
+   `sword:error`, and the challenge header is what makes a client re-prompt.
+4. **`maxUploadSize` is derived from `SIZE_LIMIT_POLICY`** — 51200 kB. Legacy
+   hardcoded 10000 while its real cap was `CGI::POST_MAX` of 10 MiB (10240 kB),
+   so it under-advertised even its own limit.
+5. **`acceptPackaging` offers zip only**; the Data Conservancy packaging is dead
+   (decision 2) and now answers 415, so advertising it would be a lie.
+
+Three taxonomy findings:
+
+1. **Every `test` category is flagged inactive** in `arxiv.taxonomy`, so
+   `Archive.get_categories()` returns nothing for the `test` archive — which would
+   have silently produced a test collection with no categories and failed the
+   live regression assertion for `test.dis-nn`
+   (`arxiv-test-regression/pytest/tests/test_sword.py:67`). `include_inactive` is
+   used for `grp_test` only.
+2. **`grp_bad` must be excluded** — it is a synthetic marker for unresolvable
+   archives and has no `flag_group_bad` column, so it could never be granted.
+   There is a test asserting every listed group *does* have a flag column.
+3. **`flag_group_nlin` is vestigial.** The column still exists on
+   `arXiv_demographics`, but there is no `grp_nlin` in the taxonomy — nlin was
+   folded into physics in 2012-12 (`submit_sword.md:1070-1077`). Nothing reads it.
+
+Also: `submit_ce/sword/tests/conftest.py` now repoints `settings.CLASSIC_DB_URI`
+at the fixture database, because `create_sword_app` builds its *own* engine from
+settings (`config_backend_api` → `configure_db` → `session_factory.configure`).
+Without that the app under test would quietly read the repo's checked-in
+`legacy.db`. This is also why the fixture uses a file rather than `:memory:` — two
+engines have to see the same schema.
+
 ### Remaining items to watch
 
 1. **Finalize sequencing.** The plan finalizes after a successful compile. The exact

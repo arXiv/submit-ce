@@ -28,6 +28,7 @@ from arxiv.auth.legacy.passwords import hash_password
 from arxiv.db import Session, session_factory
 
 from submit_ce.make_test_db import create_all_db
+from submit_ce.ui.config import settings
 
 NONEXCLUSIVE_LICENSE = "http://arxiv.org/licenses/nonexclusive-distrib/1.0/"
 """The license ``auth.t:27`` expects on a SWORD-enabled account."""
@@ -112,16 +113,41 @@ def sword_db():
 
     Function-scoped: these tests create and modify submissions, and sharing one
     database across them would make ordering matter.
+
+    ``settings.CLASSIC_DB_URI`` is repointed as well, because `create_sword_app`
+    wires its own engine from settings (`config_backend_api` calls
+    ``configure_db`` and re-binds ``session_factory``). Without that the app would
+    silently talk to the repo's checked-in ``legacy.db`` instead of this one. A
+    file-backed database rather than ``:memory:`` so both engines see the schema.
     """
     tmp = tempfile.mkdtemp()
-    engine, _url, _path = create_all_db(str(Path(tmp) / "legacy.db"))
+    path = Path(tmp) / "legacy.db"
+    engine, url, _path = create_all_db(str(path))
+
+    previous_uri = settings.CLASSIC_DB_URI
+    settings.CLASSIC_DB_URI = url
     session_factory.configure(bind=engine)
     Session.remove()
     try:
         yield engine
     finally:
         Session.remove()
+        settings.CLASSIC_DB_URI = previous_uri
         shutil.rmtree(tmp, ignore_errors=True)
+
+
+@pytest.fixture
+def sword_app(sword_db):
+    """The SWORD FastAPI app, wired to the fixture database."""
+    from submit_ce.sword.app import create_sword_app
+    return create_sword_app()
+
+
+@pytest.fixture
+def client(sword_app):
+    """A `TestClient` over the app; ASGI in-process, so no sockets are opened."""
+    from fastapi.testclient import TestClient
+    return TestClient(sword_app)
 
 
 @pytest.fixture
