@@ -615,6 +615,41 @@ starting a fresh session, and per-thread scoping.
    reaching real GCP over gRPC; it did not reproduce in three consecutive runs and is
    unrelated to these changes. Those tests need `PUBSUB_EMULATOR_HOST`.
 
+### Test-safety guards (added 2026-07-31, before step 4)
+
+Verified first that the suite was already clean: with all non-loopback TCP blocked,
+`test.sh` passed unchanged and attempted **zero** outbound connections. Email is
+`EmailInMemory` by default, `smtplib` is mocked, Secret Manager is never called, and
+`QA_PUBSUB_ENABLED` is pinned off in the `app` fixture. The default QA topic is in
+**arxiv-development**, not production.
+
+Three latent holes were closed, because "nothing currently escapes" is not the same as
+"nothing can" — and the SWORD tests are about to be written against the same harness:
+
+1. New repo-root `conftest.py` pins `EMAIL_MODE=TESTING`, `QA_PUBSUB_ENABLED=False`,
+   `STORE=null` and `COMPILE_API_URL=http://localhost:0`. The last one matters twice
+   over: the default is a live Cloud Run URL that no test pins, and an `https://` URL
+   also makes `compile_api_service._auth_headers` mint a real GCP ID token.
+2. The same conftest blocks non-loopback TCP for the whole suite, with
+   `@pytest.mark.allow_network` as the opt-out. Loopback stays open so sqlite and the
+   Pub/Sub emulator work.
+3. `submit_ce/tests/test_guards.py` (5 tests) asserts the guards actually hold, so they
+   cannot rot silently. Added `submit_ce/tests` to `test.sh`; CI collects it already.
+
+The Pub/Sub emulator fixture was also repaired: it bound `[::1]` while advertising
+`PUBSUB_EMULATOR_HOST=localhost`, leaving reachability to the client's name resolution —
+the likeliest cause of the transient gRPC retry failure noted above (which was **not**
+a real-GCP call; `PUBSUB_EMULATOR_HOST` forces anonymous credentials). It now binds
+`localhost`, starts once per session instead of per test, allocates its port once, and
+**skips** rather than errors when gcloud or the emulator component is missing. Topic and
+subscription names are per-test, since a session-scoped emulator retains resources
+between tests. Result: 4 passed in 3.1s (was 5.7s), and 4 clean skips in 0.07s when
+gcloud is absent.
+
+**Implication for step 5:** SWORD tests inherit these guards, so the media-deposit
+staging store and the `sword_id` allocator must be testable against a fake or an
+emulator — a real GCS client will be blocked, not silently exercised.
+
 ### Remaining items to watch
 
 1. **Finalize sequencing.** The plan finalizes after a successful compile. The exact
