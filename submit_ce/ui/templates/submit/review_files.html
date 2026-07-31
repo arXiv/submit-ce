@@ -3,23 +3,30 @@
 {% block addl_head %}
 {{super()}}
  <script src="{{ url_for('static', filename='js/filewidget.js') }}"></script>
+ <script src="{{ url_for('static', filename='js/review_top_level_guard.js') }}" defer></script>
 {% endblock addl_head %}
 
 {# Renders one row of the Review Files table for a preflight-detected file,
    or recurses into a subdirectory listing. The third argument
-   ``top_level_filename`` is the currently-selected top-level TeX file
-   (form.source_file.data) so we can render "Used: top-level file" for it.
-   00README.json gets a dedicated label and a disabled delete checkbox --
-   it's a build-directives file, not a candidate for deletion. #}
-{% macro display_preflight_tree(key, item, top_level_filename) %}
+   ``top_level_filenames`` is the list of currently-selected top-level TeX
+   files (one or more) so we can render "Used: top-level file" for each and
+   disable its delete checkbox -- a selected top-level file is what we're about
+   to compile and must not be deletable here (SUBMISSION-209).
+   00README.json likewise gets a dedicated label and a disabled delete
+   checkbox -- it's a build-directives file, not a candidate for deletion. #}
+{% macro display_preflight_tree(key, item, top_level_filenames) %}
   {% if 'filename' in item %}
   <tr>
     <td class="has-text-centered">
       <input type="hidden" name="all_files" value="{{ item.filename }}">
       {% if item.filename == '00README.json' %}
         <input type="checkbox" name="selected_files" value="{{ item.filename }}"
-               disabled
+               disabled data-lock="permanent"
                title="00README.json contains build directives and cannot be deleted from this step">
+      {% elif item.filename in top_level_filenames %}
+        <input type="checkbox" name="selected_files" value="{{ item.filename }}"
+               disabled
+               title="This is a selected top-level TeX file and cannot be deleted here. Remove it from the Top-Level TeX selection first.">
       {% else %}
         <input type="checkbox" name="selected_files" value="{{ item.filename }}">
       {% endif %}
@@ -28,7 +35,7 @@
     <td>
       {% if item.filename == '00README.json' %}
         Build directives file
-      {% elif item.filename == top_level_filename %}
+      {% elif item.filename in top_level_filenames %}
         Used: top-level file
       {% else %}
         {% if item.used_by %}Used by: {{ item.used_by | join(', ') }}<br>{% endif %}
@@ -40,7 +47,7 @@
   {% else %}
   <tr><td colspan="3"><em>{{ key }}/</em></td></tr>
   {% for k, subitem in item.items() %}
-    {{ display_preflight_tree(k, subitem, top_level_filename) }}
+    {{ display_preflight_tree(k, subitem, top_level_filenames) }}
   {% endfor %}
   {% endif %}
 {% endmacro %}
@@ -201,7 +208,7 @@
       </thead>
       <tbody>
         {% for k, item in (file_notes | group_preflight_files).items() %}
-          {{ display_preflight_tree(k, item, form.source_file.data) }}
+          {{ display_preflight_tree(k, item, selected_top_level_files) }}
         {% endfor %}
       </tbody>
     </table>

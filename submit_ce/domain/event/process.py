@@ -471,6 +471,23 @@ class PreflightStatus(Event):
         return submission
 
 
+def _protected_top_level_sources(decisions: dict) -> set[str]:
+    """Filenames that must never be deleted: user-selected top-level TeX files.
+
+    A source is treated as top-level when its ``usage`` is ``'toplevel'`` or is
+    unset -- the Review Files form lists only top-level sources and does not
+    always set an explicit usage. Handles one or more selected top-level files
+    (SUBMISSION-209).
+    """
+    sources = (decisions or {}).get('sources') or []
+    protected: set[str] = set()
+    for src in sources:
+        filename = src.get('filename')
+        if filename and src.get('usage', 'toplevel') in (None, 'toplevel'):
+            protected.add(filename)
+    return protected
+
+
 class SetDecisions(EventWithSideEffect):
     """Sets the decisions for the submission."""
 
@@ -508,7 +525,17 @@ class SetDecisions(EventWithSideEffect):
         # Delete files and only delete preflight and user_decisions if at least one file is deleted
         file_store.delete_preflight(submission.submission_id)
         file_store.store_user_decisions(submission.submission_id, self.decisions)
+        # Authoritative guard (SUBMISSION-209): never delete a file the user has
+        # selected as a top-level TeX file -- that's what we're about to compile.
+        # Runs under the submission row lock taken by save(), so it can't race a
+        # concurrent decisions change.
+        protected = _protected_top_level_sources(self.decisions)
         for path in self.files_to_delete:
+            if path in protected:
+                logger.warning(
+                    "Refusing to delete selected top-level file %s for "
+                    "submission %s", path, submission.submission_id)
+                continue
             file = file_store.delete_source_file(submission.submission_id, path)
             if file:
                 self.bytes_removed += file.bytes

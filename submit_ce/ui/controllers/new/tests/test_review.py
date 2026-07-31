@@ -309,6 +309,64 @@ def test_update_preflight_invalid_event_returns_false(
     mock_save.assert_called_once()
 
 
+def test_selected_top_level_files_dedupes_and_orders():
+    """_selected_top_level_files reads source_file + top_level_tex_files[],
+    de-duped and order-preserving (SUBMISSION-209)."""
+    params = MultiDict([
+        ('source_file', 'a.tex'),
+        ('top_level_tex_files[]', 'b.tex'),
+        ('top_level_tex_files[]', 'a.tex'),
+        ('top_level_tex_files[]', ''),
+    ])
+    assert review._selected_top_level_files(params) == ['a.tex', 'b.tex']
+
+
+def test_update_preflight_protects_selected_top_level_file(
+        app, authorized_user, mocker):
+    """A file that is the selected top-level TeX file is filtered out of the
+    deletion set and the user is warned; other deletions proceed (SUBMISSION-209)."""
+    mocker.patch.object(review, '_get_user_decisions_data', return_value=None)
+    mock_flash = mocker.patch.object(review.alerts, 'flash_warning')
+    with app.app_context():
+        mock_save = mocker.patch.object(app.api, 'save')
+        params = MultiDict([
+            ('source_file', 'main.tex'),
+            ('compiler', 'pdflatex'),
+            ('compiler_version', '2025'),
+            ('selected_files', 'main.tex'),
+            ('selected_files', 'junk.tex'),
+        ])
+        result = review._update_preflight(
+            params, 'sub1', _make_workspace('main.tex', 'junk.tex'),
+            authorized_user, None,
+        )
+    assert result is True
+    mock_flash.assert_called_once()
+    cmd = mock_save.call_args[0][0]
+    assert 'main.tex' not in cmd.files_to_delete
+    assert cmd.files_to_delete == ['junk.tex']
+
+
+def test_update_preflight_no_warning_when_top_level_not_marked(
+        app, authorized_user, mocker):
+    """When the selected top-level isn't marked for deletion, no warning fires."""
+    mocker.patch.object(review, '_get_user_decisions_data', return_value=None)
+    mock_flash = mocker.patch.object(review.alerts, 'flash_warning')
+    with app.app_context():
+        mocker.patch.object(app.api, 'save')
+        params = MultiDict([
+            ('source_file', 'main.tex'),
+            ('compiler', 'pdflatex'),
+            ('compiler_version', '2025'),
+            ('selected_files', 'junk.tex'),
+        ])
+        review._update_preflight(
+            params, 'sub1', _make_workspace('main.tex', 'junk.tex'),
+            authorized_user, None,
+        )
+    mock_flash.assert_not_called()
+
+
 def test_populate_form_choices_come_from_enums_and_preflight(app):
     """compiler/compiler_version choices come from Compilation enums;
     source_file choices come from preflight tex_files."""
