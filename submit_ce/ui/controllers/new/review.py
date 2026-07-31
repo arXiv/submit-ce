@@ -30,6 +30,7 @@ from wtforms.validators import DataRequired
 from submit_ce.domain.uploads import Workspace, SourceFormat
 from submit_ce.domain.exceptions import InvalidEvent, SaveError
 from submit_ce.ui.controllers.util import validate_command
+from submit_ce.ui.preflight.issues import build_issue_context
 from submit_ce.ui.routes.flow_control import (
     stay_on_this_stage, ready_for_next, return_to_parent_stage,
     return_to_previous_stage, advance_to_current,
@@ -155,6 +156,7 @@ def review_files(method: str, params: MultiDict, session: Session,
         'preflight_files': {},
         'file_notes': {},
         'selected_top_level_files': [],
+        'file_issues': {},
     }
 
     if not workspace:
@@ -189,7 +191,13 @@ def review_files(method: str, params: MultiDict, session: Session,
         rdata['file_notes'] = dm.get_files_from_preflight(preflight_data)
         _populate_form(form, preflight_data, user_decisions_data)
         rdata['selected_top_level_files'] = [f for f in [form.source_file.data] if f]
-        rdata['immediate_notifications'] = _get_notifications(submission_id, preflight_data)
+        # Surface preflight issues (SUBMISSION-210): reason-code-grouped banners
+        # + per-file badges, extracted server-side. Issue banners lead; the
+        # backend-status cards follow.
+        issue_notifications, file_issues = build_issue_context(preflight_data)
+        rdata['file_issues'] = file_issues
+        rdata['immediate_notifications'] = (
+            issue_notifications + _get_notifications(submission_id, preflight_data))
 
         return stay_on_this_stage((rdata, status.OK, {}))
 
