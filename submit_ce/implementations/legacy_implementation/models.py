@@ -261,20 +261,6 @@ class Submission(Base):    # type: ignore
         self.comments = self.comments.rstrip('. ') + reason
         self.source_flags = '1'
 
-    def update_cross(self, submission: domain.Submission,
-                     categories: List[str], paper_id: str, version: int,
-                     created: datetime) -> None:
-        """Update cross-list request information in the database."""
-        self.update_from_submission(submission)
-        self.created = created
-        self.updated = created
-        self.doc_paper_id = paper_id
-        self.status = Submission.PROCESSING_SUBMISSION
-        for category in categories:
-            self.categories.append(
-                SubmissionCategory(submission_id=self.submission_id,
-                                   category=category, is_primary=0))
-
     def update_from_submission(self, submission: domain.Submission) -> None:
         """Update this database object from a :class:`.domain.submission.Submission`.
 
@@ -447,7 +433,8 @@ class Submission(Base):    # type: ignore
     def _update_primary(self, submission: domain.Submission) -> None:
         """Update primary classification on this row."""
         assert submission.primary_classification is not None
-        primary_category = submission.primary_classification.category
+        clsn = submission.primary_classification
+        primary_category = clsn.category
         cur_primary = self.primary_classification
 
         if cur_primary and cur_primary.category != primary_category:
@@ -455,22 +442,31 @@ class Submission(Base):    # type: ignore
             self.categories.append(
                 SubmissionCategory(submission_id=self.submission_id,
                                    category=primary_category,
-                                   is_primary=1)
+                                   is_primary=1,
+                                   is_published=1 if clsn.is_published else 0)
             )
         elif cur_primary is None and primary_category:
             self.categories.append(
                 SubmissionCategory(
                     submission_id=self.submission_id,
                     category=primary_category,
-                    is_primary=1
+                    is_primary=1,
+                    is_published=1 if clsn.is_published else 0
                 )
             )
 
     def _update_secondaries(self, submission: domain.Submission) -> None:
-        """Update secondary classifications on this row."""
+        """Update secondary classifications on this row.
+
+        ``is_published`` comes from the :class:`.domain.meta.Classification`, so
+        the categories a submission inherited from the announced paper stay
+        marked published and the ones it is adding (a cross-list) do not. An
+        already-published row is never dropped: it is announced, and the only
+        thing that removes it is the publish pipeline.
+        """
         # Remove any categories that have been removed from the Submission.
         for db_cat in self.categories:
-            if db_cat.is_primary == 1:
+            if db_cat.is_primary == 1 or db_cat.is_published:
                 continue
             if db_cat.category not in submission.secondary_categories:
                 self.categories.remove(db_cat)
@@ -482,7 +478,8 @@ class Submission(Base):    # type: ignore
                     SubmissionCategory(
                         submission_id=self.submission_id,
                         category=cat.category,
-                        is_primary=0
+                        is_primary=0,
+                        is_published=1 if cat.is_published else 0
                     )
                 )
 

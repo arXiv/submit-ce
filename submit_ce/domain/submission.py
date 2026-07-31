@@ -418,6 +418,27 @@ class Submission:
         return [c.category for c in self.secondary_classification]
 
     @property
+    def new_crosses(self) -> List[Classification]:
+        """Secondary classifications this submission is adding.
+
+        The secondaries that are not yet announced on the paper -- classic's
+        ``is_published = 0`` rows. On a ``cross`` submission these are the
+        cross-lists being requested; everything else was inherited from the
+        announced paper by :meth:`.domain.document.Document.seed_submission`.
+        """
+        return [c for c in self.secondary_classification if not c.is_published]
+
+    @property
+    def new_cross_categories(self) -> List[str]:
+        """Category names from :attr:`new_crosses`.
+
+        Legacy ``Submission::new_categories_string``. This, not the full
+        category list, is what a cross's notification email names and what
+        :class:`.FinalizeCrossSubmission` requires to be non-empty.
+        """
+        return [c.category for c in self.new_crosses]
+
+    @property
     def is_on_hold(self) -> bool:
         # We need to explicitly check ``status`` here because classic doesn't
         # have a representation for Hold events.

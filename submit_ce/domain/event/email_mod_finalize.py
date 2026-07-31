@@ -117,12 +117,11 @@ class EmailModeratorsFinalizeMsg(EventWithSideEffect):
         """Categories whose moderators should be notified.
 
         Union of the submission's categories and the categories of its
-        unresolved proposals. Legacy uses the *new* (unpublished) categories;
-        the model has no per-category published flag yet, so primary+secondary
-        stands in as a safe superset.
-
-        TODO: narrow to genuinely-new categories once published-category tracking exists.
-        Currently legacy has no db or domain info about published categories.
+        unresolved proposals -- the full set, not only the added ones. That
+        matches legacy for a cross, where the moderator mail goes to
+        ``get_mod_email_to`` for *the submission's* categories even though its
+        subject line names only the new crosses (see
+        :meth:`_build_subject_and_body`).
         """
         cats = set(_categories(submission))
         for proposal in submission.proposals.values():
@@ -178,7 +177,11 @@ class EmailModeratorsFinalizeMsg(EventWithSideEffect):
             return subject, body
 
         if sub_type == SubmissionType.CROSS_LIST:
-            subject = (f"arXiv cross {sid} to {categories_str} for {arxiv_id} "
+            # The subject names the categories being added, not the paper's
+            # whole set; the recipients are still resolved from all of them
+            # (see `categories_to_email`).
+            new_categories = " ".join(submission.new_cross_categories)
+            subject = (f"arXiv cross {sid} to {new_categories} for {arxiv_id} "
                        f"by {name}")
             body = (f"A crosslist has been added by submitter {name}, {email} "
                     f"for {arxiv_id}.\n\n"

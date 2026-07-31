@@ -16,7 +16,6 @@ lifetime, but only the announced ones contribute to its published state.
 :class:`submit_ce.api.submit.SubmitApi`; nothing here mutates the database.
 """
 
-import copy
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import List, Optional
@@ -26,6 +25,20 @@ from arxiv.license import LICENSES
 from .agent import Client, User
 from .meta import Classification, License
 from .submission import Submission, SubmissionMetadata
+
+
+def _as_published(classification: Optional[Classification]) \
+        -> Optional[Classification]:
+    """A copy of ``classification`` marked as already announced.
+
+    A copy so that the :class:`.Document` a submission was seeded from is not
+    mutated, and so later edits to the submission's categories cannot reach back
+    into it.
+    """
+    if classification is None:
+        return None
+    return Classification(category=classification.category,
+                          is_published=True)
 
 
 @dataclass
@@ -203,6 +216,14 @@ class Document:
                 primary = latest.primary_classification
                 secondaries = latest.secondary_classification
 
+        # Everything inherited from the paper is already announced. Legacy says
+        # this by copying each current `arXiv_document_category` row into
+        # `arXiv_submission_category` with `is_published = 1`
+        # (``User::make_sub_cats``); that snapshot is what later distinguishes an
+        # inherited category from one this submission is adding.
+        primary = _as_published(primary)
+        secondaries = [_as_published(c) for c in secondaries]
+
         return Submission(
             creator=creator,
             owner=creator,
@@ -212,8 +233,8 @@ class Document:
             status=Submission.ANNOUNCED,  # TODO is this what legacy does or should this be WORKING?
             created=self.created,  # TODO Is this what legacy does or should this be now?
             license=license,
-            primary_classification=copy.deepcopy(primary),
-            secondary_classification=copy.deepcopy(secondaries),
+            primary_classification=primary,
+            secondary_classification=secondaries,
             metadata=SubmissionMetadata(
                 title=md.title if md else None,
                 abstract=md.abstract if md else None,

@@ -595,15 +595,20 @@ def withdraw(submission_id: Optional[str] = None) -> Response:
                   submission_id, flow_controlled=False)
 
 
-@UI.route('/<submission_id>/request_cross', methods=["GET", "POST"])
+# Cross-list is a single controller and not a workflow.
+#
+# A cross-list is its own submission, so creating and editing one are separate
+# endpoints, mirroring legacy (`/user/<document_id>/cross` and
+# `/submit/<id>/cross`). Creating one is keyed on the *announced paper*, so it
+# lives with the other paper-keyed routes as `paper.add_cross` (see
+# `routes/paper_id_ui.py`); this endpoint edits the cross's own submission.
+@UI.route('/<submission_id>/cross', methods=["GET", "POST"])
 @scoped(scopes.EDIT_SUBMISSION, authorizer=is_owner,
                         unauthorized=redirect_to_login)
-@flow_control()
-def request_cross(submission_id: Optional[str] = None) -> Response:
-    """Render the cross-list request page."""
-    return handle(cntrls.cross.request_cross,
-                  'submit/request_cross_list.html', 'Request cross-list',
-                  submission_id, flow_controlled=True)
+def cross(submission_id: Optional[str] = None) -> Response:
+    """Render the edit page for an existing cross-list submission."""
+    return handle(cntrls.cross.cross, 'submit/cross.html', 'Add cross-list',
+                  submission_id, flow_controlled=False)
 
 @UI.route('/testalerts')
 def testalerts() -> Response:

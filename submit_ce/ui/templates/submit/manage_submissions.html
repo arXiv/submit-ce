@@ -173,14 +173,18 @@
 
           <div class="buttons is-multiline">
             <a href="{{ url_for('ui.create_replacement', submission_id=announced.submission_id) }}" class="button is-link is-outlined is-small" aria-label="New version (replacement)">Replace</a>
-            {# Creating a jref is a write, so it posts. The CSRF token comes from
-               the create-submission form already in this page's context. #}
+            {# Creating a jref or a cross-list is a write, so each posts. The
+               CSRF token comes from the create-submission form already in this
+               page's context. #}
             <form class="control" style="margin-right: .5rem" method="POST" action="{{ url_for('paper.add_jref', paper_id=document.paper_id) }}">
               {{ form.csrf_token }}
               <button type="submit" class="button is-link is-outlined is-small" aria-label="Update journal reference">Add Journal Reference</button>
             </form>
             <a href="{{ url_for('ui.withdraw', submission_id=announced.submission_id) }}" class="button is-link is-outlined is-small" aria-label="Request withdrawal">Withdraw</a>
-            <a href="{{ url_for('ui.request_cross', submission_id=announced.submission_id) }}" class="button is-link is-outlined is-small" aria-label="Request cross-list">Add cross-list</a>
+            <form class="control" style="margin-right: .5rem" method="POST" action="{{ url_for('paper.add_cross', paper_id=document.paper_id) }}">
+              {{ form.csrf_token }}
+              <button type="submit" class="button is-link is-outlined is-small" aria-label="Add cross-list">Add cross-list</button>
+            </form>
           </div>
 
           {% endif %}

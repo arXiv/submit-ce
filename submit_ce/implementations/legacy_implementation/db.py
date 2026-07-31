@@ -50,7 +50,7 @@ from sqlalchemy.orm.exc import NoResultFound
 
 from submit_ce.domain.agent import Client, HttpClient, System
 from submit_ce.domain.event.legacy import Withdraw
-from submit_ce.domain.event.request import CancelRequest, RequestCrossList, RequestWithdrawal
+from submit_ce.domain.event.request import CancelRequest, RequestWithdrawal
 
 from . import models, interpolate, log
 from .models import DBEvent
@@ -60,7 +60,7 @@ from submit_ce.domain.uploads import SourceFormat
 from submit_ce.domain import Event, Submission, User, WithdrawalRequest, CrossListClassificationRequest,  License
 from submit_ce.domain.submission import SubmissionType
 from submit_ce.domain.event import CreateSubmission, CreateJrefSubmission, \
-    Rollback, ProposeClassification
+    CreateCrossSubmission, Rollback, ProposeClassification
 from submit_ce.domain.exceptions import NoSuchSubmission, NoSuchDocument
 
 logger = logging.getLogger(__name__)
@@ -299,21 +299,22 @@ def store_event(session: SQLAlchemySession, event: Event, before: Optional[Submi
                 dbs = _create_withdrawal(doc_id, event.reason,
                                          before.arxiv_id, after.version, after,
                                          event.created)
-            elif isinstance(event, RequestCrossList):
-                dbs = _create_crosslist(doc_id, event.categories,
-                                        before.arxiv_id, after.version, after,
-                                        event.created)
-
             elif isinstance(event, CancelRequest):
                 dbs = _cancel_request(session, event, before, after)
 
-            # A jref is its own row, but it carries the announced paper's
-            # `doc_paper_id`, so it lands in this branch. It must be loaded by
-            # its own submission id: `_load` by paper_id defaults to the
-            # new/rep rows and would return the announced row instead.
+            # A jref or a cross is its own row, but it carries the announced
+            # paper's `doc_paper_id`, so it lands in this branch. Each must be
+            # loaded by its own submission id: `_load` by paper_id defaults to
+            # the new/rep rows and would return the announced row instead.
             elif before.submission_type == SubmissionType.JOURNAL_REFERENCE:
                 dbs = _load(session, submission_id=before.submission_id,
                             row_type=models.Submission.JOURNAL_REFERENCE)
+                _preserve_sticky_hold(dbs, before, after, event)
+                dbs.update_from_submission(after)
+
+            elif before.submission_type == SubmissionType.CROSS_LIST:
+                dbs = _load(session, submission_id=before.submission_id,
+                            row_type=models.Submission.CROSS_LIST)
                 _preserve_sticky_hold(dbs, before, after, event)
                 dbs.update_from_submission(after)
 
@@ -602,6 +603,40 @@ def store_jref_create(session: SQLAlchemySession, event: CreateJrefSubmission,
     it is finalized, which matches legacy, where ``create_submission(...,
     'jref')`` makes the row at status 0.
     """
+    return _store_create_against_paper(
+        session, event, seed, models.Submission.JOURNAL_REFERENCE)
+
+
+def store_cross_create(session: SQLAlchemySession,
+                       event: CreateCrossSubmission,
+                       seed: Submission) -> Tuple[Event, Submission]:
+    """Create a new ``cross`` submission row from a `CreateCrossSubmission`.
+
+    The cross-list counterpart of :func:`store_jref_create`, and the same shape:
+    a cross-list is its own submission, created against an announced paper at
+    classic status 0 (``WORKING``) with the announced version, not an
+    incremented one.
+
+    The categories the cross is adding are not written here. They arrive as
+    later `AddCrossCategory` events and land through
+    :meth:`.models.Submission._update_secondaries`; what this row gets at create
+    time is the snapshot of the paper's current categories, all
+    ``is_published = 1`` (legacy ``User::make_sub_cats``).
+    """
+    return _store_create_against_paper(
+        session, event, seed, models.Submission.CROSS_LIST)
+
+
+def _store_create_against_paper(session: SQLAlchemySession, event: Event,
+                                seed: Submission, row_type: str) \
+        -> Tuple[Event, Submission]:
+    """Create the classic row for a submission made against an announced paper.
+
+    Shared by :func:`store_jref_create` and :func:`store_cross_create`: both
+    make a brand-new row of their own type against ``event.paper_id``, at the
+    announced version and classic status 0, with no file side effect to sequence
+    afterwards (unlike :func:`store_withdrawal`).
+    """
     if event.committed:
         raise ValueError(f'{event.event_type} {event.event_id} already committed')
     if event.created is None:
@@ -609,14 +644,14 @@ def store_jref_create(session: SQLAlchemySession, event: CreateJrefSubmission,
 
     after = event.apply(seed)
 
-    # The version is not incremented for a jref, so this resolves the document
-    # of the announced version being annotated.
+    # Neither type increments the version, so this resolves the document of the
+    # announced version being annotated.
     doc_id = _load_document_id(session, event.paper_id, after.version)
 
     # These columns are NOT NULL, so fall back to empty rather than None.
     client = after.client
     dbs = models.Submission(
-        type=models.Submission.JOURNAL_REFERENCE,
+        type=row_type,
         document_id=doc_id,
         version=after.version,
         remote_addr=str(client.remote_addr) if client and client.remote_addr else "",
@@ -641,22 +676,6 @@ def store_jref_create(session: SQLAlchemySession, event: CreateJrefSubmission,
 
     log.handle(session, event, seed, after)
     return event, after
-
-
-def _create_crosslist(document_id: int, categories: List[str], paper_id: str,
-                      version: int, submission: Submission,
-                      created: datetime) -> models.Submission:
-    """
-    Create a new crosslist request.
-
-    Cross list requests also require a new row, and they use the most recent
-    version number.
-    """
-    dbs = models.Submission(type=models.Submission.CROSS_LIST,
-                            document_id=document_id,
-                            version=version)
-    dbs.update_cross(submission, categories, paper_id, version, created)
-    return dbs
 
 
 def _new_dbevent(event: Event) -> DBEvent:
@@ -749,9 +768,12 @@ def to_submission(row: models.Submission,
 
     primary_clsn: Optional[domain.Classification] = None
     if primary and primary.category:
-        primary_clsn = domain.Classification(category=primary.category)
+        primary_clsn = domain.Classification(
+            category=primary.category,
+            is_published=bool(primary.is_published))
     secondary_clsn = [
-        domain.Classification(category=db_cat.category)
+        domain.Classification(category=db_cat.category,
+                              is_published=bool(db_cat.is_published))
         for db_cat in row.categories if not db_cat.is_primary
     ]
 
@@ -1004,13 +1026,16 @@ def _assemble_document(paper_id: str,
     announced = [row for row in rows if row.is_announced()]
     latest = _latest_announced(rows)
 
+    # `arXiv_document_category` rows are the paper's *announced* categories, so
+    # everything read from them is published by definition.
     primary_clsn: Optional[domain.Classification] = None
     secondary_clsn: List[domain.Classification] = []
     for cat in cat_rows:
+        clsn = domain.Classification(category=cat.category, is_published=True)
         if cat.is_primary:
-            primary_clsn = domain.Classification(category=cat.category)
+            primary_clsn = clsn
         else:
-            secondary_clsn.append(domain.Classification(category=cat.category))
+            secondary_clsn.append(clsn)
 
     return domain.Document(
         paper_id=paper_id,

@@ -334,7 +334,12 @@ class SubmitApi(ABC):
                 Events to apply and persist.
             submission_id : str
                 The unique ID for the submission, if available. If not provided, it is
-                expected that ``events`` includes a :class:`.CreateSubmission`.
+                expected that ``events`` includes a :class:`.CreateSubmission`,
+                or one of the events that creates its own submission against an
+                already-announced paper (:class:`.CreateJrefSubmission`,
+                :class:`.CreateCrossSubmission`, :class:`.Withdraw`). Those must
+                be saved on their own, since they do not operate on an existing
+                submission.
 
             Returns
             -------
