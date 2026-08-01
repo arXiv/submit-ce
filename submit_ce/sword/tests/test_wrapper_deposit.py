@@ -300,3 +300,55 @@ def test_verbose_wrapper_describes_release_pending(client, depositor, media_href
     root = etree.fromstring(response.content)
     assert root.findtext(ns.qname(ns.SWORD, "verboseDescription")) == \
         "release pending"
+
+
+# ------------------------------------------------------- the test collection
+
+
+def test_deposit_to_the_test_collection(client, depositor):
+    """The `test` collection must actually work end to end.
+
+    Every ``test.*`` category is flagged inactive in the taxonomy; making them
+    submittable is what `validators.is_submittable_category` is for. The live
+    regression suite deposits here on non-dev environments
+    (``arxiv-test-regression/pytest/tests/test_sword.py:94-99``).
+    """
+    media = client.post(
+        "/sword-app/test-collection", content=ZIP,
+        headers={"Authorization": basic_auth(depositor.nickname,
+                                             depositor.password),
+                 "Content-Type": "application/zip"})
+    assert media.status_code == 201, media.text
+    href = sword_client.edit_media_link(media.content)
+
+    document = wrapper_entry(
+        title="A test deposit with a strangely unique title",
+        summary=SUMMARY,
+        primary_category="test.dis-nn",
+        author_name="B. Editor",
+        contributors=[Contributor("A. Genius", email="genius@example.org")],
+        categories=["test.mes-hall"],
+        links=[MediaLink(href, "application/zip")])
+
+    response = client.post(
+        "/sword-app/test-collection", content=document,
+        headers={"Authorization": basic_auth(depositor.nickname,
+                                             depositor.password),
+                 "Content-Type": ATOM_ENTRY_TYPE})
+    assert response.status_code == 202, response.text
+
+    submission = _submission(sword_client.sword_id(response.content))
+    categories = {c.category for c in Session.query(
+        models.SubmissionCategory).filter_by(
+            submission_id=submission.submission_id)}
+    assert "test.dis-nn" in categories
+    assert "test.mes-hall" in categories
+
+
+def test_bare_test_is_still_not_a_valid_primary(client, depositor, media_href):
+    """The archive requires a subject class, so bare ``test`` stays invalid."""
+    response = _post_wrapper(client, depositor,
+                             _wrapper(media_href, primary_category="test"),
+                             collection="test")
+    assert response.status_code == 400
+    assert b"<arxiv:errorcode>2048</arxiv:errorcode>" in response.content

@@ -1061,6 +1061,55 @@ that path needs a purpose-built fake rather than the usual test store.
 Routes now registered: `/status`, `/sword-app/servicedocument`,
 `POST /sword-app/{collection}-collection`, `/resolve/app/{sword_id}`.
 
+### The `test` collection: root cause and fix ✅ (2026-07-31)
+
+Steps 6 and 10 flagged that every `test.*` category is `is_active=False`, so the
+domain rejected deposits to the `test` collection even though the service document
+advertises it and the live regression suite uses it. Two things were wrong in how I
+first described this.
+
+**It was never SWORD-specific.** The gate is
+`validators.must_be_an_active_category`, called by both `SetPrimaryClassification`
+and `AddSecondaryClassification`. No user with `flag_group_test` could make a test
+submission through the **Flask UI** either. (`ActiveCategory` in
+`domain/event/__init__.py:109-111` is inert — the annotated validator is commented
+out and it is just `str`.)
+
+**Root cause: `arxiv.taxonomy`'s `is_active` does two jobs.** The legacy Perl keeps
+them apart:
+
+* **Validity** comes from `%Subj_class_name`, where the test subject classes are
+  ordinary entries (`arxiv-lib/lib/arXiv/Config/SubjectClasses.pm:385-399`). That
+  structure has **no notion of "active" at all** — `is_valid_category_strict` only
+  ever asks "does this subject class exist?"
+* **Listing** comes from `%IN_GROUP_NOT_DEFUNCT`, which deletes `test` **by name**
+  alongside the genuinely defunct archives
+  (`arxiv-lib/lib/arXiv/Config/Archives.pm:346-352`). Callers that want it add it
+  back explicitly, which is exactly what `ServiceDoc.pm:189` does with
+  `sort keys %IN_GROUP_NOT_DEFUNCT, 'test'`.
+* **Permission** is `flag_group_test`, mapped to the `test` group at
+  `UserExt.pm:161` — already handled by `collections.endorsement_wildcards`.
+
+So the live suite works because legacy never asks whether a category is active.
+arxiv-base collapsed "hidden from listings" into "not a valid category", and
+`test.*` needs *valid but not listed* — which one boolean cannot express.
+
+**Fix:** `is_submittable_category` in `submit_ce/domain/event/validators.py` accepts
+an inactive category when it is a subdivided category of the `test` archive.
+`test` is **named**, not inferred from a rule like "inactive category in an active
+archive", for the same reason the Perl names it: today `test` is the only archive of
+that shape, but retiring a real category while its archive stayed active would
+silently make it submittable again. A test asserts that narrowness and fails if the
+taxonomy ever grows another such archive without this being revisited.
+
+Bare `test` stays invalid — the archive requires a subject class
+(`$Subj_class_required{'test'} = 1`).
+
+33 new tests (`domain/event/tests/test_submittable_category.py`, plus an end-to-end
+`test` collection deposit and a bare-`test` rejection in the SWORD suite). Suite now
+**1116 passed**. This unblocks the acceptance gate and fixes the UI path at the same
+time.
+
 ### Remaining items to watch
 
 1. **Finalize sequencing.** The plan finalizes after a successful compile. The exact
