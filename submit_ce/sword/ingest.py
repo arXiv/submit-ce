@@ -240,3 +240,44 @@ def ingest_wrapper(api: SubmitApi,
 
     logger.info("SWORD deposit %s created submission %s", sword_id, submission_id)
     return submission, int(submission_id)
+
+
+def ingest_replacement(api: SubmitApi,
+                       store: DepositStore,
+                       session: SqlalchemySession,
+                       metadata: WrapperMetadata,
+                       *,
+                       creator: User,
+                       client: Client,
+                       depositor: str,
+                       license_uri: str,
+                       sword_id: str,
+                       submission_id: int) -> Tuple[object, int]:
+    """Create the next version of an announced submission.
+
+    A replacement is a new *version*, not a new submission
+    (``submit_sword.md:711-717``), so it opens with `CreateSubmissionVersion` against
+    the existing submission id rather than `CreateSubmission`.
+
+    Classification events are omitted: arXiv does not permit the categories to
+    change during a replacement (``submit_sword.md:780``), and `parse_wrapper` has
+    already refused any wrapper whose categories differ (ERCTS). Re-sending them
+    would trip `cannot_be_primary`/`cannot_be_secondary` against the version's own
+    existing classifications.
+    """
+    from submit_ce.domain.event import CreateSubmissionVersion
+
+    events: List[Event] = [CreateSubmissionVersion(creator=creator, client=client)]
+    events.extend(
+        event for event in metadata_events(
+            metadata, creator=creator, client=client, depositor=depositor,
+            license_uri=license_uri)
+        if not isinstance(event, (CreateSubmission, SetPrimaryClassification,
+                                  AddSecondaryClassification)))
+    events.extend(upload_events(metadata, store, creator=creator, client=client))
+
+    submission, _ = api.save(*events, submission_id=str(submission_id))
+    record_tracking(session, int(sword_id), submission_id)
+
+    logger.info("SWORD deposit %s replaced submission %s", sword_id, submission_id)
+    return submission, submission_id

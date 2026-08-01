@@ -493,6 +493,12 @@ def _create_replacement(document_id: int, paper_id: str, version: int,
     From the perspective of the database, a replacement is mainly an
     incremented version number. This requires a new row in the database.
     """
+    # remote_addr/remote_host have to be passed here, as the withdrawal and JREF
+    # constructors below also do: update_from_submission() only sets them on the
+    # initial row (`version == 1 and type == NEW_SUBMISSION`, models.py:365-369),
+    # where the guard was written for `created` and swept them along. Both columns
+    # are NOT NULL, so omitting them loses the depositor's address on MySQL and
+    # fails outright on a backend without the DDL default.
     dbs = models.Submission(type=models.Submission.REPLACEMENT,
                             document_id=document_id, version=version,
                             remote_addr=submission.client.remote_addr,

@@ -37,6 +37,7 @@ from submit_ce.domain.agent import HttpClient, PublicUser
 from submit_ce.implementations.wiring import config_backend_api
 from submit_ce.sword import auth as sword_auth
 from submit_ce.sword import collections as sword_collections
+from submit_ce.sword import replace as sword_replace
 from submit_ce.sword.atom.parse import parse_wrapper
 from submit_ce.sword.atom.render import (
     ENTRY_CONTENT_TYPE,
@@ -45,7 +46,7 @@ from submit_ce.sword.atom.render import (
     render_media_entry,
     render_wrapper_entry,
 )
-from submit_ce.sword.ingest import ingest_wrapper
+from submit_ce.sword.ingest import ingest_replacement, ingest_wrapper
 from submit_ce.sword.tracking import (
     CONTENT_TYPE as TRACKING_CONTENT_TYPE,
     render_deposit,
@@ -274,6 +275,177 @@ def create_sword_app() -> FastAPI:
                         status_code=200 if headers.no_op else 201,
                         media_type=ENTRY_CONTENT_TYPE,
                         headers=response_headers)
+
+    @app.get("/sword-app/getid/app/{deposit_id}")
+    @app.get("/sword-app/edit/{deposit_id}.atom")
+    def get_entry(
+            deposit_id: str,
+            request: Request,
+            credentials: HTTPBasicCredentials = Depends(_basic),
+    ) -> Response:
+        """Re-serve a stored deposit entry, owner-checked.
+
+        ``AtomPP.pm:367-394``. Both paths serve the same document; the ``.atom``
+        form is the ``rel="edit"`` href a deposit response hands back.
+        """
+        site = request.app.state.site
+        if credentials is None:
+            raise SwordFault("EAUTH", "no credentials")
+
+        with sword_session() as session:
+            depositor = sword_auth.depositor_from_credentials(
+                session, credentials.username, credentials.password, site)
+
+        store = request.app.state.deposits
+        entry = store.read_entry(deposit_id)
+        if entry is None:
+            raise SwordFault("ENMDI", f"info:arxiv/app/{deposit_id}")
+        if not store.owned_by(deposit_id, depositor.nickname):
+            raise SwordFault("ENOWN")
+
+        return Response(content=entry, media_type=ENTRY_CONTENT_TYPE,
+                        headers={"Cache-Control": "max-age=86400"})
+
+    @app.get("/sword-app/edit/{rest:path}")
+    def get_edit_other(rest: str) -> Response:
+        """Anything else under ``/edit/`` is EBLOG (``AtomPP.pm:395-399``).
+
+        The message names the real cause: an ``/edit`` GET only works on the
+        ``rel="edit"`` href, not on ``rel="edit-media"``.
+        """
+        raise SwordFault("EBLOG", f"GET /sword-app/edit/{rest}")
+
+    @app.get("/sword-app/{collection}-collection")
+    def get_collection(collection: str) -> Response:
+        """A collection is POST-only (``AtomPP.pm:400-404``).
+
+        The errortext is legacy's, including its note about the 1.0-to-1.1 path
+        change, because a client hitting this is misconfigured and the hint is the
+        useful part.
+        """
+        raise SwordFault(
+            "EGTPT",
+            f"GET /sword-app/{collection}-collection\n"
+            "If you reached this message via a POST to /app, you must use "
+            "/sword-app instead(change between SWORD APP profile 1.0 and 1.1).\n"
+            "POST message content will not be redirected due to security concerns")
+
+    @app.put("/sword-app/edit/{target:path}")
+    def replace(
+            target: str,
+            request: Request,
+            payload: bytes = Body(default=b"",
+                                  media_type="application/octet-stream"),
+            credentials: HTTPBasicCredentials = Depends(_basic),
+    ) -> Response:
+        """Replace an announced paper with a new version.
+
+        Check order follows ``AtomPP.pm:413-531``: identifier, ownership, content
+        type, SWORD headers, checksum, then the wrapper itself.
+        """
+        site = request.app.state.site
+        if credentials is None:
+            raise SwordFault("EAUTH", "no credentials")
+
+        store = request.app.state.deposits
+        api = request.app.state.api
+
+        with sword_session() as session:
+            depositor = sword_auth.depositor_from_credentials(
+                session, credentials.username, credentials.password, site)
+
+            paper_id = sword_replace.resolve_target(session, target)
+            sword_replace.require_owner(session, paper_id, depositor.nickname)
+
+            content_type = (request.headers.get("Content-Type") or "").split(
+                ";", 1)[0].strip()
+            if content_type != ATOM_ENTRY_TYPE:
+                raise SwordFault(
+                    "EMDTP",
+                    "PUT to /replace must be of type 'application/atom+xml'")
+
+            headers = parse_deposit_headers(request.headers)
+            verify_md5(payload, headers.md5)
+
+            submission_id = sword_replace.announced_submission_id(
+                session, paper_id)
+            if submission_id is None:
+                raise SwordFault("ENVID", f"no submission for '{paper_id}'")
+
+            contact_override = None
+            if headers.contact_email:
+                contact_override = (headers.contact_name, headers.contact_email)
+
+            metadata = parse_wrapper(
+                payload,
+                collection=None,
+                depositor=depositor.nickname,
+                contact_override=contact_override,
+                is_suspect_email=lambda email: sword_auth.is_suspect_email(
+                    session, email),
+                deposit_extensions=store.extensions,
+                deposit_owner=lambda did: (
+                    store.get(did).owner if store.get(did) else None),
+                replacing=True,
+                existing_categories=sword_replace.existing_categories(
+                    session, paper_id),
+            )
+
+            sword_id = store.allocate_id()
+
+            entry = render_wrapper_entry(
+                deposit_id=sword_id,
+                depositor=depositor.nickname,
+                summary=metadata.summary,
+                primary_category=metadata.primary_category,
+                secondary_categories=metadata.secondary_categories,
+                site=site,
+                contact_name=metadata.contact_name,
+                contact_email=metadata.contact_email,
+                no_op=headers.no_op,
+                verbose=headers.verbose,
+                packaging=headers.packaging,
+                user_agent=headers.user_agent,
+                replacing=True,
+            )
+
+            if not headers.no_op:
+                endorsements = sword_collections.endorsement_wildcards(
+                    session, depositor.user_id)
+                ingest_replacement(api, store, session, metadata,
+                                   creator=depositor_user(depositor,
+                                                          endorsements),
+                                   client=deposit_client(request, headers),
+                                   depositor=depositor.nickname,
+                                   license_uri=depositor.license,
+                                   sword_id=sword_id,
+                                   submission_id=submission_id)
+                store.save_entry(sword_id, entry)
+
+        response_headers = {}
+        if not headers.no_op:
+            response_headers["Location"] = \
+                f"https://{site}/sword-app/getid/app/{sword_id}"
+
+        return Response(content=entry,
+                        status_code=200 if headers.no_op else 202,
+                        media_type=ENTRY_CONTENT_TYPE,
+                        headers=response_headers)
+
+    @app.put("/sword-app/{rest:path}")
+    def put_elsewhere(rest: str) -> Response:
+        """PUT is only meaningful under ``/edit/`` (``AtomPP.pm:416-422``)."""
+        raise SwordFault("EIMPL", f"PUT /sword-app/{rest}")
+
+    @app.delete("/sword-app/{rest:path}")
+    def delete_anything(rest: str) -> Response:
+        """There are no valid DELETE actions (``AtomPP.pm:539-546``)."""
+        raise SwordFault("EIMPL", f"DELETE /sword-app/{rest}")
+
+    @app.get("/sword-app/{rest:path}")
+    def get_elsewhere(rest: str) -> Response:
+        """Unrecognized GET (``AtomPP.pm:405-410``)."""
+        raise SwordFault("EVGRQ", f"GET /sword-app/{rest}")
 
     @app.get("/resolve/app/{sword_id}")
     def resolve(sword_id: int, request: Request) -> Response:

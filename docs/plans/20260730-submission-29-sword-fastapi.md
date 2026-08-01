@@ -1110,6 +1110,57 @@ Bare `test` stays invalid — the archive requires a subject class
 **1116 passed**. This unblocks the acceptance gate and fixes the UI path at the same
 time.
 
+### Step 12 — remaining verbs and replacement ✅ (2026-07-31)
+
+The protocol surface is now complete.
+
+- Entry retrieval: `GET /sword-app/getid/app/<id>` and `GET /sword-app/edit/<id>.atom`,
+  owner-checked, one-day cacheable.
+- Refusals, each with its own code: `GET /edit/<non-atom>` → EBLOG,
+  `GET /<collection>-collection` → EGTPT (with legacy's 1.0-vs-1.1 hint verbatim),
+  any other `GET /sword-app/...` → EVGRQ, `PUT` outside `/edit/` → 501 EIMPL,
+  `DELETE` anything → 501 EIMPL, unsupported methods → 405 `unsupported`.
+- `submit_ce/sword/replace.py` — the identifier ladder, paper ownership, and the
+  existing-category lookup for ERCTS.
+- `ingest_replacement()` — `CreateSubmissionVersion` plus the metadata events, with
+  classification events omitted because the categories cannot change and re-sending
+  them would trip `cannot_be_primary`/`cannot_be_secondary`.
+
+74 new tests; suite now **1165 passed**, `submit_ce/sword` at **100%** statement and
+branch coverage.
+
+**A pre-existing bug in the replacement path, found and fixed.**
+`legacy_implementation/db.py:492` built the replacement row without
+`remote_addr`/`remote_host`, unlike the withdrawal (`:527-528`) and JREF (`:627-628`)
+constructors beside it. The reason it cannot rely on `update_from_submission` is
+`models.py:365-369`, where the guard `version == 1 and type == NEW_SUBMISSION` was
+written for `created` and swept both address columns along with it. Both columns are
+NOT NULL, so a replacement silently lost the depositor's address on MySQL and failed
+the insert outright on sqlite.
+
+This is **not SWORD-specific**: `ui/controllers/new/create.py:81` uses
+`CreateSubmissionVersion` for the interactive replacement flow and hits the same
+code. Nothing in the repo exercised a full version-creation save before, which is why
+it had gone unnoticed. Fixed by passing both kwargs, matching the two sibling
+constructors, with a test asserting the replacement row records an address.
+
+Two behaviours worth recording, both verified by test rather than assumed:
+
+1. **A replacement is a new row, not a mutated one.** The original stays at
+   version 1 and a `rep` row appears at version 2 — "mainly an incremented version
+   number. This requires a new row" (`db.py:489-491`) — which is how previous
+   versions stay accessible (`submit_sword.md:716-717`).
+2. **`arXiv_tracking.paper_id` is rewritten at publication**, from `submit/<id>` to
+   the real paper id. That is what makes the `rel="edit"` href resolvable for a
+   replacement; before publication the same href yields EPSUB. The test fixture
+   simulates that rewrite, since it is the production behaviour
+   (`Controller/Sword.pm:29-31` reads it back that way).
+
+One legacy inconsistency reproduced: the `getid`/`edit` route patterns accept exactly
+eight digits (`AtomPP.pm:367-368,432`) while the `rel="related"` pattern allows more
+(`:1102`), so a deposit id grown past eight digits cannot be retrieved or replaced by
+those paths.
+
 ### Remaining items to watch
 
 1. **Finalize sequencing.** The plan finalizes after a successful compile. The exact
