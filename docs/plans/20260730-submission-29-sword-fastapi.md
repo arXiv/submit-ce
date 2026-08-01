@@ -1201,6 +1201,52 @@ legacy page used `write_short_header` (minimal chrome, no search form) and this 
 is reached outside the submission workflow, so it has none of the context that base
 template expects.
 
+### Step 14 — deployment ✅ (2026-07-31)
+
+One image, two services, as planned.
+
+- `Dockerfile` — a comment documenting both entrypoints. **No new `CMD`**: a
+  Dockerfile has only one, so the Flask UI stays the default and Cloud Run overrides
+  the entrypoint for the SWORD service.
+- `cicd/cloudbuild-sword-dev-arxiv.yaml` — builds the same Dockerfile and deploys
+  `sword-ce-dev` with `--command=uvicorn` and
+  `--args=--factory,--host=0.0.0.0,--port=8080,submit_ce.sword.app:create_sword_app`.
+
+The server command was verified locally before any config was written around it:
+`/status` → 200 and `/sword-app/servicedocument` → 401 under
+`uvicorn --factory --host 127.0.0.1 --port 8123 submit_ce.sword.app:create_sword_app`.
+The four gcloud flags used (`--command`, `--args`, `--concurrency`, `--timeout`) were
+confirmed against `gcloud run services update --help` rather than assumed.
+
+**uvicorn directly, not gunicorn with a uvicorn worker class.**
+`uvicorn.workers.UvicornWorker` still exists in the pinned uvicorn 0.30.6 but is
+deprecated upstream, and a single uvicorn process is the right shape here: Cloud Run
+scales by instance, and one process keeps the thread-scoped SQLAlchemy sessions
+predictable.
+
+**A separate trigger, not a second deploy step in the UI's cloudbuild.** A SWORD
+change must not be able to take down the submission UI, and each service has to roll
+back independently. The cost is one extra image build.
+
+Two deploy settings are set explicitly, because the whole reason for two services is
+that the request profiles differ — both are starting points and want review against
+real traffic:
+
+* `--concurrency=8` rather than Cloud Run's default 80. SWORD endpoints are
+  synchronous, so each in-flight request holds an anyio threadpool thread while it
+  talks to GCS.
+* `--timeout=600` rather than the default 300s, for a 50 MB deposit plus its bucket
+  write.
+
+**Two things must be done outside this repo before it runs:**
+
+1. **Create the Cloud Build trigger** pointing at the new file, and set
+   `_TRIGGER_ID`. The existing trigger id lives in GCP, not in the repo.
+2. **Route at the edge**: `/sword-app/*` and `/resolve/app/*` to `sword-ce-dev`;
+   `/sword-license` stays with the UI. The acceptance suite points
+   `services.sword` at a hostname (`config_services.py:33`), so path routing is what
+   makes both reachable under one host.
+
 ### Remaining items to watch
 
 1. **Finalize sequencing.** The plan finalizes after a successful compile. The exact
