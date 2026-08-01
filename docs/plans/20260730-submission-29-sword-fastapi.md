@@ -1006,6 +1006,61 @@ Two things still deferred, both requiring compile:
    acceptance gate — either the taxonomy's `test` entries change, or the events need
    to accept them.
 
+### Step 11 — deposit tracking ✅ (2026-07-31)
+
+`GET /resolve/app/<sword_id>` in `submit_ce/sword/tracking.py`, answering the
+`rel="alternate"` link a wrapper deposit hands back. 25 new tests; suite now
+**1083 passed**, `submit_ce/sword` at **100%** statement and branch coverage.
+
+Output matches the manual's examples (`submit_sword.md:668-681`) structurally, and
+tracking works the instant a client receives its 202 — which is the payoff for
+writing the tracking row synchronously in step 10 rather than in a forked child.
+
+**Unauthenticated, deliberately.** `sword.conf` puts `/sword-app` and `/ppw` behind
+basic auth but not `/resolve`, which is served by the Catalyst app, and the manual
+documents a plain GET (`submit_sword.md:664`). Reproduced as-is — worth knowing this
+means deposit status is world-readable to anyone who can guess a deposit id, since
+ids are near-sequential.
+
+**An eleventh discrepancy: a sixth status.** The manual defines five —
+`submitted`, `published`, `on hold`, `incomplete`, `unknown`
+(`submit_sword.md:686-706`) — but `Controller/Sword.pm:49-52` also emits **`failed`**
+with "conflicting submission active" when the tracking row's `paper_id` contains
+`failed`. Reproduced, since a client that has seen it may switch on it.
+
+Status mapping onto submit-ce's model, with `on hold` taking precedence because a
+held submission is still `SUBMITTED` there with the hold recorded separately:
+
+| submit-ce | SWORD |
+|---|---|
+| `is_announced` | `published` |
+| `is_on_hold` | `on hold` |
+| `is_finalized` | `submitted` |
+| otherwise | `incomplete` |
+
+The manual says `incomplete` is "not expected to be used for SWORD submissions"
+(`:700-702`). That is now reachable, because finalization waits on preflight — a
+deposit sits in `incomplete` between its 202 and a successful compile.
+
+Two smaller notes:
+
+* **Element order is fixed here.** Legacy iterates a Perl hash with `each`
+  (`Controller/Sword.pm:96-100`), so its order varies between responses; no client
+  can depend on it, which makes a stable order strictly safer.
+* **`tracking_id` uses `http://`**, matching the `alternate` link the deposit
+  response emits (`AtomPP.pm:1480`). The manual renders it `https`, but the manual's
+  schemes are unreliable throughout (discrepancy 1), and Catalyst's `uri_for` would
+  simply follow the request scheme.
+
+The undocumented `autotex_log_b64` extension (`Controller/Sword.pm:36-56`) is
+carried over, reading the compile log best-effort and omitting the field on any
+failure, as the Perl's try/catch does. Note `MockFileStore` inherits
+`NullFileStore`'s compile-log stubs — `does_compile_log_exist` is always False — so
+that path needs a purpose-built fake rather than the usual test store.
+
+Routes now registered: `/status`, `/sword-app/servicedocument`,
+`POST /sword-app/{collection}-collection`, `/resolve/app/{sword_id}`.
+
 ### Remaining items to watch
 
 1. **Finalize sequencing.** The plan finalizes after a successful compile. The exact

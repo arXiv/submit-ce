@@ -46,6 +46,11 @@ from submit_ce.sword.atom.render import (
     render_wrapper_entry,
 )
 from submit_ce.sword.ingest import ingest_wrapper
+from submit_ce.sword.tracking import (
+    CONTENT_TYPE as TRACKING_CONTENT_TYPE,
+    render_deposit,
+    resolve_deposit,
+)
 from submit_ce.sword.atom.servicedoc import (
     SERVICE_DOCUMENT_CONTENT_TYPE,
     render_service_document,
@@ -270,8 +275,22 @@ def create_sword_app() -> FastAPI:
                         media_type=ENTRY_CONTENT_TYPE,
                         headers=response_headers)
 
-    # Remaining routes (getid/edit GET, PUT replacement, resolve) arrive in
-    # later steps.
+    @app.get("/resolve/app/{sword_id}")
+    def resolve(sword_id: int, request: Request) -> Response:
+        """Deposit tracking, linked from a wrapper's ``rel="alternate"``.
+
+        Unauthenticated, as in legacy: ``sword.conf`` gates ``/sword-app`` but not
+        ``/resolve``, and the manual documents a plain GET
+        (``submit_sword.md:664``).
+        """
+        site = request.app.state.site
+        with sword_session() as session:
+            status = resolve_deposit(session, request.app.state.api,
+                                    sword_id, site)
+        return Response(content=render_deposit(status),
+                        media_type=TRACKING_CONTENT_TYPE)
+
+    # Remaining routes (getid/edit GET, PUT replacement) arrive in later steps.
 
     return app
 
