@@ -1161,6 +1161,46 @@ eight digits (`AtomPP.pm:367-368,432`) while the `rel="related"` pattern allows 
 (`:1102`), so a deposit id grown past eight digits cannot be retrieved or replaced by
 those paths.
 
+### Step 13 — `/sword-license` in the Flask UI ✅ (2026-07-31)
+
+The depositor's default-license page, ported from
+``arxiv-httpd/cgi-bin/sword_license.pl``. 13 new tests; suite now **1178 passed**.
+
+- `submit_ce/ui/controllers/sword_license.py`
+- `submit_ce/ui/templates/submit/sword_license.html`
+- `GET`/`POST /sword-license` in `ui/routes/ui.py`
+
+Served by the **UI**, not the SWORD API, per the earlier decision: it is an HTML page
+under ordinary cookie auth, and `sword.conf` gates `/sword-app` and `/ppw` with basic
+auth while leaving `/sword-license` alone. Confirmed viable — the acceptance suite
+points `services.sword` at a *hostname* (`https://dev.arxiv.org`,
+`config_services.py:33`), not a Cloud Run service URL, so edge path-routing decides
+which backend answers.
+
+`test_toggle_default_license` (`test_sword.py:27-52`) is the acceptance test, and it
+matches on exact HTML, so the radio markup is load-bearing:
+`<input type="radio" name="License" value="..." checked="checked">`. The template
+notes that attribute order must not be reflowed, and keeps the Perl's invalid
+`</input>` closing tag for byte-compatibility with anything scraping the page.
+
+Two legacy behaviours preserved:
+
+1. **"No license" is the literal string `'no'`**, not NULL (`sword_license.pl:96`).
+   Reading back returns `$license || 'no'`, so an absent row and an explicit refusal
+   are indistinguishable to the page — and both are refused at deposit time, since
+   `'no'` is not a current license (`AtomPP.pm:1553`).
+2. **The page is not scope-gated.** Any logged-in user may set a license, exactly as
+   the Perl allowed; the deposit privilege itself is checked at deposit time.
+
+One deliberate tightening: the Perl stored whatever arrived, with a bare
+`# FIXME - check valid` beside it (`sword_license.pl:39`). Here the value must be one
+the page offers, otherwise 400.
+
+The template is standalone rather than extending `submit/base.html`, because the
+legacy page used `write_short_header` (minimal chrome, no search form) and this route
+is reached outside the submission workflow, so it has none of the context that base
+template expects.
+
 ### Remaining items to watch
 
 1. **Finalize sequencing.** The plan finalizes after a successful compile. The exact

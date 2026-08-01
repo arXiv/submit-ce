@@ -14,6 +14,7 @@ from submit_ce.ui.routes.flow_control import advance_to_current
 from ..backend import get_submission
 from . import cross, delete, jref, util, withdraw
 from .manage_submissions import manage_submissions
+from .sword_license import sword_license
 from .new import process, upload, review, preview
 from .new.classification import classification
 from .new.create import create
