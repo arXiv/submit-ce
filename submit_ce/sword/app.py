@@ -260,7 +260,7 @@ def create_sword_app() -> FastAPI:
             packaging=headers.packaging,
             user_agent=headers.user_agent,
         )
-        store.save_entry(deposit_id, entry)
+        store.save_entry(deposit_id, entry, owner=depositor.nickname)
 
         # A no-op deposit answers 200 and sends no Location
         # (``AtomPP.pm:318,678``).
@@ -420,7 +420,8 @@ def create_sword_app() -> FastAPI:
                                    license_uri=depositor.license,
                                    sword_id=sword_id,
                                    submission_id=submission_id)
-                store.save_entry(sword_id, entry)
+                store.save_entry(sword_id, entry,
+                                 owner=depositor.nickname)
 
         response_headers = {}
         if not headers.no_op:
@@ -527,7 +528,8 @@ def _deposit_wrapper(request: Request, collection: str, payload: bytes,
                            depositor=depositor.nickname,
                            license_uri=depositor.license,
                            sword_id=sword_id)
-            store.save_entry(sword_id, entry)
+            store.save_entry(sword_id, entry,
+                             owner=depositor.nickname)
 
     response_headers = {}
     if not headers.no_op:

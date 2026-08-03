@@ -259,3 +259,41 @@ def test_prefix_is_configurable(bucket):
                            client=FakeClient(bucket))
     store.save("10030146", "vtex", "application/zip", b"x")
     assert "custom/place/1003/10030146.zip" in bucket.objects
+
+
+# -------------------------------------------------------------------- ownership
+
+
+def test_owner_from_the_media_blob(store):
+    """A media deposit records its owner on the media object."""
+    store.save("10030146", "vtex", "application/zip", b"x")
+    assert store.owner_of("10030146") == "vtex"
+    assert store.owned_by("10030146", "vtex")
+
+
+def test_owner_from_the_entry_when_there_is_no_media(store):
+    """A wrapper deposit stores only an entry, so that is where its owner lives.
+    Without this, a depositor could not retrieve their own wrapper entry.
+    """
+    store.save_entry("10030147", b"<entry/>", owner="vtex")
+    assert store.owner_of("10030147") == "vtex"
+    assert store.owned_by("10030147", "vtex")
+    assert not store.owned_by("10030147", "mscmt")
+
+
+def test_entry_owner_wins_over_media_owner(store):
+    store.save("10030148", "vtex", "application/zip", b"x")
+    store.save_entry("10030148", b"<entry/>", owner="vtex")
+    assert store.owner_of("10030148") == "vtex"
+
+
+def test_entry_without_an_owner_falls_back_to_the_media_blob(store):
+    """save_entry(owner=None) leaves the media object as the only record."""
+    store.save("10030149", "vtex", "application/zip", b"x")
+    store.save_entry("10030149", b"<entry/>")
+    assert store.owner_of("10030149") == "vtex"
+
+
+def test_unknown_deposit_has_no_owner(store):
+    assert store.owner_of("10039999") is None
+    assert not store.owned_by("10039999", "vtex")

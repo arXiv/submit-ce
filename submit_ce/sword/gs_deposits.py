@@ -139,13 +139,30 @@ class GsDepositStore(DepositStore):
         blob = self._find_media_blob(deposit_id)
         return blob.download_as_bytes() if blob is not None else None
 
-    def save_entry(self, deposit_id: str, document: bytes) -> None:
+    def save_entry(self, deposit_id: str, document: bytes,
+                   owner: Optional[str] = None) -> None:
         blob = self.bucket.blob(self._entry_path(deposit_id))
+        if owner is not None:
+            blob.metadata = {OWNER_METADATA_KEY: owner}
         blob.upload_from_string(document, content_type="application/atom+xml")
 
     def read_entry(self, deposit_id: str) -> Optional[bytes]:
         blob = self.bucket.get_blob(self._entry_path(deposit_id))
         return blob.download_as_bytes() if blob is not None else None
+
+    def owner_of(self, deposit_id: str) -> Optional[str]:
+        """Owner from the entry's metadata, falling back to the media blob's.
+
+        A wrapper deposit has an entry but no media, so the entry is the only place
+        its owner is recorded.
+        """
+        entry = self.bucket.get_blob(self._entry_path(deposit_id))
+        if entry is not None and (entry.metadata or {}).get(OWNER_METADATA_KEY):
+            return entry.metadata[OWNER_METADATA_KEY]
+        media = self._find_media_blob(deposit_id)
+        if media is not None:
+            return (media.metadata or {}).get(OWNER_METADATA_KEY)
+        return None
 
     def extensions(self, deposit_id: str) -> List[str]:
         prefix = f"{self._shard(deposit_id)}/{deposit_id}."

@@ -352,3 +352,48 @@ def test_bare_test_is_still_not_a_valid_primary(client, depositor, media_href):
                              collection="test")
     assert response.status_code == 400
     assert b"<arxiv:errorcode>2048</arxiv:errorcode>" in response.content
+
+
+# ------------------------------------------------- retrieving a wrapper's entry
+
+
+def test_wrapper_entry_is_retrievable_by_its_depositor(client, depositor,
+                                                       media_href):
+    """Regression: a wrapper deposit stores an entry but no media.
+
+    Ownership used to be recorded only by ``save()``, which a wrapper deposit never
+    calls -- so its own entry came back ENOWN to the depositor who created it. Found
+    by running local_sword_demo.py against a live server, not by the suite: the
+    existing retrieval test deposits *media* first, which does record an owner.
+    """
+    posted = _post_wrapper(client, depositor, _wrapper(media_href))
+    assert posted.status_code == 202, posted.text
+    sword_id = sword_client.sword_id(posted.content)
+
+    for path in (f"/sword-app/getid/app/{sword_id}",
+                 f"/sword-app/edit/{sword_id}.atom"):
+        response = client.get(path, headers={
+            "Authorization": basic_auth(depositor.nickname, depositor.password)})
+        assert response.status_code == 200, f"{path} -> {response.text}"
+        assert response.content == posted.content
+
+
+def test_another_depositor_cannot_read_a_wrapper_entry(client, depositor,
+                                                       unlicensed_depositor,
+                                                       media_href):
+    """The ownership check still has to bite for someone else."""
+    import datetime as _dt
+    Session.add(models.SwordLicense(
+        user_id=unlicensed_depositor.user_id,
+        license="http://arxiv.org/licenses/nonexclusive-distrib/1.0/",
+        updated=_dt.datetime.now(_dt.timezone.utc)))
+    Session.commit()
+
+    posted = _post_wrapper(client, depositor, _wrapper(media_href))
+    sword_id = sword_client.sword_id(posted.content)
+
+    response = client.get(f"/sword-app/getid/app/{sword_id}", headers={
+        "Authorization": basic_auth(unlicensed_depositor.nickname,
+                                    unlicensed_depositor.password)})
+    assert response.status_code == 400
+    assert b"<arxiv:errorcode>134217728</arxiv:errorcode>" in response.content

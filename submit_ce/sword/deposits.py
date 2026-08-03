@@ -200,8 +200,15 @@ class DepositStore(ABC):
         """Deposited bytes, or None."""
 
     @abstractmethod
-    def save_entry(self, deposit_id: str, document: bytes) -> None:
-        """Store the ``.atom`` response entry for later GET."""
+    def save_entry(self, deposit_id: str, document: bytes,
+                   owner: Optional[str] = None) -> None:
+        """Store the ``.atom`` response entry for later GET.
+
+        ``owner`` records who may retrieve it. It matters for a **wrapper** deposit,
+        which stores an entry without any media under its own id -- so there is no
+        `StagedDeposit` to carry the owner, and without this the entry would be
+        unreadable by the depositor who created it.
+        """
 
     @abstractmethod
     def read_entry(self, deposit_id: str) -> Optional[bytes]:
@@ -226,14 +233,18 @@ class DepositStore(ABC):
                 "EMDTP",
                 f"deposit of {len(data)} bytes exceeds the {limit} byte limit")
 
+    @abstractmethod
+    def owner_of(self, deposit_id: str) -> Optional[str]:
+        """Who created this id, whether by depositing media or a wrapper."""
+
     def owned_by(self, deposit_id: str, owner: str) -> bool:
-        """Whether ``owner`` deposited this id.
+        """Whether ``owner`` created this id.
 
         A miss is ENOWN (``AtomPP.pm:384-388``). Comparison is exact: the
         depositor name is a tapir nickname, which is case-sensitive.
         """
-        deposit = self.get(deposit_id)
-        return deposit is not None and deposit.owner == owner
+        recorded = self.owner_of(deposit_id)
+        return recorded is not None and recorded == owner
 
 
 @dataclass
@@ -249,6 +260,7 @@ class InMemoryDepositStore(DepositStore):
     deposits: Dict[str, StagedDeposit] = field(default_factory=dict)
     blobs: Dict[str, bytes] = field(default_factory=dict)
     entries: Dict[str, bytes] = field(default_factory=dict)
+    owners: Dict[str, str] = field(default_factory=dict)
     counter_hook: Optional[object] = None
 
     def _read_counter(self) -> Tuple[int, object]:
@@ -278,6 +290,7 @@ class InMemoryDepositStore(DepositStore):
         )
         self.deposits[deposit_id] = deposit
         self.blobs[deposit_id] = data
+        self.owners[deposit_id] = owner
         return deposit
 
     def get(self, deposit_id: str) -> Optional[StagedDeposit]:
@@ -286,11 +299,17 @@ class InMemoryDepositStore(DepositStore):
     def read(self, deposit_id: str) -> Optional[bytes]:
         return self.blobs.get(deposit_id)
 
-    def save_entry(self, deposit_id: str, document: bytes) -> None:
+    def save_entry(self, deposit_id: str, document: bytes,
+                   owner: Optional[str] = None) -> None:
         self.entries[deposit_id] = document
+        if owner is not None:
+            self.owners[deposit_id] = owner
 
     def read_entry(self, deposit_id: str) -> Optional[bytes]:
         return self.entries.get(deposit_id)
+
+    def owner_of(self, deposit_id: str) -> Optional[str]:
+        return self.owners.get(deposit_id)
 
     def extensions(self, deposit_id: str) -> List[str]:
         deposit = self.deposits.get(deposit_id)
