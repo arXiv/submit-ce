@@ -521,10 +521,16 @@ class SetDecisions(EventWithSideEffect):
 
     def execute(self, api: SubmitApi, submission: Submission) -> None:
         file_store = api.get_file_store()
-        # TODO If something fails here, preflight/user_decisions are already changed/deleted.
-        # Delete files and only delete preflight and user_decisions if at least one file is deleted
-        file_store.delete_preflight(submission.submission_id)
         file_store.store_user_decisions(submission.submission_id, self.decisions)
+        # Directives depend on the selection (compiler / top-level), so always drop
+        # them here; the controller regenerates them from the new decisions.
+        file_store.delete_directives(submission.submission_id)
+        # Preflight analyses the *file set*, not the selection. Only invalidate it
+        # when files are actually removed (G29 / SUBMISSION-215). A selection-only
+        # change (compiler / top-level) leaves the report valid, so the submitter is
+        # not bounced back to Upload for a needless re-scan.
+        if self.files_to_delete:
+            file_store.delete_preflight(submission.submission_id)
         # Authoritative guard (SUBMISSION-209): never delete a file the user has
         # selected as a top-level TeX file -- that's what we're about to compile.
         # Runs under the submission row lock taken by save(), so it can't race a

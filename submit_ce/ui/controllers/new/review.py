@@ -202,9 +202,13 @@ def review_files(method: str, params: MultiDict, session: Session,
         return stay_on_this_stage((rdata, status.OK, {}))
 
     elif method == 'POST':
-        has_changes = _update_preflight(params, submission_id, workspace, submitter, client)
+        # _update_preflight persists the submitted decisions and returns True only
+        # when preflight was invalidated (a file was deleted). A selection-only
+        # change (compiler / top-level) keeps preflight valid, so we fall through
+        # and advance rather than bouncing to Upload for a needless re-scan. (G29)
+        preflight_invalidated = _update_preflight(params, submission_id, workspace, submitter, client)
 
-        if has_changes:
+        if preflight_invalidated:
             return return_to_parent_stage((rdata, status.OK, {}))
         else:
             _load_or_create_directives(params, session, submission_id, token)
@@ -313,7 +317,12 @@ def _update_preflight(params: MultiDict, submission_id: str, workspace: Workspac
         cmd = SetDecisions(creator=submitter, client=client,
                            decisions=new_decisions, files_to_delete=files_to_delete)
         current_app.api.save(cmd, submission_id=submission_id)
-        return True
+        # Return whether PREFLIGHT was invalidated. Only a change to the file *set*
+        # (a deletion) invalidates it, so the caller returns to Upload to re-run the
+        # scan. A selection-only change (compiler / top-level) keeps preflight valid
+        # -- SetDecisions regenerated directives but left the report -- so the caller
+        # can advance without a re-scan. (G29 / SUBMISSION-215)
+        return bool(files_to_delete)
     except InvalidEvent:
         # TODO Somehow inform the user
         return False
