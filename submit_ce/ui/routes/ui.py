@@ -160,7 +160,7 @@ def handle(controller: Callable, template: str, title: str,
         logger.debug('%s flow_controled %s', controller.__name__, code )
         return (data, code, headers,
                 lambda: make_response(render_template(template, **context), code))
-    if code < 300:
+    if code < 300 or ( 400 <= code < 500 and data):
         logger.debug('%s status %s', controller.__name__, code)
         response = make_response(render_template(template, **context), code)
     elif 'Location' in headers:

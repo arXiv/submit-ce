@@ -293,8 +293,12 @@ def _edit_categories(form: CrossListForm, submission: Submission,
     validate_against = prospective_submission(submission, commands)
     commands.append(command)
 
-    if not validate_command(form, command, validate_against, 'category'):
-        raise BadRequest(response_data)
+    try:
+        command.validate_pre_lock(validate_against)
+    except InvalidEvent as e:
+        alerts.flash_warning(f"Could not {command.NAME}: {e.message}")
+        return (_response_data(submission, submission_id, _add_form(submission)),
+                status.BAD_REQUEST, {})
 
     try:
         submission, _ = current_app.api.save(*commands,
