@@ -1,7 +1,7 @@
 """Helpers for controllers."""
 
 import copy
-from typing import Any, Dict, Iterable, Tuple, Optional, Union
+from typing import Any, Callable, Dict, Iterable, List, Tuple, Optional, Union
 
 from flask import current_app
 from markupsafe import Markup
@@ -9,11 +9,19 @@ from wtforms.validators import StopValidation
 from wtforms.widgets import Select, html_params
 from wtforms import SelectField, Form
 from wtforms.fields.core import UnboundField
+
+from arxiv.taxonomy.category import Category
+from arxiv.taxonomy.definitions import ARCHIVES_ACTIVE, CATEGORIES_ACTIVE
+
 from submit_ce.domain import Event, Submission
 from submit_ce.domain.exceptions import InvalidEvent, NoSuchDocument
 from submit_ce.domain.submission import SubmissionType
 
 Response = Tuple[Dict[str, Any], int, Dict[str, Any]]   # pylint: disable=C0103
+
+Choices = List[Tuple[str, List[Tuple[str, str]]]]
+"""Nested ``(group, [(value, label), ...])`` shape :class:`.OptGroupSelectField`
+renders and validates against."""
 
 
 class OptGroupSelectWidget(Select):
@@ -53,6 +61,34 @@ class OptGroupSelectField(SelectField):
         data: str = self.data
         return data
 
+
+def category_choices(label: Callable[[str, Category], str]) -> Choices:
+    """Active categories grouped by active archive.
+
+    ``label`` builds the display string from the category id and the category, so
+    each form keeps its own wording.
+    """
+    return [
+        (archive.id, [
+            (category_id, label(category_id, category))
+            for category_id, category in CATEGORIES_ACTIVE.items()
+            if category.in_archive == archive_id
+        ])
+        for archive_id, archive in ARCHIVES_ACTIVE.items()
+    ]
+
+
+def prune_choices(choices: Choices, keep: Callable[[str], bool]) -> Choices:
+    """The choices ``keep`` accepts, without the groups that leaves empty.
+
+    ``keep`` sees the category id. An archive with nothing left to offer is
+    dropped rather than rendered as an empty ``optgroup``.
+    """
+    pruned = [
+        (group, [(value, label) for value, label in items if keep(value)])
+        for group, items in choices
+    ]
+    return [(group, items) for group, items in pruned if items]
 
 
 def validate_command(form: Form, event: Event,

@@ -29,18 +29,17 @@ from wtforms.validators import ValidationError, optional
 from arxiv.base import logging, alerts
 from arxiv.forms import csrf
 from arxiv.taxonomy.definitions import CATEGORIES_ACTIVE as CATEGORIES
-from arxiv.taxonomy.definitions import ARCHIVES_ACTIVE as ARCHIVES
 
-from submit_ce.domain import Submission
+from submit_ce.domain import Submission, User
 from submit_ce.domain.event import AddCrossCategory, CreateCrossSubmission, \
     FinalizeCrossSubmission, RemoveCrossCategory, UnFinalizeSubmission
 from submit_ce.domain.exceptions import InvalidEvent, NoSuchDocument, SaveError
 from submit_ce.domain.submission import SubmissionType
 from submit_ce.ui import SUPPORT
-from submit_ce.ui.backend import get_submission
+from submit_ce.ui.backend import endorsed_for, get_submission
 from ..auth import user_and_client_from_session
 from .util import OptGroupSelectField, active_submission_id, \
-    prospective_submission, validate_command
+    category_choices, prospective_submission, prune_choices, validate_command
 
 
 logger = logging.getLogger(__name__)  # pylint: disable=C0103
@@ -69,14 +68,8 @@ class SubmitCrossForm(csrf.CSRFForm):
 class CrossListForm(csrf.CSRFForm):
     """Add a category to, or remove one from, a cross-list submission."""
 
-    CATEGORIES = [
-        (archive.id, [
-            (category_id, f"{category.full_name} ({category_id})")
-            for category_id, category in CATEGORIES.items()
-            if category.in_archive == archive_id
-        ])
-        for archive_id, archive in ARCHIVES.items()
-    ]
+    CATEGORIES = category_choices(
+        lambda category_id, category: f"{category.full_name} ({category_id})")
     """Categories grouped by archive."""
 
     ADD = 'add'
@@ -96,29 +89,31 @@ class CrossListForm(csrf.CSRFForm):
         if field.data not in CATEGORIES:
             raise ValidationError('Not a valid category')
 
-    def filter_choices(self, submission: Submission) -> None:
+    def filter_choices(self, submission: Submission, user: User) -> None:
         """Offer the categories that could still be added, plus the pending ones.
 
-        Dropping what is already on the submission keeps the add select honest.
-        The categories this cross is adding stay on the list even so, because
-        the select also validates a *remove* POST's value
-        (:meth:`.OptGroupSelectField.pre_validate`).
+        A user may only cross-list into a category they are endorsed for, so the
+        add select is limited the same way the new-submission classification page
+        limits its own (legacy did this with the submitter's group flags).
+        Dropping what is already on the submission keeps the select honest too.
+
+        The categories this cross is already adding stay on the list regardless
+        of endorsement, because the select also validates a *remove* POST's value
+        (:meth:`.OptGroupSelectField.pre_validate`) -- a user who somehow has a
+        pending category they are not endorsed for must still be able to take it
+        back off.
         """
         primary = submission.primary_classification
         pending = submission.new_cross_categories
-        choices = [
-            (archive, [
-                (category, display) for category, display in archive_choices
-                if ((primary is None or category != primary.category)
+
+        def keep(category: str) -> bool:
+            if category in pending:
+                return True
+            return (endorsed_for(user, category)
+                    and (primary is None or category != primary.category)
                     and category not in submission.secondary_categories)
-                or category in pending
-            ])
-            for archive, archive_choices in self.category.choices
-        ]
-        self.category.choices = [
-            (archive, _choices) for archive, _choices in choices
-            if len(_choices) > 0
-        ]
+
+        self.category.choices = prune_choices(self.category.choices, keep)
 
     @classmethod
     def formset(cls, categories: List[str]) -> Dict[str, 'CrossListForm']:
@@ -216,7 +211,7 @@ def cross(method: str, params: MultiDict, session: Session,
     # The page renders from the submission's saved state, so the form in the
     # context is always a fresh add form -- never the one a submit POST used.
     response_data = _response_data(submission, submission_id,
-                                   _add_form(submission))
+                                   _add_form(submission, creator))
 
     if method != 'POST':
         return response_data, status.OK, {}
@@ -230,17 +225,17 @@ def cross(method: str, params: MultiDict, session: Session,
 
     params.setdefault("operation", CrossListForm.ADD)
     form = CrossListForm(params)
-    form.filter_choices(submission)
+    form.filter_choices(submission, creator)
     if not form.validate():
         raise BadRequest(response_data)
     return _edit_categories(form, submission, submission_id, creator, client,
                             response_data)
 
 
-def _add_form(submission: Submission) -> CrossListForm:
+def _add_form(submission: Submission, user: User) -> CrossListForm:
     """A blank add-a-category form for the categories still on offer."""
     form = CrossListForm()
-    form.filter_choices(submission)
+    form.filter_choices(submission, user)
     form.operation.data = CrossListForm.ADD
     return form
 
@@ -297,7 +292,8 @@ def _edit_categories(form: CrossListForm, submission: Submission,
         command.validate_pre_lock(validate_against)
     except InvalidEvent as e:
         alerts.flash_warning(f"Could not {command.NAME}: {e.message}")
-        return (_response_data(submission, submission_id, _add_form(submission)),
+        return (_response_data(submission, submission_id,
+                               _add_form(submission, creator)),
                 status.BAD_REQUEST, {})
 
     try:
@@ -317,7 +313,8 @@ def _edit_categories(form: CrossListForm, submission: Submission,
             " remember to re-submit.")
 
     # Re-render from the saved state with a fresh form for the next change.
-    return (_response_data(submission, submission_id, _add_form(submission)),
+    return (_response_data(submission, submission_id,
+                           _add_form(submission, creator)),
             status.OK, {})
 
 

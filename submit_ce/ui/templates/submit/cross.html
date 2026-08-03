@@ -1,6 +1,7 @@
 {%- extends "base/base.html" %}
 
 {% import "submit/submit_macros.html" as submit_macros %}
+{% import "svg.html" as svg %}
 
 {% block addl_head %}
  <link rel="stylesheet" href="{{ url_for('static', filename='css/submit.css')}}" />
@@ -21,23 +22,29 @@
   <div class="columns">
     <div class="column">
       <h3 id="crosslist" class="is-size-5">New cross-list(s)</h3>
-      {# One form per pending cross, to POST its removal. The paper's already
-         announced categories are listed above and carry no Remove control. #}
+      {# One form per pending cross, so its × POSTs the removal and saves it
+         immediately -- unlike the Category page, which stages the same-looking
+         pills in hidden fields until "save & continue". The paper's already
+         announced categories are listed above and carry no remove control;
+         `RemoveCrossCategory` rejects them. #}
       {% if formset %}
-        {% for category, subform in formset.items() %}
-        <form method="POST" class="form form-margin" action="{{ url_for('ui.cross', submission_id=submission_id) }}">
-          {{ subform.csrf_token }}
-          <p>
+        <div class="category-pills">
+          {% for category, subform in formset.items() %}
+          <form method="POST" action="{{ url_for('ui.cross', submission_id=submission_id) }}">
+            {{ subform.csrf_token }}
             {{ subform.operation }}
             {{ subform.category()|safe }}
-            <span class="tag" style="border: 1px solid #999;">{{ category }}</span>
-            <span>{{ category|get_category_name }}</span>
-            <button class="button is-outlined is-link is-small" style="border: 0" title="Remove category">
-              <span class="icon"><i class="fa fa-trash"><span class="is-sr-only">Remove this category</span></i></span>
-            </button>
-          </p>
-        </form>
-        {% endfor %}
+            <span class="tag" data-value="{{ category }}">
+              <span class="tag-code">{{ category }}</span>
+              <span class="tag-name">{{ category|get_category_name }}</span>
+              {# A real submit, not the Category page's type="button" -- there is
+                 no JS on this page to intercept it. #}
+              <button type="submit" class="remove-tag" title="Remove {{ category }}"
+                      aria-label="Remove {{ category }}">&times;</button>
+            </span>
+          </form>
+          {% endfor %}
+        </div>
       {% else %}
         <p class="has-text-grey">No categories added yet.</p>
       {% endif %}
@@ -76,7 +83,7 @@
       <div class="message is-link">
         <div class="message-body">
           <p class="has-text-weight-bold">
-            <span class="icon is-link"><i class="fa fa-info-circle"></i></span>
+            {{ svg.info(title="Tips") }}
             Tips for Choosing Cross-lists
           </p>
           <p>

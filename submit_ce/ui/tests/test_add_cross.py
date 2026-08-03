@@ -26,6 +26,35 @@ def _csrf_token(client, path='/'):
     return parse_csrf_token(response)
 
 
+def _endorse(app, user, *categories):
+    """Add auto endorsements so the fixture user can cross-list to these.
+
+    The fixture user starts endorsed for ``astro-ph`` only, and a cross may only
+    go to a category the user is endorsed for, so any test crossing into another
+    archive has to say so.
+    """
+    with app.app_context():
+        for cat in categories:
+            archive, _, subject = cat.partition(".")
+            Session.add(classic.Endorsement(
+                endorsee_id=user.user_id, archive=archive, subject_class=subject,
+                flag_valid=1, type="auto", point_value=10,
+                issued_when=11074371513))
+        Session.commit()
+
+
+def _withdraw_endorsements(app, user, archive):
+    """Invalidate the user's endorsements for a whole archive."""
+    with app.app_context():
+        with Session() as session:
+            rows = session.query(classic.Endorsement) \
+                .filter(classic.Endorsement.endorsee_id == int(user.user_id)) \
+                .filter(classic.Endorsement.archive == archive).all()
+            for row in rows:
+                row.flag_valid = 0
+            session.commit()
+
+
 def _cross_rows(paper_id):
     with Session() as session:
         return session.query(classic.Submission) \
@@ -108,10 +137,11 @@ def test_second_post_resumes_the_cross_in_progress(app, authorized_client,
         assert len(_cross_rows(paper_id)) == 1
 
 
-def test_add_then_remove_a_category(app, authorized_client,
-                                   published_submission):
+def test_add_then_remove_a_category(app, authorized_user, authorized_client,
+                                    published_submission):
     """Categories are added and removed one POST at a time, as in legacy."""
     _, paper_id = published_submission
+    _endorse(app, authorized_user, 'cs.DL')
     location = _start_cross(authorized_client, paper_id)
 
     added = authorized_client.post(location, data={
@@ -134,9 +164,38 @@ def test_add_then_remove_a_category(app, authorized_client,
         assert 'cs.DL' not in {c for c, _ in _categories(submission_id)}
 
 
-def test_submitting_the_cross(app, authorized_client, published_submission):
+def test_a_pending_category_gets_a_visible_remove_control(
+        app, authorized_user, authorized_client, published_submission):
+    """The remove control is real markup, not an icon font this app lacks.
+
+    The remove POST has worked all along, but its button used to render as
+    `<i class="fa fa-trash">` -- and nothing serves Font Awesome here (the asset
+    `arxiv-base`'s head.html points at is not in the installed package), so the
+    button came out empty and the feature looked missing. Asserting on the
+    rendered control is the only thing that catches that class of bug.
+    """
+    _, paper_id = published_submission
+    _endorse(app, authorized_user, 'cs.DL')
+    location = _start_cross(authorized_client, paper_id)
+
+    added = authorized_client.post(location, data={
+        'csrf_token': _csrf_token(authorized_client, location),
+        'operation': 'add', 'category': 'cs.DL'})
+
+    assert added.status_code == status.OK
+    assert b'class="remove-tag"' in added.data
+    assert b'aria-label="Remove cs.DL"' in added.data
+    # One control for the one pending category: the paper's already announced
+    # categories must not get one, since RemoveCrossCategory rejects them.
+    assert added.data.count(b'remove-tag') == 1
+    assert b'fa-trash' not in added.data
+
+
+def test_submitting_the_cross(app, authorized_user, authorized_client,
+                              published_submission):
     """With a category added, the cross can be submitted."""
     _, paper_id = published_submission
+    _endorse(app, authorized_user, 'cs.DL')
     location = _start_cross(authorized_client, paper_id)
     authorized_client.post(location, data={
         'csrf_token': _csrf_token(authorized_client, location),
@@ -166,10 +225,12 @@ def test_cannot_submit_a_cross_with_no_categories(app, authorized_client,
         assert _cross_rows(paper_id)[0].status == LegacyRow.WORKING
 
 
-def test_editing_a_submitted_cross_unsubmits_it(app, authorized_client,
+def test_editing_a_submitted_cross_unsubmits_it(app, authorized_user,
+                                                authorized_client,
                                                 published_submission):
     """Legacy `user_updated`: an edit after submitting returns it to working."""
     _, paper_id = published_submission
+    _endorse(app, authorized_user, 'cs.DL', 'hep-th')
     location = _start_cross(authorized_client, paper_id)
     authorized_client.post(location, data={
         'csrf_token': _csrf_token(authorized_client, location),
@@ -203,6 +264,83 @@ def test_adding_a_disallowed_category_is_rejected(app, authorized_client,
     with app.app_context():
         submission_id = _cross_rows(paper_id)[0].submission_id
         assert 'physics.gen-ph' not in {c for c, _ in _categories(submission_id)}
+
+
+def test_only_endorsed_categories_are_offered(app, authorized_client,
+                                              published_submission):
+    """The add select is limited to what the user may cross-list into.
+
+    The fixture user is endorsed for `astro-ph`; the paper's primary is
+    `astro-ph.GA`, so `astro-ph.CO` is on offer and `q-fin` is not.
+
+    `q-fin` rather than `cs`: the test database is session-scoped, so the
+    endorsements other tests add stick around. No test endorses `q-fin`.
+    """
+    _, paper_id = published_submission
+    location = _start_cross(authorized_client, paper_id)
+
+    response = authorized_client.get(location)
+
+    assert response.status_code == status.OK
+    assert b'value="astro-ph.CO"' in response.data
+    assert b'value="q-fin.TR"' not in response.data
+    # The primary is never a cross-list candidate, endorsed or not.
+    assert b'value="astro-ph.GA"' not in response.data
+
+
+def test_adding_an_unendorsed_category_is_rejected(app, authorized_client,
+                                                   published_submission):
+    """A category the user may not submit to is not an option, so the add fails."""
+    _, paper_id = published_submission
+    location = _start_cross(authorized_client, paper_id)
+
+    response = authorized_client.post(location, data={
+        'csrf_token': _csrf_token(authorized_client, location),
+        'operation': 'add', 'category': 'q-fin.TR'})
+
+    assert response.status_code == status.BAD_REQUEST
+    with app.app_context():
+        submission_id = _cross_rows(paper_id)[0].submission_id
+        assert 'q-fin.TR' not in {c for c, _ in _categories(submission_id)}
+
+
+def test_a_pending_category_can_still_be_removed_without_endorsement(
+        app, authorized_user, authorized_client, published_submission):
+    """Losing the endorsement must not strand a category on the cross.
+
+    The select validates a *remove* POST's value too, so pending categories stay
+    on it regardless of endorsement.
+
+    `nlin` is this test's alone: the test database is session-scoped, so
+    withdrawing an archive other tests rely on would break them.
+    """
+    _, paper_id = published_submission
+    _endorse(app, authorized_user, 'nlin.CD')
+    location = _start_cross(authorized_client, paper_id)
+    authorized_client.post(location, data={
+        'csrf_token': _csrf_token(authorized_client, location),
+        'operation': 'add', 'category': 'nlin.CD'})
+    with app.app_context():
+        submission_id = _cross_rows(paper_id)[0].submission_id
+        assert ('nlin.CD', False) in _categories(submission_id)
+
+    _withdraw_endorsements(app, authorized_user, 'nlin')
+
+    # Guard the guard: without this the test would pass even if withdrawing the
+    # endorsement did nothing. A sibling category is not pending, so it is only
+    # still addable if the filter never noticed.
+    blocked = authorized_client.post(location, data={
+        'csrf_token': _csrf_token(authorized_client, location),
+        'operation': 'add', 'category': 'nlin.SI'})
+    assert blocked.status_code == status.BAD_REQUEST
+
+    removed = authorized_client.post(location, data={
+        'csrf_token': _csrf_token(authorized_client, location),
+        'operation': 'remove', 'category': 'nlin.CD'})
+
+    assert removed.status_code == status.OK
+    with app.app_context():
+        assert 'nlin.CD' not in {c for c, _ in _categories(submission_id)}
 
 
 def test_blocked_when_the_paper_has_a_general_primary(
