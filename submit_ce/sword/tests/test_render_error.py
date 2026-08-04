@@ -19,6 +19,7 @@ FIXED_ID = "79652319-FB86-3C12-AC51-46D44EF5A410"
 
 
 def _render(fault, **kwargs):
+    kwargs.setdefault("base_url", "https://arxiv.org")
     kwargs.setdefault("site", "arxiv.org")
     kwargs.setdefault("timestamp", MOMENT)
     kwargs.setdefault("entry_id", FIXED_ID)
@@ -43,9 +44,14 @@ def test_namespaces_are_declared_with_atom_as_the_default():
     assert root.nsmap["arxiv"] == "http://arxiv.org/schemas/atom/"
 
 
-def test_no_https_namespace_anywhere():
-    """The manual shows https; clients match the http form."""
-    assert b"https://" not in _render(SwordFault("EVMD5"))
+def test_namespace_uris_are_http_not_https():
+    """The manual shows https; clients match the http form.
+
+    Scoped to the namespace declarations: self-links now carry whatever scheme the
+    request arrived on, so a blanket "no https anywhere" would be wrong.
+    """
+    root = _tree(SwordFault("EVMD5"))
+    assert all(uri.startswith("http://") for uri in root.nsmap.values())
 
 
 def test_element_order_matches_error_pm():
@@ -69,8 +75,10 @@ def test_id_is_an_info_arxiv_uri():
 
 def test_id_varies_between_errors_when_not_injected():
     """Deliberate deviation: the Perl emits one constant id for every error."""
-    first = render_error(SwordFault("EVCOL"), site="arxiv.org")
-    second = render_error(SwordFault("EVCOL"), site="arxiv.org")
+    first = render_error(SwordFault("EVCOL"), base_url="https://arxiv.org",
+                         site="arxiv.org")
+    second = render_error(SwordFault("EVCOL"), base_url="https://arxiv.org",
+                          site="arxiv.org")
     assert _id_of(first) != _id_of(second)
 
 
@@ -84,7 +92,8 @@ def test_updated_is_second_precision_utc():
 
 
 def test_generator_carries_uri_and_version():
-    root = _tree(SwordFault("EVCOL"), site="export.arxiv.org")
+    """The generator is a self-link, so it follows the request's own base."""
+    root = _tree(SwordFault("EVCOL"), base_url="http://export.arxiv.org")
     generator = root.find(f"{{{ns.ATOM}}}source/{{{ns.ATOM}}}generator")
     assert generator.text == "SWORD@arXiv.org"
     assert generator.get("uri") == "http://export.arxiv.org/sword-app/"

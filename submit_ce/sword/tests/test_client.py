@@ -222,6 +222,7 @@ def test_sword_id_is_none_for_a_non_numeric_id():
 
 
 def test_error_code_and_summary_round_trip_our_own_renderer():
-    document = render_error(SwordFault("EVCOL", "foobar"), site="arxiv.org")
+    document = render_error(SwordFault("EVCOL", "foobar"),
+                            base_url="https://arxiv.org", site="arxiv.org")
     assert sword_client.error_code(document) == 16
     assert sword_client.error_summary(document) == "invalid collection: foobar"

@@ -57,7 +57,7 @@ def test_tracking_id_is_echoed(client, sword_db):
     """submit_sword.md:670 -- the document repeats its own URI."""
     _add_tracking(10030146, "submit/1")
     assert _field(_get(client, 10030146), "tracking_id") == \
-        "http://arxiv.org/resolve/app/10030146"
+        "https://arxiv.org/resolve/app/10030146"
 
 
 def test_status_is_always_present(client, sword_db):
@@ -166,7 +166,7 @@ def test_tracking_works_immediately_after_a_deposit(client, deposited):
 def test_alternate_link_from_the_deposit_resolves(client, depositor, deposited):
     """The URI the 202 response told the client to use."""
     assert _field(_get(client, deposited), "tracking_id") == \
-        f"http://arxiv.org/resolve/app/{deposited}"
+        f"https://arxiv.org/resolve/app/{deposited}"
 
 
 def test_a_fresh_deposit_is_not_yet_published(client, deposited):

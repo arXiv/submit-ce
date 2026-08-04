@@ -91,3 +91,73 @@ def test_deposit_client_without_a_peer():
     request = SimpleNamespace(headers={}, client=None)
     assert deposit_client(request, SimpleNamespace(user_agent=None)).remote_addr \
         == "unknown"
+
+
+# ------------------------------------------------------------------- self-links
+
+
+def _fake_request(headers, scheme="http", netloc="127.0.0.1:8001"):
+    return SimpleNamespace(headers=headers,
+                           url=SimpleNamespace(scheme=scheme, netloc=netloc))
+
+
+def test_base_url_from_the_request_itself():
+    """Local dev: no proxy headers, so the socket's own scheme and host win."""
+    from submit_ce.sword.app import request_base_url
+
+    request = _fake_request({"Host": "localhost:8001"})
+    assert request_base_url(request) == "http://localhost:8001"
+
+
+def test_base_url_honours_forwarded_proto():
+    """Cloud Run terminates TLS, so the container only ever sees http."""
+    from submit_ce.sword.app import request_base_url
+
+    request = _fake_request({"Host": "arxiv.org", "X-Forwarded-Proto": "https"})
+    assert request_base_url(request) == "https://arxiv.org"
+
+
+def test_base_url_honours_forwarded_host():
+    from submit_ce.sword.app import request_base_url
+
+    request = _fake_request({"Host": "sword-ce-dev.run.app",
+                             "X-Forwarded-Proto": "https",
+                             "X-Forwarded-Host": "dev.arxiv.org"})
+    assert request_base_url(request) == "https://dev.arxiv.org"
+
+
+def test_base_url_takes_the_first_hop_of_a_forwarded_list():
+    """Chained proxies append, so the client-facing value comes first."""
+    from submit_ce.sword.app import request_base_url
+
+    request = _fake_request({"Host": "internal",
+                             "X-Forwarded-Proto": "https, http",
+                             "X-Forwarded-Host": "export.arxiv.org, internal"})
+    assert request_base_url(request) == "https://export.arxiv.org"
+
+
+def test_base_url_falls_back_to_the_url_netloc():
+    """No Host header at all, which happens on raw HTTP/1.0 requests."""
+    from submit_ce.sword.app import request_base_url
+
+    request = _fake_request({}, netloc="127.0.0.1:8001")
+    assert request_base_url(request) == "http://127.0.0.1:8001"
+
+
+def test_served_links_follow_the_request_host(sword_app, depositor):
+    """End to end: a deposit made via localhost is told about localhost."""
+    from fastapi.testclient import TestClient
+
+    from submit_ce.sword.tests.client import basic_auth, edit_media_link
+
+    local = TestClient(sword_app, base_url="http://localhost:8001")
+    response = local.post(
+        "/sword-app/cs-collection", content=b"PK\x03\x04zip",
+        headers={"Authorization": basic_auth(depositor.nickname,
+                                             depositor.password),
+                 "Content-Type": "application/zip"})
+    assert response.status_code == 201, response.text
+    assert edit_media_link(response.content).startswith(
+        "http://localhost:8001/sword-app/edit/")
+    assert response.headers["Location"].startswith(
+        "http://localhost:8001/sword-app/getid/app/")

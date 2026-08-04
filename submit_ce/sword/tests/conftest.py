@@ -156,9 +156,14 @@ def sword_app(sword_db):
 
 @pytest.fixture
 def client(sword_app):
-    """A `TestClient` over the app; ASGI in-process, so no sockets are opened."""
+    """A `TestClient` over the app; ASGI in-process, so no sockets are opened.
+
+    ``base_url`` sets the scheme and Host the app sees, and self-links are built from
+    those (`submit_ce.sword.app.request_base_url`) -- so this is what makes the
+    expected ``https://arxiv.org/...`` hrefs in these tests the production ones.
+    """
     from fastapi.testclient import TestClient
-    return TestClient(sword_app)
+    return TestClient(sword_app, base_url="https://arxiv.org")
 
 
 @pytest.fixture

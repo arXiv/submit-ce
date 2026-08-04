@@ -65,13 +65,13 @@ class DepositStatus:
     autotex_log_b64: Optional[str] = None
 
 
-def tracking_uri(sword_id: int, site: str) -> str:
+def tracking_uri(sword_id: int, base_url: str) -> str:
     """The tracking URI, which is also echoed inside the document.
 
-    ``http``, matching the ``rel="alternate"`` link the wrapper response emits
-    (``AtomPP.pm:1480``).
+    Built from the request's own scheme and host, so it matches the
+    ``rel="alternate"`` link the wrapper response handed out.
     """
-    return f"http://{site}/resolve/app/{sword_id}"
+    return f"{base_url}/resolve/app/{sword_id}"
 
 
 def _status_for(submission) -> str:
@@ -117,14 +117,14 @@ def _compile_log(api, submission_id: int) -> Optional[str]:
 
 
 def resolve_deposit(session: SqlalchemySession, api, sword_id: int,
-                    site: str) -> DepositStatus:
+                    base_url: str) -> DepositStatus:
     """Look up what became of a deposit.
 
     Follows ``Controller/Sword.pm:25-95``: no tracking row at all is ``unknown``
     with an explanatory error, since the id may name a *media* deposit rather than a
     wrapper.
     """
-    uri = tracking_uri(sword_id, site)
+    uri = tracking_uri(sword_id, base_url)
 
     tracking = session.query(models.Tracking).filter_by(
         sword_id=sword_id).one_or_none()

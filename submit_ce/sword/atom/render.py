@@ -40,6 +40,7 @@ def iso_z(moment: datetime) -> str:
 
 def render_error(fault: SwordFault,
                  *,
+                 base_url: str,
                  site: str,
                  main_site: Optional[str] = None,
                  timestamp: Optional[datetime] = None,
@@ -48,9 +49,10 @@ def render_error(fault: SwordFault,
 
     Parameters
     ----------
+    base_url
+        Scheme and host this request arrived on, for the generator's self-link.
     site
-        Host this service answers as (Perl's ``$THIS_SITE``); used for the
-        generator URI and for help anchors in some error hrefs.
+        Public arXiv host, for the ``sword_errors`` anchor in the code's href.
     main_site
         Host for the human-facing help link (Perl's ``$MAIN_SITE``). Defaults to
         ``site``.
@@ -82,10 +84,10 @@ def render_error(fault: SwordFault,
     source = etree.SubElement(root, ns.qname(ns.ATOM, "source"))
     generator = etree.SubElement(source, ns.qname(ns.ATOM, "generator"))
     generator.text = ns.GENERATOR_NAME
-    # http, not https: Error.pm:63-64 uses http here, while the deposit response
-    # entry uses https for the same URI (AtomPP.pm:1435). Legacy is inconsistent;
-    # each document is reproduced as it actually is.
-    generator.set("uri", f"http://{site}/sword-app/")
+    # Legacy emitted http here and https in the deposit entry for the same URI
+    # (Error.pm:63-64 vs AtomPP.pm:1435) -- an inconsistency, not a contract. Every
+    # self-link now carries the scheme the request arrived on.
+    generator.set("uri", f"{base_url}/sword-app/")
     generator.set("version", ns.GENERATOR_VERSION)
 
     etree.SubElement(root, ns.qname(ns.SWORD, "treatment")).text = ERROR_TREATMENT
@@ -117,7 +119,7 @@ def render_media_entry(*,
                        content_type: str,
                        collection: str,
                        group_name: str,
-                       site: str,
+                       base_url: str,
                        timestamp: Optional[datetime] = None,
                        contact_name: Optional[str] = None,
                        contact_email: Optional[str] = None,
@@ -159,13 +161,12 @@ def render_media_entry(*,
 
     content = etree.SubElement(root, ns.qname(ns.ATOM, "content"))
     content.set("type", content_type)
-    content.set("src", f"https://{site}/sword-app/edit/{deposit_id}")
+    content.set("src", f"{base_url}/sword-app/edit/{deposit_id}")
 
     source = etree.SubElement(root, ns.qname(ns.ATOM, "source"))
     generator = etree.SubElement(source, ns.qname(ns.ATOM, "generator"))
     generator.text = ns.GENERATOR_NAME
-    # https here, unlike the error document's http (AtomPP.pm:1435 vs Error.pm:63).
-    generator.set("uri", f"https://{site}/sword-app/")
+    generator.set("uri", f"{base_url}/sword-app/")
     generator.set("version", ns.GENERATOR_VERSION)
 
     etree.SubElement(root, ns.qname(ns.ATOM, "summary")).text = (
@@ -190,11 +191,11 @@ def render_media_entry(*,
 
     edit_media = etree.SubElement(root, ns.qname(ns.ATOM, "link"))
     edit_media.set("rel", "edit-media")
-    edit_media.set("href", f"https://{site}/sword-app/edit/{deposit_id}")
+    edit_media.set("href", f"{base_url}/sword-app/edit/{deposit_id}")
 
     edit = etree.SubElement(root, ns.qname(ns.ATOM, "link"))
     edit.set("rel", "edit")
-    edit.set("href", f"https://{site}/sword-app/edit/{deposit_id}.atom")
+    edit.set("href", f"{base_url}/sword-app/edit/{deposit_id}.atom")
 
     return etree.tostring(root, xml_declaration=True, encoding="utf-8",
                           pretty_print=True)
@@ -212,7 +213,7 @@ def render_wrapper_entry(*,
                          depositor: str,
                          summary: str,
                          primary_category: str,
-                         site: str,
+                         base_url: str,
                          secondary_categories: Optional[list] = None,
                          timestamp: Optional[datetime] = None,
                          contact_name: Optional[str] = None,
@@ -229,9 +230,9 @@ def render_wrapper_entry(*,
     ``arxiv:primary_category`` carries a real category and **no text**
     (``AtomPP.pm:1450-1462``), and there is a ``rel="alternate"`` tracking link.
 
-    That alternate link is ``http``, not ``https``, while the sibling ``edit`` links
-    on the same element are ``https`` (``AtomPP.pm:1477-1481``). Legacy is
-    inconsistent; each is reproduced as it is.
+    Legacy emitted the alternate link as ``http`` while the sibling ``edit`` links
+    were ``https`` (``AtomPP.pm:1477-1481``). That split was an accident of
+    hardcoding, so all of them now use the scheme the request arrived on.
     """
     moment = timestamp or datetime.now(timezone.utc)
     content_type = ENTRY_CONTENT_TYPE
@@ -255,12 +256,12 @@ def render_wrapper_entry(*,
 
     content = etree.SubElement(root, ns.qname(ns.ATOM, "content"))
     content.set("type", content_type)
-    content.set("src", f"https://{site}/sword-app/edit/{deposit_id}")
+    content.set("src", f"{base_url}/sword-app/edit/{deposit_id}")
 
     source = etree.SubElement(root, ns.qname(ns.ATOM, "source"))
     generator = etree.SubElement(source, ns.qname(ns.ATOM, "generator"))
     generator.text = ns.GENERATOR_NAME
-    generator.set("uri", f"https://{site}/sword-app/")
+    generator.set("uri", f"{base_url}/sword-app/")
     generator.set("version", ns.GENERATOR_VERSION)
 
     etree.SubElement(root, ns.qname(ns.ATOM, "summary")).text = summary
@@ -288,15 +289,15 @@ def render_wrapper_entry(*,
 
     edit_media = etree.SubElement(root, ns.qname(ns.ATOM, "link"))
     edit_media.set("rel", "edit-media")
-    edit_media.set("href", f"https://{site}/sword-app/edit/{deposit_id}")
+    edit_media.set("href", f"{base_url}/sword-app/edit/{deposit_id}")
 
     edit = etree.SubElement(root, ns.qname(ns.ATOM, "link"))
     edit.set("rel", "edit")
-    edit.set("href", f"https://{site}/sword-app/edit/{deposit_id}.atom")
+    edit.set("href", f"{base_url}/sword-app/edit/{deposit_id}.atom")
 
     alternate = etree.SubElement(root, ns.qname(ns.ATOM, "link"))
     alternate.set("rel", "alternate")
-    alternate.set("href", f"http://{site}/resolve/app/{deposit_id}")
+    alternate.set("href", f"{base_url}/resolve/app/{deposit_id}")
 
     return etree.tostring(root, xml_declaration=True, encoding="utf-8",
                           pretty_print=True)

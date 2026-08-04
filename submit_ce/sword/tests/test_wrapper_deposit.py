@@ -91,11 +91,15 @@ def test_location_and_links(client, depositor, media_href):
 
 
 def test_alternate_link_is_the_tracking_uri(client, depositor, media_href):
-    """submit_sword.md:658-662. http, unlike the https edit links beside it."""
+    """submit_sword.md:658-662.
+
+    Legacy hardcoded http here and https on the edit links; every self-link now
+    follows the scheme the request arrived on.
+    """
     response = _post_wrapper(client, depositor, _wrapper(media_href))
     sword_id = sword_client.sword_id(response.content)
     assert sword_client.alternate_link(response.content) == \
-        f"http://arxiv.org/resolve/app/{sword_id}"
+        f"https://arxiv.org/resolve/app/{sword_id}"
 
 
 def test_primary_category_carries_a_real_category_and_no_text(client, depositor,

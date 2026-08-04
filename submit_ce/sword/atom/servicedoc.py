@@ -91,8 +91,8 @@ def _set(parent, namespace: str, tag: str, text: Optional[str] = None):
 
 def render_service_document(*,
                             group_ids: Sequence[str],
-                            site: str,
-                            main_site: Optional[str] = None) -> bytes:
+                            base_url: str,
+                            main_site: str) -> bytes:
     """Serialize the service document for a depositor.
 
     ``group_ids`` are the groups the depositor may post to, as returned by
@@ -102,8 +102,6 @@ def render_service_document(*,
     (``ServiceDoc.pm:104-107``), which would have advertised collections the
     depositor could not use.
     """
-    main_site = main_site or site
-
     service = etree.Element(f"{{{APP}}}service", nsmap=DCTERMS_NSMAP)
 
     _set(service, ns.SWORD, "version", ns.SWORD_VERSION)
@@ -115,16 +113,18 @@ def render_service_document(*,
     _set(workspace, ns.ATOM, "title", WORKSPACE_TITLE)
 
     for group_id in group_ids:
-        _add_collection(workspace, group_id, site=site, main_site=main_site)
+        _add_collection(workspace, group_id, base_url=base_url,
+                        main_site=main_site)
 
     return etree.tostring(service, xml_declaration=True, encoding="utf-8",
                           pretty_print=True)
 
 
-def _add_collection(workspace, group_id: str, *, site: str, main_site: str):
+def _add_collection(workspace, group_id: str, *, base_url: str,
+                    main_site: str):
     collection = etree.SubElement(workspace, f"{{{APP}}}collection")
     name = sword_collections.collection_name(group_id)
-    collection.set("href", f"https://{site}/sword-app/{name}-collection")
+    collection.set("href", f"{base_url}/sword-app/{name}-collection")
 
     _set(collection, ns.ATOM, "title", sword_collections.group_title(group_id))
     for media_type in ACCEPTED_MEDIA_TYPES:

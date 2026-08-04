@@ -107,12 +107,47 @@ def build_deposit_store(config) -> DepositStore:
     return InMemoryDepositStore()
 
 
-def error_response(fault: SwordFault, site: str) -> Response:
+def request_base_url(request: Request) -> str:
+    """Scheme and host this request actually arrived on, e.g. ``https://arxiv.org``.
+
+    Every link the API makes to *itself* -- ``edit``, ``edit-media``,
+    ``rel="alternate"``, collection hrefs, ``Location`` -- is built from this rather
+    than from a configured hostname, so a depositor is told about the host they
+    reached. arXiv serves SWORD on more than one name (``arxiv.org``,
+    ``export.arxiv.org``, ``dev.arxiv.org``), and on a developer's laptop it is
+    ``localhost:8001``; a fixed ``BASE_SERVER`` gets all of those wrong.
+
+    Legacy used a config constant, ``$THIS_SITE`` (``AtomPP.pm``), but its own
+    tracking controller derived the URI from the request instead
+    (``Controller/Sword.pm:27``, Catalyst ``uri_for``). This follows the latter
+    throughout.
+
+    ``X-Forwarded-Proto``/``-Host`` win when present -- Cloud Run sets them, and the
+    container itself only ever sees plain http on :8080.
+
+    Links to arXiv *as a service* -- the help page, an archive's abstract, the
+    ``sword_errors`` anchors, ``/sword-license`` -- are not self-links and keep using
+    the configured public host.
+    """
+    def first(value: str) -> str:
+        return value.split(",")[0].strip()
+
+    forwarded_proto = request.headers.get("X-Forwarded-Proto")
+    scheme = first(forwarded_proto) if forwarded_proto else request.url.scheme
+
+    forwarded_host = request.headers.get("X-Forwarded-Host")
+    host = (first(forwarded_host) if forwarded_host
+            else request.headers.get("Host") or request.url.netloc)
+
+    return f"{scheme}://{host}"
+
+
+def error_response(fault: SwordFault, base_url: str, site: str) -> Response:
     """Render a `SwordFault` as its ``sword:error`` document."""
     headers = {}
     if fault.error.mnemonic == "EAUTH":
         headers["WWW-Authenticate"] = sword_auth.WWW_AUTHENTICATE
-    return Response(content=render_error(fault, site=site),
+    return Response(content=render_error(fault, base_url=base_url, site=site),
                     status_code=fault.status,
                     media_type=ERROR_CONTENT_TYPE,
                     headers=headers)
@@ -135,7 +170,8 @@ def create_sword_app() -> FastAPI:
 
     @app.exception_handler(SwordFault)
     def _sword_fault_handler(request: Request, fault: SwordFault) -> Response:
-        return error_response(fault, request.app.state.site)
+        return error_response(fault, request_base_url(request),
+                              request.app.state.site)
 
     @app.middleware("http")
     async def _reject_unsupported_methods(request: Request, call_next):
@@ -170,6 +206,7 @@ def create_sword_app() -> FastAPI:
         (``AtomPP.pm:352-366``).
         """
         site = request.app.state.site
+        base_url = request_base_url(request)
         if credentials is None:
             raise SwordFault("EAUTH", "no credentials")
 
@@ -184,7 +221,8 @@ def create_sword_app() -> FastAPI:
             else:
                 group_ids = depositor.groups
 
-            document = render_service_document(group_ids=group_ids, site=site)
+            document = render_service_document(
+                group_ids=group_ids, base_url=base_url, main_site=site)
 
         return Response(
             content=document,
@@ -208,6 +246,7 @@ def create_sword_app() -> FastAPI:
         permission, SWORD headers, checksum, then id allocation.
         """
         site = request.app.state.site
+        base_url = request_base_url(request)
         if credentials is None:
             raise SwordFault("EAUTH", "no credentials")
 
@@ -241,7 +280,7 @@ def create_sword_app() -> FastAPI:
 
         if headers.content_type.split(";", 1)[0].strip() == ATOM_ENTRY_TYPE:
             return _deposit_wrapper(request, collection, payload, headers,
-                                    credentials, site)
+                                    credentials, site, base_url)
 
         deposit_id = store.allocate_id()
         store.save(deposit_id, depositor.nickname, headers.content_type, payload)
@@ -252,7 +291,7 @@ def create_sword_app() -> FastAPI:
             content_type=headers.content_type,
             collection=collection,
             group_name=GROUPS[sword_collections.group_id(collection)].full_name,
-            site=site,
+            base_url=base_url,
             contact_name=headers.contact_name,
             contact_email=headers.contact_email,
             no_op=headers.no_op,
@@ -267,7 +306,7 @@ def create_sword_app() -> FastAPI:
         response_headers = {}
         if not headers.no_op:
             response_headers["Location"] = \
-                f"https://{site}/sword-app/getid/app/{deposit_id}"
+                f"{base_url}/sword-app/getid/app/{deposit_id}"
         if headers.filename:
             response_headers["Content-Disposition"] = headers.filename
 
@@ -344,6 +383,7 @@ def create_sword_app() -> FastAPI:
         type, SWORD headers, checksum, then the wrapper itself.
         """
         site = request.app.state.site
+        base_url = request_base_url(request)
         if credentials is None:
             raise SwordFault("EAUTH", "no credentials")
 
@@ -399,7 +439,7 @@ def create_sword_app() -> FastAPI:
                 summary=metadata.summary,
                 primary_category=metadata.primary_category,
                 secondary_categories=metadata.secondary_categories,
-                site=site,
+                base_url=base_url,
                 contact_name=metadata.contact_name,
                 contact_email=metadata.contact_email,
                 no_op=headers.no_op,
@@ -426,7 +466,7 @@ def create_sword_app() -> FastAPI:
         response_headers = {}
         if not headers.no_op:
             response_headers["Location"] = \
-                f"https://{site}/sword-app/getid/app/{sword_id}"
+                f"{base_url}/sword-app/getid/app/{sword_id}"
 
         return Response(content=entry,
                         status_code=200 if headers.no_op else 202,
@@ -456,10 +496,10 @@ def create_sword_app() -> FastAPI:
         ``/resolve``, and the manual documents a plain GET
         (``submit_sword.md:664``).
         """
-        site = request.app.state.site
+        base_url = request_base_url(request)
         with sword_session() as session:
             status = resolve_deposit(session, request.app.state.api,
-                                    sword_id, site)
+                                    sword_id, base_url)
         return Response(content=render_deposit(status),
                         media_type=TRACKING_CONTENT_TYPE)
 
@@ -469,7 +509,8 @@ def create_sword_app() -> FastAPI:
 
 
 def _deposit_wrapper(request: Request, collection: str, payload: bytes,
-                     headers, credentials, site: str) -> Response:
+                     headers, credentials, site: str,
+                     base_url: str) -> Response:
     """A metadata wrapper: validate it, create the submission, answer 202.
 
     Called from the collection POST route once the content type marks the body as
@@ -506,7 +547,7 @@ def _deposit_wrapper(request: Request, collection: str, payload: bytes,
             summary=metadata.summary,
             primary_category=metadata.primary_category,
             secondary_categories=metadata.secondary_categories,
-            site=site,
+            base_url=base_url,
             contact_name=metadata.contact_name,
             contact_email=metadata.contact_email,
             no_op=headers.no_op,
@@ -534,7 +575,7 @@ def _deposit_wrapper(request: Request, collection: str, payload: bytes,
     response_headers = {}
     if not headers.no_op:
         response_headers["Location"] = \
-            f"https://{site}/sword-app/getid/app/{sword_id}"
+            f"{base_url}/sword-app/getid/app/{sword_id}"
 
     return Response(content=entry,
                     status_code=200 if headers.no_op else 202,

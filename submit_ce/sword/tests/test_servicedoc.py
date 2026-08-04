@@ -18,10 +18,12 @@ from submit_ce.sword.atom.servicedoc import (
 from submit_ce.sword.tests.client import basic_auth
 
 SITE = "arxiv.org"
+BASE_URL = "https://arxiv.org"
 
 
 def _doc(group_ids=("grp_cs", "grp_stat"), **kwargs):
-    kwargs.setdefault("site", SITE)
+    kwargs.setdefault("base_url", BASE_URL)
+    kwargs.setdefault("main_site", SITE)
     return render_service_document(group_ids=list(group_ids), **kwargs)
 
 

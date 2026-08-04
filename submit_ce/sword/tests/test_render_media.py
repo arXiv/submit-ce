@@ -20,7 +20,7 @@ BASE = dict(
     content_type="application/zip",
     collection="physics",
     group_name="Physics",
-    site="arxiv.org",
+    base_url="https://arxiv.org",
     timestamp=MOMENT,
 )
 
@@ -91,7 +91,8 @@ def test_wrapper_entry_optional_elements():
     def tree(**kwargs):
         return etree.fromstring(render_wrapper_entry(
             deposit_id="08050007", depositor="schwande", summary="An abstract",
-            primary_category="hep-th", site="arxiv.org", timestamp=MOMENT,
+            primary_category="hep-th", base_url="https://arxiv.org",
+            timestamp=MOMENT,
             **kwargs))
 
     plain = tree()
@@ -123,7 +124,8 @@ def test_replacement_verbose_description_differs():
     def described(replacing):
         root = etree.fromstring(render_wrapper_entry(
             deposit_id="08050007", depositor="schwande", summary="An abstract",
-            primary_category="hep-th", site="arxiv.org", timestamp=MOMENT,
+            primary_category="hep-th", base_url="https://arxiv.org",
+            timestamp=MOMENT,
             verbose=True, replacing=replacing))
         return root.findtext(ns.qname(ns.SWORD, "verboseDescription"))
 
