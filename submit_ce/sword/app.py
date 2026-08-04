@@ -90,9 +90,12 @@ def sword_session():
 def build_deposit_store(config) -> DepositStore:
     """Choose a deposit staging store from settings.
 
-    Follows the same ``STORE`` switch as `config_backend_api`. The in-memory store
-    keeps nothing across a restart, which matches what ``STORE=null`` means
-    elsewhere in submit-ce.
+    Exhaustive on ``STORE``, like `config_backend_api`: an unrecognized value
+    raises rather than falling through. Defaulting to the in-memory store would be
+    the worst possible failure -- media deposits answer 201 while the bytes live
+    only in one process's heap, so they vanish on restart, the id counter restarts
+    and reissues ids already handed out, and a wrapper request routed to another
+    instance cannot see the media it references.
     """
     if config.STORE == "gs":
         from submit_ce.sword.gs_deposits import GsDepositStore
@@ -102,9 +105,14 @@ def build_deposit_store(config) -> DepositStore:
                     config.STORE_GS_BUCKET, prefix)
         return GsDepositStore(gs_bucket=config.STORE_GS_BUCKET,
                               gs_prefix=prefix)
-    logger.warning("STORE=%s: SWORD deposits are in memory and will not "
-                   "survive a restart", config.STORE)
-    return InMemoryDepositStore()
+    if config.STORE == "null":
+        logger.warning("STORE=null: SWORD deposits are in memory, are not "
+                       "shared between instances, and will not survive a "
+                       "restart")
+        return InMemoryDepositStore()
+    raise NotImplementedError(
+        f"STORE={config.STORE!r} has no SWORD deposit store. Add one here "
+        f"rather than letting deposits fall back to memory.")
 
 
 def request_base_url(request: Request) -> str:

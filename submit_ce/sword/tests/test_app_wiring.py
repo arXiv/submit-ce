@@ -2,11 +2,13 @@
 
 `build_deposit_store` picks the production backend from settings. A mistake here
 would be quiet and bad -- a deployment that thinks it is on GCS but is really
-using the in-memory store loses every deposit on restart -- so both branches are
-asserted.
+using the in-memory store loses every deposit on restart -- so every branch is
+asserted, including the refusal to guess.
 """
 
 from types import SimpleNamespace
+
+import pytest
 
 from submit_ce.sword.app import DEPOSIT_PREFIX, build_deposit_store
 from submit_ce.sword.deposits import InMemoryDepositStore
@@ -23,6 +25,18 @@ def _settings(**overrides):
 def test_null_store_selects_the_in_memory_backend():
     store = build_deposit_store(_settings(STORE="null"))
     assert isinstance(store, InMemoryDepositStore)
+
+
+def test_an_unknown_store_raises_rather_than_using_memory():
+    """The guard that keeps a future backend from silently landing in memory.
+
+    ``Settings.STORE`` is a ``Literal["gs", "null"]``, so pydantic rejects a typo
+    before this is reached -- but adding a third value to that Literal without
+    adding it here would otherwise route SWORD deposits to the heap while the file
+    store went to the real backend.
+    """
+    with pytest.raises(NotImplementedError, match="s3"):
+        build_deposit_store(_settings(STORE="s3"))
 
 
 class _StubClient:
