@@ -141,3 +141,14 @@ def build_issue_context(
         notifications.append(notification)
 
     return notifications, file_issues
+
+
+def has_blocking_issues(preflight_data: Optional[dict]) -> bool:
+    """Return True if any surfaced preflight issue is ``danger`` severity.
+
+    Mirrors 1.5's ``hasPreflightBlockers``: a ``danger`` issue must block the
+    submitter from continuing past Review Files. Silent/warning/info issues do
+    not block. (SUBMISSION-216 / C1.4)
+    """
+    notifications, _ = build_issue_context(preflight_data)
+    return any(n.get("severity") == "danger" for n in notifications)

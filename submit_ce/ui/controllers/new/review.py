@@ -30,7 +30,7 @@ from wtforms.validators import DataRequired
 from submit_ce.domain.uploads import Workspace, SourceFormat
 from submit_ce.domain.exceptions import InvalidEvent, SaveError
 from submit_ce.ui.controllers.util import validate_command
-from submit_ce.ui.preflight.issues import build_issue_context
+from submit_ce.ui.preflight.issues import build_issue_context, has_blocking_issues
 from submit_ce.ui.routes.flow_control import (
     stay_on_this_stage, ready_for_next, return_to_parent_stage,
     return_to_previous_stage, advance_to_current,
@@ -188,18 +188,8 @@ def review_files(method: str, params: MultiDict, session: Session,
                 title="Preflight unavailable")
             return stay_on_this_stage((rdata, status.OK, {}))
 
-        rdata['file_notes'] = dm.get_files_from_preflight(preflight_data)
-        _populate_form(form, preflight_data, user_decisions_data)
-        rdata['selected_top_level_files'] = [f for f in [form.source_file.data] if f]
-        # Surface preflight issues (SUBMISSION-210): reason-code-grouped banners
-        # + per-file badges, extracted server-side. Issue banners lead; the
-        # backend-status cards follow.
-        issue_notifications, file_issues = build_issue_context(preflight_data)
-        rdata['file_issues'] = file_issues
-        rdata['immediate_notifications'] = (
-            issue_notifications + _get_notifications(submission_id, preflight_data))
-
-        return stay_on_this_stage((rdata, status.OK, {}))
+        return _render_review_page(rdata, form, submission_id,
+                                   preflight_data, user_decisions_data)
 
     elif method == 'POST':
         # _update_preflight persists the submitted decisions and returns True only
@@ -211,15 +201,25 @@ def review_files(method: str, params: MultiDict, session: Session,
         if preflight_invalidated:
             return return_to_parent_stage((rdata, status.OK, {}))
         else:
-            _load_or_create_directives(params, session, submission_id, token)
-
-            preflight_data, user_decisions_data = _load_or_create_preflight(submission_id, params, session, token, workspace, submitter, client)
+            preflight_data, user_decisions_data = _load_or_create_preflight(
+                submission_id, params, session, token, workspace, submitter, client)
 
             if preflight_data is None:
                 alerts.flash_warning(
                     f"Preflight data is not available for this submission. {SUPPORT}",
                     title="Cannot generate directives")
                 return stay_on_this_stage((rdata, status.OK, {}))
+
+            # C1.4 (SUBMISSION-216): a danger-severity preflight issue blocks
+            # Continue -- mirrors 1.5's hasPreflightBlockers. Re-render Review
+            # Files with the issue banners instead of advancing.
+            if has_blocking_issues(preflight_data):
+                # danger issue(s) present -> re-render with the "Cannot continue"
+                # card (added by _render_review_page) instead of advancing.
+                return _render_review_page(rdata, form, submission_id,
+                                           preflight_data, user_decisions_data)
+
+            _load_or_create_directives(params, session, submission_id, token)
 
             zzrm = ZeroZeroReadMe()
             if user_decisions_data:
@@ -236,6 +236,40 @@ def review_files(method: str, params: MultiDict, session: Session,
             )
 
             return ready_for_next((rdata, status.OK, {}))
+
+
+def _render_review_page(rdata, form, submission_id, preflight_data,
+                        user_decisions_data):
+    """Populate ``rdata`` for the Review Files template and stay on the stage.
+
+    Shared by the GET path and the C1.4 danger-gate on POST so both render the
+    same page (file table, per-file badges, severity-grouped issue banners).
+    Also sets ``has_blocking_issues`` so the template can reflect the blocked
+    state. Returns a ``stay_on_this_stage`` flow-control result.
+    """
+    rdata['file_notes'] = dm.get_files_from_preflight(preflight_data)
+    _populate_form(form, preflight_data, user_decisions_data)
+    rdata['selected_top_level_files'] = [f for f in [form.source_file.data] if f]
+    # Surface preflight issues (SUBMISSION-210): reason-code-grouped banners
+    # + per-file badges, extracted server-side. Issue banners lead; the
+    # backend-status cards follow.
+    issue_notifications, file_issues = build_issue_context(preflight_data)
+    rdata['file_issues'] = file_issues
+    rdata['has_blocking_issues'] = any(
+        n.get('severity') == 'danger' for n in issue_notifications)
+    if rdata['has_blocking_issues']:
+        # Persistent danger card that explains why Continue is disabled. Shown on
+        # every render while blocked (GET and the POST gate), not just after a
+        # submit attempt -- the button is disabled, so a flash would never appear.
+        # (C1.4 / SUBMISSION-216)
+        issue_notifications = [{
+            'title': 'Cannot continue',
+            'severity': 'danger',
+            'body': 'Please resolve the highlighted problem(s) before you can continue.',
+        }] + issue_notifications
+    rdata['immediate_notifications'] = (
+        issue_notifications + _get_notifications(submission_id, preflight_data))
+    return stay_on_this_stage((rdata, status.OK, {}))
 
 
 def _get_zzrm_data(workspace: Workspace, submission_id: str) -> Optional[dict]:
