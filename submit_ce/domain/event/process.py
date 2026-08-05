@@ -526,7 +526,7 @@ class SetDecisions(EventWithSideEffect):
         # them here; the controller regenerates them from the new decisions.
         file_store.delete_directives(submission.submission_id)
         # Preflight analyses the *file set*, not the selection. Only invalidate it
-        # when files are actually removed (G29 / SUBMISSION-215). A selection-only
+        # when files are actually removed (SUBMISSION-215). A selection-only
         # change (compiler / top-level) leaves the report valid, so the submitter is
         # not bounced back to Upload for a needless re-scan.
         if self.files_to_delete:
