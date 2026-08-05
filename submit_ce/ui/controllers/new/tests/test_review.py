@@ -261,7 +261,9 @@ def test_update_preflight_decisions_changed_triggers_save(
             params, 'sub1', _make_workspace('main.tex'),
             authorized_user, None,
         )
-    assert result is True
+    # G29/SUBMISSION-215: a selection-only change still saves SetDecisions, but
+    # preflight is NOT invalidated (no file deleted), so this now returns False.
+    assert result is False
     mock_save.assert_called_once()
     cmd = mock_save.call_args[0][0]
     assert cmd.decisions['texlive_version'] == '2025'
@@ -283,7 +285,9 @@ def test_update_preflight_no_existing_decisions_triggers_save(
             params, 'sub1', _make_workspace('main.tex'),
             authorized_user, None,
         )
-    assert result is True
+    # G29/SUBMISSION-215: decisions saved, but no deletion -> preflight not
+    # invalidated -> returns False.
+    assert result is False
     mock_save.assert_called_once()
 
 

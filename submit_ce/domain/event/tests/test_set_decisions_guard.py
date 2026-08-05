@@ -29,9 +29,13 @@ class _FakeStore:
         self.deleted = []
         self.user_decisions = None
         self.preflight_deleted = False
+        self.directives_deleted = False
 
     def delete_preflight(self, sid):
         self.preflight_deleted = True
+
+    def delete_directives(self, sid):
+        self.directives_deleted = True
 
     def store_user_decisions(self, sid, decisions):
         self.user_decisions = decisions
@@ -115,3 +119,38 @@ def test_protected_top_level_sources_helper():
     assert _protected_top_level_sources(decisions) == {'a.tex', 'b.tex'}
     assert _protected_top_level_sources({}) == set()
     assert _protected_top_level_sources({'sources': []}) == set()
+
+
+# --- G29 / SUBMISSION-215: preflight is invalidated only on a file-set change ---
+
+def test_execute_selection_only_keeps_preflight():
+    """Selection-only change (no deletions): preflight is preserved, but directives
+    are dropped (so they regenerate) and the decisions are persisted."""
+    s = _submission()
+    api = _FakeApi()
+    e = SetDecisions(
+        creator=s.creator,
+        decisions={'sources': [{'filename': 'main.tex'}],
+                   'process': {'compiler': 'pdflatex'}},
+        files_to_delete=[],
+    )
+    e.execute(api, s)
+    assert api._store.preflight_deleted is False   # <-- the G29 fix
+    assert api._store.directives_deleted is True
+    assert api._store.user_decisions is not None
+    assert api._store.deleted == []
+
+
+def test_execute_file_deletion_invalidates_preflight():
+    """Deleting a file DOES invalidate preflight (and drops directives)."""
+    s = _submission()
+    api = _FakeApi()
+    e = SetDecisions(
+        creator=s.creator,
+        decisions={'sources': [{'filename': 'main.tex'}]},
+        files_to_delete=['fig.png'],
+    )
+    e.execute(api, s)
+    assert api._store.preflight_deleted is True
+    assert api._store.directives_deleted is True
+    assert api._store.deleted == ['fig.png']
