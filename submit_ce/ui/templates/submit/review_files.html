@@ -71,6 +71,20 @@
        e.g. when the user needs to add a missing file)
 #}
 {% block info_container_middle %}
+  {# Informational preflight status (C1.5/G6): moved out of the main issue
+     column into the sidebar so it doesn't compete with issues that need
+     action. Purely a "we analyzed your files" confirmation; the directives
+     line was dropped as redundant. #}
+  {% if preflight_ready %}
+  <div class="message-body">
+    <p class="has-text-success has-text-weight-semibold is-marginless">
+      &#10003; Files analyzed
+    </p>
+    <p class="is-size-7 has-text-grey">
+      We scanned your uploaded files. Any issues found are listed to the left.
+    </p>
+  </div>
+  {% endif %}
   <div class="message-body">
     <h2>Did you know you can simplify your submission?</h2>
     <p>Upload a single .tar.gz or zip file.</p>
@@ -119,6 +133,17 @@
   {% for notification in immediate_notifications %}
   <div class="notification is-{{ notification.severity }}" role="alert" aria-atomic="true">
     {% if notification.title %}<h2 class="is-size-5 is-marginless">{{ notification.title }}</h2>{% endif %}
+    {% if notification.issues %}
+    {# C1.6: a per-severity card listing its issues #}
+    <ul>
+      {% for item in notification.issues %}
+      <li>{{ item.text }}
+        {% if item.body %}<span class="is-size-7 has-text-grey">{{ item.body }}</span>{% endif %}
+        {% if item.url %}<a href="{{ item.url }}">{{ item.link_text }}</a>{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
     {% if notification.body %}
     <p>
       {{ notification.body }}
@@ -126,6 +151,7 @@
     {% endif %}
     {% if notification.url %}
     <p><a href="{{ notification.url }}">{{ notification.link_text }}</a></p>
+    {% endif %}
     {% endif %}
   </div>
   {% endfor %}
