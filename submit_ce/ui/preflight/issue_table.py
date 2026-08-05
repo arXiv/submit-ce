@@ -177,8 +177,12 @@ PREFLIGHT_ISSUE_DIRECTIVES: Dict[str, Dict[str, Any]] = {
     # --- derived: the producer no longer emits these as issues ---
     # hyperref_not_found is now a boolean (ToplevelFile.hyperref_found); the
     # extractor synthesizes the issue from it.
+    # SILENT per team review of the C1.6 cards reorg (2026-08-05): the "hyperref
+    # is no longer auto-loaded" notice is a migration reminder that has been shown
+    # for a long time and no longer needs repeating on every submission. Kept the
+    # message text below for provenance / easy revert if we want to resurface it.
     "hyperref_not_found": {
-        "severity": "info",
+        "severity": SILENT,
         "message": "arXiv's TeX processing no longer loads the hyperref package "
                    "automatically (it once did). If your document relies on "
                    r"hyperref, add \usepackage{hyperref} to your source and "

@@ -150,18 +150,18 @@ def test_silent_codes_are_skipped_everywhere():
     assert file_issues == {}
 
 
-def test_hyperref_not_found_is_derived_from_boolean():
-    """hyperref_not_found is no longer an emitted issue; it's derived from
-    ToplevelFile.hyperref_found == False."""
+def test_hyperref_not_found_is_silent():
+    """hyperref_not_found is derived from ToplevelFile.hyperref_found == False,
+    but is SILENT (SUBMISSION-218 review, 2026-08-05): the migration reminder is
+    no longer surfaced, so it produces neither a banner nor a per-file badge."""
     preflight = {
         'detected_toplevel_files': [
             {'filename': 'main.tex', 'hyperref_found': False, 'issues': []},
         ],
     }
-    notifications, _ = build_issue_context(preflight)
-    titles = [n['title'] for n in notifications]
-    assert any('hyperref' in t for t in titles)
-    assert notifications[0]['severity'] == 'info'
+    notifications, file_issues = build_issue_context(preflight)
+    assert notifications == []
+    assert file_issues == {}
 
 
 def test_unsupported_compiler_carries_learn_more_link():
