@@ -7,24 +7,29 @@
 {% endblock addl_head %}
 
 {# Renders one row of the Review Files table for a preflight-detected file,
-   or recurses into a subdirectory listing. The third argument
-   ``top_level_filenames`` is the list of currently-selected top-level TeX
-   files (one or more) so we can render "Used: top-level file" for each and
-   disable its delete checkbox -- a selected top-level file is what we're about
-   to compile and must not be deletable here (SUBMISSION-209).
-   ``file_issues`` maps filename -> per-file preflight issue badges (SUBMISSION-210).
-   00README.json likewise gets a dedicated label and a disabled delete
-   checkbox -- it's a build-directives file, not a candidate for deletion. #}
-{% macro display_preflight_tree(key, item, top_level_filenames, file_issues) %}
+   or recurses into a subdirectory listing. Each file ``item`` is a per-file
+   context object assembled server-side by ``build_file_rows`` (SUBMISSION-219 /
+   F0), so this macro renders fields instead of computing them inline:
+     ``item.badges``     -- per-file preflight issue badges (SUBMISSION-210);
+     ``item.is_toplevel``-- a currently-selected top-level TeX file: rendered as
+                            "Used: top-level file" with its delete checkbox
+                            disabled, since it's what we're about to compile and
+                            must not be deletable here (SUBMISSION-209);
+     ``item.is_readme``  -- the 00README.json build-directives file: a dedicated
+                            label and a disabled delete checkbox, not a deletion
+                            candidate.
+   C3 will extend this same object (used/unused, delete defaults) without
+   touching this macro. #}
+{% macro display_preflight_tree(key, item) %}
   {% if 'filename' in item %}
   <tr>
     <td class="has-text-centered">
       <input type="hidden" name="all_files" value="{{ item.filename }}">
-      {% if item.filename == '00README.json' %}
+      {% if item.is_readme %}
         <input type="checkbox" name="selected_files" value="{{ item.filename }}"
                disabled data-lock="permanent"
                title="00README.json contains build directives and cannot be deleted from this step">
-      {% elif item.filename in top_level_filenames %}
+      {% elif item.is_toplevel %}
         <input type="checkbox" name="selected_files" value="{{ item.filename }}"
                disabled
                title="This is a selected top-level TeX file and cannot be deleted here. Remove it from the Top-Level TeX selection first.">
@@ -36,13 +41,13 @@
     <td>
       {# Preflight issue badges (SUBMISSION-210), severity-colored, before the
          auto-detected usage note. #}
-      {% set file_issue_list = file_issues.get(item.filename) if file_issues else None %}
+      {% set file_issue_list = item.badges %}
       {% if file_issue_list %}
         {% for issue in file_issue_list %}<span class="tag is-{{ issue.severity }}">{{ issue.label }}</span> {% endfor %}<br>
       {% endif %}
-      {% if item.filename == '00README.json' %}
+      {% if item.is_readme %}
         Build directives file
-      {% elif item.filename in top_level_filenames %}
+      {% elif item.is_toplevel %}
         Used: top-level file
       {% else %}
         {% if item.used_by %}Used by: {{ item.used_by | join(', ') }}<br>{% endif %}
@@ -54,7 +59,7 @@
   {% else %}
   <tr><td colspan="3"><em>{{ key }}/</em></td></tr>
   {% for k, subitem in item.items() %}
-    {{ display_preflight_tree(k, subitem, top_level_filenames, file_issues) }}
+    {{ display_preflight_tree(k, subitem) }}
   {% endfor %}
   {% endif %}
 {% endmacro %}
@@ -232,7 +237,7 @@
       </thead>
       <tbody>
         {% for k, item in (file_notes | group_preflight_files).items() %}
-          {{ display_preflight_tree(k, item, selected_top_level_files, file_issues) }}
+          {{ display_preflight_tree(k, item) }}
         {% endfor %}
       </tbody>
     </table>

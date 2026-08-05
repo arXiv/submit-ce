@@ -33,6 +33,7 @@ from submit_ce.ui.controllers.util import validate_command
 from submit_ce.ui.preflight.issues import (
     build_issue_context, has_blocking_issues, group_notifications_by_severity,
 )
+from submit_ce.ui.preflight.file_context import build_file_rows
 from submit_ce.ui.routes.flow_control import (
     stay_on_this_stage, ready_for_next, return_to_parent_stage,
     return_to_previous_stage, advance_to_current,
@@ -249,14 +250,24 @@ def _render_review_page(rdata, form, submission_id, preflight_data,
     Also sets ``has_blocking_issues`` so the template can reflect the blocked
     state. Returns a ``stay_on_this_stage`` flow-control result.
     """
-    rdata['file_notes'] = dm.get_files_from_preflight(preflight_data)
     _populate_form(form, preflight_data, user_decisions_data)
-    rdata['selected_top_level_files'] = [f for f in [form.source_file.data] if f]
+    selected_top_level_files = [f for f in [form.source_file.data] if f]
+    rdata['selected_top_level_files'] = selected_top_level_files
     # Surface preflight issues (SUBMISSION-210): reason-code-grouped banners
     # + per-file badges, extracted server-side. Issue banners lead; the
     # backend-status cards follow.
     issue_notifications, file_issues = build_issue_context(preflight_data)
     rdata['file_issues'] = file_issues
+    # F0 (SUBMISSION-219): fold the per-file badges and the top-level / README
+    # flags into each file row so the template renders fields from one object
+    # instead of computing them inline (and re-deriving them from separate
+    # file_issues / selected_top_level_files parameters). Gives C3 a single
+    # per-file object to extend with used/unused + delete defaults later.
+    rdata['file_notes'] = build_file_rows(
+        dm.get_files_from_preflight(preflight_data),
+        file_issues,
+        selected_top_level_files,
+    )
     rdata['has_blocking_issues'] = any(
         n.get('severity') == 'danger' for n in issue_notifications)
     # C1.6 (SUBMISSION-218): collapse the per-code issue banners into one card
