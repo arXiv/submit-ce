@@ -178,16 +178,11 @@ PREFLIGHT_ISSUE_DIRECTIVES: Dict[str, Dict[str, Any]] = {
     # hyperref_not_found is now a boolean (ToplevelFile.hyperref_found); the
     # extractor synthesizes the issue from it.
     # SILENT per team review of the C1.6 cards reorg (2026-08-05): the "hyperref
-    # is no longer auto-loaded" notice is a migration reminder that has been shown
-    # for a long time and no longer needs repeating on every submission. Kept the
-    # message text below for provenance / easy revert if we want to resurface it.
-    "hyperref_not_found": {
-        "severity": SILENT,
-        "message": "arXiv's TeX processing no longer loads the hyperref package "
-                   "automatically (it once did). If your document relies on "
-                   r"hyperref, add \usepackage{hyperref} to your source and "
-                   "re-upload.",
-    },
+    # is no longer auto-loaded" migration reminder has been shown for a long time
+    # and no longer needs repeating on every submission. Silent entries must carry
+    # NO `message` key (invariant asserted in test_issue_table.py); the former
+    # copy lives in git history if we ever want to resurface it.
+    "hyperref_not_found": {"severity": SILENT},
     # no_top_level_file: 1.5 kept this silent (deferred to a legacy system
     # message). 2.0 has no such message and the flow already blocks advancing
     # without a top-level, so we surface it as a blocking danger with a reason.
