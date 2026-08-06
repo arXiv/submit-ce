@@ -271,10 +271,10 @@ def _render_review_page(rdata, form, submission_id, preflight_data,
             'body': 'Please resolve the highlighted problem(s) before you can continue.',
         }] + cards
     rdata['immediate_notifications'] = cards
-    # C1.5/G6: passive status moved out of the main issue column into the
-    # sidebar; the "directives" status line is dropped (backend jargon). The
-    # main column is reserved for issues that need the submitter's attention.
-    rdata['preflight_ready'] = preflight_data is not None
+    # C1.5/G6: the passive "preflight complete" / "directives" status cards are
+    # dropped entirely (per UI-design review) -- the main column is reserved for
+    # issues that need the submitter's attention, and nothing replaces them in
+    # the sidebar.
     return stay_on_this_stage((rdata, status.OK, {}))
 
 
