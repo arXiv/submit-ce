@@ -4,6 +4,11 @@
 {{super()}}
  <script src="{{ url_for('static', filename='js/filewidget.js') }}"></script>
  <script src="{{ url_for('static', filename='js/review_top_level_guard.js') }}" defer></script>
+ <style>
+   /* Oversized-image row highlight (SUBMISSION-172), mirroring 1.5's
+      cream row tint. !important so it wins over the is-striped zebra shading. */
+   .review-files-table tbody tr.is-oversized td { background-color: #fffbe6 !important; }
+ </style>
 {% endblock addl_head %}
 
 {# Renders one row of the Review Files table for a preflight-detected file,
@@ -22,7 +27,10 @@
    touching this macro. #}
 {% macro display_preflight_tree(key, item) %}
   {% if 'filename' in item %}
-  <tr>
+  {# Oversized-image rows get a cream tint (SUBMISSION-172), mirroring
+     1.5. is_oversized is authoritative from preflight (large AND not
+     pdftex-fast-copy). #}
+  <tr{% if item.is_oversized %} class="is-oversized"{% endif %}>
     <td class="has-text-centered">
       <input type="hidden" name="all_files" value="{{ item.filename }}">
       {% if item.is_readme %}
@@ -37,7 +45,9 @@
         <input type="checkbox" name="selected_files" value="{{ item.filename }}">
       {% endif %}
     </td>
-    <td>{{ item.filename }}</td>
+    {# Image files show their size next to the name, MP to two decimals,
+       mirroring 1.5 (e.g. "figure.png (36.00 MP)"). (SUBMISSION-172) #}
+    <td>{{ item.filename }}{% if item.megapixels %} ({{ '%.2f'|format(item.megapixels) }} MP){% endif %}</td>
     <td>
       {# Preflight issue badges (SUBMISSION-210), severity-colored, before the
          auto-detected usage note. #}

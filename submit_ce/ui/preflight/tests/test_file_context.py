@@ -56,3 +56,16 @@ def test_none_issues_and_none_selection_are_safe():
 
 def test_empty_notes_returns_empty():
     assert build_file_rows([], {}, ["main.tex"]) == []
+
+
+def test_image_size_fields_pass_through_unchanged():
+    """Extra per-file keys (e.g. the image size fields get_files_from_preflight
+    attaches) flow through to the row without special handling -- the point of
+    the single per-file object (SUBMISSION-172)."""
+    notes = [{"filename": "big.png", "width": 7000, "height": 7000,
+              "megapixels": 49.0, "file_bytes": 12_000_000, "is_oversized": True}]
+    row = build_file_rows(notes, {}, [])[0]
+    assert row["megapixels"] == 49.0
+    assert row["width"] == 7000
+    assert row["is_oversized"] is True
+    assert row["file_bytes"] == 12_000_000
