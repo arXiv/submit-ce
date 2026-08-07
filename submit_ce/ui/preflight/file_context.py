@@ -3,13 +3,13 @@
 The ``display_preflight_tree`` macro used to compute everything about a file
 inline: it looked the badges up in a separate ``file_issues`` dict and decided
 "is this the 00README / a selected top-level file?" with string comparisons
-against extra template parameters. C1 (issue badges) and C3 (file-use status,
-delete defaults) both need to write that same "Auto-detected Notes" cell, so
+against extra template parameters. Issue badges and file-use status,
+delete default, both need to write that same "Auto-detected Notes" cell, so
 without a single seam they conflict in the controller and the template.
 
 This module provides that seam: it folds the per-file issue badges and the
 top-level / README flags into each file object, so the template renders
-fields from one object instead of computing them. C3 can extend the object
+fields from one object instead of computing them. The next phase will extend the object
 (used/unused, delete defaults, image size) without touching Jinja.
 
 Pure transform -- no I/O.
@@ -41,6 +41,11 @@ def build_file_rows(
     ``is_readme`` / ``is_toplevel`` drive both the disabled delete checkbox and
     the usage note; ``badges`` render before the note. The input dicts are not
     mutated.
+
+    Any other keys already on a file note are preserved unchanged -- e.g. the
+    image size fields ``width`` / ``height`` / ``megapixels`` / ``is_oversized``
+    that ``get_files_from_preflight`` attaches for image files (SUBMISSION-172). This is the point of the single per-file object: new per-file data is
+    added upstream and flows through without touching this helper or the macro.
     """
     issues = file_issues or {}
     top_levels = set(selected_top_level_files or [])

@@ -72,4 +72,21 @@ class DirectiveManager:
                     files.setdefault(used, {'filename': used})
                     files[used].setdefault(ref_key, []).append(tex_name)
 
+        # Carry per-image size metadata so the Review Files table can show
+        # dimensions and highlight oversized images (SUBMISSION-172).
+        # is_oversized is authoritative from preflight -- it already encodes
+        # "megapixels > threshold AND not pdftex-fast-copy", so a fast-copy
+        # image (e.g. JPEG, clean RGB PNG) is never oversized regardless of
+        # size. We surface these fields; we do not recompute the flag.
+        for img in preflight_data.get('image_files', []):
+            filename = img.get('filename')
+            if not filename:
+                continue
+            entry = files.setdefault(filename, {'filename': filename})
+            entry['width'] = img.get('width')
+            entry['height'] = img.get('height')
+            entry['megapixels'] = img.get('megapixels')
+            entry['file_bytes'] = img.get('file_bytes')
+            entry['is_oversized'] = img.get('is_oversized', False)
+
         return list(files.values())

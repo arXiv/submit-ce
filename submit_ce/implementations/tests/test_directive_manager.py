@@ -81,6 +81,41 @@ def test_get_files_from_preflight_builds_used_by_refs():
     assert by_name["refs.bib"]["used_by_bib"] == ["main.tex"]
 
 
+def test_get_files_from_preflight_carries_image_size_fields():
+    """Image size metadata rides through onto the file row (SUBMISSION-172). is_oversized is taken verbatim from preflight -- it already encodes
+    "large AND not fast-copy" -- so a large fast-copy image is NOT oversized
+    while a same-size slow-copy image is."""
+    preflight = {
+        "image_files": [
+            {"filename": "big_slow.png", "width": 7000, "height": 7000,
+             "megapixels": 49.0, "file_bytes": 12_000_000,
+             "is_oversized": True, "pdftex-fast-copy": False},
+            {"filename": "big_fast.png", "width": 7000, "height": 7000,
+             "megapixels": 49.0, "file_bytes": 4_000_000,
+             "is_oversized": False, "pdftex-fast-copy": True},
+            {"filename": "small.png", "width": 1000, "height": 1000,
+             "megapixels": 1.0, "file_bytes": 200_000,
+             "is_oversized": False, "pdftex-fast-copy": True},
+        ],
+    }
+    by_name = {f["filename"]: f for f in dm.get_files_from_preflight(preflight)}
+
+    assert by_name["big_slow.png"]["megapixels"] == 49.0
+    assert by_name["big_slow.png"]["width"] == 7000
+    assert by_name["big_slow.png"]["height"] == 7000
+    assert by_name["big_slow.png"]["file_bytes"] == 12_000_000
+    assert by_name["big_slow.png"]["is_oversized"] is True
+    # Same pixel count, but fast-copy -> not oversized.
+    assert by_name["big_fast.png"]["is_oversized"] is False
+    assert by_name["small.png"]["is_oversized"] is False
+
+
+def test_get_files_from_preflight_image_without_oversized_defaults_false():
+    preflight = {"image_files": [{"filename": "fig.png", "megapixels": 2.0}]}
+    row = dm.get_files_from_preflight(preflight)[0]
+    assert row["is_oversized"] is False
+
+
 def test_get_files_from_preflight_empty():
     assert dm.get_files_from_preflight({}) == []
 
