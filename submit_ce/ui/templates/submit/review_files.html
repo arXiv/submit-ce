@@ -119,6 +119,17 @@
   {% for notification in immediate_notifications %}
   <div class="notification is-{{ notification.severity }}" role="alert" aria-atomic="true">
     {% if notification.title %}<h2 class="is-size-5 is-marginless">{{ notification.title }}</h2>{% endif %}
+    {% if notification.issues %}
+    {# C1.6: a per-severity card listing its issues #}
+    <ul>
+      {% for item in notification.issues %}
+      <li>{{ item.text }}
+        {% if item.body %}<span class="is-size-7 has-text-grey">{{ item.body }}</span>{% endif %}
+        {% if item.url %}<a href="{{ item.url }}">{{ item.link_text }}</a>{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
     {% if notification.body %}
     <p>
       {{ notification.body }}
@@ -126,6 +137,7 @@
     {% endif %}
     {% if notification.url %}
     <p><a href="{{ notification.url }}">{{ notification.link_text }}</a></p>
+    {% endif %}
     {% endif %}
   </div>
   {% endfor %}

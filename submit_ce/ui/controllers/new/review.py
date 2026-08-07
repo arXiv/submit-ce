@@ -30,7 +30,9 @@ from wtforms.validators import DataRequired
 from submit_ce.domain.uploads import Workspace, SourceFormat
 from submit_ce.domain.exceptions import InvalidEvent, SaveError
 from submit_ce.ui.controllers.util import validate_command
-from submit_ce.ui.preflight.issues import build_issue_context, has_blocking_issues
+from submit_ce.ui.preflight.issues import (
+    build_issue_context, has_blocking_issues, group_notifications_by_severity,
+)
 from submit_ce.ui.routes.flow_control import (
     stay_on_this_stage, ready_for_next, return_to_parent_stage,
     return_to_previous_stage, advance_to_current,
@@ -257,18 +259,22 @@ def _render_review_page(rdata, form, submission_id, preflight_data,
     rdata['file_issues'] = file_issues
     rdata['has_blocking_issues'] = any(
         n.get('severity') == 'danger' for n in issue_notifications)
+    # C1.6 (SUBMISSION-218): collapse the per-code issue banners into one card
+    # per severity (danger / warning / info) so the page isn't a long stack.
+    cards = group_notifications_by_severity(issue_notifications)
     if rdata['has_blocking_issues']:
-        # Persistent danger card that explains why Continue is disabled. Shown on
-        # every render while blocked (GET and the POST gate), not just after a
-        # submit attempt -- the button is disabled, so a flash would never appear.
-        # (C1.4 / SUBMISSION-216)
-        issue_notifications = [{
+        # C1.4: a persistent danger summary card explaining the block leads the
+        # list (rendered on GET too, since the button stays enabled).
+        cards = [{
             'title': 'Cannot continue',
             'severity': 'danger',
             'body': 'Please resolve the highlighted problem(s) before you can continue.',
-        }] + issue_notifications
-    rdata['immediate_notifications'] = (
-        issue_notifications + _get_notifications(submission_id, preflight_data))
+        }] + cards
+    rdata['immediate_notifications'] = cards
+    # C1.5/G6: the passive "preflight complete" / "directives" status cards are
+    # dropped entirely (per UI-design review) -- the main column is reserved for
+    # issues that need the submitter's attention, and nothing replaces them in
+    # the sidebar.
     return stay_on_this_stage((rdata, status.OK, {}))
 
 
@@ -469,37 +475,6 @@ def _load_or_create_directives(params: MultiDict, session: Session, submission_i
     file_store = current_app.api.get_file_store()
     if not file_store.does_directives_exist(submission_id):
         start_directives(params, session, submission_id, token)
-
-
-def _get_notifications(submission_id: str, preflight_data: Optional[dict]) -> List[Dict[str, str]]:
-    notifications = []
-    if preflight_data is not None:
-        notifications.append({
-            'title': 'Preflight complete',
-            'severity': 'success',
-            'body': 'Your files have been analyzed.',
-        })
-    else:
-        notifications.append({
-            'title': 'Preflight pending',
-            'severity': 'warning',
-            'body': 'Preflight analysis is not yet available for your files.',
-        })
-
-    if current_app.api.get_file_store().does_directives_exist(submission_id):
-        notifications.append({
-            'title': 'Directives ready',
-            'severity': 'success',
-            'body': 'Compilation directives have been generated.',
-        })
-    else:
-        notifications.append({
-            'title': 'Directives pending',
-            'severity': 'info',
-            'body': 'Compilation directives have not yet been generated.',
-        })
-
-    return notifications
 
 
 def start_preflight(params: MultiDict, session: Session, submission_id: str,

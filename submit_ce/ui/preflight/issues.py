@@ -152,3 +152,43 @@ def has_blocking_issues(preflight_data: Optional[dict]) -> bool:
     """
     notifications, _ = build_issue_context(preflight_data)
     return any(n.get("severity") == "danger" for n in notifications)
+
+
+# Order + headings for the consolidated per-severity issue cards (C1.6).
+_SEVERITY_ORDER = ("danger", "warning", "info")
+_SEVERITY_HEADINGS = {
+    "danger": "Errors",
+    "warning": "Warnings",
+    "info": "For your information",
+}
+
+
+def group_notifications_by_severity(
+    notifications: List[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    """Collapse the per-code issue notifications into one card per severity.
+
+    Instead of one banner per reason code, return at most three cards -- danger,
+    then warning, then info -- each carrying the individual issues as ``issues``
+    (``{text, body, url?, link_text?}``). Restores 1.5's severity-zone grouping
+    (danger/warning/neutral message areas). (SUBMISSION-218 / C1.6)
+    """
+    buckets: Dict[str, List[Dict[str, Any]]] = {}
+    for n in notifications:
+        buckets.setdefault(n.get("severity", "warning"), []).append({
+            "text": n.get("title", ""),
+            "body": n.get("body", ""),
+            "url": n.get("url"),
+            "link_text": n.get("link_text"),
+        })
+    grouped: List[Dict[str, Any]] = []
+    for severity in _SEVERITY_ORDER:
+        if buckets.get(severity):
+            grouped.append({
+                "severity": severity,
+                "title": _SEVERITY_HEADINGS[severity],
+                # NB: key is 'issues', NOT 'items' -- in Jinja `x.items` on a dict
+                # resolves to the built-in dict.items method, breaking the template.
+                "issues": buckets[severity],
+            })
+    return grouped

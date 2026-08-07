@@ -482,54 +482,6 @@ def test_populate_form_defaults_when_no_user_decisions(app):
         assert form.compiler_version.data == Compilation.CompilerVersion.TEXLIVE_2025.value
 
 
-def _mock_file_store(app, mocker, directives_exist):
-    """Wire app.api.get_file_store() to a stub whose does_directives_exist
-    returns the given bool."""
-    store = MagicMock()
-    store.does_directives_exist.return_value = directives_exist
-    mocker.patch.object(app.api, 'get_file_store', return_value=store)
-    return store
-
-
-def test_get_notifications_preflight_and_directives(app, mocker):
-    """Both preflight present and directives ready: two success notifications."""
-    with app.app_context():
-        _mock_file_store(app, mocker, directives_exist=True)
-        notes = review._get_notifications('sub1', {'tex_files': []})
-    titles = [n['title'] for n in notes]
-    severities = [n['severity'] for n in notes]
-    assert titles == ['Preflight complete', 'Directives ready']
-    assert severities == ['success', 'success']
-
-
-def test_get_notifications_preflight_only(app, mocker):
-    """Preflight present, directives missing: complete + pending."""
-    with app.app_context():
-        _mock_file_store(app, mocker, directives_exist=False)
-        notes = review._get_notifications('sub1', {'tex_files': []})
-    assert [n['title'] for n in notes] == ['Preflight complete', 'Directives pending']
-    assert [n['severity'] for n in notes] == ['success', 'info']
-
-
-def test_get_notifications_directives_only(app, mocker):
-    """No preflight but directives ready: pending warning + success."""
-    with app.app_context():
-        _mock_file_store(app, mocker, directives_exist=True)
-        notes = review._get_notifications('sub1', None)
-    assert [n['title'] for n in notes] == ['Preflight pending', 'Directives ready']
-    assert [n['severity'] for n in notes] == ['warning', 'success']
-
-
-def test_get_notifications_nothing_ready(app, mocker):
-    """Neither preflight nor directives: two pending notifications."""
-    with app.app_context():
-        store = _mock_file_store(app, mocker, directives_exist=False)
-        notes = review._get_notifications('sub1', None)
-    assert [n['title'] for n in notes] == ['Preflight pending', 'Directives pending']
-    assert [n['severity'] for n in notes] == ['warning', 'info']
-    store.does_directives_exist.assert_called_once_with('sub1')
-
-
 def test_store_source_format_none_preflight_is_noop(app, mocker):
     """No preflight_data: nothing read, nothing saved."""
     mock_get_lang = mocker.patch.object(review.dm, 'get_lang_from_preflight')
