@@ -36,11 +36,13 @@ def build_file_rows(
     * ``badges`` -- per-file issue badges ``[{severity, label}, ...]`` (empty
       list when the file has none);
     * ``is_readme`` -- ``True`` for ``00README.json`` (build-directives file);
-    * ``is_toplevel`` -- ``True`` when the file is a selected top-level TeX file.
+    * ``is_toplevel`` -- ``True`` when the file is a selected top-level TeX file;
+    * ``is_unused`` -- ``True`` for an ordinary file that nothing references
+      (rendered as "Not used").
 
     ``is_readme`` / ``is_toplevel`` drive both the disabled delete checkbox and
-    the usage note; ``badges`` render before the note. The input dicts are not
-    mutated.
+    the usage note; ``is_unused`` drives the "Not used" note; ``badges`` render
+    before the note. The input dicts are not mutated.
 
     Any other keys already on a file note are preserved unchanged -- e.g. the
     image size fields ``width`` / ``height`` / ``megapixels`` / ``is_oversized``
@@ -56,5 +58,16 @@ def build_file_rows(
         row["badges"] = issues.get(filename) or []
         row["is_readme"] = filename == README_FILENAME
         row["is_toplevel"] = filename in top_levels
+        # Unused = an ordinary file (not the 00README, not a selected top-level)
+        # that no TeX/bib file references. These render "Not used", mirroring 1.5
+        # (SUBMISSION-220). Display only -- this does not (yet) pre-check
+        # the delete box; that comes later, gated on the delete-of-used policy.
+        row["is_unused"] = (
+            not row["is_readme"]
+            and not row["is_toplevel"]
+            and not (row.get("used_by")
+                     or row.get("used_by_tex")
+                     or row.get("used_by_bib"))
+        )
         rows.append(row)
     return rows
