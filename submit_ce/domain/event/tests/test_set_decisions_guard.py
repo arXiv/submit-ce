@@ -107,6 +107,36 @@ def test_execute_deletes_non_toplevel_and_counts_bytes():
     assert e.bytes_removed == 20
 
 
+def test_execute_skips_confidently_used_files():
+    """protected_sources (the preflight resolved-edge set, computed server-side)
+    are never deleted, mirroring the top-level guard -- even though they aren't
+    top-level. Unprotected files still delete. (SUBMISSION-221 / C3.2a)"""
+    s = _submission()
+    api = _FakeApi()
+    e = SetDecisions(
+        creator=s.creator,
+        decisions={'sources': [{'filename': 'main.tex'}]},
+        files_to_delete=['fig.png', 'refs.bib', 'junk.png'],
+        protected_sources=['fig.png', 'refs.bib'],
+    )
+    e.execute(api, s)
+    assert api._store.deleted == ['junk.png']
+    assert e.bytes_removed == 10
+
+
+def test_execute_protected_sources_default_empty_deletes_normally():
+    """Callers that don't pass protected_sources keep the old behavior."""
+    s = _submission()
+    api = _FakeApi()
+    e = SetDecisions(
+        creator=s.creator,
+        decisions={'sources': [{'filename': 'main.tex'}]},
+        files_to_delete=['fig.png'],
+    )
+    e.execute(api, s)
+    assert api._store.deleted == ['fig.png']
+
+
 def test_protected_top_level_sources_helper():
     """toplevel + usage-less sources are protected; include/ignore are not."""
     decisions = {'sources': [

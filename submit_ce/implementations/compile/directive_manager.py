@@ -53,13 +53,48 @@ class DirectiveManager:
                                  if k in ('compiler',)}
         return result
 
+    def used_source_filenames(preflight_data: dict) -> set:
+        '''Filenames preflight *resolved* a reference to (confidently used).
+
+        The union of every tex file's ``used_other_files`` / ``used_tex_files`` /
+        ``used_bib_files`` -- the resolved-edge set. These are high-confidence
+        "this file is needed" signals (unlike ``maybe_used_files``, a coarse
+        guess). Used by the Review Files delete-guard to refuse deletion of
+        confidently-used files (SUBMISSION-221 / C3.2a).
+        '''
+        used: set = set()
+        for tex_file in (preflight_data or {}).get('tex_files', []):
+            for key in ('used_other_files', 'used_tex_files', 'used_bib_files'):
+                for name in tex_file.get(key, []):
+                    if name:
+                        used.add(name)
+        return used
+
     def get_files_from_preflight(preflight_data: dict) -> list:
         files = {}
-        for section in ('detected_toplevel_files', 'tex_files', 'ancillary_files', 'maybe_used_files', 'image_files'):
+        # Object sections: each entry is a dict carrying a 'filename'.
+        for section in ('detected_toplevel_files', 'tex_files', 'image_files'):
             for f in preflight_data.get(section, []):
                 filename = f.get('filename')
                 if filename and filename not in files:
                     files[filename] = {'filename': filename}
+        # Plain-string sections: PreflightResponse types ancillary_files and
+        # maybe_used_files as list[str], so each entry is a filename string, not
+        # a dict. (These are almost always empty, which is why treating them as
+        # dicts went unnoticed until a .pygtex file populated maybe_used_files.)
+        for section in ('ancillary_files', 'maybe_used_files'):
+            for filename in preflight_data.get(section, []):
+                if filename and filename not in files:
+                    files[filename] = {'filename': filename}
+
+        # Tag maybe-used files (SUBMISSION-221 / C3.2a). These are a low-confidence
+        # guess -- preflight kept them (by extension: only .pygtex) but couldn't
+        # resolve a reference. Tagging lets the UI label them "Possibly used" (not
+        # "Not used") and leave them deletable but unprotected. A resolved edge
+        # below wins over this flag (handled in build_file_rows).
+        for filename in preflight_data.get('maybe_used_files', []):
+            if filename:
+                files[filename]['is_maybe_used'] = True
 
         for tex_file in preflight_data.get('tex_files', []):
             tex_name = tex_file.get('filename')

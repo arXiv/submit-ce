@@ -40,8 +40,11 @@
   function syncGuards() {
     var selected = selectedTopLevelFiles();
     deleteCheckboxes().forEach(function (cb) {
-      // Never touch permanently-locked rows (e.g. 00README.json).
-      if (cb.dataset.lock === "permanent") {
+      // Never touch server-locked rows: "permanent" (00README.json) or "used"
+      // (a confidently-used file protected from deletion, SUBMISSION-221 /
+      // C3.2a). Without this, the else-branch below would re-enable used-file
+      // checkboxes that the server rendered disabled.
+      if (cb.dataset.lock) {
         return;
       }
       if (selected.indexOf(cb.value) !== -1) {

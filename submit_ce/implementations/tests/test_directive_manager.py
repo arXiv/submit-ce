@@ -52,11 +52,13 @@ def test_convert_zzrm_to_user_decisions_drops_process_compiler_version():
 
 
 def test_get_files_from_preflight_collects_all_sections():
+    # NB: PreflightResponse types ancillary_files and maybe_used_files as
+    # list[str] -- plain filenames, not dicts (SUBMISSION-221 fix).
     preflight = {
         "detected_toplevel_files": [{"filename": "main.tex"}],
         "tex_files": [{"filename": "main.tex"}, {"filename": "extra.tex"}],
-        "ancillary_files": [{"filename": "anc.dat"}],
-        "maybe_used_files": [{"filename": "maybe.txt"}],
+        "ancillary_files": ["anc.dat"],
+        "maybe_used_files": ["maybe.txt"],
         "image_files": [{"filename": "fig.pdf"}],
     }
     result = dm.get_files_from_preflight(preflight)
@@ -114,6 +116,27 @@ def test_get_files_from_preflight_image_without_oversized_defaults_false():
     preflight = {"image_files": [{"filename": "fig.png", "megapixels": 2.0}]}
     row = dm.get_files_from_preflight(preflight)[0]
     assert row["is_oversized"] is False
+
+
+def test_used_source_filenames_unions_resolved_edges():
+    """The confidently-used set = union of every tex file's resolved edges
+    (SUBMISSION-221 / C3.2a)."""
+    preflight = {"tex_files": [
+        {"filename": "main.tex", "used_other_files": ["fig.png"],
+         "used_bib_files": ["refs.bib"]},
+        {"filename": "sec.tex", "used_tex_files": ["sub.tex"]},
+    ]}
+    assert dm.used_source_filenames(preflight) == {"fig.png", "refs.bib", "sub.tex"}
+    assert dm.used_source_filenames({}) == set()
+
+
+def test_get_files_from_preflight_tags_maybe_used():
+    """Files from the maybe_used_files section are tagged is_maybe_used so the UI
+    can tell them apart from truly-unused files (SUBMISSION-221 / C3.2a)."""
+    preflight = {"maybe_used_files": ["guess.sty"], "tex_files": []}
+    row = dm.get_files_from_preflight(preflight)[0]
+    assert row["filename"] == "guess.sty"
+    assert row["is_maybe_used"] is True
 
 
 def test_get_files_from_preflight_empty():

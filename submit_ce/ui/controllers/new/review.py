@@ -329,20 +329,24 @@ def _update_preflight(params: MultiDict, submission_id: str, workspace: Workspac
     existing_paths = {f.path for f in workspace.files}
     files_to_delete = [p for p in params.getlist('selected_files') if p in existing_paths]
 
-    # Never delete a file the user has selected as a top-level TeX file -- that's
-    # what we're about to compile (SUBMISSION-209). The template disables these
-    # checkboxes, but a crafted or stale POST can still carry them, so we filter
-    # here and warn the user. The authoritative guard is in SetDecisions.execute,
-    # which runs under the submission row lock.
+    # Never delete files the submission needs: the selected top-level TeX
+    # file(s) (SUBMISSION-209) and any file preflight resolved a reference to
+    # (SUBMISSION-221 / C3.2a). maybe-used and unused files stay deletable. The
+    # template disables these checkboxes, but a crafted or stale POST can still
+    # carry them, so we filter here and warn. The authoritative guard is in
+    # SetDecisions.execute, which runs under the submission row lock.
     selected_top_levels = _selected_top_level_files(params)
-    protected = [p for p in files_to_delete if p in selected_top_levels]
+    used_files = dm.used_source_filenames(_get_preflight_data(submission_id) or {})
+    protected_set = set(selected_top_levels) | used_files
+    protected = [p for p in files_to_delete if p in protected_set]
     if protected:
-        files_to_delete = [p for p in files_to_delete if p not in selected_top_levels]
+        files_to_delete = [p for p in files_to_delete if p not in protected_set]
         alerts.flash_warning(
-            "We kept your selected top-level TeX file(s) and did not delete "
-            f"them: {', '.join(protected)}. To delete one, first remove it from "
-            "the Top-Level TeX selection.",
-            title="Top-level file not deleted")
+            "We kept files your submission needs and did not delete them: "
+            f"{', '.join(protected)}. A top-level TeX file can be freed for "
+            "deletion by removing it from the Top-Level TeX selection; a "
+            "referenced file must first be unreferenced in your source.",
+            title="Files not deleted")
 
     # If the POST carries none of the review-form fields, the user clicked
     # "next" without changing anything; don't invalidate preflight.
@@ -366,7 +370,8 @@ def _update_preflight(params: MultiDict, submission_id: str, workspace: Workspac
 
     try:
         cmd = SetDecisions(creator=submitter, client=client,
-                           decisions=new_decisions, files_to_delete=files_to_delete)
+                           decisions=new_decisions, files_to_delete=files_to_delete,
+                           protected_sources=sorted(used_files))
         current_app.api.save(cmd, submission_id=submission_id)
         # Return whether PREFLIGHT was invalidated. Only a change to the file *set*
         # (a deletion) invalidates it, so the caller returns to Upload to re-run the

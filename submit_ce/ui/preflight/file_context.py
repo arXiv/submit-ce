@@ -37,12 +37,17 @@ def build_file_rows(
       list when the file has none);
     * ``is_readme`` -- ``True`` for ``00README.json`` (build-directives file);
     * ``is_toplevel`` -- ``True`` when the file is a selected top-level TeX file;
-    * ``is_unused`` -- ``True`` for an ordinary file that nothing references
-      (rendered as "Not used").
+    * ``is_used`` -- an ordinary file preflight resolved a reference to;
+    * ``is_maybe_used`` -- an ordinary file only in the coarse ``maybe_used_files``
+      guess bucket (rendered "Possibly used");
+    * ``is_unused`` -- an ordinary file nothing references (rendered "Not used");
+    * ``is_protected`` -- must not be deleted here (readme, selected top-level, or
+      confidently-used); drives the disabled delete checkbox.
 
-    ``is_readme`` / ``is_toplevel`` drive both the disabled delete checkbox and
-    the usage note; ``is_unused`` drives the "Not used" note; ``badges`` render
-    before the note. The input dicts are not mutated.
+    ``is_readme`` / ``is_toplevel`` / ``is_used`` / ``is_maybe_used`` / ``is_unused``
+    are mutually exclusive and drive the usage note; ``is_protected`` drives the
+    delete checkbox; ``badges`` render before the note. The input dicts are not
+    mutated.
 
     Any other keys already on a file note are preserved unchanged -- e.g. the
     image size fields ``width`` / ``height`` / ``megapixels`` / ``is_oversized``
@@ -58,16 +63,22 @@ def build_file_rows(
         row["badges"] = issues.get(filename) or []
         row["is_readme"] = filename == README_FILENAME
         row["is_toplevel"] = filename in top_levels
-        # Unused = an ordinary file (not the 00README, not a selected top-level)
-        # that no TeX/bib file references. These render "Not used", mirroring 1.5
-        # (SUBMISSION-220). Display only -- this does not (yet) pre-check
-        # the delete box; that comes later, gated on the delete-of-used policy.
-        row["is_unused"] = (
-            not row["is_readme"]
-            and not row["is_toplevel"]
-            and not (row.get("used_by")
-                     or row.get("used_by_tex")
-                     or row.get("used_by_bib"))
-        )
+        # Usage classification (SUBMISSION-221 / C3.2a), by descending confidence:
+        #   is_used       -- preflight resolved a reference to it (used_by* edges);
+        #   is_maybe_used -- only in the coarse maybe_used_files guess bucket;
+        #   is_unused     -- nothing references it at all ("Not used").
+        # A resolved edge wins over the maybe-used flag. The 00README and a
+        # selected top-level are handled separately and are none of these.
+        raw_maybe_used = bool(row.get("is_maybe_used"))
+        used_refs = bool(row.get("used_by")
+                         or row.get("used_by_tex")
+                         or row.get("used_by_bib"))
+        ordinary = not row["is_readme"] and not row["is_toplevel"]
+        row["is_used"] = ordinary and used_refs
+        row["is_maybe_used"] = ordinary and not used_refs and raw_maybe_used
+        row["is_unused"] = ordinary and not used_refs and not raw_maybe_used
+        # Protected from deletion (C3.2a): the 00README, a selected top-level, or
+        # a confidently-used file. maybe-used and unused files stay deletable.
+        row["is_protected"] = row["is_readme"] or row["is_toplevel"] or row["is_used"]
         rows.append(row)
     return rows

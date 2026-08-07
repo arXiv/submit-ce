@@ -41,6 +41,13 @@
         <input type="checkbox" name="selected_files" value="{{ item.filename }}"
                disabled
                title="This is a selected top-level TeX file and cannot be deleted here. Remove it from the Top-Level TeX selection first.">
+      {% elif item.is_used %}
+        {# Confidently used (a resolved reference). Protected from deletion here
+           (SUBMISSION-221 / C3.2a); maybe-used files below stay deletable.
+           data-lock keeps the top-level guard JS from re-enabling it on load. #}
+        <input type="checkbox" name="selected_files" value="{{ item.filename }}"
+               disabled data-lock="used"
+               title="This file is used by your submission and cannot be deleted here.">
       {% else %}
         <input type="checkbox" name="selected_files" value="{{ item.filename }}">
       {% endif %}
@@ -59,14 +66,17 @@
         Build directives file
       {% elif item.is_toplevel %}
         Used: top-level file
-      {% elif item.is_unused %}
-        {# Nothing references this file (SUBMISSION-220). Display only:
-           the delete box is not auto-checked yet -- that is coming next. #}
-        Not used
-      {% else %}
+      {% elif item.is_used %}
         {% if item.used_by %}Used by: {{ item.used_by | join(', ') }}<br>{% endif %}
         {% if item.used_by_tex %}Used by (TeX): {{ item.used_by_tex | join(', ') }}<br>{% endif %}
         {% if item.used_by_bib %}Used by (bib): {{ item.used_by_bib | join(', ') }}{% endif %}
+      {% elif item.is_maybe_used %}
+        {# In preflight's coarse maybe_used_files guess -- kept but no resolved
+           reference. Deletable but not suggested (SUBMISSION-221 / C3.2a). #}
+        Possibly used
+      {% else %}
+        {# Nothing references this file (SUBMISSION-220). #}
+        Not used
       {% endif %}
     </td>
   </tr>
