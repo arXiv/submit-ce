@@ -59,6 +59,10 @@
         Build directives file
       {% elif item.is_toplevel %}
         Used: top-level file
+      {% elif item.is_unused %}
+        {# Nothing references this file (SUBMISSION-220 / C3.1a). Display only:
+           the delete box is not auto-checked yet -- that is C3.2. #}
+        Not used
       {% else %}
         {% if item.used_by %}Used by: {{ item.used_by | join(', ') }}<br>{% endif %}
         {% if item.used_by_tex %}Used by (TeX): {{ item.used_by_tex | join(', ') }}<br>{% endif %}

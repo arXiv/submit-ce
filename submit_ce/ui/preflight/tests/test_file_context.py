@@ -44,9 +44,30 @@ def test_input_dicts_are_not_mutated():
     notes = _notes()
     build_file_rows(notes, {"main.tex": [{"severity": "danger", "label": "x"}]},
                     ["main.tex"])
-    # Original notes must be untouched (no badges/is_readme/is_toplevel leaked in).
-    assert all("badges" not in n and "is_readme" not in n
-               and "is_toplevel" not in n for n in notes)
+    # Original notes must be untouched (no derived keys leaked in).
+    assert all(k not in n for n in notes
+               for k in ("badges", "is_readme", "is_toplevel", "is_unused"))
+
+
+def test_is_unused_only_for_unreferenced_ordinary_files():
+    """"Not used" = an ordinary file nothing references. The 00README, the
+    selected top-level, and any referenced file are all 'used'. (SUBMISSION-220
+    / C3.1a)"""
+    notes = [
+        {"filename": "00README.json"},
+        {"filename": "main.tex"},                              # selected top-level
+        {"filename": "refs.bib", "used_by_bib": ["main.tex"]},  # referenced
+        {"filename": "sec.tex", "used_by_tex": ["main.tex"]},   # referenced
+        {"filename": "fig.png", "used_by": ["main.tex"]},       # referenced
+        {"filename": "orphan.png"},                             # nothing references
+    ]
+    by_name = {r["filename"]: r for r in build_file_rows(notes, {}, ["main.tex"])}
+    assert by_name["orphan.png"]["is_unused"] is True
+    assert by_name["00README.json"]["is_unused"] is False
+    assert by_name["main.tex"]["is_unused"] is False
+    assert by_name["refs.bib"]["is_unused"] is False
+    assert by_name["sec.tex"]["is_unused"] is False
+    assert by_name["fig.png"]["is_unused"] is False
 
 
 def test_none_issues_and_none_selection_are_safe():
