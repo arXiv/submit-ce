@@ -51,8 +51,7 @@ def test_input_dicts_are_not_mutated():
 
 def test_is_unused_only_for_unreferenced_ordinary_files():
     """"Not used" = an ordinary file nothing references. The 00README, the
-    selected top-level, and any referenced file are all 'used'. (SUBMISSION-220
-    / C3.1a)"""
+    selected top-level, and any referenced file are all 'used'. (SUBMISSION-220)"""
     notes = [
         {"filename": "00README.json"},
         {"filename": "main.tex"},                              # selected top-level

@@ -60,8 +60,8 @@ def build_file_rows(
         row["is_toplevel"] = filename in top_levels
         # Unused = an ordinary file (not the 00README, not a selected top-level)
         # that no TeX/bib file references. These render "Not used", mirroring 1.5
-        # (SUBMISSION-220 / C3.1a). Display only -- this does not (yet) pre-check
-        # the delete box; that's C3.2, gated on the delete-of-used policy.
+        # (SUBMISSION-220). Display only -- this does not (yet) pre-check
+        # the delete box; that comes later, gated on the delete-of-used policy.
         row["is_unused"] = (
             not row["is_readme"]
             and not row["is_toplevel"]
