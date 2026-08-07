@@ -160,6 +160,39 @@ def test_review_files_post_no_changes_stores_zzrm_and_advances(
     assert zzrm_calls[0].kwargs['submission_id'] == str(sub_files_tex.submission_id)
 
 
+def test_review_files_post_danger_issue_blocks_continue(
+        app, authorized_client, sub_files_tex, mocker):
+    """C1.4/SUBMISSION-216: a danger-severity preflight issue blocks Continue --
+    the controller stays on the stage (200, not a 303 redirect), renders the
+    'Cannot continue' card, and does not generate directives or store the
+    00README."""
+    url = f"/{sub_files_tex.submission_id}/review_files"
+    csrf = _get_csrf(authorized_client, url, mocker)
+
+    mocker.patch.object(review, '_update_preflight', return_value=False)
+    # A real danger payload so the gate and the rendered card agree
+    # (conflicting_file_type is a danger code).
+    danger_preflight = {
+        'tex_files': [],
+        'detected_toplevel_files': [
+            {'filename': 'main.tex',
+             'issues': [{'key': 'conflicting_file_type', 'info': ''}]}],
+    }
+    mocker.patch.object(review, '_load_or_create_preflight',
+                        return_value=(danger_preflight, {'sources': []}))
+    mock_load_dir = mocker.patch.object(review, '_load_or_create_directives')
+    mock_save = mocker.patch.object(app.api, 'save',
+                                    return_value=(MagicMock(), []))
+
+    resp = authorized_client.post(url, data={'csrf_token': csrf, 'action': 'next'})
+
+    assert resp.status_code == status.OK           # stayed; did not advance
+    mock_load_dir.assert_not_called()              # no directives generated
+    assert b'Cannot continue' in resp.data          # persistent danger card rendered
+    assert not any(c.args and isinstance(c.args[0], review.StoreZzrm)
+                   for c in mock_save.call_args_list)
+
+
 def _make_workspace(*paths):
     """Build a stand-in workspace whose `.files` carry the given paths."""
     ws = MagicMock()

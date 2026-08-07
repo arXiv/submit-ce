@@ -5,7 +5,39 @@ import pytest
 from submit_ce.ui.preflight.issues import (
     PREFLIGHT_ISSUE_DIRECTIVES,
     build_issue_context,
+    has_blocking_issues,
 )
+
+
+def _pf(*keys):
+    """Minimal preflight payload carrying the given issue codes on the top-level."""
+    return {
+        "detected_toplevel_files": [
+            {"filename": "main.tex",
+             "issues": [{"key": k, "info": ""} for k in keys]}
+        ],
+        "tex_files": [],
+    }
+
+
+# --- SUBMISSION-216 / C1.4: has_blocking_issues (danger blocks Continue) ---------
+
+def test_has_blocking_issues_true_for_danger_code():
+    assert has_blocking_issues(_pf("conflicting_file_type")) is True
+
+
+def test_has_blocking_issues_false_for_warning_only():
+    assert has_blocking_issues(_pf("file_not_found")) is False
+
+
+def test_has_blocking_issues_false_for_silent_or_empty_or_none():
+    assert has_blocking_issues(_pf("issue_in_subfile")) is False  # silent
+    assert has_blocking_issues(_pf()) is False
+    assert has_blocking_issues(None) is False
+
+
+def test_has_blocking_issues_true_when_danger_mixed_with_warning():
+    assert has_blocking_issues(_pf("file_not_found", "conflicting_file_type")) is True
 
 
 def test_directives_cover_every_producer_issue_type():
