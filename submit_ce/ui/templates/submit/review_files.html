@@ -60,8 +60,8 @@
       {% elif item.is_toplevel %}
         Used: top-level file
       {% elif item.is_unused %}
-        {# Nothing references this file (SUBMISSION-220 / C3.1a). Display only:
-           the delete box is not auto-checked yet -- that is C3.2. #}
+        {# Nothing references this file (SUBMISSION-220). Display only:
+           the delete box is not auto-checked yet -- that is coming next. #}
         Not used
       {% else %}
         {% if item.used_by %}Used by: {{ item.used_by | join(', ') }}<br>{% endif %}
