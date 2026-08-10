@@ -1,9 +1,12 @@
 {# Default-license selection for SWORD depositors.
 
-  Standalone rather than extending submit/base.html: the legacy page used
-  ``write_short_header`` (arxiv-httpd/cgi-bin/sword_license.pl:31-34), a minimal
-  chrome with no search form, and it is reached outside the submission workflow so
-  it has none of the workflow context the submit base template expects.
+  Extends arxiv-base's ``base/base.html`` for the standard arXiv header and footer.
+  The legacy page used ``write_short_header``
+  (arxiv-httpd/cgi-bin/sword_license.pl:31-34), a minimal chrome with no search
+  form, but this page is now dressed like the rest of the site. It extends
+  ``base/base.html`` rather than ``submit/base.html`` because it is reached outside
+  the submission workflow and so has none of the workflow context the submit base
+  template expects.
 
   The radio markup is load-bearing. The live regression suite matches on the exact
   string ``<input type="radio" name="License" value="..." checked="checked">``
@@ -11,13 +14,9 @@
   and the ``checked="checked"`` form must not be reflowed. ``</input>`` is invalid
   HTML but is what the Perl emitted, and is kept for byte-compatibility with any
   client scraping this page.
-#}<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <title>arXiv SWORD upload license selection</title>
-</head>
-<body>
+#}{% extends "base/base.html" %}
+
+{% block content %}
 <h2>License Statement</h2>
 <p>In order to submit your article to arXiv.org, you must select a license or declaration that gives us the rights necessary to distribute your article (see <a href="/help/license">Discussion of Licenses</a> for more information).</p>
 <form action="/sword-license" method="post">
@@ -25,5 +24,4 @@
 <input type="radio" name="License" value="{{ license.uri }}"{% if license.uri == selected %} checked="checked"{% endif %}>{{ license.label }}</input><br />
 {% endfor -%}
 <p>Check this carefully. Once you have selected a license here then SWORD deposits will be accepted with that license. Ok? then <input type="submit" value="Set license" /></p></form>
-</body>
-</html>
+{% endblock content %}
