@@ -172,7 +172,18 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
                 for info in zf.infolist():
                     if info.is_dir():
                         continue
-                    store_at = posixpath.join(src_dir, info.filename)
+                    # Normalize the member path before building the object key.
+                    # Archives packed with `tar -C dir .` (and some zips) prefix
+                    # every entry with "./", which would otherwise become a
+                    # literal "./" segment in the GCS key (".../src/./main.tex")
+                    # and never match the normalized filenames preflight reports
+                    # -- silently breaking file deletion. normpath collapses
+                    # "./" and redundant segments; skip the archive root itself.
+                    # (SUBMISSION-224)
+                    rel = posixpath.normpath(info.filename)
+                    if rel in (".", ""):
+                        continue
+                    store_at = posixpath.join(src_dir, rel)
                     self._check_path_safe(submission_id, store_at)
                     with zf.open(info) as file:
                         blob = self.bucket.blob(store_at)
@@ -187,7 +198,12 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
                     if extracted is None:
                         continue
                     with extracted as file:
-                        store_at = posixpath.join(src_dir, member.name)
+                        # Strip the "./" prefix that `tar -C dir .` adds; see the
+                        # zip branch above (SUBMISSION-224).
+                        rel = posixpath.normpath(member.name)
+                        if rel in (".", ""):
+                            continue
+                        store_at = posixpath.join(src_dir, rel)
                         self._check_path_safe(submission_id, store_at)
                         blob = self.bucket.blob(store_at)
                         blob.upload_from_file(file, size=member.size)

@@ -10,6 +10,7 @@ Use it via `mocked_file_store(app)` from `submit_ce/ui/conftest.py`.
 """
 import io
 import json
+import posixpath
 import tarfile
 import zipfile
 from datetime import datetime, timezone
@@ -111,14 +112,22 @@ class MockFileStore(NullFileStore):
                         continue
                     f = tar.extractfile(member)
                     if f is not None:
-                        files[member.name] = f.read()
+                        # Normalize "./"-prefixed member paths to match the GCS
+                        # store (SUBMISSION-224).
+                        rel = posixpath.normpath(member.name)
+                        if rel in (".", ""):
+                            continue
+                        files[rel] = f.read()
         except tarfile.TarError:
             try:
                 with zipfile.ZipFile(io.BytesIO(raw)) as zf:
                     for info in zf.infolist():
                         if info.is_dir():
                             continue
-                        files[info.filename] = zf.read(info)
+                        rel = posixpath.normpath(info.filename)
+                        if rel in (".", ""):
+                            continue
+                        files[rel] = zf.read(info)
             except zipfile.BadZipFile:
                 # Not a recognized archive — store as a single file.
                 files[content.filename] = raw
