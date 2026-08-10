@@ -48,6 +48,12 @@
         <input type="checkbox" name="selected_files" value="{{ item.filename }}"
                disabled data-lock="used"
                title="This file is used by your submission and cannot be deleted here.">
+      {% elif item.is_unused %}
+        {# Nothing references this file: pre-checked for deletion, mirroring 1.5
+           (SUBMISSION-222). The submitter can uncheck it, or use "Keep All".
+           maybe-used files (final else) stay deletable but UNchecked -- we don't
+           suggest removing something we merely couldn't resolve. #}
+        <input type="checkbox" name="selected_files" value="{{ item.filename }}" checked>
       {% else %}
         <input type="checkbox" name="selected_files" value="{{ item.filename }}">
       {% endif %}
