@@ -26,11 +26,36 @@ from typing import Tuple
 import arxiv.db.models as models
 from arxiv.auth.domain import Session
 from arxiv.db import Session as DB
+from arxiv.forms import csrf
 from arxiv.license import CURRENT_LICENSES
 from werkzeug.datastructures import MultiDict
 from werkzeug.exceptions import BadRequest
 
 logger = logging.getLogger(__name__)
+
+
+class SwordLicenseForm(csrf.CSRFForm):
+    """Carries the CSRF token, and nothing else.
+
+    Setting a default license is a state change on an authenticated session, so
+    without a token any page on the web could make a logged-in depositor accept a
+    license they did not choose -- or select ``no`` and silently disable their own
+    deposits. The Perl was reachable the same way; running under cookie auth in a
+    Flask app is what makes the token possible.
+
+    ``License`` is deliberately *not* a field here. Rendering it through a WTForms
+    widget would change the radio markup, and
+    ``arxiv-test-regression/pytest/tests/test_sword.py:43,51`` matches on the exact
+    string. The template keeps its hand-written loop and the value is validated in
+    `sword_license` against `offered_licenses`, as before.
+
+    Note `arxiv.forms.csrf` binds the token to the client IP, and its own docstring
+    advises against the package for that reason: a depositor whose address changes
+    between loading this page and submitting it gets a spurious failure. It is used
+    anyway to stay consistent with every other form in this app
+    (``controllers/new/classification.py:111``); migrating them all to a
+    session-bound token is its own change.
+    """
 
 NO_LICENSE = "no"
 """The value stored when a depositor declines to choose (``sword_license.pl:96``)."""
@@ -84,7 +109,26 @@ def sword_license(method: str, params: MultiDict, session: Session,
         raise BadRequest("No authenticated user")
     user_id = int(session.user.user_id)
 
+    form = SwordLicenseForm(params)
+
     if method == "POST":
+        # CSRF first: an unauthorised request should not reach the license check,
+        # and should not be told whether its value would have been accepted.
+        #
+        # ValueError because `SessionCSRF.validate_csrf_token` splits the token on
+        # "::" and unpacks two parts unconditionally, so a token without the
+        # separator raises out of `validate()` instead of failing validation. That
+        # would be a 500 on input anyone can send.
+        try:
+            valid_token = form.validate()
+        except ValueError:
+            valid_token = False
+
+        if not valid_token:
+            logger.info("rejected SWORD license POST for user %s: %s",
+                        user_id, form.errors)
+            raise BadRequest("Invalid or missing CSRF token")
+
         chosen = params.get("License")
         valid = {entry["uri"] for entry in offered_licenses()}
         if not chosen:
@@ -95,6 +139,11 @@ def sword_license(method: str, params: MultiDict, session: Session,
         set_license(user_id, chosen)
         logger.info("user %s set SWORD license to %s", user_id, chosen)
 
-    return ({"licenses": offered_licenses(),
+        # A fresh token for the re-rendered page: the submitted one is spent, and
+        # the form built from `params` would echo it back.
+        form = SwordLicenseForm()
+
+    return ({"form": form,
+             "licenses": offered_licenses(),
              "selected": get_license(user_id)},
             200, {})

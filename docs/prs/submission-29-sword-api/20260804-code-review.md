@@ -4,8 +4,10 @@ Review of `develop..SUBMISSION-29-sword` at `a680dfb` (2026-08-04).
 Scope: 77 files, +11,944 / −147. No PR open at time of review, so the range was
 diffed locally.
 
-Companion documents: [the implementation plan](plans/20260730-submission-29-sword-fastapi.md)
-and [manual testing guide](sword-getting-started.md).
+Companion documents: [the implementation plan](20260730-plan.md),
+[security review](20260804-security-review.md),
+[design review](20260810-design-review.md), and the
+[manual testing guide](../../sword-getting-started.md).
 
 Findings are ordered by severity. Each one records the evidence it rests on,
 because several plausible-looking concerns turned out to be non-issues on
@@ -14,18 +16,25 @@ re-litigated.
 
 ## Summary
 
-| # | Severity | Finding | Area |
-|---|----------|---------|------|
-| 1 | High | Only `SwordFault` has an exception handler; everything else is a non-XML 500 | `sword/app.py` |
-| 2 | High | `announced_submission_id()` ignores announced status; no conflict detection | `sword/replace.py` |
-| 3 | High | `/sword-license` POST has no CSRF token, against repo convention | `ui/` |
-| 4 | Medium | Wrapper deposits are not size-capped before parsing | `sword/deposits.py` |
-| 5 | Medium | Oversize deposits answer 415 with a self-contradicting error document | `sword/errors.py` |
-| 6 | Medium | Advertised 50 MB `maxUploadSize` may exceed the Cloud Run request limit | `cicd/` |
-| 7 | Medium | `/docs`, `/redoc`, `/openapi.json` served publicly | `sword/app.py` |
-| 8 | Medium | GCS id counter is a single-object write hotspot | `sword/gs_deposits.py` |
-| 9 | Low | Socket test guard does not stop gRPC, and its docstring claims it does | `conftest.py` |
-| 10 | Low | Assorted docstring/robustness nits | various |
+| # | Severity | Finding | Area | Status |
+|---|----------|---------|------|--------|
+| 1 | High | Only `SwordFault` has an exception handler; everything else is a non-XML 500 | `sword/app.py` | **Fixed** |
+| 2 | High | `announced_submission_id()` ignores announced status; no conflict detection | `sword/replace.py` | **Fixed** |
+| 3 | High | `/sword-license` POST has no CSRF token, against repo convention | `ui/` | **Fixed** |
+| 4 | Medium | Wrapper deposits are not size-capped before parsing | `sword/deposits.py` | Open |
+| 5 | Medium | Oversize deposits answer 415 with a self-contradicting error document | `sword/errors.py` | Open |
+| 6 | Medium | Advertised 50 MB `maxUploadSize` may exceed the Cloud Run request limit | `cicd/` | Open |
+| 7 | Medium | `/docs`, `/redoc`, `/openapi.json` served publicly | `sword/app.py` | Open |
+| 8 | Medium | GCS id counter is a single-object write hotspot | `sword/gs_deposits.py` | Open |
+| 9 | Low | Socket test guard does not stop gRPC, and its docstring claims it does | `conftest.py` | Open |
+| 10 | Low | Assorted docstring/robustness nits | various | Open |
+| 11 | High | A replacement's new row gets no event rows, so it cannot be loaded | `legacy_implementation/db.py` | Open, pinned |
+| 12 | Medium | A malformed CSRF token is a 500 from `arxiv.forms.csrf` | `arxiv-base` | Worked around |
+| 13 | — | `arxiv.forms.csrf` is documented "DO NOT USE" | `arxiv-base` | Accepted |
+
+Findings 11–13 were turned up by fixing 1–3, and 11 is the most serious thing in
+this document. Two claims in the first revision were wrong; see
+[Corrections](#corrections-to-the-first-revision).
 
 ## What is strong
 
@@ -48,7 +57,7 @@ Worth recording so it survives future refactors:
 
 ---
 
-## 1. Only `SwordFault` has an exception handler (High)
+## 1. Only `SwordFault` has an exception handler (High) — FIXED
 
 `submit_ce/sword/app.py:179` registers a handler for `SwordFault` and nothing
 else. Any other exception escapes to Starlette's default 500 handler, whose body
@@ -70,7 +79,26 @@ CGI wrapped the entire request, so a Perl die still produced an error document.
 a generic code) as a `sword:error`. Without it, the error-document work does not
 hold at the boundary where it matters most.
 
-## 2. `announced_submission_id()` ignores announced status (High)
+**Fixed.** `_unexpected_error_handler` at `submit_ce/sword/app.py:184` renders
+`ENAVL`/503 — 503 rather than a 500 code because the legacy set has none, this is
+what legacy answered when it could not proceed internally
+(`AtomPP.pm:258,501`), and it tells a batch depositor to retry rather than to
+treat the deposit as permanently refused. No internal detail reaches the client.
+
+Writing the tests found a bug in the first version of the handler: it used
+`logger.exception()`, which logged `NoneType: None`. The handler is sync, so
+Starlette runs it in a threadpool where `sys.exc_info()` is empty — every
+traceback would have been discarded in production, making "the detail goes to the
+log instead" a false promise. Now `exc_info=exc`, with a comment so nobody
+simplifies it back.
+
+Seven tests in `submit_ce/sword/tests/test_failure_surface.py`, including that a
+planned `SwordFault` still reaches its own handler — an `Exception` handler is
+easy to get wrong in the direction of catching everything, which would turn a 401
+into a 503 and make clients retry instead of fixing credentials. Confirmed
+non-vacuous: disabling the handler fails 4 of the 7.
+
+## 2. `announced_submission_id()` ignores announced status (High) — FIXED
 
 `submit_ce/sword/replace.py:111-121` selects the highest `submission_id` for a
 `doc_paper_id` with **no status filter**, despite its name, and despite
@@ -88,7 +116,33 @@ legacy pipeline wrote. Nothing in the new PUT path *detects* the condition.
 **Fix:** filter to announced submissions, and raise `EPSUB` when a version is
 already in flight. Rename the function if it keeps the loose behaviour.
 
-## 3. `/sword-license` POST has no CSRF token (High)
+**Fixed.** `announced_submission_id` now filters
+`status.in_(ANNOUNCED_STATUSES)`, and a new `pending_submission_id` finds a
+non-announced, non-deleted row for the paper. The route checks it after ownership,
+so only an owner learns the paper's state, and raises `EPSUB` — "submission
+pending, not replaceable", the code legacy already used for pending targets:
+
+```
+#1 -> 202
+#2 -> 400 code=4294967296 submission pending, not replaceable:
+        '2607.00001' already has submission 2 in progress
+```
+
+Status values come from `LegacySubmissionRow.ANNOUNCED`/`.DELETED` rather than
+inline `7`/`27`, because the `arxiv.db` mapper the sword code queries through
+carries no status constants.
+
+On parity: legacy detected this too, but only *after* accepting the deposit — the
+processing fork wrote `'failed - conflict'` into `arXiv_tracking`
+(`AtomPP.pm:1310-1313`) and the depositor discovered it by polling. submit-ce
+deposits inside the request, so refusing up front is strictly better; the
+reasoning is in the docstring so nobody "restores parity" later.
+
+Nine tests in `test_replace.py`, including that a refusal creates no third
+version, that a *deleted* version does not block a replacement, and that a
+non-owner never sees `EPSUB`.
+
+## 3. `/sword-license` POST has no CSRF token (High) — FIXED
 
 `submit_ce/ui/templates/submit/sword_license.html:23` is a hand-written
 `<form method="post">` with no token. There is **no global `CSRFProtect`** in
@@ -104,8 +158,31 @@ SWORD license silently changed — including to `no`, which disables their
 deposits, or to a license they did not choose, which then attaches to future
 deposits as the legal record.
 
-**Fix:** use `CSRFForm` like the rest of the UI. This is a straightforward
-convention break, not a design tradeoff.
+**Fix:** add a token. This revision's advice — "use `CSRFForm` like the rest of the
+UI" — was given without reading the package, which turns out to document itself as
+unusable; see finding 13 and the corrections below.
+
+**Fixed** with `SwordLicenseForm(csrf.CSRFForm)` in
+`submit_ce/ui/controllers/sword_license.py`, plus `{{ form.csrf_token }}` in the
+template, validated before the license value is looked at. `CSRFForm` was chosen
+over a session-bound alternative as an explicit call for consistency with the rest
+of the app, with finding 13's caveat recorded in the class docstring.
+
+`License` is deliberately **not** a form field: rendering it through a WTForms
+widget would change the radio markup that
+`arxiv-test-regression/pytest/tests/test_sword.py:43,51` matches exactly. The
+template keeps its hand-written loop and the value is still checked against
+`offered_licenses`.
+
+After a successful POST the controller builds a **fresh** form — the submitted
+token is spent, and echoing it back would leave the depositor unable to make a
+second change.
+
+Seven tests cover missing, forged, malformed and expired tokens. Each asserts the
+stored license is **unchanged** rather than absent: the first version asserted
+`is None` and failed under test ordering, because the `app` fixture outlives a
+single test and an earlier test had already written a row. Confirmed non-vacuous:
+disabling the check fails all four enforcement tests.
 
 ## 4. Wrapper deposits are not size-capped before parsing (Medium)
 
@@ -223,8 +300,10 @@ Individually minor; grouped so none is lost.
   there is **no live XXE or billion-laughs vulnerability**. But that safety
   rests entirely on library defaults. `XMLParser(resolve_entities=False,
   load_dtd=False, no_network=True)` plus a regression test would pin it.
-- `submit_ce/ui/controllers/sword_license.py:84` — raises `BadRequest` for an
-  anonymous visitor instead of redirecting to login.
+- ~~`submit_ce/ui/controllers/sword_license.py:84` — raises `BadRequest` for an
+  anonymous visitor instead of redirecting to login.~~ **Withdrawn**, see
+  [Corrections](#corrections-to-the-first-revision): an anonymous request is a 401
+  from upstream and never reaches the controller.
 
 **Compatibility notes (no data exposed, but record the decision):**
 
@@ -253,6 +332,91 @@ Individually minor; grouped so none is lost.
   `submit_ce/sword/replace.py:91-97`. **This is faithful** — legacy's subquery
   ignores them too. Worth a separate ticket against the legacy behaviour, not a
   change on this branch.
+
+---
+
+## 11. A replacement's new row has no events, so it cannot be loaded (High)
+
+Found while testing finding 2's fix, and more serious than the finding that
+exposed it.
+
+A replacement creates a new `arXiv_submissions` row, but **every event stays under
+the original submission's id**. Measured after one replacement:
+
+```
+submission_id=1 version=1 type=new status=7 events=17
+submission_id=2 version=2 type=rep status=0 events=0
+```
+
+The cause is `_new_dbevent` at
+`submit_ce/implementations/legacy_implementation/db.py:650`, which stamps each row
+with `event.submission_id` — for `CreateSubmissionVersion` that is the submission
+being *versioned*, not the one being created. So `get_events()` on the new row
+raises `NoSuchSubmission`, and a paper cannot be replaced a second time even after
+the intermediate version is announced.
+
+**Pre-existing and shared.** This is the legacy implementation's persistence, so
+the Flask UI's replacement flow versions an already-replaced paper no better than
+SWORD does. Verified by inspecting the event rows directly; the UI flow was not
+driven.
+
+Pinned as `@pytest.mark.xfail(strict=True, raises=NoSuchSubmission)` on
+`test_a_replacement_is_allowed_again_once_the_version_is_announced` in
+`test_replace.py`, with the diagnosis in the reason. It asserts the behaviour we
+want and will fail loudly when someone fixes it.
+
+**Not fixed here** — it is outside SWORD, affects the UI equally, and deserves its
+own change with its own verification.
+
+## 12. A malformed CSRF token is a 500 (Medium)
+
+`SessionCSRF._split` in `arxiv.forms.csrf` does `csrf_token.split('::', 1)` and
+unpacks two values unconditionally, so a token with no `::` raises `ValueError`
+out of `form.validate()`. WTForms catches `ValidationError`, not `ValueError`, so
+the request becomes a 500 — from input any client can send.
+
+**Worked around** in `sword_license` by catching `ValueError` around `validate()`
+and treating it as invalid, with a comment naming the cause. The bug itself is in
+`arxiv-base` and wants a ticket there.
+
+## 13. `arxiv.forms.csrf` is documented "DO NOT USE" (accepted)
+
+The package's own module docstring:
+
+> DO NOT USE THIS PACKAGE. This package is flawed and not currently used in
+> production. It assumes the client will respond on the same IP address that it
+> used to request the form. Look at the wtforms CSRF docs and use the examples
+> there.
+
+It also emits a `DeprecationWarning`. The practical consequence is that a
+depositor whose address changes between loading `/sword-license` and submitting it
+gets a spurious failure — plausible on mobile or behind a proxy pool.
+
+**Accepted deliberately.** Every other form in submit-ce uses it
+(`controllers/new/classification.py:111`), `wtforms` 3.1.2 is already a
+dependency and `flask-wtf` is not, and `CSRF_SECRET` is already configured for it.
+Consistency won over correctness here on the grounds that the alternative leaves
+the app with two CSRF mechanisms. Migrating all forms to a session-bound token is
+its own change, and is the real fix.
+
+---
+
+## Corrections to the first revision
+
+Two claims in this document were wrong. Recorded rather than quietly edited, since
+the first revision may have been read already.
+
+- **"Use `CSRFForm` like the rest of the UI. This is a straightforward convention
+  break, not a design tradeoff."** Wrong on the second half. The recommendation
+  was made without reading the package, which documents itself as unusable
+  (finding 13). It *is* a design tradeoff, and the choice was escalated rather
+  than assumed.
+- **"`sword_license.py:84` raises `BadRequest` for an anonymous visitor instead of
+  redirecting to login"** (in the nits). Wrong: an anonymous request never reaches
+  the controller — `test_post_requires_authentication` and
+  `test_page_requires_authentication` both assert **401**, produced upstream. The
+  `BadRequest` guard covers a session that exists without a user, which is not the
+  anonymous case. That nit is withdrawn.
 
 ---
 
@@ -290,6 +454,13 @@ coverage because no test drove two replacements in sequence.
 Worth adding cases that exercise repeated and interleaved operations rather than
 one-shot flows.
 
+Fixing 1–3 bore this out. Every defect found in that work — the discarded
+tracebacks, the un-loadable replacement row (finding 11), the 500 on a malformed
+token (finding 12) — came from a *test written against the fix*, not from reading
+the code. Two of the three fix-verifying tests were themselves wrong on the first
+attempt (`is None` under a shared fixture; asserting an unhandled error on a path
+that had just become a planned refusal). Coverage was 100% throughout.
+
 ## Outstanding from the plan
 
 Not review findings — restated for completeness:
@@ -303,5 +474,21 @@ Not review findings — restated for completeness:
 
 ## Recommendation
 
-Findings 1–3 should land before the service is reachable by clients: 1 and 2 are
-correctness, 3 is security. The rest can follow.
+Findings 1–3 are done: 1 and 2 were correctness, 3 was security, and all three
+were blockers on the service being reachable by clients.
+
+What now gates a deploy, in order:
+
+1. **Finding 11** — a paper cannot be replaced twice. Outside SWORD and affecting
+   the UI equally, so it needs its own change, but it is a functional hole in the
+   replacement feature this branch ships.
+2. **Findings 6 and 7** — both are deployment-shaped and cheap: confirm the
+   platform accepts the advertised 50 MB, and stop serving `/docs` publicly.
+3. **Finding 4** — cap the wrapper payload before parsing.
+
+Findings 5, 9, 10, 12 and 13 can follow at leisure. 12 and 13 are tickets against
+`arxiv-base` rather than work in this repo.
+
+Verification at the time of this revision: `submit_ce/sword` **621 passed, 1
+xfailed** at 100% statement and branch; full `./test.sh` **1212 passed, 57
+skipped, 1 xfailed**; `./lint.sh` clean.

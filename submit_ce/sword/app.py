@@ -181,6 +181,40 @@ def create_sword_app() -> FastAPI:
         return error_response(fault, request_base_url(request),
                               request.app.state.site)
 
+    @app.exception_handler(Exception)
+    def _unexpected_error_handler(request: Request,
+                                  exc: Exception) -> Response:
+        """Render anything that is not a `SwordFault` as one anyway.
+
+        Without this, an exception from the domain or database layer reaches
+        Starlette's default 500 handler and the depositor gets an HTML body. Every
+        SWORD client parses the response as XML, so an unhandled error is
+        indistinguishable to it from a malformed server.
+
+        The path that prompted this -- replacing a paper whose previous replacement
+        was not announced yet, which raised `NoSuchSubmission` from the event store
+        -- is now refused up front with EPSUB (`replace.pending_submission_id`). This
+        stays as the backstop for the ones not yet found.
+
+        ENAVL rather than a 500 code because the legacy set has none, this is what
+        legacy answered when it could not proceed internally (``AtomPP.pm:258,501``),
+        and 503 tells an automated depositor to retry rather than to treat the
+        deposit as permanently refused.
+
+        The exception never reaches the client: the traceback is logged, and the
+        response carries only the fixed message. Depositors are third parties, so
+        internal detail is not theirs to see.
+        """
+        # exc_info=exc, not logger.exception(): this handler is sync, so Starlette
+        # runs it in a threadpool where sys.exc_info() is empty and the traceback
+        # would be logged as "NoneType: None". Passing the exception is what makes
+        # withholding it from the response an acceptable trade.
+        logger.error("unhandled error in %s %s", request.method,
+                     request.url.path, exc_info=exc)
+        fault = SwordFault("ENAVL", "unexpected error handling the request")
+        return error_response(fault, request_base_url(request),
+                              request.app.state.site)
+
     @app.middleware("http")
     async def _reject_unsupported_methods(request: Request, call_next):
         """405 for anything outside GET/POST/PUT/DELETE.
@@ -414,6 +448,14 @@ def create_sword_app() -> FastAPI:
 
             headers = parse_deposit_headers(request.headers)
             verify_md5(payload, headers.md5)
+
+            # Refuse before doing any work if a version is already open. Checked
+            # after ownership so only an owner learns about the paper's state.
+            pending = sword_replace.pending_submission_id(session, paper_id)
+            if pending is not None:
+                raise SwordFault(
+                    "EPSUB",
+                    f"'{paper_id}' already has submission {pending} in progress")
 
             submission_id = sword_replace.announced_submission_id(
                 session, paper_id)

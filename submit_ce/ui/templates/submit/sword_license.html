@@ -20,6 +20,7 @@
 <h2>License Statement</h2>
 <p>In order to submit your article to arXiv.org, you must select a license or declaration that gives us the rights necessary to distribute your article (see <a href="/help/license">Discussion of Licenses</a> for more information).</p>
 <form action="/sword-license" method="post">
+{{ form.csrf_token }}
 {% for license in licenses -%}
 <label class="radio">
   <input type="radio" name="License" value="{{ license.uri }}"{% if license.uri == selected %} checked="checked"{% endif %}>{{ license.label }}

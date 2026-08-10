@@ -14,6 +14,7 @@ from lxml import etree
 
 from submit_ce.sword import replace as sword_replace
 from submit_ce.sword.atom import ns
+from submit_ce.domain.exceptions import NoSuchSubmission
 from submit_ce.sword.errors import SwordFault
 from submit_ce.sword.tests import client as sword_client
 from submit_ce.sword.tests.client import ATOM_ENTRY_TYPE, basic_auth
@@ -389,3 +390,140 @@ def test_replacement_honours_x_on_behalf_of(client, depositor, announced,
     replacement = Session.query(models.Submission).filter_by(
         doc_paper_id=PAPER_ID, version=2).one()
     assert replacement.submitter_email == "scientist@example.org"
+
+
+# ------------------------------------------------------- a version already in flight
+
+
+EPSUB_CODE = b"<arxiv:errorcode>4294967296</arxiv:errorcode>"
+
+
+def test_a_second_replacement_is_refused_while_the_first_is_open(
+        client, depositor, announced, media_href):
+    """One open version at a time.
+
+    A replacement creates an unannounced version 2. Until that is announced there is
+    nothing to build version 3 on, so the deposit is refused rather than attempted.
+
+    Legacy accepted the second deposit and reported the conflict afterwards, by
+    writing ``'failed - conflict'`` into ``arXiv_tracking`` from the processing fork
+    (``AtomPP.pm:1310-1313``). Deposits happen inside the request here, so the
+    depositor is told immediately.
+    """
+    assert _put(client, depositor, PAPER_ID,
+                _wrapper(media_href)).status_code == 202
+
+    second = _put(client, depositor, PAPER_ID, _wrapper(media_href))
+    assert second.status_code == 400
+    assert EPSUB_CODE in second.content
+    assert b"already has submission" in second.content
+
+
+def test_the_refusal_does_not_create_a_third_version(client, depositor,
+                                                     announced, media_href):
+    """The check runs before any event is saved."""
+    _put(client, depositor, PAPER_ID, _wrapper(media_href))
+    _put(client, depositor, PAPER_ID, _wrapper(media_href))
+
+    Session.expire_all()
+    versions = sorted(row.version for row in Session.query(models.Submission)
+                      .filter_by(doc_paper_id=PAPER_ID))
+    assert versions == [1, 2]
+
+
+@pytest.mark.xfail(strict=True, raises=NoSuchSubmission, reason=(
+    "Separate pre-existing defect, not the conflict check: a replacement's new row "
+    "gets no event rows of its own. `_new_dbevent` stamps each event with "
+    "`event.submission_id` (db.py:650), which for `CreateSubmissionVersion` is the "
+    "submission being versioned -- so all events stay under the original id and "
+    "`get_events()` on the new row raises. Shared persistence, so the UI's "
+    "replacement flow versions an already-replaced paper no better than SWORD does. "
+    "This test asserts the behaviour we want and will start passing when that is "
+    "fixed."))
+def test_a_replacement_is_allowed_again_once_the_version_is_announced(
+        client, depositor, announced, media_href):
+    """The conflict is transient, not a permanent block on the paper."""
+    assert _put(client, depositor, PAPER_ID,
+                _wrapper(media_href)).status_code == 202
+
+    Session.expire_all()
+    version_2 = Session.query(models.Submission).filter_by(
+        doc_paper_id=PAPER_ID, version=2).one()
+    version_2.status = 7                      # announced
+    Session.commit()
+
+    third = _put(client, depositor, PAPER_ID, _wrapper(media_href))
+    assert third.status_code == 202, third.text
+
+    Session.expire_all()
+    assert Session.query(models.Submission).filter_by(
+        doc_paper_id=PAPER_ID, version=3).one_or_none() is not None
+
+
+def test_a_deleted_version_does_not_block_a_replacement(client, depositor,
+                                                        announced, media_href):
+    """``is_active()`` excludes the deleted statuses (``models.py:92-95``)."""
+    assert _put(client, depositor, PAPER_ID,
+                _wrapper(media_href)).status_code == 202
+
+    Session.expire_all()
+    Session.query(models.Submission).filter_by(
+        doc_paper_id=PAPER_ID, version=2).one().status = 10   # user deleted
+    Session.commit()
+
+    assert _put(client, depositor, PAPER_ID,
+                _wrapper(media_href)).status_code == 202
+
+
+def test_ownership_is_checked_before_the_conflict_is_disclosed(
+        client, plain_user, depositor, announced, media_href):
+    """A non-owner must not learn that a version is open.
+
+    ``plain_user`` cannot deposit at all, so the gate it hits is EAUTH -- the point
+    is that it is not EPSUB.
+    """
+    _put(client, depositor, PAPER_ID, _wrapper(media_href))
+
+    response = _put(client, plain_user, PAPER_ID, _wrapper(media_href))
+    assert response.status_code == 401
+    assert EPSUB_CODE not in response.content
+
+
+# ------------------------------------------------- announced_submission_id filtering
+
+
+def test_announced_submission_id_skips_an_unannounced_version(
+        client, depositor, announced, media_href, sword_db):
+    """The regression behind the original bug.
+
+    Before the status filter this returned the highest ``submission_id`` for the
+    paper, which after one replacement is the unannounced version 2 -- and building a
+    version on that raised `NoSuchSubmission`.
+    """
+    _put(client, depositor, PAPER_ID, _wrapper(media_href))
+    Session.expire_all()
+
+    announced_row = Session.query(models.Submission).filter_by(
+        doc_paper_id=PAPER_ID, version=1).one()
+    unannounced = Session.query(models.Submission).filter_by(
+        doc_paper_id=PAPER_ID, version=2).one()
+
+    resolved = sword_replace.announced_submission_id(Session, PAPER_ID)
+    assert resolved == announced_row.submission_id
+    assert resolved != unannounced.submission_id
+
+
+def test_pending_submission_id_is_none_when_nothing_is_open(
+        client, depositor, announced, sword_db):
+    assert sword_replace.pending_submission_id(Session, PAPER_ID) is None
+
+
+def test_pending_submission_id_finds_the_open_version(client, depositor,
+                                                      announced, media_href,
+                                                      sword_db):
+    _put(client, depositor, PAPER_ID, _wrapper(media_href))
+    Session.expire_all()
+
+    expected = Session.query(models.Submission).filter_by(
+        doc_paper_id=PAPER_ID, version=2).one().submission_id
+    assert sword_replace.pending_submission_id(Session, PAPER_ID) == expected

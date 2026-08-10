@@ -19,9 +19,24 @@ from typing import List, Optional
 import arxiv.db.models as models
 from sqlalchemy.orm import Session as SqlalchemySession
 
+from submit_ce.implementations.legacy_implementation.models import (
+    Submission as LegacySubmissionRow,
+)
 from submit_ce.sword.errors import SwordFault
 
 logger = logging.getLogger(__name__)
+
+ANNOUNCED_STATUSES = (LegacySubmissionRow.ANNOUNCED,
+                      LegacySubmissionRow.DELETED_ANNOUNCED)
+"""What ``is_announced()`` means, as raw status values (``models.py:406-407``).
+
+Queries here go through `arxiv.db.models.Submission`, like the rest of
+`submit_ce.sword`, and that mapper carries no status constants -- so the values come
+from the repo's own row class rather than being spelled ``7`` and ``27`` inline.
+"""
+
+DELETED_STATUSES = tuple(LegacySubmissionRow.DELETED)
+"""``models.py:92-95``. A deleted submission does not block a replacement."""
 
 DEPOSIT_ATOM = re.compile(r"^(\d{8})\.atom$")
 """An ``edit`` href from a previous deposit response (``AtomPP.pm:432``).
@@ -110,14 +125,47 @@ def require_owner(session: SqlalchemySession, paper_id: str,
 
 def announced_submission_id(session: SqlalchemySession,
                             paper_id: str) -> Optional[int]:
-    """The submission row that produced a paper, if there is one.
+    """The latest **announced** submission row for a paper, if there is one.
 
     Needed because a replacement is a new *version* of that submission
-    (`CreateSubmissionVersion`), not a fresh one.
+    (`CreateSubmissionVersion`), not a fresh one -- and that event requires the
+    submission it builds on to be announced already
+    (``domain/event/__init__.py``, ``validate_pre_lock``).
+
+    The status filter is load-bearing. Without it this returned the highest
+    ``submission_id`` for the paper, which after one replacement is the *new,
+    unannounced* version -- so a second replacement built a version on top of an
+    unannounced row and the event store raised `NoSuchSubmission`. A paper that has
+    been replaced and announced repeatedly has several announced rows; the latest is
+    the one to extend.
     """
-    row = session.query(models.Submission).filter_by(
-        doc_paper_id=paper_id).order_by(
+    row = session.query(models.Submission).filter(
+        models.Submission.doc_paper_id == paper_id,
+        models.Submission.status.in_(ANNOUNCED_STATUSES)).order_by(
             models.Submission.submission_id.desc()).first()
+    return row.submission_id if row is not None else None
+
+
+def pending_submission_id(session: SqlalchemySession,
+                          paper_id: str) -> Optional[int]:
+    """An in-progress submission for this paper, if one is already open.
+
+    "In progress" is `LegacySubmissionRow.is_active`: neither announced nor
+    deleted. A replacement while one is open would be a second concurrent version
+    of the same paper.
+
+    Legacy detected this too, but only *after* accepting the deposit: the fork that
+    processed it wrote ``'failed - conflict'`` into ``arXiv_tracking``
+    (``AtomPP.pm:1310-1313``) and the depositor discovered it by polling
+    ``/resolve/app/<id>``, which reports it as "conflicting submission active"
+    (``Controller/Sword.pm:62``). submit-ce processes the deposit inside the
+    request, so it can refuse up front instead -- a strictly better failure, and the
+    reason this is a pre-flight check rather than a tracking status.
+    """
+    row = session.query(models.Submission).filter(
+        models.Submission.doc_paper_id == paper_id,
+        models.Submission.status.notin_(ANNOUNCED_STATUSES + DELETED_STATUSES),
+    ).order_by(models.Submission.submission_id.desc()).first()
     return row.submission_id if row is not None else None
 
 
