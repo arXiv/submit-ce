@@ -78,6 +78,24 @@ def max_deposit_bytes() -> int:
     return SIZE_LIMIT_POLICY.total_limit()
 
 
+def check_deposit_size(data: bytes) -> None:
+    """Reject a request body larger than the deposit limit.
+
+    Called from every route that accepts one, not just the media path. Legacy
+    capped the whole request regardless of content type -- ``$CGI::POST_MAX``
+    (``AtomPP.pm:9``) was checked against ``Content-Length`` before the body was
+    read -- so a wrapper was capped as well, and checking only on the way to the
+    store would leave Atom documents less constrained here than under the Perl.
+
+    ESIZE rather than EMDTP: see `submit_ce.sword.errors._ADDITIONS`.
+    """
+    limit = max_deposit_bytes()
+    if len(data) > limit:
+        raise SwordFault(
+            "ESIZE",
+            f"deposit of {len(data)} bytes exceeds the {limit} byte limit")
+
+
 def extension_for(content_type: str) -> str:
     """Filename extension for a deposited media type.
 
@@ -226,12 +244,13 @@ class DepositStore(ABC):
     # -- shared helpers ------------------------------------------------------
 
     def check_size(self, data: bytes) -> None:
-        """Reject an oversize deposit before storing it."""
-        limit = max_deposit_bytes()
-        if len(data) > limit:
-            raise SwordFault(
-                "EMDTP",
-                f"deposit of {len(data)} bytes exceeds the {limit} byte limit")
+        """Store-level guard, so nothing oversize is written by any caller.
+
+        The routes call `check_deposit_size` earlier, which is what makes the limit
+        apply to wrapper deposits too; this stays as the invariant for anything
+        reaching a store directly.
+        """
+        check_deposit_size(data)
 
     @abstractmethod
     def owner_of(self, deposit_id: str) -> Optional[str]:

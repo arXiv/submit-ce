@@ -527,3 +527,17 @@ def test_pending_submission_id_finds_the_open_version(client, depositor,
     expected = Session.query(models.Submission).filter_by(
         doc_paper_id=PAPER_ID, version=2).one().submission_id
     assert sword_replace.pending_submission_id(Session, PAPER_ID) == expected
+
+
+def test_an_oversize_replacement_is_413(client, depositor, announced,
+                                        media_href):
+    """PUT carries a wrapper too, so it is capped on the same limit."""
+    from submit_ce.sword.deposits import max_deposit_bytes
+
+    padding = "z" * max_deposit_bytes()
+    document = ('<?xml version="1.0"?><entry xmlns="http://www.w3.org/2005/Atom">'
+                f"<title>{padding}</title></entry>").encode()
+
+    response = _put(client, depositor, PAPER_ID, document)
+    assert response.status_code == 413
+    assert b"<arxiv:errorcode>34359738368</arxiv:errorcode>" in response.content

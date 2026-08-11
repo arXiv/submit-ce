@@ -52,6 +52,12 @@ steps:
       # and want review against real traffic.
       - '--concurrency=$_CONCURRENCY'
       - '--timeout=$_REQUEST_TIMEOUT'
+      # Reachable only through the load balancer, not on the service's own
+      # *.run.app URL. Depositors arrive at arxiv.org/sword-app/*, so nothing needs
+      # the direct URL, and this is the layer that holds if the app is ever
+      # misconfigured -- it covers every endpoint rather than the docs pages the
+      # app factory already drops.
+      - '--ingress=$_INGRESS'
       - >-
         --labels=managed-by=gcp-cloud-build-deploy-cloud-run,commit-sha=$COMMIT_SHA,gcb-build-id=$BUILD_ID,gcb-trigger-id=$_TRIGGER_ID
       - '--region=$_DEPLOY_REGION'
@@ -79,6 +85,9 @@ substitutions:
   _CONCURRENCY: '8'
   # A 50 MB deposit plus the bucket write; Cloud Run's default is 300s.
   _REQUEST_TIMEOUT: '600'
+  # Set to 'all' only to reach the service directly while the load balancer routing
+  # for /sword-app/* and /resolve/app/* is still being set up.
+  _INGRESS: internal-and-cloud-load-balancing
 tags:
   - gcp-cloud-build-deploy-cloud-run
   - gcp-cloud-build-deploy-cloud-run-managed

@@ -34,6 +34,10 @@ os.environ.setdefault('QA_GS_PREFIX', DEV_NAME or getpass.getuser())
 os.environ.setdefault('STORE', 'gs')
 os.environ.setdefault('STORE_GS_BUCKET', 'arxiv-submit-dev')
 os.environ.setdefault('STORE_GS_PREFIX', DEV_NAME or getpass.getuser())
+# Serves /docs, /redoc and /openapi.json, which create_sword_app() omits entirely
+# unless this is set. SWORD authenticates with HTTP Basic and has no /debug/login,
+# so on this app the flag does nothing else.
+os.environ.setdefault('LOCAL_LOGIN', '1')
 
 logging.basicConfig(level=logging.INFO)
 
@@ -70,4 +74,6 @@ if __name__ == '__main__':
     print(f"{'INFO' if healthy else 'ERROR'}: backend: {message}")
 
     print(f"INFO: SWORD API on http://127.0.0.1:{PORT} -- try /status")
+    print(f"INFO: Interactive docs at http://127.0.0.1:{PORT}/docs "
+          "(local only; omitted when LOCAL_LOGIN is off)")
     uvicorn.run(app, host='127.0.0.1', port=PORT)

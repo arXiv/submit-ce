@@ -270,7 +270,8 @@ def test_oversize_deposit_is_refused(store):
     oversize = b"x" * (max_deposit_bytes() + 1)
     with pytest.raises(SwordFault) as excinfo:
         store.save("10030146", "vtex", "application/zip", oversize)
-    assert excinfo.value.error.mnemonic == "EMDTP"
+    assert excinfo.value.error.mnemonic == "ESIZE"
+    assert excinfo.value.status == 413
 
 
 def test_a_deposit_at_exactly_the_limit_is_accepted(store):

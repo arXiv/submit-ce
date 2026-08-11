@@ -64,12 +64,37 @@ EXPECTED_NON_400 = {
     "EVMD5": 412,
     "EAUTH": 401,
     "ENLIC": 412,
+    "ESIZE": 413,      # an addition, not from Config.pm -- see ADDITIONS below
 }
 
+ADDITIONS = {
+    "ESIZE": 34359738368,
+}
+"""Codes with no counterpart in ``Config.pm``.
 
-def test_all_thirty_nine_codes_present():
-    assert set(errors.ERRORS) == set(EXPECTED_CODES)
-    assert len(errors.ERRORS) == 39
+Listed here so an addition has to be made deliberately: the assertions below keep
+the legacy transcription pinned at exactly 39, and anything extra must be declared
+in this dict to pass.
+"""
+
+
+def test_all_thirty_nine_legacy_codes_present():
+    """The transcription still matches ``Config.pm`` exactly."""
+    assert set(errors._TABLE_BY_MNEMONIC) == set(EXPECTED_CODES)
+    assert len(errors._TABLE_BY_MNEMONIC) == 39
+
+
+def test_additions_are_declared_and_do_not_collide():
+    assert set(errors.ERRORS) == set(EXPECTED_CODES) | set(ADDITIONS)
+    for mnemonic, code in ADDITIONS.items():
+        assert errors.ERRORS[mnemonic].code == code
+        assert code not in set(EXPECTED_CODES.values())
+
+
+def test_esize_continues_the_power_of_two_sequence():
+    """The numbers are OR-able, so an addition must not break that."""
+    largest_legacy = max(EXPECTED_CODES.values())
+    assert errors.ERRORS["ESIZE"].code == largest_legacy * 2
 
 
 @pytest.mark.parametrize("mnemonic,code", sorted(EXPECTED_CODES.items()))

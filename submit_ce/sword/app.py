@@ -60,6 +60,7 @@ from submit_ce.sword.deposits import (
     ATOM_ENTRY_TYPE,
     DepositStore,
     InMemoryDepositStore,
+    check_deposit_size,
 )
 from submit_ce.sword.errors import SwordFault
 from submit_ce.sword.request import parse_deposit_headers, verify_md5
@@ -165,9 +166,25 @@ def create_sword_app() -> FastAPI:
     """Build the SWORD FastAPI app with a non-Flask `SubmitApi` on ``app.state``."""
     base_settings.CLASSIC_DB_URI = settings.CLASSIC_DB_URI
 
+    # FastAPI's interactive docs are useful on a laptop and are new attack surface
+    # anywhere else: legacy exposed nothing under the SWORD app unauthenticated,
+    # since ``sword.conf`` gated /sword-app at the Apache layer. Passing None
+    # removes the routes outright, so they 404 rather than advertising themselves
+    # with a 401. ``openapi_url`` matters most of the three -- it is the
+    # machine-readable schema, and dropping only the HTML pages would leave it.
+    #
+    # Gated on LOCAL_LOGIN rather than a flag of its own: it is already this repo's
+    # "developer on a laptop" switch and it admits fake sessions, which is strictly
+    # more dangerous than a schema page. The tradeoff is that docs cannot be turned
+    # on for a deployed instance without also accepting fake logins; that is the
+    # safe direction, and a separate setting can be added if it is ever wanted.
+    local = settings.LOCAL_LOGIN
     app = FastAPI(
         title="arXiv SWORD deposit API",
         description="SWORD v1 (APP Profile 1.3) deposit interface for arXiv.",
+        docs_url="/docs" if local else None,
+        redoc_url="/redoc" if local else None,
+        openapi_url="/openapi.json" if local else None,
     )
 
     db.init(settings)
@@ -316,6 +333,9 @@ def create_sword_app() -> FastAPI:
                     "arXiv does not accept third party submission for "
                     "X-On-Behalf-Of author, author must submit directly")
 
+        # Before the checksum, so an oversize body is not hashed first, and before
+        # the dispatch below, so a wrapper is capped as well as media.
+        check_deposit_size(payload)
         verify_md5(payload, headers.md5)
 
         store = request.app.state.deposits
@@ -447,6 +467,7 @@ def create_sword_app() -> FastAPI:
                     "PUT to /replace must be of type 'application/atom+xml'")
 
             headers = parse_deposit_headers(request.headers)
+            check_deposit_size(payload)
             verify_md5(payload, headers.md5)
 
             # Refuse before doing any work if a version is already open. Checked

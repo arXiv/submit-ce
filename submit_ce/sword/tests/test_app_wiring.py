@@ -175,3 +175,56 @@ def test_served_links_follow_the_request_host(sword_app, depositor):
         "http://localhost:8001/sword-app/edit/")
     assert response.headers["Location"].startswith(
         "http://localhost:8001/sword-app/getid/app/")
+
+
+# ------------------------------------------------------------- interactive docs
+
+DOC_PATHS = ["/docs", "/redoc", "/openapi.json", "/docs/oauth2-redirect"]
+
+
+def _paths(app):
+    return {route.path for route in app.routes}
+
+
+def test_docs_are_absent_by_default(client):
+    """404, not 401: the routes must not exist at all.
+
+    Legacy exposed nothing under the SWORD app without Basic auth (``sword.conf``
+    gated /sword-app at the Apache layer), and a 401 would still advertise that a
+    schema is there to be had.
+    """
+    for path in DOC_PATHS:
+        assert client.get(path).status_code == 404, path
+
+
+def test_the_schema_route_is_gone_too(sword_app):
+    """The HTML pages are the visible half; ``/openapi.json`` is the useful half."""
+    assert "/openapi.json" not in _paths(sword_app)
+    assert sword_app.openapi_url is None
+
+
+def test_docs_appear_under_local_login(monkeypatch, sword_db):
+    """A developer running local_sword.py still gets them."""
+    from submit_ce.sword.app import create_sword_app
+    from submit_ce.ui.config import settings as sce_settings
+
+    monkeypatch.setattr(sce_settings, "LOCAL_LOGIN", True)
+    app = create_sword_app()
+
+    assert "/docs" in _paths(app)
+    assert "/redoc" in _paths(app)
+    assert app.openapi_url == "/openapi.json"
+
+
+def test_the_protocol_routes_do_not_depend_on_the_flag(sword_app):
+    """Dropping the docs must not drop anything a depositor uses."""
+    paths = _paths(sword_app)
+    assert "/status" in paths
+    assert "/sword-app/servicedocument" in paths
+    assert "/sword-app/{collection}-collection" in paths
+    assert "/resolve/app/{sword_id}" in paths
+
+
+def test_status_stays_public(client):
+    """It is the health check, so it must answer without credentials."""
+    assert client.get("/status").status_code == 200

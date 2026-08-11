@@ -121,9 +121,38 @@ _TABLE = [
     _e("ERESM", 8589934592, "OAI-ORE ResouceMap could not be parsed", E_CONTENT),
     _e("ETITL", 17179869184, "An item with identical title already exists.", E_CONTENT),
 ]
+"""The legacy 39, and only those. Additions go in `_ADDITIONS`."""
 
-ERRORS: dict[str, SwordErrorCode] = {row.mnemonic: row for row in _TABLE}
-BY_CODE: dict[int, SwordErrorCode] = {row.code: row for row in _TABLE}
+_ADDITIONS = [
+    _e("ESIZE", 34359738368, "deposit exceeds the maximum upload size",
+       E_CONTENT, 413),
+]
+"""Codes with no counterpart in ``Config.pm``.
+
+Kept separate so `_TABLE` stays a faithful transcription that
+``test_errors.py`` can cross-check against ``Config.pm:76-198``.
+
+``ESIZE`` covers an oversize deposit, for which legacy had no code at all. Its cap
+was ``$CGI::POST_MAX`` (``AtomPP.pm:9``), enforced by CGI.pm *before* the SWORD
+code ran: CGI.pm stopped reading, set ``$CGI::cgi_error`` to "413 Request entity
+too large", and since nothing in ``arXiv::AtomPP`` ever checked that variable the
+request continued with an empty body and failed further down as though the content
+were malformed. There is therefore no legacy errorcode to be compatible with, and
+overloading ``EMDTP`` -- "media type specified is not supported" -- would produce a
+document that contradicts its own summary.
+
+``34359738368`` is 2^35, continuing the powers-of-two sequence so the OR-ing that
+the code numbers are designed for keeps working. 413 is the status CGI.pm named.
+"""
+
+_TABLE_BY_MNEMONIC: dict[str, SwordErrorCode] = {
+    row.mnemonic: row for row in _TABLE}
+"""The legacy transcription alone, so tests can pin it at exactly 39."""
+
+ERRORS: dict[str, SwordErrorCode] = {
+    row.mnemonic: row for row in _TABLE + _ADDITIONS}
+BY_CODE: dict[int, SwordErrorCode] = {
+    row.code: row for row in _TABLE + _ADDITIONS}
 
 
 def lookup(mnemonic: str) -> SwordErrorCode:

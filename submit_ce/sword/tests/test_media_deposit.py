@@ -13,7 +13,8 @@ from lxml import etree
 
 from submit_ce.sword.atom import ns
 from submit_ce.sword.tests import client as sword_client
-from submit_ce.sword.tests.client import basic_auth, content_md5
+from submit_ce.sword.deposits import max_deposit_bytes
+from submit_ce.sword.tests.client import ATOM_ENTRY_TYPE, basic_auth, content_md5
 
 ZIP = b"PK\x03\x04 pretend this is a zip"
 PDF = b"%PDF-1.4\n%%EOF\n"
@@ -352,3 +353,70 @@ def test_an_atom_wrapper_is_not_stored_as_media(client, depositor, sword_app):
     _post(client, depositor, content_type="application/atom+xml;type=entry",
           payload=b'<entry xmlns="http://www.w3.org/2005/Atom"/>')
     assert sword_app.state.deposits.deposits == {}
+
+
+# ------------------------------------------------------------------ size limit
+
+def _oversize() -> bytes:
+    return b"x" * (max_deposit_bytes() + 1)
+
+
+def _errorcode(response) -> str:
+    return etree.fromstring(response.content).findtext(
+        ns.qname(ns.ARXIV, "errorcode"))
+
+
+ESIZE_CODE = "34359738368"
+
+
+def test_oversize_media_deposit_is_413(client, depositor):
+    response = _post(client, depositor, payload=_oversize())
+    assert response.status_code == 413
+    assert _errorcode(response) == ESIZE_CODE
+    assert b"exceeds the" in response.content
+
+
+def test_oversize_wrapper_deposit_is_413(client, depositor):
+    """The gap finding 4 was about.
+
+    ``check_size`` used to be reached only through ``store.save()``, i.e. the media
+    path, so an Atom wrapper was parsed into a DOM at any size. Legacy capped the
+    whole request regardless of content type (``$CGI::POST_MAX``, ``AtomPP.pm:9``),
+    so this was a regression rather than merely a missing guard.
+    """
+    padding = "z" * max_deposit_bytes()
+    document = ('<?xml version="1.0"?><entry xmlns="http://www.w3.org/2005/Atom">'
+                f"<title>{padding}</title></entry>").encode()
+
+    response = _post(client, depositor, payload=document,
+                     content_type=ATOM_ENTRY_TYPE)
+    assert response.status_code == 413
+    assert _errorcode(response) == ESIZE_CODE
+
+
+def test_both_paths_report_the_same_error(client, depositor):
+    """One limit, one code, whichever content type carried the body."""
+    media = _post(client, depositor, payload=_oversize())
+    wrapper = _post(client, depositor, payload=_oversize(),
+                    content_type=ATOM_ENTRY_TYPE)
+
+    assert media.status_code == wrapper.status_code == 413
+    assert _errorcode(media) == _errorcode(wrapper) == ESIZE_CODE
+
+
+def test_a_deposit_at_exactly_the_limit_is_still_accepted(client, depositor):
+    """Off-by-one: the limit is inclusive."""
+    response = _post(client, depositor, payload=b"x" * max_deposit_bytes())
+    assert response.status_code == 201
+
+
+def test_size_is_checked_before_the_checksum(client, depositor):
+    """An oversize body should not be hashed first, and reports ESIZE not EVMD5.
+
+    Both would be legitimate refusals; the size answer is the useful one, and it
+    avoids an MD5 over 50 MiB that the deposit is going to lose anyway.
+    """
+    response = _post(client, depositor, payload=_oversize(),
+                     **{"Content-MD5": "obviously-not-the-right-digest"})
+    assert response.status_code == 413
+    assert _errorcode(response) == ESIZE_CODE
