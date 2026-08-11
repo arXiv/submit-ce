@@ -4,6 +4,7 @@
 {{super()}}
  <script src="{{ url_for('static', filename='js/filewidget.js') }}"></script>
  <script src="{{ url_for('static', filename='js/review_top_level_guard.js') }}" defer></script>
+ <script src="{{ url_for('static', filename='js/review_delete_cascade.js') }}" defer></script>
  <style>
    /* Oversized-image row highlight (SUBMISSION-172), mirroring 1.5's
       cream row tint. !important so it wins over the is-striped zebra shading. */
@@ -25,7 +26,7 @@
                             candidate.
    C3 will extend this same object (used/unused, delete defaults) without
    touching this macro. #}
-{% macro display_preflight_tree(key, item) %}
+{% macro display_preflight_tree(key, item, prefix='') %}
   {% if 'filename' in item %}
   {# Oversized-image rows get a cream tint (SUBMISSION-172), mirroring
      1.5. is_oversized is authoritative from preflight (large AND not
@@ -87,9 +88,21 @@
     </td>
   </tr>
   {% else %}
-  <tr><td colspan="3"><em>{{ key }}/</em></td></tr>
+  {# Directory row (SUBMISSION-223). The Delete-column checkbox is a JS-only
+     control -- it has no `name`, so it is never submitted; only the per-file
+     `selected_files` checkboxes are. `data-dir` is the full path prefix so the
+     cascade JS can match descendant file checkboxes by value and toggle every
+     deletable file under this directory. Progressive enhancement only: with JS
+     off the folder box does nothing and files stay individually deletable. #}
+  <tr class="dir-row">
+    <td class="has-text-centered">
+      <input type="checkbox" class="dir-delete" data-dir="{{ prefix }}{{ key }}/"
+             aria-label="Select all deletable files in {{ prefix }}{{ key }}/ for deletion">
+    </td>
+    <td colspan="2"><em>{{ key }}/</em></td>
+  </tr>
   {% for k, subitem in item.items() %}
-    {{ display_preflight_tree(k, subitem) }}
+    {{ display_preflight_tree(k, subitem, prefix ~ key ~ '/') }}
   {% endfor %}
   {% endif %}
 {% endmacro %}

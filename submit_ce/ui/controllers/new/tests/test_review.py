@@ -229,6 +229,34 @@ def test_review_files_get_auto_checks_only_unused(
     assert 'checked' not in box('guess.pygtex')                 #            -> but not suggested
 
 
+def test_review_files_get_renders_directory_cascade_checkbox(
+        app, authorized_client, sub_files_tex, mocker):
+    """SUBMISSION-223 / C3.2: directory rows carry a JS-only cascade checkbox
+    whose data-dir is the full path prefix (so the cascade JS matches nested
+    file values). The folder control has no `name`, so it is never submitted."""
+    preflight = {
+        'detected_toplevel_files': [{'filename': 'main.tex'}],
+        'tex_files': [{'filename': 'main.tex'}],
+        'image_files': [{'filename': 'fig/plot.png'},
+                        {'filename': 'fig/deep/x.png'}],
+    }
+    mocker.patch.object(review, '_load_or_create_preflight',
+                        return_value=(preflight, None))
+    url = f"/{sub_files_tex.submission_id}/review_files"
+    resp = authorized_client.get(url)
+    assert resp.status_code == status.OK
+    html = resp.data.decode()
+
+    # Nested directory rows get cascade checkboxes with full-path prefixes.
+    assert 'class="dir-delete" data-dir="fig/"' in html
+    assert 'class="dir-delete" data-dir="fig/deep/"' in html
+    # Files render with their full nested paths (what the JS matches against).
+    assert 'name="selected_files" value="fig/plot.png"' in html
+    assert 'name="selected_files" value="fig/deep/x.png"' in html
+    # The folder control is a UI-only toggle: it must not be a submitted field.
+    assert re.search(r'class="dir-delete"[^>]*\bname=', html) is None
+
+
 def _make_workspace(*paths):
     """Build a stand-in workspace whose `.files` carry the given paths."""
     ws = MagicMock()
