@@ -1,5 +1,6 @@
 """Tests for :mod:`submit_ce.ui.controllers.new.review`."""
 
+import re
 from http import HTTPStatus as status
 from unittest.mock import MagicMock
 
@@ -191,6 +192,41 @@ def test_review_files_post_danger_issue_blocks_continue(
     assert b'Cannot continue' in resp.data          # persistent danger card rendered
     assert not any(c.args and isinstance(c.args[0], review.StoreZzrm)
                    for c in mock_save.call_args_list)
+
+
+def test_review_files_get_auto_checks_only_unused(
+        app, authorized_client, sub_files_tex, mocker):
+    """SUBMISSION-222 / C3.2: the delete box is pre-checked for UNUSED files
+    only. Used and selected-top-level files are disabled and unchecked;
+    maybe-used files are enabled but left unchecked (we don't suggest deleting
+    something we merely couldn't resolve)."""
+    preflight = {
+        'detected_toplevel_files': [{'filename': 'main.tex'}],
+        'tex_files': [{'filename': 'main.tex', 'used_other_files': ['used.png']}],
+        'image_files': [{'filename': 'used.png'}, {'filename': 'orphan.png'}],
+        'maybe_used_files': ['guess.pygtex'],
+    }
+    mocker.patch.object(review, '_load_or_create_preflight',
+                        return_value=(preflight, None))
+    url = f"/{sub_files_tex.submission_id}/review_files"
+    resp = authorized_client.get(url)
+    assert resp.status_code == status.OK
+    html = resp.data.decode()
+
+    def box(name):
+        m = re.search(
+            r'<input type="checkbox" name="selected_files" value="%s"[^>]*>'
+            % re.escape(name), html)
+        assert m, f"no delete checkbox rendered for {name}"
+        return m.group(0)
+
+    assert 'checked' in box('orphan.png')                       # unused -> pre-checked
+    assert 'disabled' in box('used.png')                        # used -> protected
+    assert 'checked' not in box('used.png')
+    assert 'disabled' in box('main.tex')                        # top-level -> protected
+    assert 'checked' not in box('main.tex')
+    assert 'disabled' not in box('guess.pygtex')                # maybe-used -> deletable
+    assert 'checked' not in box('guess.pygtex')                 #            -> but not suggested
 
 
 def _make_workspace(*paths):
