@@ -499,6 +499,12 @@ class SetDecisions(EventWithSideEffect):
 
     files_to_delete: list[str]
 
+    # Confidently-used source filenames (preflight resolved-edge set), computed
+    # server-side by the controller. Protected from deletion alongside the
+    # selected top-level file(s) (SUBMISSION-221 / C3.2a). Defaults empty so
+    # existing callers/tests are unaffected.
+    protected_sources: list[str] = field(default_factory=list)
+
     bytes_removed: int = 0
 
     def validate_pre_lock(self, submission: Submission) -> None:
@@ -531,16 +537,17 @@ class SetDecisions(EventWithSideEffect):
         # not bounced back to Upload for a needless re-scan.
         if self.files_to_delete:
             file_store.delete_preflight(submission.submission_id)
-        # Authoritative guard (SUBMISSION-209): never delete a file the user has
-        # selected as a top-level TeX file -- that's what we're about to compile.
-        # Runs under the submission row lock taken by save(), so it can't race a
+        # Authoritative guard: never delete files the submission needs -- the
+        # selected top-level TeX file(s) (SUBMISSION-209) and any confidently-used
+        # file preflight resolved a reference to (SUBMISSION-221 / C3.2a). Runs
+        # under the submission row lock taken by save(), so it can't race a
         # concurrent decisions change.
-        protected = _protected_top_level_sources(self.decisions)
+        protected = _protected_top_level_sources(self.decisions) | set(self.protected_sources)
         for path in self.files_to_delete:
             if path in protected:
                 logger.warning(
-                    "Refusing to delete selected top-level file %s for "
-                    "submission %s", path, submission.submission_id)
+                    "Refusing to delete protected (top-level or used) file %s "
+                    "for submission %s", path, submission.submission_id)
                 continue
             file = file_store.delete_source_file(submission.submission_id, path)
             if file:

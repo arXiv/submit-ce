@@ -46,7 +46,39 @@ def test_input_dicts_are_not_mutated():
                     ["main.tex"])
     # Original notes must be untouched (no derived keys leaked in).
     assert all(k not in n for n in notes
-               for k in ("badges", "is_readme", "is_toplevel", "is_unused"))
+               for k in ("badges", "is_readme", "is_toplevel", "is_used",
+                         "is_unused", "is_protected"))
+
+
+def test_usage_classification_by_confidence():
+    """is_used / is_maybe_used / is_unused are mutually exclusive; a resolved
+    edge beats the maybe-used flag; readme + top-level are none of them but are
+    protected. (SUBMISSION-221 / C3.2a)"""
+    notes = [
+        {"filename": "00README.json"},
+        {"filename": "main.tex"},                                    # top-level
+        {"filename": "fig.png", "used_by": ["main.tex"]},             # used
+        {"filename": "guess.sty", "is_maybe_used": True},             # maybe-used
+        {"filename": "orphan.dat"},                                   # unused
+        {"filename": "both.sty", "used_by_tex": ["main.tex"],         # edge wins
+         "is_maybe_used": True},
+    ]
+    by = {r["filename"]: r for r in build_file_rows(notes, {}, ["main.tex"])}
+
+    assert (by["fig.png"]["is_used"], by["fig.png"]["is_protected"]) == (True, True)
+    assert by["guess.sty"]["is_maybe_used"] is True
+    assert by["guess.sty"]["is_unused"] is False
+    assert by["guess.sty"]["is_protected"] is False          # deletable
+    assert by["orphan.dat"]["is_unused"] is True
+    assert by["orphan.dat"]["is_protected"] is False          # deletable
+    # resolved edge beats the maybe-used flag
+    assert by["both.sty"]["is_used"] is True
+    assert by["both.sty"]["is_maybe_used"] is False
+    # readme + top-level are protected but not used/maybe/unused
+    for f in ("00README.json", "main.tex"):
+        assert by[f]["is_protected"] is True
+        assert not (by[f]["is_used"] or by[f]["is_maybe_used"]
+                    or by[f]["is_unused"])
 
 
 def test_is_unused_only_for_unreferenced_ordinary_files():
