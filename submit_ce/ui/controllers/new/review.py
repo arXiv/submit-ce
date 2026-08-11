@@ -251,7 +251,14 @@ def _render_review_page(rdata, form, submission_id, preflight_data,
     state. Returns a ``stay_on_this_stage`` flow-control result.
     """
     _populate_form(form, preflight_data, user_decisions_data)
-    selected_top_level_files = [f for f in [form.source_file.data] if f]
+    # Reflect ALL persisted top-levels, in order (SUBMISSION-170 / C2.2), so every
+    # selected top-level is protected/rendered -- not just the one in the single
+    # dropdown. Falls back to the form's single selection on a fresh page (no
+    # user_decisions yet).
+    selected_top_level_files = (
+        _ordered_top_level_filenames(user_decisions_data)
+        or [f for f in [form.source_file.data] if f]
+    )
     rdata['selected_top_level_files'] = selected_top_level_files
     # Surface preflight issues (SUBMISSION-210): reason-code-grouped banners
     # + per-file badges, extracted server-side. Issue banners lead; the
@@ -309,6 +316,22 @@ def _get_user_decisions_data(submission_id: str) -> Optional[dict]:
         return None
     return json.loads(blob.download_as_text())
 
+def _ordered_top_level_filenames(user_decisions_data: Optional[dict]) -> list[str]:
+    """Ordered, de-duped top-level filenames from persisted user_decisions.
+
+    Reads the ``sources`` list (the ordered set written by ``_update_preflight``)
+    so multiple selected top-levels round-trip in order on reload
+    (SUBMISSION-170 / C2.2). Returns ``[]`` when there are none.
+    """
+    sources = (user_decisions_data or {}).get('sources') or []
+    out: list[str] = []
+    for src in sources:
+        filename = src.get('filename')
+        if filename and filename not in out:
+            out.append(filename)
+    return out
+
+
 def _selected_top_level_files(params: MultiDict) -> list[str]:
     """Return the top-level TeX file(s) the user has selected, in order.
 
@@ -355,8 +378,14 @@ def _update_preflight(params: MultiDict, submission_id: str, workspace: Workspac
     if not form_fields_present and not files_to_delete:
         return False
 
+    # Persist ALL selected top-level TeX files, in submission order, so multiple
+    # ordered top-levels round-trip (SUBMISSION-170 / C2.2). `selected_top_levels`
+    # comes from `_selected_top_level_files` (source_file + top_level_tex_files[]).
+    # For today's single-dropdown UI this is a one-item list -- identical to the
+    # previous single-source behavior -- so it's a no-op until the multi-select UI
+    # lands (SUBMISSION-226 / C2.3).
     new_decisions = {
-        'sources': [{'filename': params.get('source_file', '')}],
+        'sources': [{'filename': f} for f in selected_top_levels],
         'texlive_version': params.get('compiler_version', ''),
         'process': {
             'compiler': params.get('compiler', ''),

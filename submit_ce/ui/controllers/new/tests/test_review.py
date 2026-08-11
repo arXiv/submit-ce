@@ -312,6 +312,77 @@ def test_update_preflight_files_to_delete_triggers_save(
     assert mock_save.call_args[1] == {'submission_id': 'sub1'}
 
 
+def test_ordered_top_level_filenames_reads_sources_in_order():
+    """SUBMISSION-170/C2.2: ordered, de-duped filenames from persisted sources."""
+    ud = {'sources': [{'filename': 'b.tex'}, {'filename': 'a.tex'},
+                      {'filename': 'b.tex'}]}
+    assert review._ordered_top_level_filenames(ud) == ['b.tex', 'a.tex']
+    assert review._ordered_top_level_filenames(None) == []
+    assert review._ordered_top_level_filenames({}) == []
+    assert review._ordered_top_level_filenames({'sources': []}) == []
+
+
+def test_update_preflight_persists_ordered_multiple_top_levels(
+        app, authorized_user, mocker):
+    """SUBMISSION-170/C2.2: all selected top-levels persist as an ordered
+    `sources` list (via top_level_tex_files[]), not just `source_file`."""
+    mocker.patch.object(review, '_get_user_decisions_data', return_value=None)
+    with app.app_context():
+        mock_save = mocker.patch.object(app.api, 'save')
+        params = MultiDict([
+            ('top_level_tex_files[]', 'a.tex'),
+            ('top_level_tex_files[]', 'b.tex'),
+            ('compiler', 'pdflatex'),
+            ('compiler_version', '2025'),
+        ])
+        review._update_preflight(
+            params, 'sub1', _make_workspace('a.tex', 'b.tex'),
+            authorized_user, None,
+        )
+    mock_save.assert_called_once()
+    cmd = mock_save.call_args[0][0]
+    assert cmd.decisions['sources'] == [{'filename': 'a.tex'}, {'filename': 'b.tex'}]
+
+
+def test_update_preflight_preserves_top_level_order(app, authorized_user, mocker):
+    """Reordering the selection persists the new order (B before A)."""
+    mocker.patch.object(review, '_get_user_decisions_data', return_value=None)
+    with app.app_context():
+        mock_save = mocker.patch.object(app.api, 'save')
+        params = MultiDict([
+            ('top_level_tex_files[]', 'b.tex'),
+            ('top_level_tex_files[]', 'a.tex'),
+            ('compiler', 'pdflatex'),
+            ('compiler_version', '2025'),
+        ])
+        review._update_preflight(
+            params, 'sub1', _make_workspace('a.tex', 'b.tex'),
+            authorized_user, None,
+        )
+    cmd = mock_save.call_args[0][0]
+    assert cmd.decisions['sources'] == [{'filename': 'b.tex'}, {'filename': 'a.tex'}]
+
+
+def test_update_preflight_single_source_file_unchanged_shape(
+        app, authorized_user, mocker):
+    """Single-dropdown UI (source_file only) still persists a one-item sources
+    list -- C2.2 is a no-op for the current UI."""
+    mocker.patch.object(review, '_get_user_decisions_data', return_value=None)
+    with app.app_context():
+        mock_save = mocker.patch.object(app.api, 'save')
+        params = MultiDict([
+            ('source_file', 'main.tex'),
+            ('compiler', 'pdflatex'),
+            ('compiler_version', '2025'),
+        ])
+        review._update_preflight(
+            params, 'sub1', _make_workspace('main.tex'),
+            authorized_user, None,
+        )
+    cmd = mock_save.call_args[0][0]
+    assert cmd.decisions['sources'] == [{'filename': 'main.tex'}]
+
+
 def test_update_preflight_decisions_unchanged_returns_false(
         app, authorized_user, mocker):
     """Form fields identical to stored user_decisions: no-op, no save."""
