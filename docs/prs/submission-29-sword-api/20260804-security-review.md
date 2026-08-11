@@ -4,7 +4,7 @@
 - **Branch:** `SUBMISSION-29-sword` @ `a680dfb` vs `origin/develop`
 - **Scope:** the 78 files changed by this branch — the new SWORD v2 deposit API
   (`submit_ce/sword/**`), the new `/sword-license` UI controller and template, wiring/DB
-  changes, `Dockerfile`, and `cicd/cloudbuild-sword-dev-arxiv.yaml`. Security implications
+  changes, `Dockerfile`, and [`cicd/cloudbuild-sword-dev-arxiv.yaml`](https://github.com/arXiv/submit-ce/tree/develop/cicd/cloudbuild-sword-dev-arxiv.yaml). Security implications
   **newly introduced by this branch** only; pre-existing issues are out of scope.
 - **Method:** full-diff read plus source inspection of the surrounding modules; every
   candidate finding was then independently adversarially verified against the code.
@@ -22,7 +22,7 @@ The sections below record what was examined so the next reviewer does not have t
 
 ### 1. Unauthenticated `GET /resolve/app/{sword_id}` — REFUTED (inherited public behavior)
 
-`resolve` (`submit_ce/sword/app.py:499`) is the only route in the new SWORD app that takes
+`resolve` ([`submit_ce/sword/app.py:499`](https://github.com/arXiv/submit-ce/tree/develop/submit_ce/sword/app.py#L499)) is the only route in the new SWORD app that takes
 no credentials and applies no ownership check. Every sibling route takes
 `credentials: HTTPBasicCredentials = Depends(_basic)` and calls
 `sword_auth.depositor_from_credentials` plus `store.owned_by` / `require_owner`. The lookup
@@ -35,9 +35,9 @@ it (`tests/test_tracking.py:66`, `test_no_authentication_required`).
 Refuted on scope and sensitivity:
 
 - **Not new exposure.** This is a field-for-field port of
-  `arxiv-submit/lib/arXiv/Controller/Sword.pm:21-99`, which is live in production at the
+  [`arxiv-submit/lib/arXiv/Controller/Sword.pm:21-99`](https://github.com/arXiv/arxiv-submit/tree/develop/lib/arXiv/Controller/Sword.pm#L21-L99), which is live in production at the
   same public path, equally unauthenticated, and base64-attaches the same compile log
-  (`Sword.pm:39-52`). `docs/sword-getting-started.md:144` demonstrates the "exploit"
+  (`Sword.pm:39-52`). [`docs/sword-getting-started.md:144`](../../sword-getting-started.md#L144) demonstrates the "exploit"
   working against prod today. The branch moves the route; it does not widen it.
 - **It is a published client contract**, documented as a plain unauthenticated GET, and the
   decision is recorded three times with its consequence stated explicitly
@@ -58,7 +58,7 @@ the SWORD owner. If arXiv wants that: drop `autotex_log_b64` from `resolve_depos
 replace the sequential deposit id with an unguessable tracking token. Worth noting that the
 same artifact *is* owner-gated everywhere else in this codebase — the Flask UI serves it
 only through an authenticated, ownership-checked controller
-(`submit_ce/ui/controllers/new/process.py:271`).
+([`submit_ce/ui/controllers/new/process.py:271`](https://github.com/arXiv/submit-ce/tree/develop/submit_ce/ui/controllers/new/process.py#L271)).
 
 ### 2. Missing CSRF token on `POST /sword-license` — REFUTED (SameSite=Lax; defense-in-depth)
 
@@ -72,8 +72,8 @@ does deviate from the sibling controllers, which wrap params in `arxiv.forms.csr
 Refuted:
 
 - The only browser-attached credential this app accepts is `ARXIVNG_SESSION_ID`
-  (`submit_ce/ui/auth.py:49-54`), and that cookie is issued `samesite='lax'`
-  (`arxiv-auth/accounts/accounts/routes/ui.py:78`), guarded by `AUTH_SESSION_COOKIE_SECURE`
+  ([`submit_ce/ui/auth.py:49-54`](https://github.com/arXiv/submit-ce/tree/develop/submit_ce/ui/auth.py#L49-L54)), and that cookie is issued `samesite='lax'`
+  ([`arxiv-auth/accounts/accounts/routes/ui.py:78`](https://github.com/arXiv/arxiv-auth/tree/develop/accounts/accounts/routes/ui.py#L78)), guarded by `AUTH_SESSION_COOKIE_SECURE`
   which defaults to true. A cross-site form POST carries no cookie, so `before_request`
   raises `Unauthorized("no token or cookie")` (`ui/auth.py:226`) before the controller runs.
   The described attack never reaches the write.
@@ -87,7 +87,7 @@ Refuted:
   value `"no"` makes deposits *fail loudly* with 412 ENLIC (`sword/auth.py:116-126`) rather
   than silently re-licensing anything.
 
-One caveat on the "match the sibling pattern" framing: `arxiv-base/arxiv/forms/csrf.py:1-10`
+One caveat on the "match the sibling pattern" framing: [`arxiv-base/arxiv/forms/csrf.py:1-10`](https://github.com/arXiv/arxiv-base/tree/develop/arxiv/forms/csrf.py#L1-L10)
 opens with "DO NOT USE THIS PACKAGE. This package is flawed and not currently used in
 production," and emits a `DeprecationWarning`. Adding CSRFForm here would adopt a module
 arxiv-base tells callers not to use. Track CSRF for this app as its own decision.
@@ -98,7 +98,7 @@ arxiv-base tells callers not to use. Track CSRF for this app as its own decision
 
 Checked and cleared, so they need not be re-audited:
 
-- **XXE in `submit_ce/sword/atom/parse.py:151`** (`etree.fromstring(document)`, default
+- **XXE in [`submit_ce/sword/atom/parse.py:151`](https://github.com/arXiv/submit-ce/tree/develop/submit_ce/sword/atom/parse.py#L151)** (`etree.fromstring(document)`, default
   parser). Verified against the pinned `lxml==6.1.1` / libxml2 2.14.6 in this repo's venv:
   external general entities are refused (`Entity 'x' not defined`), the
   parameter-entity → general-entity exfiltration chain is refused (`PEReferences forbidden
@@ -106,7 +106,7 @@ Checked and cleared, so they need not be re-audited:
   A top-level `%pe;` in the internal subset does *open* a local file, but only the filename
   reaches the error message — no content exfiltration; residual risk is a file-existence
   oracle via the echoed parse error, too low-impact to flag.
-  **This safety is incidental to the pinned version, not intentional** — `pyproject.toml`
+  **This safety is incidental to the pinned version, not intentional** — [`pyproject.toml`](https://github.com/arXiv/submit-ce/tree/develop/pyproject.toml)
   pins only `lxml>=6.1.1`. Passing an explicit
   `etree.XMLParser(resolve_entities=False, load_dtd=False, no_network=True)` would make it
   deliberate and version-independent. Recommended as hardening, not as a fix.
@@ -132,13 +132,13 @@ Checked and cleared, so they need not be re-audited:
 
 Noted in passing, pre-existing, not findings against this branch:
 
-- `submit_ce/ui/config.py:71` ships `CSRF_SECRET: str = "foobar"` as its default.
-- `submit_ce/ui/routes/ui.py:640` sets `ARXIVNG_SESSION_ID` without `samesite`/`secure`, but
+- [`submit_ce/ui/config.py:71`](https://github.com/arXiv/submit-ce/tree/develop/submit_ce/ui/config.py#L71) ships `CSRF_SECRET: str = "foobar"` as its default.
+- [`submit_ce/ui/routes/ui.py:640`](https://github.com/arXiv/submit-ce/tree/develop/submit_ce/ui/routes/ui.py#L640) sets `ARXIVNG_SESSION_ID` without `samesite`/`secure`, but
   it is inside `/debug/login`, gated on `settings.LOCAL_LOGIN` with `raise NotFound()`
   otherwise — dev-only.
 
 ## Scope caveat
 
 Reviewed the committed branch diff (`origin/develop...HEAD`). The working tree also holds
-uncommitted edits to `local_sword.py` and `local_ui.py` and an untracked `hack.py`, which
-were **not** reviewed. `hack.py` should not be committed.
+uncommitted edits to [`local_sword.py`](https://github.com/arXiv/submit-ce/tree/develop/local_sword.py) and [`local_ui.py`](https://github.com/arXiv/submit-ce/tree/develop/local_ui.py) and an untracked [`hack.py`](https://github.com/arXiv/submit-ce/tree/develop/hack.py), which
+were **not** reviewed. [`hack.py`](https://github.com/arXiv/submit-ce/tree/develop/hack.py) should not be committed.

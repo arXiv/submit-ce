@@ -33,7 +33,7 @@ arxiv-base master. Everything else is token and component drift shared with the 
 
 ### 1. Radio inputs have no `<label>` — owner: this template
 
-`submit-ce/submit_ce/ui/templates/submit/sword_license.html:24`. Each option is a bare `<input
+[`submit-ce/submit_ce/ui/templates/submit/sword_license.html:24`](https://github.com/arXiv/submit-ce/tree/develop/submit_ce/ui/templates/submit/sword_license.html#L24). Each option is a bare `<input
 type="radio">` followed by a text node, closed with an invalid `</input>`. There is no `<label>`
 anywhere on the page (verified: zero `<label` in the rendered output).
 
@@ -53,10 +53,10 @@ the one entirely within this PR's control.
 
 This is safe against both suites, verified rather than assumed:
 
-- `arxiv-test-regression/pytest/tests/test_sword.py:33-52` asserts only the two exact
+- [`arxiv-test-regression/pytest/tests/test_sword.py:33-52`](https://github.com/arXiv/arxiv-test-regression/tree/develop/pytest/tests/test_sword.py#L33-L52) asserts only the two exact
   `<input type="radio" name="License" value="…" checked="checked">` substrings and the sentence
   "then SWORD deposits will be accepted". It does **not** match `</input>`.
-- `submit-ce/submit_ce/ui/tests/test_sword_license.py:18-21` builds the same substring, and
+- [`submit-ce/submit_ce/ui/tests/test_sword_license.py:18-21`](https://github.com/arXiv/submit-ce/tree/develop/submit_ce/ui/tests/test_sword_license.py#L18-L21) builds the same substring, and
   `test_only_one_radio_is_checked` (line 115) counts `checked="checked"` occurrences — the wrapper
   changes neither.
 
@@ -65,7 +65,7 @@ client scraping this page." Nothing in either suite depends on it, so that reaso
 the labels. If a scraper genuinely does, `<label>` can be added without removing `</input>` — invalid
 either way, but no worse than today.
 
-There is an in-repo precedent to match: `submit-ce/submit_ce/ui/templates/submit/license.html:140-146`
+There is an in-repo precedent to match: [`submit-ce/submit_ce/ui/templates/submit/license.html:140-146`](https://github.com/arXiv/submit-ce/tree/develop/submit_ce/ui/templates/submit/license.html#L140-L146)
 already wraps its license radios in `<label class="radio">`. `/sword-license` is the outlier.
 
 ### 2. Page renders the pre-spinout chrome, not the approved chrome — owner: the arxiv-base pin
@@ -83,18 +83,18 @@ institutions…") *inside* `<header>`. Two policies:
 (`.ds-announcement` / `.ds-site-header`) … which covers **ONLY** these two pieces; nothing below the
 black bar is approved chrome."
 
-**Root cause, and it is not this template.** `submit-ce/uv.lock:30` pins arxiv-base to
+**Root cause, and it is not this template.** [`submit-ce/uv.lock:30`](https://github.com/arXiv/submit-ce/tree/develop/uv.lock#L30) pins arxiv-base to
 `?branch=SUBMISSION-80-LicenseDataUpdate#4f574284a39a1de5f88fefd6d2ec687e08a65f86`
-(`submit-ce/pyproject.toml:117`). arxiv-base **master** (`b14b99f`, `1.0.1-849-gb14b99f`) already
+([`submit-ce/pyproject.toml:117`](https://github.com/arXiv/submit-ce/tree/develop/pyproject.toml#L117)). arxiv-base **master** (`b14b99f`, `1.0.1-849-gb14b99f`) already
 ships the compliant chrome:
 
-- `arxiv-base/arxiv/base/templates/base/header.html` is `<header class="ds-site-header">` — arXiv
+- [`arxiv-base/arxiv/base/templates/base/header.html`](https://github.com/arXiv/arxiv-base/tree/develop/arxiv/base/templates/base/header.html) is `<header class="ds-site-header">` — arXiv
   logo (`arxiv-logo-primary-light.svg`, no Cornell), nav of Search / Submit / Donate / Log in, a
   search overlay, and a hamburger wired only when JS enables it.
-- `arxiv-base/arxiv/base/templates/base/footer.html` is `<footer class="ds-site-footer">` with the
+- [`arxiv-base/arxiv/base/templates/base/footer.html`](https://github.com/arXiv/arxiv-base/tree/develop/arxiv/base/templates/base/footer.html) is `<footer class="ds-site-footer">` with the
   acknowledgment where it belongs, `<nav aria-label="Site navigation">`, and `aria-hidden="true"` on
   the dot separators — matching the `docs/public/footer-styles.html` behavior contract line for line.
-- `arxiv-base/arxiv/base/templates/base/base.html` adds the spinout announcement band and loads
+- [`arxiv-base/arxiv/base/templates/base/base.html`](https://github.com/arXiv/arxiv-base/tree/develop/arxiv/base/templates/base/base.html) adds the spinout announcement band and loads
   `css/arxiv-header-footer.css`.
 
 **Fix.** Move the arxiv-base pin to master. This page needs no template change — `{% extends
@@ -102,9 +102,9 @@ ships the compliant chrome:
 approach this PR took.
 
 The obvious objection — that the branch exists to carry license data this very page depends on — does
-not hold: `arxiv-base/arxiv/license/__init__.py` is **byte-identical** to the pinned copy in
+not hold: [`arxiv-base/arxiv/license/__init__.py`](https://github.com/arXiv/arxiv-base/tree/develop/arxiv/license/__init__.py) is **byte-identical** to the pinned copy in
 `submit-ce/.venv` (`diff -q` reports no difference), so the `CURRENT_LICENSES` shape
-`submit_ce/ui/controllers/sword_license.py:46-50` reads is the same on master. That said, arxiv-base
+[`submit_ce/ui/controllers/sword_license.py:46-50`](https://github.com/arXiv/submit-ce/tree/develop/submit_ce/ui/controllers/sword_license.py#L46-L50) reads is the same on master. That said, arxiv-base
 is the shared dependency hub, so a bump is cross-cutting and needs the normal regression pass across
 submit-ce rather than a drop-in swap. If the pin cannot move in this PR, say so in the PR
 description — the chrome is non-compliant until it does.
@@ -112,7 +112,7 @@ description — the chrome is non-compliant until it does.
 ### 3. The skip link can never become visible — owner: the same pin
 
 At the pinned commit, `base/base.html` renders `<a href="#main-container" class="is-sr-only">Skip to
-main content</a>`, and `.is-sr-only` (`arxiv-base/arxiv/base/static/css/arxivstyle.css:1248-1257`)
+main content</a>`, and `.is-sr-only` ([`arxiv-base/arxiv/base/static/css/arxivstyle.css:1248-1257`](https://github.com/arXiv/arxiv-base/tree/develop/arxiv/base/static/css/arxivstyle.css#L1248-L1257))
 clips the element to 0.01em with `!important` and has **no `:focus` reveal**. The link is announced to
 screen readers but is permanently invisible to sighted keyboard users.
 
@@ -120,13 +120,13 @@ screen readers but is permanently invisible to sighted keyboard users.
 focusable element on the page, **visible only on keyboard focus**."
 
 **Fix.** Same pin bump. Master's `.ds-skip-link`
-(`arxiv-base/arxiv/base/static/css/arxiv-header-footer.css:175-191`) moves to `top: 8px` on
+([`arxiv-base/arxiv/base/static/css/arxiv-header-footer.css:175-191`](https://github.com/arXiv/arxiv-base/tree/develop/arxiv/base/static/css/arxiv-header-footer.css#L175-L191)) moves to `top: 8px` on
 `:focus-visible` at `z-index: 200` — which also matches the policy's z-layer scale ("skip
 link/overlays 200").
 
 ### 4. Fonts load from Google Fonts — owner: arxiv-base, and **not** fixed by the pin bump
 
-`arxiv-base/arxiv/base/static/css/arxivstyle.css:2`:
+[`arxiv-base/arxiv/base/static/css/arxivstyle.css:2`](https://github.com/arXiv/arxiv-base/tree/develop/arxiv/base/static/css/arxivstyle.css#L2):
 
 ```css
 @import url("https://fonts.googleapis.com/css?family=Open+Sans:400,400i,600,700");
@@ -159,10 +159,10 @@ rest, `transform: translateY(1px)` on `:active`, 0.12s/0.08s transitions; *Color
 primary to Open Blue `#a5d6fe` with Repository Brown `#1c1a17` text (11.3:1).
 
 Fix, in-repo: `class="button button-secondary"`, matching
-`submit-ce/submit_ce/ui/templates/submit/license.html:67`. Be aware that this only reduces the drift
+[`submit-ce/submit_ce/ui/templates/submit/license.html:67`](https://github.com/arXiv/submit-ce/tree/develop/submit_ce/ui/templates/submit/license.html#L67). Be aware that this only reduces the drift
 — Bulma's `.button` (`arxivstyle.css:143-152`) is `border-radius: 4px`, `box-shadow: none`, padding
 `0.375em 0.625em` (≈6px 10px), none of which match the policy. Full compliance needs `.ds-btn
-ds-btn-primary` from `design-system/docs/public/design-system.css`, which submit-ce does not ship at
+ds-btn-primary` from [`design-system/docs/public/design-system.css`](https://github.com/arXiv/design-system/tree/develop/docs/public/design-system.css), which submit-ce does not ship at
 all. That gap is worth a ticket of its own: no page in submit-ce can currently be token-compliant.
 
 **Inline link is not underlined, and its colour is off-palette.** The "Discussion of Licenses" link
@@ -185,7 +185,7 @@ the global change is too broad for this PR.
 **No `<h1>` on the page.** The first heading is `<h2>License Statement</h2>`
 (`sword_license.html:20`); the rendered output contains zero `<h1>`. The WCAG 2.1 AA floor
 DESIGN-POLICIES adopts covers programmatic structure (1.3.1), and the sibling template
-`submit-ce/submit_ce/ui/templates/submit/base.html:18` renders an `<h1 class="title title-submit">`
+[`submit-ce/submit_ce/ui/templates/submit/base.html:18`](https://github.com/arXiv/submit-ce/tree/develop/submit_ce/ui/templates/submit/base.html#L18) renders an `<h1 class="title title-submit">`
 for exactly this slot, so the in-repo convention is an h1. Stated honestly: DESIGN-POLICIES has no
 explicit heading-level rule, so this is the WCAG floor plus in-repo consistency rather than a quoted
 design-system line. Fix: promote to `<h1>` — it is the page's only top-level heading.
@@ -205,7 +205,7 @@ measure.** Any block of continuous prose targets a ~65-character line length (~6
 and internal surfaces alike." Fix: constrain the text block to `max-width: 65ch`.
 
 **License radio group now exists twice.** The same control appears in `sword_license.html:23-25` and
-`submit-ce/submit_ce/ui/templates/submit/license.html:137-208`. DESIGN-POLICIES → *Components*:
+[`submit-ce/submit_ce/ui/templates/submit/license.html:137-208`](https://github.com/arXiv/submit-ce/tree/develop/submit_ce/ui/templates/submit/license.html#L137-L208). DESIGN-POLICIES → *Components*:
 "**New patterns:** If a UI element appears in two or more pages, extract it into a design system CSS
 file and create or update a pattern page in `docs/`." The two are already inconsistent — one has
 labels, one does not, which is how finding 1 arose. Worth a follow-up ticket rather than in-PR work;
@@ -225,7 +225,7 @@ effective target to the full text row for free.
 the segmented-control pattern, not a stated rule for radios — so this is pattern-adjacent, not a
 policy citation. It would give the group an accessible name beyond the visible `<h2>`.
 
-**FontAwesome is loaded.** `arxiv-base/arxiv/base/templates/base/head.html:19` loads
+**FontAwesome is loaded.** [`arxiv-base/arxiv/base/templates/base/head.html:19`](https://github.com/arXiv/arxiv-base/tree/develop/arxiv/base/templates/base/head.html#L19) loads
 `fontawesome-free-5.11.2-web/js/all.js`, and the inherited footer uses FontAwesome SVG paths.
 DESIGN-POLICIES → *Components*: "**Icons:** One icon language: inline SVG from the Lucide set … No
 icon fonts." This page renders no icons of its own, so it is inherited-only, upstream, and low

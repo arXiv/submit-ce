@@ -26,7 +26,7 @@ re-litigated.
 | 6 | Medium | Advertised 50 MB `maxUploadSize` may exceed the Cloud Run request limit | `cicd/` | Open |
 | 7 | Medium | `/docs`, `/redoc`, `/openapi.json` served publicly | `sword/app.py` | **Fixed** |
 | 8 | Medium | GCS id counter is a single-object write hotspot | `sword/gs_deposits.py` | Accepted |
-| 9 | Low | Socket test guard does not stop gRPC, and its docstring claims it does | `conftest.py` | Open |
+| 9 | Low | Socket test guard does not stop gRPC, and its docstring claims it does | [`conftest.py`](https://github.com/arXiv/submit-ce/tree/develop/conftest.py) | Open |
 | 10 | Low | Assorted docstring/robustness nits | various | Open |
 | 11 | High | A replacement's new row gets no event rows, so it cannot be loaded | `legacy_implementation/db.py` | Open, pinned |
 | 12 | Medium | A malformed CSRF token is a 500 from `arxiv.forms.csrf` | `arxiv-base` | Worked around |
@@ -59,7 +59,7 @@ Worth recording so it survives future refactors:
 
 ## 1. Only `SwordFault` has an exception handler (High) — FIXED
 
-`submit_ce/sword/app.py:179` registers a handler for `SwordFault` and nothing
+[`submit_ce/sword/app.py:179`](https://github.com/arXiv/submit-ce/tree/develop/submit_ce/sword/app.py#L179) registers a handler for `SwordFault` and nothing
 else. Any other exception escapes to Starlette's default 500 handler, whose body
 is plain text or HTML — unparseable by a SWORD client that expects
 `sword:error`.
@@ -79,7 +79,7 @@ CGI wrapped the entire request, so a Perl die still produced an error document.
 a generic code) as a `sword:error`. Without it, the error-document work does not
 hold at the boundary where it matters most.
 
-**Fixed.** `_unexpected_error_handler` at `submit_ce/sword/app.py:184` renders
+**Fixed.** `_unexpected_error_handler` at [`submit_ce/sword/app.py:184`](https://github.com/arXiv/submit-ce/tree/develop/submit_ce/sword/app.py#L184) renders
 `ENAVL`/503 — 503 rather than a 500 code because the legacy set has none, this is
 what legacy answered when it could not proceed internally
 (`AtomPP.pm:258,501`), and it tells a batch depositor to retry rather than to
@@ -92,7 +92,7 @@ traceback would have been discarded in production, making "the detail goes to th
 log instead" a false promise. Now `exc_info=exc`, with a comment so nobody
 simplifies it back.
 
-Seven tests in `submit_ce/sword/tests/test_failure_surface.py`, including that a
+Seven tests in [`submit_ce/sword/tests/test_failure_surface.py`](https://github.com/arXiv/submit-ce/tree/develop/submit_ce/sword/tests/test_failure_surface.py), including that a
 planned `SwordFault` still reaches its own handler — an `Exception` handler is
 easy to get wrong in the direction of catching everything, which would turn a 401
 into a 503 and make clients retry instead of fixing credentials. Confirmed
@@ -100,15 +100,15 @@ non-vacuous: disabling the handler fails 4 of the 7.
 
 ## 2. `announced_submission_id()` ignores announced status (High) — FIXED
 
-`submit_ce/sword/replace.py:111-121` selects the highest `submission_id` for a
+[`submit_ce/sword/replace.py:111-121`](https://github.com/arXiv/submit-ce/tree/develop/submit_ce/sword/replace.py#L111-L121) selects the highest `submission_id` for a
 `doc_paper_id` with **no status filter**, despite its name, and despite
 `CreateSubmissionVersion.validate_pre_lock` requiring `is_announced`
-(`submit_ce/domain/event/__init__.py:157`).
+([`submit_ce/domain/event/__init__.py:157`](https://github.com/arXiv/submit-ce/tree/develop/submit_ce/domain/event/__init__.py#L157)).
 
 So a second PUT resolves to the unannounced v2 row created by the first, and
 fails — this is the direct cause of finding 1's traceback.
 
-Legacy had a concept for this condition: `submit_ce/sword/tracking.py:52`
+Legacy had a concept for this condition: [`submit_ce/sword/tracking.py:52`](https://github.com/arXiv/submit-ce/tree/develop/submit_ce/sword/tracking.py#L52)
 already carries `CONFLICTING_SUBMISSION = "conflicting submission active"`. But
 that value is only ever *read*, from a `failed - conflict` paper_id that the
 legacy pipeline wrote. Nothing in the new PUT path *detects* the condition.
@@ -144,14 +144,14 @@ non-owner never sees `EPSUB`.
 
 ## 3. `/sword-license` POST has no CSRF token (High) — FIXED
 
-`submit_ce/ui/templates/submit/sword_license.html:23` is a hand-written
+[`submit_ce/ui/templates/submit/sword_license.html:23`](https://github.com/arXiv/submit-ce/tree/develop/submit_ce/ui/templates/submit/sword_license.html#L23) is a hand-written
 `<form method="post">` with no token. There is **no global `CSRFProtect`** in
-`submit_ce/ui/factory.py`, and every other POST form in the repo goes through
+[`submit_ce/ui/factory.py`](https://github.com/arXiv/submit-ce/tree/develop/submit_ce/ui/factory.py), and every other POST form in the repo goes through
 `arxiv.forms.csrf.CSRFForm`:
 
-- `submit_ce/ui/controllers/new/classification.py:111` — `class ClassificationFormV2(csrf.CSRFForm)`
-- `submit_ce/ui/templates/submit/classification.html:28` — `{{ form.csrf_token }}`
-- `submit_ce/ui/templates/submit/file_upload.html:138` — same
+- [`submit_ce/ui/controllers/new/classification.py:111`](https://github.com/arXiv/submit-ce/tree/develop/submit_ce/ui/controllers/new/classification.py#L111) — `class ClassificationFormV2(csrf.CSRFForm)`
+- [`submit_ce/ui/templates/submit/classification.html:28`](https://github.com/arXiv/submit-ce/tree/develop/submit_ce/ui/templates/submit/classification.html#L28) — `{{ form.csrf_token }}`
+- [`submit_ce/ui/templates/submit/file_upload.html:138`](https://github.com/arXiv/submit-ce/tree/develop/submit_ce/ui/templates/submit/file_upload.html#L138) — same
 
 **Impact:** a logged-in user visiting an attacker's page can have their default
 SWORD license silently changed — including to `no`, which disables their
@@ -163,14 +163,14 @@ UI" — was given without reading the package, which turns out to document itsel
 unusable; see finding 13 and the corrections below.
 
 **Fixed** with `SwordLicenseForm(csrf.CSRFForm)` in
-`submit_ce/ui/controllers/sword_license.py`, plus `{{ form.csrf_token }}` in the
+[`submit_ce/ui/controllers/sword_license.py`](https://github.com/arXiv/submit-ce/tree/develop/submit_ce/ui/controllers/sword_license.py), plus `{{ form.csrf_token }}` in the
 template, validated before the license value is looked at. `CSRFForm` was chosen
 over a session-bound alternative as an explicit call for consistency with the rest
 of the app, with finding 13's caveat recorded in the class docstring.
 
 `License` is deliberately **not** a form field: rendering it through a WTForms
 widget would change the radio markup that
-`arxiv-test-regression/pytest/tests/test_sword.py:43,51` matches exactly. The
+[`arxiv-test-regression/pytest/tests/test_sword.py:43,51`](https://github.com/arXiv/arxiv-test-regression/tree/develop/pytest/tests/test_sword.py#L43) matches exactly. The
 template keeps its hand-written loop and the value is still checked against
 `offered_licenses`.
 
@@ -187,7 +187,7 @@ disabling the check fails all four enforcement tests.
 ## 4. Wrapper deposits are not size-capped before parsing (Medium) — FIXED
 
 `check_size` is called only from `save()` —
-`submit_ce/sword/deposits.py:282` and `submit_ce/sword/gs_deposits.py:102` —
+[`submit_ce/sword/deposits.py:282`](https://github.com/arXiv/submit-ce/tree/develop/submit_ce/sword/deposits.py#L282) and [`submit_ce/sword/gs_deposits.py:102`](https://github.com/arXiv/submit-ce/tree/develop/submit_ce/sword/gs_deposits.py#L102) —
 which is the **media** path only. The wrapper path goes straight to
 `parse_document` → `etree.fromstring`.
 
@@ -225,7 +225,7 @@ route calls fails 4 of them.
 ## 5. Oversize answers 415 with a self-contradicting document (Medium) — FIXED
 
 `check_size` raises `EMDTP`, whose canonical text is *"media type specified is
-not supported"* (`submit_ce/sword/errors.py:101`), while the summary reads
+not supported"* ([`submit_ce/sword/errors.py:101`](https://github.com/arXiv/submit-ce/tree/develop/submit_ce/sword/errors.py#L101)), while the summary reads
 *"deposit of N bytes exceeds the M byte limit"*. The error document contradicts
 itself.
 
@@ -243,7 +243,7 @@ Legacy did enforce a cap, one layer above the SWORD code:
 Two independent hardcoded numbers, with the advertised value ~245 KB *below* the
 enforced one — accidentally the safe direction.
 
-Nothing enforced it in Apache: `arxiv-httpd/conf/sword.conf` sets no
+Nothing enforced it in Apache: [`arxiv-httpd/conf/sword.conf`](https://github.com/arXiv/arxiv-httpd/tree/develop/conf/sword.conf) sets no
 `LimitRequestBody`, and neither does anything else in `arxiv-httpd/`, so Apache's
 default of unlimited applied. `cgi-bin/sword.pl` is a 16-line stub that only calls
 `arXiv::AtomPP::AtomPP->new()->run()`. The limit was purely CGI.pm's.
@@ -279,7 +279,7 @@ one cannot slip in unnoticed.
 ## 6. Advertised 50 MB may exceed the Cloud Run request limit (Medium)
 
 The service document promises `maxUploadSize` 51200 kB
-(`submit_ce/sword/atom/servicedoc.py`, per plan decision 5). Cloud Run caps
+([`submit_ce/sword/atom/servicedoc.py`](https://github.com/arXiv/submit-ce/tree/develop/submit_ce/sword/atom/servicedoc.py), per plan decision 5). Cloud Run caps
 HTTP/1 request bodies below that.
 
 ### The size limits, all of them
@@ -333,7 +333,7 @@ The Cloud Run question stands on its own: whichever number is advertised, confir
 the platform will carry it.
 
 **The published manual needs updating with this change.**
-`arxiv-docs/source/help/submit_sword.md:224` shows
+[`arxiv-docs/source/help/submit_sword.md:224`](https://github.com/arXiv/arxiv-docs/tree/develop/source/help/submit_sword.md#L224) shows
 `<sword:maxUploadSize>10000</sword:maxUploadSize>` in its worked example, and
 :237-238 describes the field as "the maximal allowed size of uploads in kB". A
 depositor reading the manual will size their client against 10 MB and keep
@@ -352,7 +352,7 @@ Legacy exposed nothing under the SWORD app unauthenticated — `sword.conf` gate
 `/sword-app` at the Apache layer.
 
 The only mitigation is edge routing that **does not exist yet**, and
-`cicd/cloudbuild-sword-dev-arxiv.yaml` sets no `--ingress`.
+[`cicd/cloudbuild-sword-dev-arxiv.yaml`](https://github.com/arXiv/submit-ce/tree/develop/cicd/cloudbuild-sword-dev-arxiv.yaml) sets no `--ingress`.
 
 **Fix:** `docs_url=None, redoc_url=None` in `create_sword_app`, and consider
 `--ingress=internal-and-cloud-load-balancing`.
@@ -381,11 +381,11 @@ that docs cannot be enabled on a deployed instance without also enabling fake
 logins; that is the safe direction, and a dedicated flag can be added if it is
 ever wanted.
 
-`local_sword.py` now sets `LOCAL_LOGIN=1` — `local_ui.py` already did, and without
+[`local_sword.py`](https://github.com/arXiv/submit-ce/tree/develop/local_sword.py) now sets `LOCAL_LOGIN=1` — [`local_ui.py`](https://github.com/arXiv/submit-ce/tree/develop/local_ui.py) already did, and without
 it the gate would have denied docs on a laptop too, which was the whole point of
 keeping them.
 
-*In the deploy*, `cicd/cloudbuild-sword-dev-arxiv.yaml` now passes
+*In the deploy*, [`cicd/cloudbuild-sword-dev-arxiv.yaml`](https://github.com/arXiv/submit-ce/tree/develop/cicd/cloudbuild-sword-dev-arxiv.yaml) now passes
 `--ingress=$_INGRESS`, defaulting to `internal-and-cloud-load-balancing`, so the
 service's own `*.run.app` URL is not reachable from the internet at all. This is
 the layer that holds if the app is ever misconfigured, and it covers every endpoint
@@ -402,7 +402,7 @@ three kwargs fails 2 of them.
 ## 8. GCS id counter is a single-object write hotspot (Medium) — ACCEPTED
 
 Every `allocate_id()` performs a read plus a conditional write against one
-object (`submit_ce/sword/gs_deposits.py:74-95`).
+object ([`submit_ce/sword/gs_deposits.py:74-95`](https://github.com/arXiv/submit-ce/tree/develop/submit_ce/sword/gs_deposits.py#L74-L95)).
 
 The CAS logic itself is **correct** — the interleaving was traced: two writers
 reading generation G both attempt `if_generation_match=G`, one wins, the loser
@@ -431,7 +431,7 @@ No code change.
 
 ## 9. The socket test guard does not stop gRPC (Low)
 
-The root `conftest.py` docstring claims the guard "turns 'no test happens to
+The root [`conftest.py`](https://github.com/arXiv/submit-ce/tree/develop/conftest.py) docstring claims the guard "turns 'no test happens to
 reach out' into 'no test can'". Tested:
 
 ```
@@ -454,27 +454,27 @@ Individually minor; grouped so none is lost.
 
 **Docstrings that overstate or misdescribe:**
 
-- `submit_ce/sword/auth.py:75-77` — "the three are deliberately
+- [`submit_ce/sword/auth.py:75-77`](https://github.com/arXiv/submit-ce/tree/develop/submit_ce/sword/auth.py#L75-L77) — "the three are deliberately
   indistinguishable" is true of the response body but false of timing: an
   unknown nickname skips bcrypt entirely. Drop the claim or hash a dummy.
-- `submit_ce/sword/auth.py:130-135` — says "any account with that address
+- [`submit_ce/sword/auth.py:130-135`](https://github.com/arXiv/submit-ce/tree/develop/submit_ce/sword/auth.py#L130-L135) — says "any account with that address
   counts" but uses `.first()`. The Perl also reads a single row
   (`AtomPP.pm:_is_email_bad`), so the *behaviour* is faithful; only the comment
   is wrong.
 
 **Robustness:**
 
-- `submit_ce/sword/collections.py:135-141` — `.first()` with no `ORDER BY`, then
+- [`submit_ce/sword/collections.py:135-141`](https://github.com/arXiv/submit-ce/tree/develop/submit_ce/sword/collections.py#L135-L141) — `.first()` with no `ORDER BY`, then
   a Python case re-check. Correct, and it does neutralize MySQL's
   case-insensitive collation, but non-deterministic if a case-variant nickname
   pair ever exists — which would present as flaky authentication. An
   exact/binary-collation filter would be firmer.
-- `submit_ce/sword/atom/parse.py:151` — the lxml parser is unconfigured. Probed:
+- [`submit_ce/sword/atom/parse.py:151`](https://github.com/arXiv/submit-ce/tree/develop/submit_ce/sword/atom/parse.py#L151) — the lxml parser is unconfigured. Probed:
   external entities are not resolved and libxml2 caps entity amplification, so
   there is **no live XXE or billion-laughs vulnerability**. But that safety
   rests entirely on library defaults. `XMLParser(resolve_entities=False,
   load_dtd=False, no_network=True)` plus a regression test would pin it.
-- ~~`submit_ce/ui/controllers/sword_license.py:84` — raises `BadRequest` for an
+- ~~[`submit_ce/ui/controllers/sword_license.py:84`](https://github.com/arXiv/submit-ce/tree/develop/submit_ce/ui/controllers/sword_license.py#L84) — raises `BadRequest` for an
   anonymous visitor instead of redirecting to login.~~ **Withdrawn**, see
   [Corrections](#corrections-to-the-first-revision): an anonymous request is a 401
   from upstream and never reaches the controller.
@@ -491,19 +491,19 @@ Individually minor; grouped so none is lost.
 
 **Tests:**
 
-- `submit_ce/sword/tests/test_tracking.py:175` accepts three statuses
+- [`submit_ce/sword/tests/test_tracking.py:175`](https://github.com/arXiv/submit-ce/tree/develop/submit_ce/sword/tests/test_tracking.py#L175) accepts three statuses
   (`"submitted", "incomplete", "on hold"`) when the outcome is deterministic —
   nothing triggers compile, so it is always `incomplete`. Would pass through a
   silent behaviour change.
-- `submit_ce/sword/tests/test_media_deposit.py:196` disjuncts over XML escaping
+- [`submit_ce/sword/tests/test_media_deposit.py:196`](https://github.com/arXiv/submit-ce/tree/develop/submit_ce/sword/tests/test_media_deposit.py#L196) disjuncts over XML escaping
   (`&#39;` or `'`). Assert the encoding actually produced.
 
 **Housekeeping:**
 
-- `submit_ce/ui/tests/test_backend_email_service.py` still lives under
-  `ui/tests/` though the code moved to `submit_ce/implementations/wiring.py`.
+- [`submit_ce/ui/tests/test_backend_email_service.py`](https://github.com/arXiv/submit-ce/tree/develop/submit_ce/ui/tests/test_backend_email_service.py) still lives under
+  `ui/tests/` though the code moved to [`submit_ce/implementations/wiring.py`](https://github.com/arXiv/submit-ce/tree/develop/submit_ce/implementations/wiring.py).
 - `PaperOwner.valid` and `flag_author` are ignored by
-  `submit_ce/sword/replace.py:91-97`. **This is faithful** — legacy's subquery
+  [`submit_ce/sword/replace.py:91-97`](https://github.com/arXiv/submit-ce/tree/develop/submit_ce/sword/replace.py#L91-L97). **This is faithful** — legacy's subquery
   ignores them too. Worth a separate ticket against the legacy behaviour, not a
   change on this branch.
 
@@ -523,7 +523,7 @@ submission_id=2 version=2 type=rep status=0 events=0
 ```
 
 The cause is `_new_dbevent` at
-`submit_ce/implementations/legacy_implementation/db.py:650`, which stamps each row
+[`submit_ce/implementations/legacy_implementation/db.py:650`](https://github.com/arXiv/submit-ce/tree/develop/submit_ce/implementations/legacy_implementation/db.py#L650), which stamps each row
 with `event.submission_id` — for `CreateSubmissionVersion` that is the submission
 being *versioned*, not the one being created. So `get_events()` on the new row
 raises `NoSuchSubmission`, and a paper cannot be replaced a second time even after
@@ -600,7 +600,7 @@ the first revision may have been read already.
   is not "nothing is there", especially across a multi-repo workspace where the
   governing limit lived in neither file being read.
 
-  Worse: `submit_ce/sword/atom/servicedoc.py:78-80`, **in the branch under
+  Worse: [`submit_ce/sword/atom/servicedoc.py:78-80`](https://github.com/arXiv/submit-ce/tree/develop/submit_ce/sword/atom/servicedoc.py#L78-L80), **in the branch under
   review**, already documents `CGI::POST_MAX` and the 240 kB under-advertisement.
   The correct value was in the diff the whole time, and the review contradicted
   its own source. Reading the code being reviewed is not optional when the claim
@@ -661,7 +661,7 @@ Not review findings — restated for completeness:
   `FinalizeSubmission` never fire, and tracking reports `incomplete` where
   legacy reported `submitted`.
 - **Step 15's acceptance gate** against a deployed dev instance is still open;
-  `_TRIGGER_ID` is empty in `cicd/cloudbuild-sword-dev-arxiv.yaml`, and edge
+  `_TRIGGER_ID` is empty in [`cicd/cloudbuild-sword-dev-arxiv.yaml`](https://github.com/arXiv/submit-ce/tree/develop/cicd/cloudbuild-sword-dev-arxiv.yaml), and edge
   routing for `/sword-app/*` and `/resolve/app/*` is not in place.
 
 ## Recommendation
