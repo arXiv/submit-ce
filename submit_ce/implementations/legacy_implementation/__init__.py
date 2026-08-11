@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime, UTC
-from typing import Optional, List, Tuple, Callable
+from typing import Optional, List, Tuple, Callable, Union
 from sqlalchemy.exc import OperationalError, ProgrammingError
 from typing_extensions import override
 
@@ -30,7 +30,8 @@ from . import moderators
 from ...domain.event.base import Event, EventWithSideEffect
 from ...domain.util import get_tzaware_utc_now
 
-from ...domain.event import CreateSubmission, CreateJrefSubmission
+from ...domain.event import CreateSubmission, CreateJrefSubmission, \
+    CreateCrossSubmission
 from ...domain.event.legacy import Withdraw
 from ...domain.exceptions import NoSuchSubmission, NothingToDo, SaveError
 from . import db
@@ -159,18 +160,21 @@ class LegacySubmitImplementation(SubmitApi):
         if isinstance(events[0], Withdraw) and len(events) > 1:
             # BDC I don't love how the Withdraw is handled. I'd perfer if it were done in a side effect
             raise SaveError("Must save Withdraw as the only item in the list of Events")
-        if isinstance(events[0], CreateJrefSubmission) and len(events) > 1:
-            # Same shape as Withdraw: this event creates its own submission, so
-            # it cannot share a save with events aimed at another submission.
-            raise SaveError("Must save CreateJrefSubmission as the only item "
-                            "in the list of Events")
+        if isinstance(events[0], (CreateJrefSubmission, CreateCrossSubmission)) \
+                and len(events) > 1:
+            # Same shape as Withdraw: these events create their own submission,
+            # so they cannot share a save with events aimed at another one.
+            raise SaveError(f"Must save {type(events[0]).__name__} as the only "
+                            f"item in the list of Events")
         ctx = SaveContext(api=self, submission_id=submission_id, requested_events=events)
         with self.get_session() as session:
             try:
                 if isinstance(events[0], Withdraw):
                     result = self._save_withdrawal(events[0], session, ctx)
-                elif isinstance(events[0], CreateJrefSubmission):
-                    result = self._save_jref_create(events[0], session, ctx)
+                elif isinstance(events[0], (CreateJrefSubmission,
+                                           CreateCrossSubmission)):
+                    result = self._save_create_against_paper(events[0], session,
+                                                             ctx)
                 else:
                     before: Optional[Submission] = None
                     existing_events: List[Event] = []
@@ -380,15 +384,16 @@ class LegacySubmitImplementation(SubmitApi):
         session.commit()
         return after, [consequent]
 
-    def _save_jref_create(self, event: CreateJrefSubmission, session,
-                          ctx: SaveContext) -> Tuple[Submission, List[Event]]:
-        """Save a `CreateJrefSubmission`, creating a new ``jref`` submission.
+    def _save_create_against_paper(
+            self, event: Union[CreateJrefSubmission, CreateCrossSubmission],
+            session, ctx: SaveContext) -> Tuple[Submission, List[Event]]:
+        """Save an event that creates a new submission against an announced paper.
 
-        A journal reference is its own submission, seeded from the announced
-        paper's current metadata rather than from a submission being edited, so
-        it takes this path instead of the usual load-by-id one. There is no
-        file side effect, so unlike `Withdraw` nothing needs to run after the
-        new row's id exists.
+        `CreateJrefSubmission` and `CreateCrossSubmission` both work this way: the
+        new submission is seeded from the announced paper's current metadata
+        rather than from a submission being edited, so they take this path
+        instead of the usual load-by-id one. Neither has a file side effect, so
+        unlike `Withdraw` nothing needs to run after the new row's id exists.
         """
         event.created = datetime.now(UTC)
 
@@ -404,7 +409,10 @@ class LegacySubmitImplementation(SubmitApi):
         event.validate_under_lock(self, seed)
 
         ctx.phase = SavePhase.EVENT_PERSIST
-        saved_event, after = db.store_jref_create(session, event, seed)
+        if isinstance(event, CreateCrossSubmission):
+            saved_event, after = db.store_cross_create(session, event, seed)
+        else:
+            saved_event, after = db.store_jref_create(session, event, seed)
 
         ctx.after = after
         ctx.committed.append(saved_event)

@@ -49,3 +49,18 @@ def add_jref(paper_id: str) -> Response:
     """
     return handle(cntrls.jref.add_jref, 'submit/submission_blocked.html',
                   'Add journal reference', None, paper_id=paper_id)
+
+
+@PAPER_ID_UI.route('/<path:paper_id>/add_cross', methods=["POST"])
+@scoped(scopes.EDIT_SUBMISSION, authorizer=is_paper_owner,
+        unauthorized=redirect_to_login)
+def add_cross(paper_id: str) -> Response:
+    """Create a cross-list submission for an announced paper.
+
+    POST only for the same reason as :func:`add_jref`; the dashboard links here
+    with a form button. On success the user is redirected to the new cross's own
+    edit page (``ui.cross``) to choose categories. The template named here is
+    only rendered when the paper cannot be cross-listed right now.
+    """
+    return handle(cntrls.cross.add_cross, 'submit/submission_blocked.html',
+                  'Add cross-list', None, paper_id=paper_id)

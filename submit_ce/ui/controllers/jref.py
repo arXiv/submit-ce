@@ -9,7 +9,6 @@ mirroring legacy:
   (legacy ``/submit/<id>/jref``).
 """
 
-import copy
 from http import HTTPStatus as status
 from typing import Tuple, Dict, Any, List, Optional
 
@@ -32,7 +31,8 @@ from submit_ce.domain.event import SetReportNumber
 from submit_ce.domain.submission import SubmissionType
 from submit_ce.ui.backend import get_submission
 from ..auth import user_and_client_from_session
-from .util import FieldMixin, validate_command
+from .util import FieldMixin, active_submission_id, \
+    prospective_submission, validate_command
 
 
 logger = logging.getLogger(__name__)  # pylint: disable=C0103
@@ -75,30 +75,6 @@ class JREFForm(csrf.CSRFForm, FieldMixin):
                              false_values=('false', False, 0, '0', ''))
 
 
-def _active_submission_id(paper_id: str,
-                          submission_type: Optional[SubmissionType] = None) \
-        -> Optional[str]:
-    """Id of the paper's in-progress submission, if it has one.
-
-    A paper gets one active submission at a time, so this answers both of the
-    questions :func:`add_jref` asks. Pass ``submission_type`` to count only
-    submissions of that type -- an in-progress journal reference is one to
-    resume, where an in-progress anything-else is one that blocks. With no
-    type, any in-progress submission counts.
-
-    Returns ``None`` for a paper that does not exist, leaving the caller to
-    decide whether that is a 404 or just nothing to resume.
-    """
-    try:
-        document = current_app.api.get_document(paper_id)
-    except NoSuchDocument:
-        return None
-    for sub in document.active_submissions:
-        if submission_type is None or sub.submission_type == submission_type:
-            return str(sub.submission_id)
-    return None
-
-
 def add_jref(method: str, params: MultiDict, session: Session,
              submission_id: Optional[str] = None,
              paper_id: Optional[str] = None) -> Response:
@@ -122,8 +98,8 @@ def add_jref(method: str, params: MultiDict, session: Session,
     # A paper gets one journal reference at a time, so a second press of the
     # button (or a browser refresh) resumes the one already in progress rather
     # than failing on `CreateJrefSubmission.validate_under_lock`.
-    existing = _active_submission_id(paper_id,
-                                     SubmissionType.JOURNAL_REFERENCE)
+    existing = active_submission_id(paper_id,
+                                    SubmissionType.JOURNAL_REFERENCE)
     if existing is not None:
         logger.debug('Paper %s already has jref %s', paper_id, existing)
         return {}, status.SEE_OTHER, {
@@ -142,7 +118,7 @@ def add_jref(method: str, params: MultiDict, session: Session,
         logger.debug('Paper %s cannot take a jref right now', paper_id)
         # Re-read rather than reuse the lookup above: the rejection came from
         # under the row lock, so this is the fresher answer.
-        return ({'conflicting_submission_id': _active_submission_id(paper_id)},
+        return ({'conflicting_submission_id': active_submission_id(paper_id)},
                 status.OK, {})
     except SaveError as e:
         logger.error('Could not save jref submission')
@@ -217,7 +193,7 @@ def jref(method: str, params: MultiDict, session: Session,
         if commands:    # Metadata has changed
             finalize = FinalizeJrefSubmission(creator=creator, client=client)
             valid.append(validate_command(
-                form, finalize, _prospective(submission, commands)))
+                form, finalize, prospective_submission(submission, commands)))
             commands.append(finalize)
 
             if not all(valid):
@@ -247,25 +223,6 @@ def jref(method: str, params: MultiDict, session: Session,
             " number.")
     logger.debug('Nothing to do, return 200')
     return response_data, status.OK, {}
-
-
-def _prospective(submission: Submission, commands: List[Event]) -> Submission:
-    """The submission as ``commands`` would leave it, for pre-validation.
-
-    `FinalizeJrefSubmission` requires citation data, which is exactly what the
-    pending `Set*` events are about to supply -- validating it against the
-    submission as it stands would reject the first journal reference on every
-    jref. Everything else it checks (the inherited metadata and classification)
-    is untouched by those events.
-
-    ``project`` rather than ``apply``: it is the pure field update, so this
-    neither re-runs validation nor leaves ``_before``/``_after`` on the command
-    objects that :meth:`save` is about to apply for real.
-    """
-    prospective = copy.deepcopy(submission)
-    for command in commands:
-        prospective = command.project(prospective)
-    return prospective
 
 
 def _generate_commands(form: JREFForm, submission: Submission, creator: User,

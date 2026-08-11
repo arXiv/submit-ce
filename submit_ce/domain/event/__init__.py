@@ -68,7 +68,7 @@ from .email_mods import EmailProposalModeratorsMsg
 from .file import UploadFiles, RemoveFiles, RemoveAllFiles
 from .flag import AddMetadataFlag, AddUserFlag, AddContentFlag, RemoveFlag, \
     AddHold, RemoveHold
-from .request import RequestCrossList, RequestWithdrawal, ApplyRequest, \
+from .request import RequestWithdrawal, ApplyRequest, \
     RejectRequest, ApproveRequest, CancelRequest
 from ..agent import System
 from ..annotation import Feature, ClassifierResults, \
@@ -88,7 +88,7 @@ __all__ = [
     UploadFiles, RemoveFiles, RemoveAllFiles,
     AddMetadataFlag, AddUserFlag, AddContentFlag, RemoveFlag,
     AddHold, RemoveHold,
-    RequestCrossList, RequestWithdrawal, ApplyRequest,
+    RequestWithdrawal, ApplyRequest,
     RejectRequest, ApproveRequest, CancelRequest,
     System,
     Feature, ClassifierResults,
@@ -189,6 +189,153 @@ class CreateJrefSubmission(Event):
         submission.client = self.client
         submission.created = self.created
         return submission
+
+
+class CreateCrossSubmission(Event):
+    """Create a ``cross`` submission adding categories to an announced paper.
+
+    A cross-list is its own submission -- its own classic DB row, its own
+    submission id, its own status -- made against an already-announced paper, in
+    the same shape as :class:`CreateJrefSubmission`. It adds one or more
+    *secondary* categories to the paper's current version: no new metadata
+    version, no version bump, no source files.
+
+    The categories themselves arrive as :class:`AddCrossCategory` events on the
+    new submission, not as fields here, so that adding and removing a category
+    before submitting are ordinary edits of the cross (legacy's ``/submit/<id>/
+    cross`` and ``delete_cat``).
+
+    TODO: legacy gates creation on three things this system cannot yet read --
+    the submitter's ``veto_status`` (must not be ``no-replace``), the banned-user
+    flag, and ``is_locked``. Each needs a `SubmitApi` reader that does not exist.
+    """
+
+    NAME = "create a cross-list submission"
+    NAMED = "cross-list submission created"
+
+    paper_id: str
+    """Announced arXiv id of the paper being cross-listed."""
+
+    def validate_pre_lock(self, submission: Submission) -> None:
+        """Require an announced paper that is eligible for cross-listing."""
+        if submission is None or not submission.is_announced:
+            raise InvalidEvent(self, "Paper must already be announced")
+        validators.primary_is_not_general(self, submission)
+        validators.max_unique_secondaries(self, submission)
+
+    def validate_under_lock(self, api, submission) -> None:
+        """Reject if the paper has *any* submission already in progress."""
+        validators.no_conflicting_active_submission(self, api, submission)
+
+    def project(self, submission: Submission) -> Submission:
+        """Turn the announced-paper seed into a new ``cross`` submission.
+
+        The version is deliberately left alone: a cross annotates the current
+        version rather than creating a new one.
+        """
+        submission.submission_type = SubmissionType.CROSS_LIST
+        submission.status = Submission.WORKING
+        submission.submitted = None
+        # The row does not exist yet; its id is assigned when it is created.
+        submission.submission_id = None
+        submission.arxiv_id = self.paper_id
+        submission.creator = self.creator
+        submission.owner = self.creator
+        submission.proxy = self.proxy
+        submission.client = self.client
+        submission.created = self.created
+        return submission
+
+
+class AddCrossCategory(Event):
+    """Add a cross-list category to a ``cross`` submission.
+
+    The counterpart of :class:`AddSecondaryClassification` for a cross-list
+    submission, and a separate event because the two differ in three ways: this
+    one is gated on the submission's type, it records the category as *not yet
+    published* so the publish run and the notification email can tell it from the
+    paper's inherited categories, and it applies the general-primary rule
+    whatever the paper's version (see
+    :func:`.validators.no_secondary_when_primary_general`). The validation rules
+    themselves are the shared functions in :mod:`.validators`.
+
+    TODO: legacy also limits the categories on offer to the archives of the
+    submitter's enabled groups (``flag_group_*`` via ``UserExt::groups``). That
+    needs a `SubmitApi` reader for group flags, which does not exist.
+    """
+
+    NAME = "add cross-list category"
+    NAMED = "cross-list category added"
+
+    category: Optional[ActiveCategory] = None
+
+    def validate_pre_lock(self, submission: Submission) -> None:
+        """Validate the category to cross-list to, in legacy's order."""
+        if self.category is None:
+            raise InvalidEvent(self, "Must have a category")
+        validators.submission_is_not_finalized(self, submission)
+        _must_be_a_cross(self, submission)
+        validators.must_be_an_active_category(self, self.category, submission)
+        validators.cannot_be_primary(self, self.category, submission)
+        validators.cannot_be_secondary(self, self.category, submission)
+        validators.no_redundant_general_category(self, self.category,
+                                                 submission)
+        validators.no_redundant_non_general_category(self, self.category,
+                                                     submission)
+        validators.cannot_be_genph(self, self.category, submission)
+        validators.no_secondary_when_primary_general(self, submission,
+                                                     ignore_version=True)
+        validators.max_unique_secondaries(self, submission)
+
+    def project(self, submission: Submission) -> Submission:
+        """Add the category as an unpublished secondary classification."""
+        assert self.category is not None
+        submission.secondary_classification.append(
+            Classification(category=self.category, is_published=False))
+        return submission
+
+
+class RemoveCrossCategory(Event):
+    """Remove a not-yet-announced cross-list category from a ``cross``.
+
+    Legacy's ``delete_cat``. Only a category this submission added can be
+    removed; the paper's already-announced categories are shown but carry no
+    "Remove" link, and dropping one here would silently un-announce it.
+    """
+
+    NAME = "remove cross-list category"
+    NAMED = "cross-list category removed"
+
+    category: Optional[str] = None
+
+    def validate_pre_lock(self, submission: Submission) -> None:
+        """The category must be one this cross submission added."""
+        if self.category is None:
+            raise InvalidEvent(self, "Must have a category")
+        validators.submission_is_not_finalized(self, submission)
+        _must_be_a_cross(self, submission)
+        if self.category not in submission.secondary_categories:
+            raise InvalidEvent(self, 'No such category on submission')
+        if self.category not in submission.new_cross_categories:
+            raise InvalidEvent(
+                self, f"{self.category} is already announced on this paper and"
+                      f" cannot be removed here.")
+
+    def project(self, submission: Submission) -> Submission:
+        """Drop the classification from the submission."""
+        submission.secondary_classification = [
+            classn for classn in submission.secondary_classification
+            if classn.category != self.category
+        ]
+        return submission
+
+
+def _must_be_a_cross(event: Event, submission: Submission) -> None:
+    """Guard the cross-list events against non-``cross`` submissions."""
+    if submission.submission_type != SubmissionType.CROSS_LIST:
+        raise InvalidEvent(
+            event,
+            f"Not a cross-list submission: {submission.submission_type}")
 
 
 class CreateSubmissionVersion(Event):
@@ -1158,7 +1305,11 @@ class FinalizeSubmission(Event):
         SubmissionType.WITHDRAWAL, SubmissionType.CROSS_LIST})
     """Submission types that send a moderator email on finalize (legacy: types
     with a ``mod_template``). ``jref`` is excluded, as are auto-held
-    submissions; see :meth:`consequences`."""
+    submissions; see :meth:`consequences`.
+
+    ``cross`` is listed for completeness only -- a cross-list finalizes through
+    :class:`FinalizeCrossSubmission`, which sends the same pair of emails
+    itself."""
 
     def validate_pre_lock(self, submission: Submission) -> None:
         """Ensure that all required data/steps are complete."""
@@ -1315,6 +1466,103 @@ class FinalizeJrefSubmission(Event):
                    for key in self.CITATION_FIELDS):
             raise InvalidEvent(
                 self, "Must have a journal reference, a DOI or a report number")
+
+
+class FinalizeCrossSubmission(Event):
+    """Send a ``cross`` submission to the queue for announcement.
+
+    The cross-list counterpart of :class:`FinalizeSubmission`, and a separate
+    event for the same reason :class:`FinalizeJrefSubmission` is: a cross-list
+    does not touch the paper's files, so most of what finalizing a
+    ``new``/``rep`` submission checks is either meaningless or actively wrong.
+
+    Deliberately **not** done:
+
+    - **File, source-format and preview checks.** A cross is seeded by
+      :meth:`.Document.seed_submission`, which copies no source fields, and it
+      uploads nothing of its own -- the announced paper's files are what stays
+      announced.
+    - **The oversize auto-hold.** Nothing about the source changed.
+    - **``no_secondaries_on_general_primary``.** A general primary is rejected
+      earlier and more precisely, when the cross is created
+      (:func:`.validators.primary_is_not_general`).
+    - **``submitter_accepts_policy`` / ``submitter_contact_verified``.** The cross
+      form asks neither, and the seed does not carry them.
+
+    Unlike a journal reference, a cross **does** notify moderators: legacy sends
+    both the submitter confirmation and a moderator message, and crosses get
+    their own moderation queue.
+
+    TODO(freeze window): legacy sends a cross submitted between the daily freeze
+    and the following publish run to classic status 4 (``NEXT_PUBLISH_DAY``).
+    This sets ``SUBMITTED`` unconditionally -- neither
+    ``is_between_freeze_and_publish`` nor a domain ``SCHEDULED`` -> classic 4
+    mapping exists yet (the same gap as for jref).
+    """
+
+    NAME = "finalize cross-list submission for announcement"
+    NAMED = "cross-list submission finalized"
+
+    REQUIRED: ClassVar[List[str]] = ['creator', 'primary_classification',
+                                     'metadata']
+    """Fields inherited from the announced paper that must have survived."""
+
+    REQUIRED_METADATA: ClassVar[List[str]] = ['title', 'abstract',
+                                              'authors_display']
+
+    CONSEQUENCE_TYPES = frozenset({EmailSubmitterFinalizeMsg,
+                                   EmailModeratorsFinalizeMsg})
+
+    def validate_pre_lock(self, submission: Submission) -> None:
+        """Ensure this is an unsubmitted cross with a category to announce."""
+        _must_be_a_cross(self, submission)
+        if submission.is_finalized:
+            raise InvalidEvent(self, "Submission already finalized")
+        if not submission.is_active:
+            raise InvalidEvent(self, "Submission must be active")
+        self._required_fields_are_complete(submission)
+        self._has_a_new_cross(submission)
+
+    def project(self, submission: Submission) -> Submission:
+        """Mark the cross-list submitted, and record when."""
+        submission.status = Submission.SUBMITTED
+        # `created` rather than `now()`, for the reason given in
+        # `FinalizeJrefSubmission.project`: `project` is replayed on every read.
+        submission.submitted = self.created or datetime.now(UTC)
+        return submission
+
+    def consequences(self, submission: Submission) -> List[Event]:
+        """Notify the submitter, and the moderators of the new categories."""
+        sid = submission.submission_id
+        sid_str = str(sid) if sid is not None else None
+        events: List[Event] = [EmailSubmitterFinalizeMsg(
+            creator=System(name=__name__),
+            email_to=self.creator,
+            submission_id=sid_str)]
+        if not _is_auto_hold(submission):
+            events.append(EmailModeratorsFinalizeMsg(
+                creator=System(name=__name__),
+                submission_id=sid_str))
+        return events
+
+    def _required_fields_are_complete(self, submission: Submission) -> None:
+        """Verify the inherited fields a cross-list cannot do without."""
+        for key in self.REQUIRED:
+            if not getattr(submission, key):
+                raise InvalidEvent(self, f"Missing {key}")
+        for key in self.REQUIRED_METADATA:
+            if not getattr(submission.metadata, key):
+                raise InvalidEvent(self, f"Missing {key}")
+
+    def _has_a_new_cross(self, submission: Submission) -> None:
+        """A cross must actually be adding a category.
+
+        Legacy's "Please add categories before submitting": ``submit_cross``
+        refuses a submission with no ``is_published = 0`` rows.
+        """
+        if not submission.new_crosses:
+            raise InvalidEvent(
+                self, "Please add categories before submitting")
 
 
 class UnFinalizeSubmission(Event):

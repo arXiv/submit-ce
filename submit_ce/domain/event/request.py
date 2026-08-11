@@ -3,11 +3,11 @@
 from typing import Optional, List, ClassVar
 from dataclasses import field
 
+from pydantic import ConfigDict
 
 from . import validators
 from .base import Event
-from ..submission import Submission, Classification, WithdrawalRequest, \
-    CrossListClassificationRequest, UserRequest
+from ..submission import Submission, WithdrawalRequest, UserRequest
 from ..exceptions import InvalidEvent
 
 
@@ -123,50 +123,37 @@ class ApplyRequest(Event):
 
 
 class RequestCrossList(Event):
-    """Request that a secondary classification be added after announcement."""
+    """Deprecated no-op shim; a cross-list is now its own submission.
 
-    NAME = "request cross-list classification"
+    Cross-listing used to be modelled as a *request* recorded on the announced
+    submission's event stream. It is now a submission of its own, created by
+    :class:`.CreateCrossSubmission` and edited with :class:`.AddCrossCategory` /
+    :class:`.RemoveCrossCategory`, matching legacy ``type='cross'``.
+
+    This class survives only so that ``RequestCrossList`` rows already persisted
+    deserialize and replay: without a matching class
+    :meth:`.models.DBEvent.to_event` raises ``Unknown event type`` and the whole
+    submission fails to load. Same reasoning, and same shape, as
+    :class:`.event.legacy._LegacyUploadPackageEvent`. Projection is a pure no-op:
+    a legacy cross row is surfaced by the classic loaders
+    (:func:`.db.to_document`, :mod:`.patch`), not by replaying this event.
+
+    Do not emit new instances of this event.
+    """
+
+    NAME = "request cross-list classification (deprecated no-op)"
     NAMED = "cross-list classification requested"
 
-    #categories: List[taxonomy.Category] = field(default_factory=list)
+    model_config = ConfigDict(extra="ignore")  # tolerate old payload fields
+
     categories: List[str] = field(default_factory=list)
 
-    # def __hash__(self) -> int:
-    #     """Use event ID as object hash."""
-    #     return hash(self.event_id)
-
-    # def __eq__(self, other: object) -> bool:
-    #     """Compare this event to another event."""
-    #     if not isinstance(other, Event):
-    #         return NotImplemented
-    #     return hash(self) == hash(other)
-
     def validate_pre_lock(self, submission: Submission) -> None:
-        """Validate the cross-list request."""
-        validators.no_active_requests(self, submission)
-        if not submission.is_announced:
-            raise InvalidEvent(self, "Submission must already be announced")
-        for category in self.categories:
-            validators.must_be_an_active_category(self, category, submission)
-            validators.cannot_be_primary(self, category, submission)
-            validators.cannot_be_secondary(self, category, submission)
+        """No-op: deprecated event, nothing to validate."""
+        return None
 
     def project(self, submission: Submission) -> Submission:
-        """Create a cross-list request."""
-        classifications = [
-            Classification(category=category) for category in self.categories
-        ]
-
-        req_id = CrossListClassificationRequest.generate_request_id(submission)
-        assert self.created is not None
-        user_request = CrossListClassificationRequest(
-            request_id=req_id,
-            creator=self.creator,
-            created=self.created,
-            status=WithdrawalRequest.PENDING,
-            classifications=classifications
-        )
-        submission.user_requests[req_id] = user_request
+        """No-op: deprecated event, leaves the submission unchanged."""
         return submission
 
 

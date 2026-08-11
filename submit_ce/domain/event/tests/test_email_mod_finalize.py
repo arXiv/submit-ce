@@ -27,12 +27,14 @@ def _submitter():
                             email="submitter@example.org", endorsements=[])
 
 
-def _submission(submission_type=SubmissionType.NEW, arxiv_id=None, proposals=None):
+def _submission(submission_type=SubmissionType.NEW, arxiv_id=None,
+                proposals=None, secondaries=None):
     u = _submitter()
     return Submission(
         submission_id="12345",
         creator=u, owner=u, created=datetime.now(UTC),
         primary_classification=Classification(category="astro-ph.GA"),
+        secondary_classification=list(secondaries or []),
         submission_type=submission_type,
         arxiv_id=arxiv_id,
         proposals=proposals or {},
@@ -181,12 +183,20 @@ def test_withdrawal_subject():
 
 
 def test_cross_subject_and_body():
+    """The subject names only the categories the cross is adding.
+
+    A cross-list carries the paper's announced categories too (published), and
+    those must not appear as though they were being requested.
+    """
     service = EmailInMemory()
-    _event().execute(_Api(service),
-                     _submission(SubmissionType.CROSS_LIST, arxiv_id="2401.00001"))
+    submission = _submission(
+        SubmissionType.CROSS_LIST, arxiv_id="2401.00001",
+        secondaries=[Classification(category="astro-ph.CO", is_published=True),
+                     Classification(category="cs.DL")])
+    _event().execute(_Api(service), submission)
     sent = service.last
     assert sent.subject == \
-        "arXiv cross 12345 to astro-ph.GA for 2401.00001 by Sam Submitter"
+        "arXiv cross 12345 to cs.DL for 2401.00001 by Sam Submitter"
     assert "A crosslist has been added by submitter Sam Submitter" in sent.body
 
 

@@ -1,7 +1,7 @@
 """Reusable validators for events."""
 
 import re
-from typing import Sequence
+from typing import Sequence, Set
 
 from arxiv.taxonomy.definitions import CATEGORIES
 
@@ -194,7 +194,8 @@ def no_secondaries_on_general_primary(event: Event,
 
 
 def no_secondary_when_primary_general(event: Event,
-                                      submission: Submission) -> None:
+                                      submission: Submission,
+                                      ignore_version: bool = False) -> None:
     """A cross-list (secondary) may not be *added* when the primary category
     is general (SUBMISSION-158).
 
@@ -206,9 +207,13 @@ def no_secondary_when_primary_general(event: Event,
     submission).
 
     Replacements (``version > 1``) are exempt for the same reason as
-    :func:`no_secondaries_on_general_primary`.
+    :func:`no_secondaries_on_general_primary`. Pass ``ignore_version=True`` to
+    apply the rule whatever the version: a ``cross`` submission inherits the
+    announced paper's version, which may be 1 or 20, but legacy blocks
+    cross-listing onto a general primary either way (see
+    :func:`primary_is_not_general`).
     """
-    if submission.version > 1:
+    if submission.version > 1 and not ignore_version:
         return
     if (submission.primary_classification
             and CATEGORIES[submission.primary_category].is_general):
@@ -224,3 +229,57 @@ def max_secondaries(event: Event, submission: Submission) -> None:
             len(submission.secondary_classification) + 1 > 4):
         raise InvalidEvent(
             event, "No more than 4 secondary categories per submission.")
+
+
+MAX_UNIQUE_SECONDARIES = 4
+"""Legacy cap on a paper's secondary categories (``num_unique_secondaries``)."""
+
+
+def unique_secondaries(submission: Submission) -> Set[str]:
+    """The submission's secondary categories with aliases collapsed.
+
+    Legacy counts secondaries after ``arXiv::Categories->minimal_list``, which
+    folds aliased and subsumed categories together, so ``math.MP`` and
+    ``math-ph`` are one category and not two. The taxonomy exposes the same
+    relation as :meth:`arxiv.taxonomy.category.Category.get_canonical`.
+    """
+    unique = set()
+    for category in submission.secondary_categories:
+        cat = CATEGORIES.get(category)
+        unique.add(cat.get_canonical().id if cat is not None else category)
+    return unique
+
+
+def max_unique_secondaries(event: Event, submission: Submission,
+                           limit: int = MAX_UNIQUE_SECONDARIES) -> None:
+    """No more than ``limit`` secondary categories, counting aliases once.
+
+    The alias-collapsing counterpart of :func:`max_secondaries`, and the rule
+    legacy applies both when deciding whether a paper may be cross-listed at all
+    (``num_unique_secondaries >= 4`` blocks the whole flow) and when adding each
+    category. Called *before* the event projects, so a submission already at the
+    limit rejects the add.
+    """
+    if len(unique_secondaries(submission)) >= limit:
+        raise InvalidEvent(
+            event, f"No more than {limit} secondary categories per submission.")
+
+
+def primary_is_not_general(event: Event, submission: Submission) -> None:
+    """A paper whose primary category is general cannot be cross-listed.
+
+    Legacy checks this when the cross is created
+    (``document->categories->primary->category_def->is_general``) and turns it
+    into "<paper_id> is not appropriate for cross-listing".
+
+    TODO(admin bypass): legacy lets administrators past this check. The domain
+    has no representation of an administrative agent, so the check is
+    unconditional here.
+    """
+    if (submission.primary_classification
+            and CATEGORIES[submission.primary_category].is_general):
+        raise InvalidEvent(
+            event,
+            f"A paper with a general primary category "
+            f"({submission.primary_category}) is not appropriate for "
+            f"cross-listing.")

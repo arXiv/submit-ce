@@ -1,0 +1,114 @@
+{%- extends "base/base.html" %}
+
+{% import "submit/submit_macros.html" as submit_macros %}
+{% import "svg.html" as svg %}
+
+{% block addl_head %}
+ <link rel="stylesheet" href="{{ url_for('static', filename='css/submit.css')}}" />
+{% endblock addl_head %}
+
+{% block content %}
+  <h1 class="title">Add Cross-List Categories</h1>
+  <h2 class="is-size-5">
+    {% if primary %}
+      <span class="tag is-link has-text-weight-bold" style="vertical-align: text-bottom; font-style: normal;">{{ submission.primary_classification.category }}</span>
+    {% endif %}
+    {% for category in published_categories %}
+      <span class="tag" style="border: 1px solid #999; vertical-align: text-bottom; font-style: normal;">{{ category }}</span>
+    {% endfor %}
+    arXiv:{{ submission.arxiv_id }}v{{ submission.version }} {{ submission.metadata.title }}
+  </h2>
+
+  <div class="columns">
+    <div class="column">
+      <h3 id="crosslist" class="is-size-5">New cross-list(s)</h3>
+      {# One form per pending cross, so its × POSTs the removal and saves it
+         immediately -- unlike the Category page, which stages the same-looking
+         pills in hidden fields until "save & continue". The paper's already
+         announced categories are listed above and carry no remove control;
+         `RemoveCrossCategory` rejects them. #}
+      {% if formset %}
+        <div class="category-pills">
+          {% for category, subform in formset.items() %}
+          <form method="POST" action="{{ url_for('ui.cross', submission_id=submission_id) }}">
+            {{ subform.csrf_token }}
+            {{ subform.operation }}
+            {{ subform.category()|safe }}
+            <span class="tag" data-value="{{ category }}">
+              <span class="tag-code">{{ category }}</span>
+              <span class="tag-name">{{ category|get_category_name }}</span>
+              {# A real submit, not the Category page's type="button" -- there is
+                 no JS on this page to intercept it. #}
+              <button type="submit" class="remove-tag" title="Remove {{ category }}"
+                      aria-label="Remove {{ category }}">&times;</button>
+            </span>
+          </form>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="has-text-grey">No categories added yet.</p>
+      {% endif %}
+
+      {# Add a category. #}
+      <form method="POST" action="{{ url_for('ui.cross', submission_id=submission_id) }}">
+        {{ form.csrf_token }}
+        {{ form.operation }}
+        {% with field = form.category %}
+        <div class="field has-addons" style="margin-bottom: 3em">
+          <div class="control">
+            <div class="select">
+            {% if field.errors %}
+              {{ field(class="is-danger")|safe }}
+            {% else %}
+              {{ field(**{"aria-labelledby": "crosslist"})|safe }}
+            {% endif %}
+            </div>
+            {% if field.errors %}
+              <div class="help is-danger field-error">
+                {% for error in field.errors %}
+                    {{ error }}
+                {% endfor %}
+              </div>
+            {% endif %}
+          </div>
+          <div class="control">
+            <button class="button is-link">Add</button>
+          </div>
+        </div>
+        {% endwith %}
+      </form>
+    </div>
+
+    <div class="column">
+      <div class="message is-link">
+        <div class="message-body">
+          <p class="has-text-weight-bold">
+            {{ svg.info(title="Tips") }}
+            Tips for Choosing Cross-lists
+          </p>
+          <p>
+            Sometimes an article will be of direct interest to more than one arXiv category. Cross-lists provide a way to choose secondary categories for this purpose.
+          </p>
+          <p>
+            Add or remove categories until you are ready, then submit. The cross-lists will appear on the article's listings after the next announcement.
+          </p>
+          <p><a href="{{ url_for('help_cross') }}">More information on cross lists</a></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="buttons submit-nav" role="navigation">
+    <a href="{{ url_for('ui.manage_submissions') }}" name="cancel" class="button is-outlined" value="cancel" aria-label="Cancel">Cancel</a>
+    {% if require_confirmation %}
+      <form method="POST" class="form form-margin" action="{{ url_for('ui.cross', submission_id=submission_id) }}">
+        {{ form.csrf_token }}
+        <button name="confirmed" type="submit" class="button is-success" value="1" aria-label="Submit cross list">Submit cross list</button>
+      </form>
+    {% else %}
+      {# Legacy refuses a cross with nothing to add: "Please add categories
+         before submitting". #}
+      <button name="confirmed" type="submit" class="button" disabled aria-label="Submit cross list">Submit cross list</button>
+    {% endif %}
+  </div>
+{% endblock content %}

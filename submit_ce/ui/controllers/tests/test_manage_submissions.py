@@ -44,12 +44,13 @@ def test_announced_paper_is_listed(app, authorized_client,
     assert 'No announced articles' not in body
     assert paper_id in body
     assert submission.metadata.title in body
-    # All four per-paper actions, three keyed on the announced submission and
-    # Add Journal Reference keyed on the paper.
+    # All four per-paper actions. Replace and Withdraw are keyed on the
+    # announced submission; Add Journal Reference and Add cross-list each create
+    # a submission of their own and so are keyed on the paper.
     assert f'/{submission.submission_id}/replace' in body
     assert f'/{submission.submission_id}/withdraw' in body
-    assert f'/{submission.submission_id}/request_cross' in body
     assert f'action="/{paper_id}/add_jref"' in body
+    assert f'action="/{paper_id}/add_cross"' in body
 
 
 def test_announced_paper_shows_its_primary_category(app, authorized_client,
