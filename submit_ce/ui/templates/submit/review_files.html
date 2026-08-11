@@ -4,6 +4,7 @@
 {{super()}}
  <script src="{{ url_for('static', filename='js/filewidget.js') }}"></script>
  <script src="{{ url_for('static', filename='js/review_top_level_guard.js') }}" defer></script>
+ <script src="{{ url_for('static', filename='js/review_top_level_select.js') }}" defer></script>
  <script src="{{ url_for('static', filename='js/review_delete_cascade.js') }}" defer></script>
  <style>
    /* Oversized-image row highlight (SUBMISSION-172), mirroring 1.5's
@@ -241,20 +242,43 @@
     {% endfor %}
   </div>
 
-  {# Top-level TeX file. Submit 2.0 supports a single top-level file
-     (unlike legacy 1.5 which allowed multiple with reordering). #}
-  <div class="field">
-    <label class="label" for="source_file">Top-level TeX file</label>
-    <p class="help">Our automated scan tries to identify the top-level
-      TeX file. You can change it here or keep the auto-selection.</p>
-    <div class="control">
-      <div class="select is-fullwidth">
-        {{ form.source_file }}
+  {# Top-level TeX file(s) (SUBMISSION-226). One or more may be selected;
+     multiple compile concatenated in the order shown (top -> bottom). Each row
+     submits as `top_level_tex_files[]`, which the controller reads as an ordered
+     list (SUBMISSION-170). The add / remove / move buttons are progressive
+     enhancement wired by review_top_level_select.js; with JS off, the row(s)
+     rendered here still submit, so a single top-level is always selectable. #}
+  <div class="field" id="top-level-tex"
+       data-candidate-count="{{ top_level_candidates | length }}">
+    <label class="label">Top-level TeX file(s)</label>
+    <p class="help">Our automated scan pre-selects the top-level TeX file(s).
+      You can change, add, remove, or reorder them; multiple files are compiled
+      in the order listed.</p>
+    <div id="top-level-rows">
+      {% for sel in (selected_top_level_files or ['']) %}
+      <div class="field has-addons top-level-row">
+        <div class="control is-expanded">
+          <div class="select is-fullwidth">
+            <select name="top_level_tex_files[]" class="top-level-select">
+              {% for cand in top_level_candidates %}
+              <option value="{{ cand }}"{% if cand == sel %} selected{% endif %}>{{ cand }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+        <div class="control">
+          <button type="button" class="button tl-move-up" title="Move up" aria-label="Move up">&uarr;</button>
+        </div>
+        <div class="control">
+          <button type="button" class="button tl-move-down" title="Move down" aria-label="Move down">&darr;</button>
+        </div>
+        <div class="control">
+          <button type="button" class="button tl-remove" title="Remove this top-level file" aria-label="Remove">&times;</button>
+        </div>
       </div>
+      {% endfor %}
     </div>
-    {% for error in form.source_file.errors %}
-      <p class="help is-danger">{{ error }}</p>
-    {% endfor %}
+    <button type="button" id="tl-add" class="button is-small">+ Add top-level file</button>
   </div>
 
   {# Review Files list. Files checked for deletion will be removed when
