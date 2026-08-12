@@ -54,21 +54,34 @@
     });
   }
 
+  // Row tint follows the checkbox: yellow when marked for deletion, cleared
+  // when not. The server renders the initial tint for auto-checked (unused)
+  // files (SUBMISSION-228); this keeps it live as boxes toggle -- individually,
+  // via the folder cascade, or "Keep All".
+  function syncDeletionTints() {
+    fileCheckboxes().forEach(function (cb) {
+      var row = cb.closest("tr");
+      if (row) { row.classList.toggle("marked-for-deletion", cb.checked); }
+    });
+  }
+
+  function refresh() { syncDirStates(); syncDeletionTints(); }
+
   window.addEventListener("DOMContentLoaded", function () {
     dirCheckboxes().forEach(function (dir) {
       dir.addEventListener("change", function () {
         descendants(dir).forEach(function (cb) { cb.checked = dir.checked; });
-        syncDirStates();
+        refresh();
       });
     });
     fileCheckboxes().forEach(function (cb) {
-      cb.addEventListener("change", syncDirStates);
+      cb.addEventListener("change", refresh);
     });
     // "Keep All" unchecks boxes directly (no change event); resync afterward.
     document.querySelectorAll('.keep-all-link').forEach(function (link) {
-      link.addEventListener("click", function () { setTimeout(syncDirStates, 0); });
+      link.addEventListener("click", function () { setTimeout(refresh, 0); });
     });
-    // Initialise folder states from the server-rendered (auto-checked) files.
-    syncDirStates();
+    // Initialise folder states + tints from the server-rendered (auto-checked) files.
+    refresh();
   });
 })();
