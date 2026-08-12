@@ -10,7 +10,6 @@ Use it via `mocked_file_store(app)` from `submit_ce/ui/conftest.py`.
 """
 import io
 import json
-import posixpath
 import tarfile
 import zipfile
 from datetime import datetime, timezone
@@ -27,6 +26,7 @@ from submit_ce.domain.uploads import (
     Workspace,
 )
 from submit_ce.implementations import NullFileStore
+from submit_ce.implementations.file_store.file_store_mixin import safe_member_rel
 
 
 class _InMemoryFileObj(FileObj):
@@ -112,10 +112,13 @@ class MockFileStore(NullFileStore):
                         continue
                     f = tar.extractfile(member)
                     if f is not None:
-                        # Normalize "./"-prefixed member paths to match the GCS
-                        # store (SUBMISSION-224).
-                        rel = posixpath.normpath(member.name)
-                        if rel in (".", ""):
+                        # Normalize "./"-prefixed member paths and reject unsafe
+                        # ones, matching the GCS store (SUBMISSION-224,
+                        # SUBMISSION-230). safe_member_rel raises ValueError for
+                        # absolute/".." paths -- not caught by the TarError
+                        # handler below, so the whole archive is rejected.
+                        rel = safe_member_rel(member.name)
+                        if rel is None:
                             continue
                         files[rel] = f.read()
         except tarfile.TarError:
@@ -124,8 +127,8 @@ class MockFileStore(NullFileStore):
                     for info in zf.infolist():
                         if info.is_dir():
                             continue
-                        rel = posixpath.normpath(info.filename)
-                        if rel in (".", ""):
+                        rel = safe_member_rel(info.filename)  # SUBMISSION-230
+                        if rel is None:
                             continue
                         files[rel] = zf.read(info)
             except zipfile.BadZipFile:

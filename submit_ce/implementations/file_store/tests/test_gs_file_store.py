@@ -174,6 +174,18 @@ def test_store_source_package_strips_dotslash_member_paths(store, sub_id):
     assert not any(n.startswith("./") for n in names)
 
 
+def test_store_source_package_rejects_traversal_member(store, sub_id):
+    """An archive whose member escapes the submission via ".." must be
+    rejected outright -- nothing is written under the submission's source
+    (SUBMISSION-230)."""
+    tar_stream = make_targz({"main.tex": b"ok", "../../evil.tex": b"pwn"})
+    f = FakeFile("pkg.tar.gz", b"", "application/gzip")
+    f.stream = tar_stream
+
+    with pytest.raises(ValueError):
+        store.store_source_package(sub_id, f, chunk_size=4096)
+
+
 def test_store_and_get_preview(store, sub_id):
     pdf = b"%PDF-1.4 fake"
     checksum = store.store_preview(sub_id, BytesIO(pdf))
