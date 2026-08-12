@@ -1,4 +1,8 @@
 {% extends "submit/base_edit.html" %}
+{# svg is imported in base_edit.html for the page blocks, but the
+   display_preflight_tree macro below has its own module namespace and doesn't
+   inherit that import -- so import it here too for svg.folder (SUBMISSION-228). #}
+{% import "svg.html" as svg %}
 
 {% block addl_head %}
 {{super()}}
@@ -9,6 +13,9 @@
    /* Oversized-image row highlight (SUBMISSION-172), mirroring 1.5's
       cream row tint. !important so it wins over the is-striped zebra shading. */
    .review-files-table tbody tr.is-oversized td { background-color: #fffbe6 !important; }
+   /* Rows auto-checked for deletion get a yellow tint (SUBMISSION-228),
+      mirroring 1.5. Declared after is-oversized so it wins when a row is both. */
+   .review-files-table tbody tr.marked-for-deletion td { background-color: #fff3cd !important; }
  </style>
 {% endblock addl_head %}
 
@@ -31,7 +38,9 @@
   {# Oversized-image rows get a cream tint (SUBMISSION-172), mirroring
      1.5. is_oversized is authoritative from preflight (large AND not
      pdftex-fast-copy). #}
-  <tr{% if item.is_oversized %} class="is-oversized"{% endif %}>
+  {# Rows auto-checked for deletion get a yellow tint (SUBMISSION-228),
+     mirroring 1.5; oversized images keep their cream tint. #}
+  <tr class="{% if item.is_unused %}marked-for-deletion {% endif %}{% if item.is_oversized %}is-oversized{% endif %}">
     <td class="has-text-centered">
       <input type="hidden" name="all_files" value="{{ item.filename }}">
       {% if item.is_readme %}
@@ -60,8 +69,10 @@
       {% endif %}
     </td>
     {# Image files show their size next to the name, MP to two decimals,
-       mirroring 1.5 (e.g. "figure.png (36.00 MP)"). (SUBMISSION-172) #}
-    <td>{{ item.filename }}{% if item.megapixels %} ({{ '%.2f'|format(item.megapixels) }} MP){% endif %}</td>
+       mirroring 1.5 (e.g. "figure.png (36.00 MP)"). (SUBMISSION-172)
+       Indent by directory depth (flat table has no nesting) so the file reads as
+       part of its folder subtree (SUBMISSION-228). #}
+    <td style="padding-left: {{ prefix.count('/') * 1.5 + 0.5 }}rem">{{ item.filename }}{% if item.megapixels %} ({{ '%.2f'|format(item.megapixels) }} MP){% endif %}</td>
     <td>
       {# Preflight issue badges (SUBMISSION-210), severity-colored, before the
          auto-detected usage note. #}
@@ -99,7 +110,12 @@
       <input type="checkbox" class="dir-delete" data-dir="{{ prefix }}{{ key }}/"
              aria-label="Select all deletable files in {{ prefix }}{{ key }}/ for deletion">
     </td>
-    <td colspan="2"><em>{{ key }}/</em></td>
+    {# Folder icon + bold name, indented by depth, matching the Upload page
+       (SUBMISSION-228); the Notes column labels it a Directory. #}
+    <td style="padding-left: {{ prefix.count('/') * 1.5 + 0.5 }}rem">
+      {{ svg.folder(klass="icon filter-blue") }} <strong>{{ key }}/</strong>
+    </td>
+    <td>Directory</td>
   </tr>
   {% for k, subitem in item.items() %}
     {{ display_preflight_tree(k, subitem, prefix ~ key ~ '/') }}
