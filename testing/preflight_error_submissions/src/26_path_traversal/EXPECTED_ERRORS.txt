@@ -1,0 +1,18 @@
+Case 26 — path traversal / unsafe archive member (SUBMISSION-230)
+
+Three upload artifacts, each carrying one normal file (main.tex) plus an unsafe
+member that must be rejected:
+
+    tarballs/26_path_traversal.tar.gz           main.tex + ../../evil.tex   (.. traversal, tar)
+    tarballs/26_path_traversal.zip              main.tex + ../evil.tex      (.. traversal, zip)
+    tarballs/26_path_traversal_absolute.tar.gz  main.tex + /etc/evil.tex    (absolute path, tar)
+
+Expected 2.0 behavior on upload (all three):
+- store_source_package rejects the whole archive (raises ValueError); NO files
+  are written under the submission's source — not even the valid main.tex. The
+  upload controller flashes the friendly "unsafe path" message rather than
+  500ing or silently importing.
+
+This is a security/hardening regression case (sibling of case 22, which covers
+the benign "./" normalization). Do not "fix" these archives by removing the
+unsafe members — they exist to reproduce the rejection path.
