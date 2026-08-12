@@ -28,9 +28,11 @@
       </div>
     </div>
     {% else %}
+    {# Directory row (SUBMISSION-227 / G32): a folder icon + bold name so the
+       tree reads clearly; children are indented via the nested <ol> below. #}
     {% if key %}
-    {{svg.exclamation(klass="icon filter-blue")}}
-    {{ key }}/{% endif %}
+    {{svg.folder(klass="icon filter-blue")}}
+    <strong>{{ key }}/</strong>{% endif %}
     <ol class="{% if not key %}file-tree{% endif %}" style="list-style-type: none;">
       {% for k, subitem in item.items() %}
       {{ display_tree(k, subitem, loop.cycle('', 'even')) }}
