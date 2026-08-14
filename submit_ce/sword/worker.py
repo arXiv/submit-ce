@@ -44,6 +44,8 @@ caught.
 
 import json
 import logging
+
+import httpx
 from dataclasses import dataclass
 from typing import List, Optional
 
@@ -59,10 +61,14 @@ from submit_ce.domain.event import (
 )
 from submit_ce.domain.event.process import (
     InstallPdfPreview,
+    SetDirectivesAndCleanup,
     StartCompileSource,
+    StartDirectives,
     StartPreflight,
+    StoreZzrm,
 )
 from submit_ce.domain.exceptions import InvalidEvent, SaveError
+from submit_ce.domain.compilation import Compilation
 from submit_ce.domain.uploads import SourceFormat
 from submit_ce.implementations.compile.directive_manager import DirectiveManager
 from submit_ce.ui.workflow import conditions
@@ -84,6 +90,22 @@ NEEDS_COMPILE = (SourceFormat.TEX, SourceFormat.PDFTEX)
 """Formats that go through tex2pdf. PDF is installed directly; HTML and the rest
 need no processing step."""
 
+DEFAULT_TEXLIVE_VERSION = Compilation.CompilerVersion.TEXLIVE_2025.value
+"""TeX Live release to compile against when nobody has chosen one.
+
+The review form offers this choice; a deposit has no form, so the worker takes the
+same fallback the form itself uses (``review.py:296-300``).
+"""
+
+RETRYABLE_STATUSES = (401, 403, 408, 429)
+"""4xx codes that are worth another pass.
+
+401/403 are about the caller's credentials -- expired ADC, a service account
+missing a role -- and say nothing about the deposit. 408 and 429 are explicit
+"try again" answers. Everything else in the 4xx range is a statement about the
+request, which will not change on its own.
+"""
+
 NEEDS_PREVIEW = NEEDS_COMPILE + (SourceFormat.PDF,)
 """Formats that must end up with a preview before the submission may be finalized.
 
@@ -102,11 +124,30 @@ class Outcome:
     steps: List[str]
     finalized: bool
     error: Optional[str] = None
+    permanent: bool = False
+    """Whether retrying could ever help.
+
+    A permanent failure is one where the same input will produce the same answer:
+    tex2pdf rejecting the source with a 4xx, or preflight finding no usable format.
+    The caller records these so the submission stops being a candidate; a transient
+    failure is left alone and picked up next pass.
+    """
 
     def __str__(self) -> str:
         done = ", ".join(self.steps) if self.steps else "nothing to do"
-        tail = f" -- FAILED: {self.error}" if self.error else ""
-        return f"submission {self.submission_id}: {done}{tail}"
+        if not self.error:
+            return f"submission {self.submission_id}: {done}"
+        kind = "PERMANENT" if self.permanent else "retryable"
+        return f"submission {self.submission_id}: {done} -- {kind}: {self.error}"
+
+
+def _body(response) -> str:
+    """A short, single-line excerpt of an error response, for the log and tracking."""
+    try:
+        text = response.text or ""
+    except Exception:            # a streamed or already-closed response
+        return "<unreadable>"
+    return " ".join(text.split())[:200]
 
 
 def _preflight_data(api: SubmitApi, submission_id: str) -> Optional[dict]:
@@ -157,6 +198,133 @@ def _set_source_format(api: SubmitApi, submission: Submission,
     api.save(SetSourceFormat(creator=creator, client=client, source_format=lang),
              submission_id=submission_id)
     return lang
+
+
+def _zzrm_decisions(api: SubmitApi, submission_id: str) -> Optional[dict]:
+    """User decisions from a ``00README.json`` the depositor shipped, if any.
+
+    Depositors can include one in their zip to say which file is top level and
+    which compiler to use -- the SWORD equivalent of the choices the review form
+    collects interactively.
+    """
+    blob = api.get_file_store().get_source_file(submission_id=submission_id,
+                                                path="00README.json")
+    if isinstance(blob, FileDoesNotExist):
+        return None
+    try:
+        return DirectiveManager.convert_zzrm_to_user_decisions(
+            json.loads(blob.download_as_text()))
+    except (ValueError, OSError, KeyError) as exc:
+        logger.warning("00README.json for %s is unusable: %s", submission_id, exc)
+        return None
+
+
+def _user_decisions(api: SubmitApi, submission_id: str) -> Optional[dict]:
+    """Decisions persisted by `SetDirectivesAndCleanup`, for a resumed pass.
+
+    That event converts the depositor's ``00README.json`` into
+    ``user_decisions.json`` and *deletes the original*, so on any pass after the
+    first this is the only surviving record of what they asked for.
+    """
+    blob = api.get_file_store().get_user_decisions(submission_id=submission_id)
+    if isinstance(blob, FileDoesNotExist):
+        return None
+    try:
+        return json.loads(blob.download_as_text())
+    except (ValueError, OSError) as exc:
+        logger.warning("user_decisions for %s is unreadable: %s",
+                       submission_id, exc)
+        return None
+
+
+def _has_usable_zzrm(api: SubmitApi, submission_id: str) -> bool:
+    """Whether ``src/00README.json`` exists and says enough to compile.
+
+    Existence alone is not enough: tex2pdf answers "ZZRM missing **or
+    underspecified**", and a file without ``texlive_version`` is the second case.
+    """
+    blob = api.get_file_store().get_source_file(submission_id=submission_id,
+                                                path="00README.json")
+    if isinstance(blob, FileDoesNotExist):
+        return False
+    try:
+        return bool(json.loads(blob.download_as_text()).get("texlive_version"))
+    except (ValueError, OSError):
+        return False
+
+
+def _make_directives(api: SubmitApi, submission: Submission, creator: User,
+                     client: Client) -> bool:
+    """Generate ``directives.json``, which tex2pdf needs before it will compile.
+
+    Interactively this is the *human* step: the review form is where a submitter
+    picks the top-level TeX file and the compiler, and confirming it runs
+    `StartDirectives` (``review.py``'s ``_load_or_create_directives``). A deposit
+    has nobody to ask, so the worker takes tex2pdf's default answer.
+
+    Skipping this is what makes ``/convert`` reply
+    ``422 {"message":"ZZRM missing or underspecified."}``.
+    """
+    if submission.source_format not in NEEDS_COMPILE:
+        return False
+
+    from tex2pdf_tools.preflight import PreflightResponse
+    from tex2pdf_tools.zerozeroreadme import ZeroZeroReadMe
+
+    submission_id = str(submission.submission_id)
+    store = api.get_file_store()
+    did_work = False
+
+    # Read the depositor's choices before the cleanup below removes them, and fall
+    # back to user_decisions.json on a resumed pass, where cleanup has already run.
+    decisions = _zzrm_decisions(api, submission_id) or _user_decisions(api,
+                                                                      submission_id)
+
+    # Two artefacts, guarded separately: a pass that wrote one and died must not
+    # skip the other on the way back. Guarding both on directives.json alone left
+    # 00README.json unwritten forever, and compile kept answering 422.
+    if not store.does_directives_exist(submission_id):
+        # Mirrors the UI: persist any 00README the depositor shipped as user
+        # decisions and clear a stale directives.json, both under the row lock,
+        # then ask tex2pdf for the directives themselves.
+        api.save(SetDirectivesAndCleanup(
+            creator=creator, client=client, user_decisions_from_zzrm=decisions),
+            submission_id=submission_id)
+        api.save(StartDirectives(creator=creator, client=client),
+                 submission_id=submission_id)
+        did_work = True
+
+    # The part ``/convert`` actually requires. "ZZRM missing or underspecified"
+    # is about ``00README.json`` *in the source*, not the ``directives.json`` the
+    # call above produces. Interactively this is written when the submitter
+    # confirms the review form (``review.py``, ``StoreZzrm``); the answers come
+    # from preflight instead of from a person here.
+    if not _has_usable_zzrm(api, submission_id):
+        preflight = _preflight_data(api, submission_id)
+        if preflight is None:
+            raise InvalidEvent(
+                StoreZzrm(creator=creator, client=client, zzrm={}),
+                "no preflight data from which to build 00README.json")
+
+        zzrm = ZeroZeroReadMe()
+        if decisions:
+            zzrm.from_dict(decisions)
+        zzrm.update_from_preflight(PreflightResponse(**preflight))
+
+        # `ZeroZeroReadMe` leaves texlive_version None and `update_from_preflight`
+        # does not fill it, so without this the file is written *without* the
+        # field -- which tex2pdf reports as "ZZRM missing or underspecified" and,
+        # once the file exists, as a bare 403. Interactively the value comes from
+        # the review form's compiler_version, which itself falls back to this same
+        # constant (``review.py:296-300``).
+        if not zzrm.texlive_version:
+            zzrm.texlive_version = DEFAULT_TEXLIVE_VERSION
+
+        api.save(StoreZzrm(creator=creator, client=client, zzrm=zzrm.to_dict()),
+                 submission_id=submission_id)
+        did_work = True
+
+    return did_work
 
 
 def _produce_preview(api: SubmitApi, submission: Submission,
@@ -238,6 +406,10 @@ def advance(api: SubmitApi, submission_id: str, *, creator: User,
             steps.append(f"source_format={stored_format}")
             submission, events = api.get_with_history(submission_id)
 
+        if _make_directives(api, submission, creator, client):
+            steps.append("directives")
+            submission, events = api.get_with_history(submission_id)
+
         if _produce_preview(api, submission, events, creator, client):
             steps.append("preview")
             submission, events = api.get_with_history(submission_id)
@@ -257,8 +429,35 @@ def advance(api: SubmitApi, submission_id: str, *, creator: User,
     except (InvalidEvent, SaveError) as exc:
         # A precondition that is not yet met, or a step that cannot succeed.
         # Whatever completed still stands; the next pass re-reads state and either
-        # continues or stops in the same place.
+        # continues or stops in the same place. These are permanent: every one is
+        # raised from a check on the submission's own state, which the next pass
+        # would evaluate identically.
         logger.info("submission %s stopped after %s: %s",
                     submission_id, steps or "no steps", exc)
         return Outcome(int(submission_id), steps, finalized=False,
-                       error=str(exc))
+                       error=str(exc), permanent=True)
+
+    except httpx.HTTPStatusError as exc:
+        # tex2pdf refused. Most 4xx are about the source -- "ZZRM missing or
+        # underspecified", an unusable file -- and resending it unchanged gets the
+        # same answer, so retrying is just noise against their service.
+        #
+        # 401 and 403 are the exception: they are about *our* credentials, not the
+        # deposit. Expired ADC produces a 403 against a perfectly good submission,
+        # and marking that permanent would sideline it until someone noticed and
+        # cleared the tracking row by hand. Treat them as retryable so the backlog
+        # simply resumes once the credentials are fixed.
+        status = exc.response.status_code
+        permanent = 400 <= status < 500 and status not in RETRYABLE_STATUSES
+        detail = f"compile service returned {status}: {_body(exc.response)}"
+        logger.info("submission %s stopped after %s: %s",
+                    submission_id, steps or "no steps", detail)
+        return Outcome(int(submission_id), steps, finalized=False,
+                       error=detail, permanent=permanent)
+
+    except httpx.RequestError as exc:
+        # Never reached the service: DNS, connection reset, timeout. Always worth
+        # another pass.
+        detail = f"could not reach the compile service: {exc}"
+        logger.warning("submission %s: %s", submission_id, detail)
+        return Outcome(int(submission_id), steps, finalized=False, error=detail)
