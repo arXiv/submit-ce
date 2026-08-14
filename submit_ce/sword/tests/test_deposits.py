@@ -278,3 +278,81 @@ def test_a_deposit_at_exactly_the_limit_is_accepted(store):
     at_limit = b"x" * max_deposit_bytes()
     deposit = store.save("10030146", "vtex", "application/zip", at_limit)
     assert deposit.size == max_deposit_bytes()
+
+
+# ------------------------------------------------------- the monthly reset
+
+
+def _at(year, month, day=1):
+    from datetime import datetime, timezone
+    return datetime(year, month, day, tzinfo=timezone.utc)
+
+
+def test_the_sequence_restarts_in_a_new_month(store):
+    """Only YYMM separates one month's ids from the next, so it has to restart."""
+    assert store.allocate_id(_at(2026, 8)) == "26080001"
+    assert store.allocate_id(_at(2026, 8)) == "26080002"
+    assert store.allocate_id(_at(2026, 9)) == "26090001"
+
+
+def test_the_reset_needs_no_cron(store):
+    """Legacy ran `echo -n 1 > nextid` on the 1st.
+
+    Deciding it here means one clock fixes both the period and the id, closing the
+    window where the counter had rolled over and the id had not -- which reissued
+    ids from earlier in the month.
+    """
+    store.allocate_id(_at(2026, 8, 31))
+    assert store.allocate_id(_at(2026, 9, 1)) == "26090001"
+
+
+def test_ids_stay_unique_across_a_month_boundary(store):
+    """The property the whole scheme exists for."""
+    issued = [store.allocate_id(_at(2026, 8, 30)) for _ in range(5)]
+    issued += [store.allocate_id(_at(2026, 9, 1)) for _ in range(5)]
+    assert len(set(issued)) == len(issued)
+
+
+def test_a_legacy_counter_carries_on_rather_than_restarting(store):
+    """A bare integer has no period; restarting would reissue live ids."""
+    store.counter, store.period = 146, None
+    assert store.allocate_id(_at(2026, 8)) == "26080146"
+    assert store.allocate_id(_at(2026, 8)) == "26080147"
+
+
+def test_an_exhausted_sequence_is_refused(store):
+    """A ninth digit would silently break replacement resolution.
+
+    `replace.DEPOSIT_ATOM` matches exactly eight digits, so the deposit would
+    succeed and only the later PUT would fail -- better to stop here.
+    """
+    store.counter, store.period = 10000, "2608"
+    with pytest.raises(SwordFault) as excinfo:
+        store.allocate_id(_at(2026, 8))
+    assert excinfo.value.error.mnemonic == "ENAVL"
+    assert "exhausted" in excinfo.value.summary
+
+
+def test_the_last_usable_sequence_still_works(store):
+    """Off-by-one on the boundary: 9999 is the last eight-digit id."""
+    store.counter, store.period = 9999, "2608"
+    assert store.allocate_id(_at(2026, 8)) == "26089999"
+
+
+def test_period_of_is_utc(store):
+    """A local-time period against a UTC id is what created the old race."""
+    from datetime import datetime, timedelta, timezone
+
+    from submit_ce.sword.deposits import period_of
+    # 31 Aug 23:00 UTC is already September in UTC+2.
+    late_august = datetime(2026, 8, 31, 23, 0, tzinfo=timezone.utc)
+    assert period_of(late_august) == "2608"
+    assert period_of(late_august.astimezone(timezone(timedelta(hours=2)))) == "2608"
+
+
+def test_a_naive_datetime_is_taken_as_utc(store):
+    """Not converted: astimezone would read it as system local time."""
+    from datetime import datetime
+
+    from submit_ce.sword.deposits import period_of
+    assert period_of(datetime(2026, 8, 31, 23, 0)) == "2608"

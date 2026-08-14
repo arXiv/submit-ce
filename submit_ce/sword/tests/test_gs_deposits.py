@@ -10,6 +10,8 @@ anyway.
 
 from datetime import datetime, timezone
 
+import json
+
 import pytest
 from google.api_core.exceptions import PreconditionFailed
 
@@ -101,7 +103,8 @@ def store(bucket):
 
 def test_first_allocation_creates_the_counter(store, bucket):
     assert store.allocate_id(MARCH_2010) == "10030001"
-    assert bucket.objects["sword-deposits/nextid"] == b"2"
+    assert json.loads(bucket.objects["sword-deposits/nextid"]) == \
+        {"yymm": "1003", "seq": 2}
 
 
 def test_counter_is_created_with_a_must_not_exist_precondition(store, bucket):
@@ -115,13 +118,63 @@ def test_successive_allocations_advance(store):
     assert ids == ["10030001", "10030002", "10030003"]
 
 
-def test_allocation_reads_an_existing_counter(store, bucket):
+def test_allocation_reads_a_legacy_bare_integer(store, bucket):
+    """The format legacy's nextid file used, and what this wrote before periods.
+
+    It must carry on from the stored value, not restart: restarting would reissue
+    ids the month has already handed out.
+    """
     bucket.objects["sword-deposits/nextid"] = b"146"
     bucket.generations["sword-deposits/nextid"] = 7
     bucket.blobs["sword-deposits/nextid"] = FakeBlob(bucket, "sword-deposits/nextid")
 
     assert store.allocate_id(MARCH_2010) == "10030146"
-    assert bucket.objects["sword-deposits/nextid"] == b"147"
+    assert json.loads(bucket.objects["sword-deposits/nextid"]) == \
+        {"yymm": "1003", "seq": 147}
+
+
+def test_the_counter_is_written_as_json(store, bucket):
+    """Read by eye with `gcloud storage cat`, so the shape is part of the contract."""
+    store.allocate_id(MARCH_2010)
+    assert json.loads(bucket.objects["sword-deposits/nextid"]) == \
+        {"yymm": "1003", "seq": 2}
+
+
+def test_a_stored_period_is_read_back(store, bucket):
+    bucket.objects["sword-deposits/nextid"] = json.dumps(
+        {"yymm": "1003", "seq": 500}).encode()
+    bucket.generations["sword-deposits/nextid"] = 3
+    bucket.blobs["sword-deposits/nextid"] = FakeBlob(bucket, "sword-deposits/nextid")
+
+    assert store.allocate_id(MARCH_2010) == "10030500"
+
+
+def test_a_new_month_restarts_the_sequence(store, bucket):
+    """What legacy's monthly cron did, decided from the same clock as the id.
+
+    Only YYMM distinguishes one month's ids from the next, so the sequence has to
+    restart -- but doing it externally left a window where the counter had rolled
+    over and the id had not.
+    """
+    bucket.objects["sword-deposits/nextid"] = json.dumps(
+        {"yymm": "1003", "seq": 4321}).encode()
+    bucket.generations["sword-deposits/nextid"] = 3
+    bucket.blobs["sword-deposits/nextid"] = FakeBlob(bucket, "sword-deposits/nextid")
+
+    april = datetime(2010, 4, 1, tzinfo=timezone.utc)
+    assert store.allocate_id(april) == "10040001"
+    assert json.loads(bucket.objects["sword-deposits/nextid"]) == \
+        {"yymm": "1004", "seq": 2}
+
+
+def test_an_unparsable_counter_still_raises(store, bucket):
+    """Neither JSON nor an integer: better to stop than to invent an id."""
+    bucket.objects["sword-deposits/nextid"] = b"not a counter"
+    bucket.generations["sword-deposits/nextid"] = 1
+    bucket.blobs["sword-deposits/nextid"] = FakeBlob(bucket, "sword-deposits/nextid")
+
+    with pytest.raises(ValueError):
+        store.allocate_id(MARCH_2010)
 
 
 def test_counter_whitespace_is_tolerated(store, bucket):

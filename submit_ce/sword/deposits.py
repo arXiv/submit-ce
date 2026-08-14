@@ -128,16 +128,51 @@ def extension_for_link(mime: str) -> str:
     return _SUBTYPE_EXTENSIONS.get(subtype, subtype)
 
 
-def format_deposit_id(counter: int, when: Optional[datetime] = None) -> str:
-    """Build a deposit id: ``YYMM`` plus the counter, zero-padded to four.
+MAX_SEQUENCE = 9999
+"""Largest sequence that still yields an eight-digit id.
 
-    ``AtomPP.pm:599-603``. The counter is global rather than per-month, so ids grow
-    past eight digits once it exceeds 9999 -- which is why the route patterns
-    accept ``\\d{4}\\d{4,}`` and only the first four digits are treated as
-    ``YYMM``.
+``replace.DEPOSIT_ATOM`` matches exactly eight digits, so a ninth would make
+``PUT /sword-app/edit/<id>.atom`` stop resolving -- silently, since the deposit
+itself would still succeed. With a monthly reset this needs 10,000 deposits in one
+month to reach; without one it was only a matter of time.
+"""
+
+FIRST_SEQUENCE = 1
+"""What a new month starts from, matching legacy's ``echo -n 1 > nextid`` cron."""
+
+
+def as_utc(moment: datetime) -> datetime:
+    """``moment`` in UTC, treating a naive datetime as already UTC.
+
+    Naive values are not converted: ``astimezone`` would read them as system local
+    time, which is the assumption this whole scheme is trying to get rid of.
     """
-    moment = when or datetime.now(timezone.utc)
-    return f"{moment.year % 100:02d}{moment.month:02d}{counter:04d}"
+    if moment.tzinfo is None:
+        return moment.replace(tzinfo=timezone.utc)
+    return moment.astimezone(timezone.utc)
+
+
+def period_of(moment: datetime) -> str:
+    """The ``YYMM`` a moment belongs to, in UTC.
+
+    Converted rather than assumed. The period and the id must be decided by the
+    same clock: legacy reset the counter from a local-time cron while reading
+    ``localtime()`` for the id, and any disagreement between those two reissues ids
+    from earlier in the month. A caller passing a non-UTC datetime would reopen
+    exactly that gap -- at 01:00 on 1 September in UTC+2 it is still August in UTC,
+    and the two would disagree about which month the deposit belongs to.
+    """
+    utc = as_utc(moment)
+    return f"{utc.year % 100:02d}{utc.month:02d}"
+
+
+def format_deposit_id(counter: int, when: Optional[datetime] = None) -> str:
+    """Build a deposit id: ``YYMM`` plus the sequence, zero-padded to four.
+
+    ``AtomPP.pm:599-603``.
+    """
+    moment = as_utc(when) if when else datetime.now(timezone.utc)
+    return f"{period_of(moment)}{counter:04d}"
 
 
 def yymm_of(deposit_id: str) -> str:
@@ -174,12 +209,19 @@ class DepositStore(ABC):
     # -- counter primitives, implemented per backend -------------------------
 
     @abstractmethod
-    def _read_counter(self) -> Tuple[int, object]:
-        """Current counter value and an opaque version token."""
+    def _read_counter(self) -> Tuple[Optional[str], int, object]:
+        """Stored period, sequence, and an opaque version token.
+
+        The period is None when the stored value predates it -- a bare integer
+        written by legacy or by an older build. `allocate_id` reads that as "the
+        current period", so the sequence carries on rather than restarting and
+        reissuing ids that month already used.
+        """
 
     @abstractmethod
-    def _write_counter(self, value: int, version: object) -> bool:
-        """Store ``value`` only if the counter still matches ``version``.
+    def _write_counter(self, period: str, sequence: int, version: object) -> bool:
+        """Store ``period`` and ``sequence`` only if the counter still matches
+        ``version``.
 
         Returns False on a conflicting concurrent write.
         """
@@ -192,14 +234,30 @@ class DepositStore(ABC):
         Reads the counter and writes back one more, retrying on contention. The
         id encodes the value *before* the increment, matching ``AtomPP.pm:588-599``.
 
+        The sequence restarts at 1 when the stored period is not the current one,
+        which is what makes ids unique: only ``YYMM`` distinguishes one month's
+        deposits from the next. Legacy did this from cron
+        (``echo -n 1 > nextid`` on the 1st); doing it here means the same instant
+        decides both the period and the id, so there is no window in which the
+        counter has rolled over but the id has not.
+
         Raises `SwordFault` ENAVL (503) when contention cannot be resolved, which
         is what legacy answers when it cannot take the lock
         (``AtomPP.pm:256-260``).
         """
+        moment = as_utc(when) if when else datetime.now(timezone.utc)
+        period = period_of(moment)
+
         for _ in range(MAX_ALLOCATION_ATTEMPTS):
-            current, version = self._read_counter()
-            if self._write_counter(current + 1, version):
-                return format_deposit_id(current, when)
+            stored_period, sequence, version = self._read_counter()
+            if stored_period is not None and stored_period != period:
+                sequence = FIRST_SEQUENCE
+            if sequence > MAX_SEQUENCE:
+                raise SwordFault(
+                    "ENAVL",
+                    f"deposit sequence for {period} is exhausted at {sequence}")
+            if self._write_counter(period, sequence + 1, version):
+                return format_deposit_id(sequence, moment)
         raise SwordFault("ENAVL", "could not allocate a deposit identifier")
 
     # -- storage -------------------------------------------------------------
@@ -275,6 +333,7 @@ class InMemoryDepositStore(DepositStore):
     """
 
     counter: int = 1
+    period: Optional[str] = None
     version: int = 0
     deposits: Dict[str, StagedDeposit] = field(default_factory=dict)
     blobs: Dict[str, bytes] = field(default_factory=dict)
@@ -282,16 +341,17 @@ class InMemoryDepositStore(DepositStore):
     owners: Dict[str, str] = field(default_factory=dict)
     counter_hook: Optional[object] = None
 
-    def _read_counter(self) -> Tuple[int, object]:
-        value, version = self.counter, self.version
+    def _read_counter(self) -> Tuple[Optional[str], int, object]:
+        value, period, version = self.counter, self.period, self.version
         if self.counter_hook is not None:
             self.counter_hook()
-        return value, version
+        return period, value, version
 
-    def _write_counter(self, value: int, version: object) -> bool:
+    def _write_counter(self, period: str, sequence: int, version: object) -> bool:
         if version != self.version:
             return False
-        self.counter = value
+        self.counter = sequence
+        self.period = period
         self.version += 1
         return True
 

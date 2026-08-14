@@ -2,7 +2,7 @@
 
 Mirrors legacy's ``/cache/atomdeposits`` tree onto a bucket:
 
-    <prefix>/nextid                    allocation counter
+    <prefix>/nextid                    allocation counter, {"yymm","seq"}
     <prefix>/<yymm>/<id>.<ext>         deposited bytes
     <prefix>/<yymm>/<id>.atom          the response entry
 
@@ -20,6 +20,7 @@ an optional pre-configured ``client``, which is what lets the conditional-write
 logic be tested without a network.
 """
 
+import json
 import logging
 from datetime import datetime, timezone
 from typing import List, Optional, Tuple
@@ -39,6 +40,11 @@ logger = logging.getLogger(__name__)
 
 INITIAL_COUNTER = 1
 """Value assumed when the counter object does not exist yet."""
+
+PERIOD_KEY = "yymm"
+SEQUENCE_KEY = "seq"
+"""Keys in the counter object. Deliberately short: this is read by eye with
+``gcloud storage cat``."""
 
 OWNER_METADATA_KEY = "sword-owner"
 
@@ -71,23 +77,45 @@ class GsDepositStore(DepositStore):
 
     # -- counter -------------------------------------------------------------
 
-    def _read_counter(self) -> Tuple[int, object]:
+    def _read_counter(self) -> Tuple[Optional[str], int, object]:
+        """Period, sequence and generation from the counter object.
+
+        Two on-disk formats are accepted. The current one is JSON::
+
+            {"yymm": "2608", "seq": 42}
+
+        The other is a bare integer, which is what legacy's ``nextid`` file held
+        and what this wrote before the period was stored alongside it. That reads
+        as period None, which `DepositStore.allocate_id` treats as "the current
+        period" -- so an existing counter carries on from where it is instead of
+        restarting and reissuing ids the month has already used.
+        """
         blob = self.bucket.get_blob(self._counter_path())
         if blob is None:
             # Generation 0 is GCS's "this object must not exist" precondition.
-            return INITIAL_COUNTER, 0
+            return None, INITIAL_COUNTER, 0
+
         raw = blob.download_as_bytes().strip()
         try:
-            return int(raw), blob.generation
+            stored = json.loads(raw)
         except ValueError:
-            logger.error("deposit counter at %s is not an integer: %r",
-                         self._counter_path(), raw[:32])
+            stored = None
+
+        if isinstance(stored, dict):
+            return stored.get(PERIOD_KEY), int(stored[SEQUENCE_KEY]), blob.generation
+
+        try:
+            return None, int(raw), blob.generation
+        except ValueError:
+            logger.error("deposit counter at %s is neither JSON nor an integer: %r",
+                         self._counter_path(), raw[:64])
             raise
 
-    def _write_counter(self, value: int, version: object) -> bool:
+    def _write_counter(self, period: str, sequence: int, version: object) -> bool:
         blob = self.bucket.blob(self._counter_path())
+        body = json.dumps({PERIOD_KEY: period, SEQUENCE_KEY: sequence})
         try:
-            blob.upload_from_string(str(value), content_type="text/plain",
+            blob.upload_from_string(body, content_type="application/json",
                                     if_generation_match=version)
         except PreconditionFailed:
             logger.info("deposit counter changed under us; retrying")
