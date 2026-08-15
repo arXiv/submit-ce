@@ -188,9 +188,33 @@ def upload_events(metadata: WrapperMetadata, store: DepositStore,
     return events
 
 
+def version_row_id(session: SqlalchemySession, paper_id: str,
+                   version: int) -> Optional[int]:
+    """The classic row a replacement just created, by paper and version.
+
+    ``SubmitApi.save`` reports the *original* submission id -- one domain identity
+    per paper, however many rows classic holds -- so the new row's id is not in its
+    return value and has to be looked up.
+    """
+    row = (session.query(models.Submission.submission_id)
+           .filter(models.Submission.doc_paper_id == paper_id,
+                   models.Submission.version == version)
+           .order_by(models.Submission.submission_id.desc())
+           .first())
+    return int(row[0]) if row is not None else None
+
+
 def record_tracking(session: SqlalchemySession, sword_id: int,
                     submission_id: int) -> None:
-    """Link a deposit id to its submission in ``arXiv_tracking``.
+    """Link a deposit id to the submission row it created.
+
+    ``submission_id`` is the row *this deposit* produced -- for a replacement the
+    new version row, not the paper's original. That is what legacy did
+    (``arXiv/Submit/Submission.pm:319-332`` stamps ``sword_id`` on the row it just
+    created, whether ``new`` or ``rep``), and it is what makes the row a candidate
+    for the worker, which selects on ``sword_id IS NOT NULL``. Pointing every
+    deposit at the original instead left replacements uncompilable and overwrote
+    the original's own link.
 
     Written synchronously so ``/resolve/app/<sword_id>`` answers as soon as the
     client has its 202. ``timestamp`` is supplied explicitly: it is NOT NULL with a
@@ -277,7 +301,12 @@ def ingest_replacement(api: SubmitApi,
     events.extend(upload_events(metadata, store, creator=creator, client=client))
 
     submission, _ = api.save(*events, submission_id=str(submission_id))
-    record_tracking(session, int(sword_id), submission_id)
 
-    logger.info("SWORD deposit %s replaced submission %s", sword_id, submission_id)
+    # Track the row this deposit created, not the paper's original. save() reports
+    # the original id, so the new version row is looked up by paper and version.
+    new_row = version_row_id(session, submission.arxiv_id, submission.version)
+    record_tracking(session, int(sword_id), new_row or submission_id)
+
+    logger.info("SWORD deposit %s replaced submission %s as version %s (row %s)",
+                sword_id, submission_id, submission.version, new_row)
     return submission, submission_id

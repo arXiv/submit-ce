@@ -372,9 +372,28 @@ def store_event(session: SQLAlchemySession, event: Event, before: Optional[Submi
     session.add(dbs)
     session.flush([dbs])
 
-    # at this point a new submission will have a submission_id
+    # Settle the submission ID *before* the event row is built, and carry forward
+    # the original one even though the classic database has several rows for this
+    # submission with different IDs.
+    #
+    # Order matters: `_new_dbevent` fills ``DBEvent.submission_id`` from
+    # ``event.submission_id``. Assigning after it -- as this did until now -- left
+    # the persisted row holding whatever id the caller passed and corrected only
+    # the in-memory objects, so a replacement saved against the new version's id
+    # wrote its history under that row instead of the original. `log.handle` and
+    # `_store_proposal` now see the same settled id for the same reason.
+    #
+    # This also subsumes the earlier `this_is_a_new_submission` assignment that
+    # used to sit above `_new_dbevent`; it was the same statement.
     if this_is_a_new_submission:
         event.submission_id = dbs.submission_id
+        after.submission_id = dbs.submission_id
+    else:
+        # TODO: was this assert meant to be temporary?
+        assert before is not None
+        original = _original_submission_id(session, before)
+        event.submission_id = original
+        after.submission_id = original
 
     # Attach the row for Event to the submission
     db_event = _new_dbevent(event)
@@ -383,20 +402,6 @@ def store_event(session: SQLAlchemySession, event: Event, before: Optional[Submi
 
     log.handle(session, event, before, after)  # Create admin log entry.
 
-    # Update the domain event and submission states with the submission ID.
-    # This should carry forward the original submission ID, even if the
-    # classic database has several rows for the submission (with different
-    # IDs).
-    if this_is_a_new_submission:
-        # TODO: this line looks redundent, with the one 15 lines up:
-        event.submission_id = dbs.submission_id
-        after.submission_id = dbs.submission_id
-    else:
-        # TODO: was this assert meant to be temporary?
-        assert before is not None
-        event.submission_id = before.submission_id
-        after.submission_id = before.submission_id
-
     # Some events also write to auxiliary classic tables, keyed off the now-final
     # submission_id. A category proposal records a row in
     # arXiv_submission_category_proposal (and an accompanying admin log comment).
@@ -404,6 +409,30 @@ def store_event(session: SQLAlchemySession, event: Event, before: Optional[Submi
         _store_proposal(session, event, after)
 
     return event, after
+
+
+def _original_submission_id(session: SQLAlchemySession,
+                            before: Submission) -> str:
+    """The id this paper's whole history belongs under.
+
+    ``store_event``'s contract is that "the submission ID on the event and the
+    before/after states refer to the original classic submission only" -- one
+    domain identity however many classic rows exist. Trusting
+    ``before.submission_id`` only honours that when the caller happened to load
+    the original: a caller that resolved to a later version (SWORD picks the
+    latest announced row to build the next version on) would otherwise split one
+    paper's history across two ids.
+
+    The original is the lowest ``submission_id`` sharing the paper id. Falls back
+    to whatever the caller had when there is no paper id -- an unannounced
+    submission is a single row and already its own original.
+    """
+    if not before.arxiv_id:
+        return before.submission_id
+    earliest = session.query(func.min(models.Submission.submission_id)) \
+        .filter(models.Submission.doc_paper_id == before.arxiv_id) \
+        .scalar()
+    return str(earliest) if earliest is not None else before.submission_id
 
 
 def _store_proposal(session: SQLAlchemySession, event: ProposeClassification,

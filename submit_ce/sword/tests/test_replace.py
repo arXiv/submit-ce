@@ -536,3 +536,99 @@ def test_an_oversize_replacement_is_413(client, depositor, announced,
     response = _put(client, depositor, PAPER_ID, document)
     assert response.status_code == 413
     assert b"<arxiv:errorcode>34359738368</arxiv:errorcode>" in response.content
+
+
+def test_replacement_history_stays_under_the_original_submission(
+        client, depositor, announced, media_href):
+    """One paper, one event stream, however many classic rows exist.
+
+    ``store_event``'s contract is that the submission id on an event "refers to
+    the original classic submission only". A replacement is saved against the
+    version being extended -- the latest announced row -- so trusting that id
+    would file the new events under the version row and split the paper's
+    history in two.
+    """
+    from submit_ce.implementations.legacy_implementation.models import DBEvent
+
+    original = announced["submission_id"]
+    assert _put(client, depositor, PAPER_ID,
+                _wrapper(media_href)).status_code == 202
+
+    Session.expire_all()
+    Session.query(models.Submission).filter_by(
+        doc_paper_id=PAPER_ID, version=2).one().status = 7    # announced
+    Session.commit()
+
+    assert _put(client, depositor, PAPER_ID,
+                _wrapper(media_href)).status_code == 202
+    Session.expire_all()
+
+    rows = Session.query(models.Submission).filter_by(
+        doc_paper_id=PAPER_ID).all()
+    assert len(rows) == 3, "expected v1, v2 and v3 rows"
+
+    for row in rows:
+        count = Session.query(DBEvent).filter_by(
+            submission_id=row.submission_id).count()
+        if row.submission_id == original:
+            assert count > 0, "the original holds no history"
+        else:
+            assert count == 0, \
+                f"version row {row.submission_id} has {count} stranded events"
+
+
+def test_the_replacement_row_carries_its_own_sword_id(client, depositor,
+                                                      announced, media_href):
+    """Otherwise the worker never sees it and the replacement is never compiled.
+
+    `record_tracking` used to stamp the paper's original row, which both left the
+    new version with no ``sword_id`` -- the discriminator the worker selects on --
+    and overwrote the original's own link to its first deposit. Legacy stamped the
+    row the deposit created, ``new`` or ``rep`` alike
+    (``arXiv/Submit/Submission.pm:319-332``).
+    """
+    original = announced["submission_id"]
+    first_deposit = Session.get(models.Submission, original).sword_id
+    assert first_deposit is not None
+
+    assert _put(client, depositor, PAPER_ID,
+                _wrapper(media_href)).status_code == 202
+    Session.expire_all()
+
+    version_2 = Session.query(models.Submission).filter_by(
+        doc_paper_id=PAPER_ID, version=2).one()
+    assert version_2.sword_id is not None, \
+        "replacement row has no sword_id, so the worker will never compile it"
+    assert version_2.sword_id != first_deposit, "reused the first deposit's id"
+
+    # And the original keeps its own.
+    assert Session.get(models.Submission, original).sword_id == first_deposit
+
+
+def test_a_replacement_is_a_worker_candidate(client, depositor, announced,
+                                             media_href):
+    """The end the sword_id exists for: the worker has to find it."""
+    from submit_ce.sword.worker_loop import candidates
+
+    assert _put(client, depositor, PAPER_ID,
+                _wrapper(media_href)).status_code == 202
+    Session.expire_all()
+
+    version_2 = Session.query(models.Submission).filter_by(
+        doc_paper_id=PAPER_ID, version=2).one()
+    assert version_2.submission_id in candidates(Session)
+
+
+def test_resolve_reports_the_replacement_deposit(client, depositor, announced,
+                                                 media_href):
+    """Each deposit tracks the row it made, so /resolve answers per deposit."""
+    response = _put(client, depositor, PAPER_ID, _wrapper(media_href))
+    assert response.status_code == 202
+    Session.expire_all()
+
+    replacement_sword_id = sword_client.sword_id(response.content)
+    tracked = Session.query(models.Tracking).filter_by(
+        sword_id=replacement_sword_id).one()
+    version_2 = Session.query(models.Submission).filter_by(
+        doc_paper_id=PAPER_ID, version=2).one()
+    assert tracked.paper_id == f"submit/{version_2.submission_id}"

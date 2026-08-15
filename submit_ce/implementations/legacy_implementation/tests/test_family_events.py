@@ -103,3 +103,45 @@ def test_loading_a_version_without_events_still_raises_when_the_family_has_none(
     impl = LegacySubmitImplementation.__new__(LegacySubmitImplementation)
     with pytest.raises(NoSuchSubmission):
         impl._load(Session, str(later.submission_id))
+
+
+# ------------------------------------------- history stays under one identity
+
+
+def test_the_original_id_is_the_lowest_in_the_family(family):
+    """Whichever version a caller loaded, events belong to the paper's origin."""
+    from types import SimpleNamespace
+
+    from submit_ce.implementations.legacy_implementation.db import (
+        _original_submission_id,
+    )
+    origin, later = family
+
+    # A stand-in rather than to_submission(): that projects the *other* mapper's
+    # Submission, and these rows are built with arxiv.db.models.
+    for row in (origin, later):
+        before = SimpleNamespace(arxiv_id=PAPER,
+                                 submission_id=str(row.submission_id))
+        assert _original_submission_id(Session, before) == str(origin.submission_id)
+
+
+def test_an_unannounced_submission_is_its_own_original():
+    """No paper id means a single row, which is already the original."""
+    from types import SimpleNamespace
+
+    from submit_ce.implementations.legacy_implementation.db import (
+        _original_submission_id,
+    )
+    before = SimpleNamespace(arxiv_id=None, submission_id="42")
+    assert _original_submission_id(None, before) == "42"
+
+
+def test_a_paper_with_no_rows_falls_back_to_the_caller(classic_db):
+    """Nothing to resolve against; keep what we were given rather than guessing."""
+    from types import SimpleNamespace
+
+    from submit_ce.implementations.legacy_implementation.db import (
+        _original_submission_id,
+    )
+    before = SimpleNamespace(arxiv_id="9999.99999", submission_id="7")
+    assert _original_submission_id(Session, before) == "7"

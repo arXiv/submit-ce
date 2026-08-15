@@ -55,7 +55,11 @@ logging.basicConfig(level=logging.INFO,
 # Imported after the environment is set above: submit_ce.ui.config builds its
 # `settings` singleton at import time, so importing earlier would bake in the
 # production-ish defaults instead of these dev ones.
-from submit_ce.sword.worker_loop import DEFAULT_INTERVAL, run_once  # noqa: E402
+from submit_ce.sword.worker_loop import (  # noqa: E402
+    DEFAULT_INTERVAL,
+    configure_database,
+    run_once,
+)
 
 
 def _parse(argv=None):
@@ -88,6 +92,9 @@ if __name__ == '__main__':
     print(f"INFO: EMAIL_MODE={settings.EMAIL_MODE} "
           "(finalizing emails the submitter and moderators)")
 
+    # Before anything queries: arxiv.db binds per model, and the wiring below only
+    # sets the default bind. See worker_loop.configure_database.
+    configure_database()
     api = config_backend_api(settings, impl=FastapiSubmitImplementation)
 
     # Same startup check as local_sword.py, and it matters more here: this process
