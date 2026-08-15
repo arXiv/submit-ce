@@ -149,8 +149,22 @@ class LegacySubmitImplementation(SubmitApi):
         submission = session.scalars(stmt).first()
         if not submission:
             raise NoSuchSubmission()
-        else:
-            return (to_submission(submission), db.get_events(session, submission_id))
+
+        try:
+            events = db.get_events(session, submission_id)
+        except NoSuchSubmission:
+            # The row exists but has no events of its own, which is what every
+            # version after the first looks like: `store_event` records events
+            # under the submission being versioned, not the row it creates. Fall
+            # back to the family's history rather than reporting a row we just
+            # loaded as missing.
+            #
+            # Only reached where this previously raised, so nothing that works
+            # today changes behaviour.
+            events = db.get_family_events(session, submission)
+            if not events:
+                raise
+        return (to_submission(submission), events)
 
 
     @override

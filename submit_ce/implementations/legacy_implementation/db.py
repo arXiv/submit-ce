@@ -108,6 +108,37 @@ def get_licenses(session: SQLAlchemySession) -> List[License]:
     return [License(uri=row.name, name=row.label) for row in license_data]
 
 
+@handle_operational_errors
+def get_family_events(session: SQLAlchemySession,
+                      row: models.Submission) -> List[Event]:
+    """Events for the version family ``row`` belongs to.
+
+    A new version does not get its own event rows. ``store_event`` stamps every
+    event with ``event.submission_id``, which for `CreateSubmissionVersion` is the
+    submission being *versioned* -- deliberately, so the domain keeps one identity
+    across versions even though classic splits them into several rows. The
+    consequence is that a ``rep`` row has no events under its own id, and anything
+    loading it by that id finds none.
+
+    The family is the rows sharing a ``doc_paper_id``; its events are under the
+    lowest submission_id, which is where the paper started. Returns an empty list
+    when there is no family to consult -- a submission that has never been
+    announced has no ``doc_paper_id`` to group by.
+    """
+    if not row.doc_paper_id:
+        return []
+    origin = (session.query(models.Submission.submission_id)
+              .filter(models.Submission.doc_paper_id == row.doc_paper_id)
+              .order_by(models.Submission.submission_id.asc())
+              .first())
+    if origin is None or origin[0] == row.submission_id:
+        return []
+    try:
+        return get_events(session, str(origin[0]))
+    except NoSuchSubmission:
+        return []
+
+
 @retry(OperationalError, tries=3, delay=1)
 @handle_operational_errors
 def get_events(session: SQLAlchemySession, submission_id: str) -> List[Event]:
@@ -357,9 +388,11 @@ def store_event(session: SQLAlchemySession, event: Event, before: Optional[Submi
     # classic database has several rows for the submission (with different
     # IDs).
     if this_is_a_new_submission:
+        # TODO: this line looks redundent, with the one 15 lines up:
         event.submission_id = dbs.submission_id
         after.submission_id = dbs.submission_id
     else:
+        # TODO: was this assert meant to be temporary?
         assert before is not None
         event.submission_id = before.submission_id
         after.submission_id = before.submission_id

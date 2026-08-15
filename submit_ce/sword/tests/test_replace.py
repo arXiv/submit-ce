@@ -14,7 +14,6 @@ from lxml import etree
 
 from submit_ce.sword import replace as sword_replace
 from submit_ce.sword.atom import ns
-from submit_ce.domain.exceptions import NoSuchSubmission
 from submit_ce.sword.errors import SwordFault
 from submit_ce.sword.tests import client as sword_client
 from submit_ce.sword.tests.client import ATOM_ENTRY_TYPE, basic_auth
@@ -431,18 +430,14 @@ def test_the_refusal_does_not_create_a_third_version(client, depositor,
     assert versions == [1, 2]
 
 
-@pytest.mark.xfail(strict=True, raises=NoSuchSubmission, reason=(
-    "Separate pre-existing defect, not the conflict check: a replacement's new row "
-    "gets no event rows of its own. `_new_dbevent` stamps each event with "
-    "`event.submission_id` (db.py:650), which for `CreateSubmissionVersion` is the "
-    "submission being versioned -- so all events stay under the original id and "
-    "`get_events()` on the new row raises. Shared persistence, so the UI's "
-    "replacement flow versions an already-replaced paper no better than SWORD does. "
-    "This test asserts the behaviour we want and will start passing when that is "
-    "fixed."))
 def test_a_replacement_is_allowed_again_once_the_version_is_announced(
         client, depositor, announced, media_href):
-    """The conflict is transient, not a permanent block on the paper."""
+    """The conflict is transient, not a permanent block on the paper.
+
+    Was an expected failure until `_load` learned to fall back to the family's
+    events: a ``rep`` row has none of its own, so loading it by id reported a row
+    that plainly exists as missing.
+    """
     assert _put(client, depositor, PAPER_ID,
                 _wrapper(media_href)).status_code == 202
 
