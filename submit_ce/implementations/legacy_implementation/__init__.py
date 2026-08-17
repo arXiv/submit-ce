@@ -150,6 +150,20 @@ class LegacySubmitImplementation(SubmitApi):
         if not submission:
             raise NoSuchSubmission()
 
+        # Project the newest version, not whichever row was asked for. Classic
+        # keeps one row per version; the domain keeps one submission, whose
+        # current state is the latest of them. Reading the requested row instead
+        # reported a replaced paper as still at v1 -- so `CreateSubmissionVersion`
+        # recomputed a version that already existed, and the worker saw an
+        # announced submission with nothing to do.
+        #
+        # The identity stays the id the caller asked for: `to_submission` takes
+        # the override for exactly this, and `db.load` does the same when
+        # rebuilding a submission from classic rows alone. That is what keeps the
+        # workspace, the event log and the URL pointing at one place across
+        # versions.
+        head = db.family_head(session, submission.doc_paper_id) or submission
+
         try:
             events = db.get_events(session, submission_id)
         except NoSuchSubmission:
@@ -164,7 +178,7 @@ class LegacySubmitImplementation(SubmitApi):
             events = db.get_family_events(session, submission)
             if not events:
                 raise
-        return (to_submission(submission), events)
+        return (to_submission(head, submission_id=submission_id), events)
 
 
     @override

@@ -192,24 +192,29 @@ Two consequences worth being explicit about:
 - **A fresh deposit is status 0 (working)**, which is in that list, so it appears
   immediately and is editable through the normal workflow.
 
-## Where the pipeline stops
+## Step 3 — the worker finishes it
 
-[`submit_ce/sword/ingest.py`](https://github.com/arXiv/submit-ce/tree/develop/submit_ce/sword/ingest.py) is explicit that it does not finish the job:
+[`submit_ce/sword/ingest.py`](https://github.com/arXiv/submit-ce/tree/develop/submit_ce/sword/ingest.py) deliberately stops short:
 
 > Compilation and `FinalizeSubmission` are **not** done here. `FinalizeSubmission`
 > requires `source_format`, which only preflight can determine, so finalizing is
 > left to the async compile path.
 
-**That async compile path does not exist yet.** A SWORD deposit therefore lands as
-a status-0 working submission with its files in place — visible and editable — but
-never finalized, so tracking reports `incomplete` where legacy reported `submitted`.
+That path is [`submit_ce/sword/worker.py`](https://github.com/arXiv/submit-ce/tree/develop/submit_ce/sword/worker.py), driven by
+[`submit_ce/sword/worker_loop.py`](https://github.com/arXiv/submit-ce/tree/develop/submit_ce/sword/worker_loop.py). It cannot ride on the deposit
+request: preflight and compile are blocking calls with an 840-second timeout
+each, and both run inside `SubmitApi.save`, which holds `SELECT … FOR UPDATE` on
+the submission row throughout. Close to half an hour with the row locked, against
+a 202 that promises asynchronous ingestion.
 
 ```mermaid
 stateDiagram-v2
     [*] --> staged: POST media (201)
     staged --> created: POST wrapper (202)
-    created --> compiled: compile
-    compiled --> finalized: SetSourceFormat<br/>FinalizeSubmission
+    created --> analysed: StartPreflight<br/>SetSourceFormat
+    analysed --> prepared: StartDirectives<br/>StoreZzrm
+    prepared --> compiled: StartCompileSource<br/>or InstallPdfPreview
+    compiled --> finalized: ConfirmSourceProcessed<br/>FinalizeSubmission
     finalized --> announced: announcement pipeline
     announced --> [*]
 
@@ -217,15 +222,39 @@ stateDiagram-v2
         status 0, visible in the UI
         tracking says "incomplete"
     end note
-    note right of compiled
-        NOT IMPLEMENTED
-        nothing triggers this today
+    note right of prepared
+        00README.json is what
+        /convert requires -- without
+        it: "ZZRM missing or
+        underspecified"
+    end note
+    note right of finalized
+        status 1, tracking says
+        "submitted"; emails the
+        submitter and moderators
     end note
 ```
 
-Practically: the paper arrives and shows up, then waits for a human to press
-Process/Submit. Closing the gap needs a background task — compile is synchronous
-with an 840s timeout, which is why it was not done inline.
+Every step is guarded on state that survives a restart — a file in the store, or a
+field on the submission — so a worker killed mid-compile resumes rather than
+redoing work. Three of the steps call tex2pdf: `/preflight`, `/directives` and
+`/convert`.
+
+**It refuses to finalize a submission with no preview.** Nothing in the domain
+stops `FinalizeSubmission` queueing a paper whose compile produced no PDF;
+interactively the Submit button is gated on the preview, and a worker has no such
+gate. A permanent failure is recorded in `arXiv_tracking.submission_errors` — the
+column legacy used for the same purpose — which both takes the submission out of
+the queue and shows the depositor why through `/resolve`.
+
+Retryable failures are treated differently: a 5xx from tex2pdf, or a 401/403 from
+expired credentials, says nothing about the deposit, so it is left alone and picked
+up next pass.
+
+Run it with [`local_sword_worker.py`](https://github.com/arXiv/submit-ce/tree/develop/local_sword_worker.py); it deploys as a Cloud Run
+**Job** ([`cicd/cloudbuild-sword-worker-dev-arxiv.yaml`](https://github.com/arXiv/submit-ce/tree/develop/cicd/cloudbuild-sword-worker-dev-arxiv.yaml)), one pass per
+execution. One worker at a time is the supported deployment: `SKIP LOCKED` stops a
+second worker blocking on a compile, but it is not a lease.
 
 ## Tracking — what the depositor can poll
 
@@ -421,12 +450,29 @@ sequenceDiagram
     end
 ```
 
-**Known defect** (finding 11 in the code review): a *second* replacement does not
-work. Replacement events are all stored under the original submission id, and the
-read path reports the original row's version, so `CreateSubmissionVersion`
-recomputes a version number that already exists. Pinned as a strict xfail in
-[`submit_ce/sword/tests/test_replace.py`](https://github.com/arXiv/submit-ce/tree/develop/submit_ce/sword/tests/test_replace.py). This is shared `legacy_implementation` code and affects the UI's
-replacement flow equally.
+### Three ids, three jobs
+
+A replacement is where classic's one-row-per-version model and the domain's
+one-submission model pull apart, and each of the three answers a different
+question:
+
+| | keyed by | why |
+|---|---|---|
+| **Identity** — workspace, event log, URL | the paper's *original* row | one submission, one history, whatever classic does underneath |
+| **State** — version, status | the *newest* `new`/`rep` row | "what does this paper look like now" |
+| **Discovery** — `sword_id` | the row *this deposit* created | legacy stamped the row it made (`Submission.pm:319-332`); it is how the worker finds work |
+
+`_load` reconciles the first two: it projects the newest row while reporting the
+id it was asked for, which is what `to_submission`'s `submission_id` override is
+for. The worker reconciles the third, finding candidates by classic row and then
+driving the paper by its origin — the files it needs to compile live under the
+identity, not under the row that announced the version.
+
+Getting any one of these wrong is quiet rather than loud. Filing events under the
+version row split one paper's history in two; reading the requested row instead of
+the newest reported a replaced paper as still at v1, so `CreateSubmissionVersion`
+recomputed a version that already existed; and omitting the `sword_id` left the
+replacement invisible to the worker, so it was never compiled.
 
 ## Design intent, in one line
 

@@ -28,12 +28,13 @@ re-litigated.
 | 8 | Medium | GCS id counter is a single-object write hotspot | `sword/gs_deposits.py` | Accepted |
 | 9 | Low | Socket test guard does not stop gRPC, and its docstring claims it does | [`conftest.py`](https://github.com/arXiv/submit-ce/tree/develop/conftest.py) | Open |
 | 10 | Low | Assorted docstring/robustness nits | various | Open |
-| 11 | High | A replacement's new row gets no event rows, so it cannot be loaded | `legacy_implementation/db.py` | Open, pinned |
+| 11 | High | A replacement's new row gets no event rows, so it cannot be loaded | `legacy_implementation/db.py` | **Fixed** |
 | 12 | Medium | A malformed CSRF token is a 500 from `arxiv.forms.csrf` | `arxiv-base` | Worked around |
 | 13 | — | `arxiv.forms.csrf` is documented "DO NOT USE" | `arxiv-base` | Accepted |
 
-Findings 11–13 were turned up by fixing 1–3, and 11 is the most serious thing in
-this document. Two claims in the first revision were wrong; see
+Findings 11–13 were turned up by fixing 1–3. Everything High or Medium is now
+fixed or accepted except 6, which is a deployment check rather than code. Several
+claims in earlier revisions were wrong; see
 [Corrections](#corrections-to-the-first-revision).
 
 ## What is strong
@@ -509,7 +510,7 @@ Individually minor; grouped so none is lost.
 
 ---
 
-## 11. A replacement's new row has no events, so it cannot be loaded (High)
+## 11. A replacement's new row has no events, so it cannot be loaded (High) — FIXED
 
 Found while testing finding 2's fix, and more serious than the finding that
 exposed it.
@@ -534,13 +535,47 @@ the Flask UI's replacement flow versions an already-replaced paper no better tha
 SWORD does. Verified by inspecting the event rows directly; the UI flow was not
 driven.
 
-Pinned as `@pytest.mark.xfail(strict=True, raises=NoSuchSubmission)` on
-`test_a_replacement_is_allowed_again_once_the_version_is_announced` in
-`test_replace.py`, with the diagnosis in the reason. It asserts the behaviour we
-want and will fail loudly when someone fixes it.
+**Fixed**, in four steps — the diagnosis above was right about the symptom and
+wrong about where it bit.
 
-**Not fixed here** — it is outside SWORD, affects the UI equally, and deserves its
-own change with its own verification.
+*The interpolator was a red herring.* This section originally pointed at
+`ClassicEventInterpolator` raising `InvalidEvent` on replay. That path
+(`db.get_submission`) is not used anywhere in production: the live read is
+`LegacySubmitImplementation._load`, which projects a row directly and never
+replays, exactly as CLAUDE.md says. Testing both call orders showed the two paths
+differ by code, not by session state — the "order-dependent" hypothesis was wrong.
+
+1. **`_load` falls back to the family's events** when a row has none of its own,
+   resolving the family by `doc_paper_id`. Only reachable where it previously
+   raised, so nothing that worked changed. A row whose family has no events either
+   still raises, so a bad id is not silently turned into an empty submission.
+2. **`store_event` settles the submission id before `_new_dbevent`.** It was
+   assigning after, so the persisted `DBEvent` carried whatever id the caller
+   passed while only the in-memory objects were corrected. It also resolves the
+   *original* id rather than trusting `before.submission_id`, which is what keeps
+   one paper's history under one id.
+3. **`record_tracking` stamps the row the deposit created**, matching legacy
+   (`arXiv/Submit/Submission.pm:319-332`). Pointing every deposit at the original
+   left replacements invisible to the worker *and* overwrote the original's own
+   link.
+4. **`_load` projects the newest version** while reporting the requested id. This
+   is the change with real blast radius — every read of a multi-row submission —
+   and it is what makes the version and status current. `to_submission`'s
+   `submission_id` override exists for it, and `db.load` already did the same.
+
+Verified live: a second replacement now returns 202, creates v3, and the worker
+compiles and finalizes it. All events sit under the original id.
+
+Two bugs were caught on the way. The existing suite caught `family_head` returning
+a *deleted* version, leaving a paper stuck at a version that no longer exists —
+`db.load` already had the rule and `family_head` now mirrors it. And a live run
+caught `domain_id` delegating to a helper that queries the legacy mapper, which is
+unbound in a standalone process; the tests miss it because their fixture sets a
+blanket default bind that covers both mappers.
+
+**Still worth eyes:** the UI's replacement flow should now show a replaced paper at
+its current version rather than v1. Believed to be a fix, not driven through a
+browser.
 
 ## 12. A malformed CSRF token is a 500 (Medium)
 
@@ -609,6 +644,13 @@ the first revision may have been read already.
   Corrected in findings 4, 5 and 6. Every conclusion gets sharper: finding 4 turns
   out to be a regression rather than a gap, 413 is more clearly right than 415, and
   decision 5 turns out to be well-founded rather than arbitrary.
+- **"A replacement's new row cannot be loaded … the interpolator raises
+  `InvalidEvent`"** (finding 11). Right about the symptom, wrong about the cause.
+  `ClassicEventInterpolator` is reached only through `db.get_submission`, which
+  nothing in production calls; the live read path never replays events at all.
+  CLAUDE.md states this plainly and I read past it. The same investigation also
+  called the two read paths "order-dependent" on the strength of one observation;
+  testing both orders showed they simply differ by code.
 
 ---
 
@@ -675,19 +717,20 @@ to local runs with Cloud Run ingress narrowed behind them.
 
 What now gates a deploy, in order:
 
-1. **Finding 11** — a paper cannot be replaced twice. Outside SWORD and affecting
-   the UI equally, so it needs its own change, but it is a functional hole in the
-   replacement feature this branch ships.
-2. **Finding 6** — confirm the platform accepts the advertised 50 MB.
-3. **The manual** (`arxiv-docs`) still advertises 10000 kB. Depositors read it.
-4. **Edge routing** for `/sword-app/*` and `/resolve/app/*`, which the new
+1. **Finding 6** — confirm the platform accepts the advertised 50 MB.
+2. **The manual** (`arxiv-docs`) still advertises 10000 kB. Depositors read it.
+3. **Edge routing** for `/sword-app/*` and `/resolve/app/*`, which the new
    `--ingress` default now depends on: with it set, the service is unreachable
    until the load balancer is pointed at it.
+4. **The worker needs deploying** — the Cloud Run Job yaml exists but has never
+   been run, and a new Job starts with none of the env vars, service account or
+   Cloud SQL connection the services carry.
 
 Finding 8 is accepted at the current scale of ~5 automated depositors. Findings 9,
 10, 12 and 13 can follow at leisure; 12 and 13 are tickets against `arxiv-base`
 rather than work in this repo.
 
-Verification at the time of this revision: `submit_ce/sword` **635 passed, 1
-xfailed** at 100% statement and branch; full `./test.sh` **1226 passed, 57
-skipped, 1 xfailed**; `./lint.sh` clean.
+Verification at the time of this revision: `submit_ce/sword` **719 passed** at 100%
+statement and branch; full `./test.sh` **1317 passed, 57 skipped**; `./lint.sh`
+clean. No expected failures remain — the xfail pinning finding 11 became an XPASS
+when it was fixed, which is what the strict marker was for.

@@ -127,16 +127,58 @@ def get_family_events(session: SQLAlchemySession,
     """
     if not row.doc_paper_id:
         return []
-    origin = (session.query(models.Submission.submission_id)
-              .filter(models.Submission.doc_paper_id == row.doc_paper_id)
-              .order_by(models.Submission.submission_id.asc())
-              .first())
-    if origin is None or origin[0] == row.submission_id:
+    origin = family_origin_id(session, row.doc_paper_id)
+    if origin is None or origin == row.submission_id:
         return []
     try:
-        return get_events(session, str(origin[0]))
+        return get_events(session, str(origin))
     except NoSuchSubmission:
         return []
+
+
+def family_origin_id(session: SQLAlchemySession,
+                     paper_id: Optional[str]) -> Optional[int]:
+    """The lowest submission_id for a paper: where it started.
+
+    This is the paper's identity. Classic adds a row per version, per jref and
+    per withdrawal, but the domain treats them as one submission and files its
+    history under this id.
+    """
+    if not paper_id:
+        return None
+    row = (session.query(func.min(models.Submission.submission_id))
+           .filter(models.Submission.doc_paper_id == paper_id)
+           .scalar())
+    return int(row) if row is not None else None
+
+
+def family_head(session: SQLAlchemySession,
+                paper_id: Optional[str]) -> Optional[models.Submission]:
+    """The newest ``new``/``rep`` row for a paper: its current state.
+
+    Versions are separate rows, so "what does this submission look like now" is
+    the latest of them -- not the row whose id happens to be the identity. ``jref``
+    and ``wdr`` rows are excluded: they carry no version of their own.
+
+    A deleted replacement does not count: rolling one back has to leave the
+    previous version as the current state, or the paper would appear stuck at a
+    version that no longer exists. `load` applies the same rule when rebuilding
+    from classic rows -- "advance to the first non-deleted 'new' or 'replacement'
+    row" -- and keeps a deleted ``new`` row, since a paper with only that has
+    nowhere else to fall back to.
+    """
+    if not paper_id:
+        return None
+    return (session.query(models.Submission)
+            .filter(models.Submission.doc_paper_id == paper_id,
+                    models.Submission.type.in_([models.Submission.NEW_SUBMISSION,
+                                                models.Submission.REPLACEMENT]),
+                    or_(models.Submission.type == models.Submission.NEW_SUBMISSION,
+                        models.Submission.status.notin_(
+                            models.Submission.DELETED)))
+            .order_by(models.Submission.version.desc(),
+                      models.Submission.submission_id.desc())
+            .first())
 
 
 @retry(OperationalError, tries=3, delay=1)

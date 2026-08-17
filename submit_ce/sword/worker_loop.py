@@ -40,7 +40,7 @@ import time
 from typing import Iterable, List, Optional, Set
 
 import arxiv.db.models as models
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session as SqlalchemySession
 
 from submit_ce.api import SubmitApi
@@ -159,6 +159,32 @@ def candidates(session: SqlalchemySession,
     return [row for row in session.execute(stmt).scalars().all()]
 
 
+def domain_id(session: SqlalchemySession, submission_id: int) -> int:
+    """The id to drive a submission by: its paper's original row.
+
+    Candidates are found by classic row, because that is where ``status`` and
+    ``sword_id`` live -- a replacement is a separate row with its own deposit. But
+    the *work* belongs to the domain identity: the file store, the event log and
+    the preview are all keyed by the original id, so compiling a replacement means
+    operating on the paper, not on the row that announced it.
+
+    For a first deposit the two are the same id.
+
+    Queried through ``arxiv.db.models`` like the rest of this module rather than
+    calling `db.family_origin_id`, which uses the legacy implementation's own
+    mapper. ``arxiv.db`` binds per model, and that mapper has no bind in a
+    standalone process, so delegating raised ``UnboundExecutionError`` outside the
+    tests -- where a blanket default bind hides the difference.
+    """
+    row = session.get(models.Submission, submission_id)
+    if row is None or not row.doc_paper_id:
+        return submission_id
+    earliest = (session.query(func.min(models.Submission.submission_id))
+                .filter(models.Submission.doc_paper_id == row.doc_paper_id)
+                .scalar())
+    return int(earliest) if earliest is not None else submission_id
+
+
 def actor_for(session: SqlalchemySession, submission_id: int) -> User:
     """The user the worker acts as: the account that deposited the submission.
 
@@ -227,7 +253,7 @@ def run_once(api: SubmitApi, session: SqlalchemySession,
         attempted.add(submission_id)
 
         try:
-            outcome = advance(api, str(submission_id),
+            outcome = advance(api, str(domain_id(session, submission_id)),
                               creator=actor_for(session, submission_id),
                               client=worker_client())
         except Exception:

@@ -974,3 +974,122 @@ def test_a_depositor_texlive_version_is_not_overwritten(compiling_app, deposited
     stored = _zzrm_written(recording_save)
     assert stored, "no ZZRM stored"
     assert str(stored[-1].zzrm["texlive_version"]) == "2023", stored[-1].zzrm
+
+
+# --------------------------------------------------------- replacements compile
+
+
+@pytest.fixture
+def media_href(client, depositor):
+    """A staged media deposit, for a replacement wrapper to reference."""
+    from submit_ce.sword.tests import client as sword_client
+
+    response = client.post(
+        "/sword-app/cs-collection", content=ZIP,
+        headers={"Authorization": basic_auth(depositor.nickname,
+                                             depositor.password),
+                 "Content-Type": "application/zip"})
+    assert response.status_code == 201
+    return sword_client.edit_media_link(response.content)
+
+
+@pytest.fixture
+def announced_deposit(compiling_app, deposited, actor, depositor):
+    """A finalized deposit, faked into an announced paper so it can be replaced.
+
+    Returns (paper_id, original submission id).
+    """
+    from datetime import datetime, timezone
+
+    import arxiv.db.models as models
+
+    _advance(compiling_app, deposited, actor)
+    paper_id = "2699.00001"
+
+    document = models.Document(paper_id=paper_id,
+                               title="A strangely unique title",
+                               submitter_email="genius@example.org")
+    Session.add(document)
+    Session.flush()
+
+    row = Session.get(models.Submission, int(deposited))
+    row.status = 7
+    row.doc_paper_id = paper_id
+    row.document_id = document.document_id
+    Session.add(models.PaperOwner(
+        document_id=document.document_id, user_id=depositor.user_id,
+        date=datetime.now(timezone.utc), valid=1, flag_author=1, flag_auto=0))
+    Session.query(models.Tracking).filter_by(
+        paper_id=f"submit/{deposited}").update({"paper_id": paper_id})
+    Session.commit()
+    return paper_id, int(deposited)
+
+
+def _replace(client, depositor, paper_id, media_href):
+    from submit_ce.sword.tests.test_replace import _auth, _wrapper
+
+    return client.put(f"/sword-app/edit/{paper_id}", content=_wrapper(media_href),
+                      headers={**_auth(depositor),
+                               "Content-Type": ATOM_ENTRY_TYPE})
+
+
+def _version_row(paper_id, version):
+    import arxiv.db.models as models
+
+    return Session.query(models.Submission).filter_by(
+        doc_paper_id=paper_id, version=version).one()
+
+
+def test_a_replacement_is_compiled_and_finalized(compiling_app, depositor,
+                                                 announced_deposit, media_href,
+                                                 client):
+    """The end of the chain the sword_id and _load changes exist for.
+
+    Files, preview and event log all live under the paper's original id, while the
+    replacement is a separate classic row. The worker finds the row and drives the
+    paper -- driving the row would compile an empty workspace.
+    """
+    from submit_ce.sword.worker_loop import run_once
+
+    paper_id, _origin = announced_deposit
+    assert _replace(client, depositor, paper_id, media_href).status_code == 202
+    Session.expire_all()
+
+    outcomes = run_once(compiling_app.state.api, Session)
+    assert outcomes, "the worker found no replacement to process"
+    assert outcomes[0].finalized, outcomes[0]
+
+    Session.expire_all()
+    assert _version_row(paper_id, 2).status == 1, \
+        "the version row was not moved to SUBMITTED"
+
+
+def test_the_worker_drives_the_paper_not_the_row(compiling_app, depositor,
+                                                 announced_deposit, media_href,
+                                                 client):
+    """A replacement row's workspace is empty; the paper's is not."""
+    from submit_ce.sword.worker_loop import domain_id
+
+    paper_id, origin = announced_deposit
+    _replace(client, depositor, paper_id, media_href)
+    Session.expire_all()
+
+    assert domain_id(Session, _version_row(paper_id, 2).submission_id) == origin
+    assert domain_id(Session, origin) == origin
+
+
+def test_a_replaced_paper_reads_as_its_newest_version(compiling_app, depositor,
+                                                      announced_deposit,
+                                                      media_href, client):
+    """Loading by the original id must not report the state it had at v1."""
+    paper_id, origin = announced_deposit
+
+    submission, _ = compiling_app.state.api.get_with_history(str(origin))
+    assert submission.version == 1
+
+    _replace(client, depositor, paper_id, media_href)
+    Session.expire_all()
+
+    submission, _ = compiling_app.state.api.get_with_history(str(origin))
+    assert submission.version == 2, "still reporting the version it replaced"
+    assert submission.submission_id == str(origin), "identity changed with version"
