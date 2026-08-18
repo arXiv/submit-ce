@@ -101,6 +101,41 @@ def test_is_unused_only_for_unreferenced_ordinary_files():
     assert by_name["fig.png"]["is_unused"] is False
 
 
+def test_used_is_rooted_at_selection_when_used_filenames_given():
+    """With `used_filenames` (the rooted reachable set), a file's used/unused
+    note follows the current top-level selection, not a flat union of every
+    reference (SUBMISSION-231). Same files, two selections, opposite results."""
+    notes = [
+        {"filename": "main1.tex"},
+        {"filename": "main2.tex"},
+        {"filename": "only1.png", "used_by": ["main1.tex"]},
+        {"filename": "only2.png", "used_by": ["main2.tex"]},
+    ]
+    # main1 selected: reachable set is {only1.png}
+    by1 = {r["filename"]: r for r in
+           build_file_rows(notes, {}, ["main1.tex"], {"only1.png"})}
+    assert by1["only1.png"]["is_used"] and by1["only1.png"]["is_protected"]
+    assert by1["only2.png"]["is_unused"] and not by1["only2.png"]["is_protected"]
+
+    # main2 selected: the very same only2.png flips to used/protected.
+    by2 = {r["filename"]: r for r in
+           build_file_rows(notes, {}, ["main2.tex"], {"only2.png"})}
+    assert by2["only2.png"]["is_used"] and by2["only2.png"]["is_protected"]
+    assert by2["only1.png"]["is_unused"] and not by2["only1.png"]["is_protected"]
+
+
+def test_empty_used_filenames_marks_all_ordinary_unused():
+    """An empty rooted set (e.g. no top-level yet selected, or nothing reachable)
+    is distinct from None: every ordinary file is 'not used' even if it carries
+    reverse-edge data."""
+    notes = [
+        {"filename": "main.tex"},
+        {"filename": "fig.png", "used_by": ["main.tex"]},
+    ]
+    by = {r["filename"]: r for r in build_file_rows(notes, {}, ["main.tex"], set())}
+    assert by["fig.png"]["is_unused"] and not by["fig.png"]["is_used"]
+
+
 def test_none_issues_and_none_selection_are_safe():
     rows = build_file_rows(_notes(), None, None)
     assert all(r["badges"] == [] and r["is_toplevel"] is False for r in rows)
