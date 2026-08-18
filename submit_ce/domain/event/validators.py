@@ -1,12 +1,13 @@
 """Reusable validators for events."""
 
 import re
+from typing import Sequence, Set
 
 from arxiv.taxonomy.definitions import CATEGORIES
 from qa.checks.models import Disposition, Result
 
 from .base import Event
-from ..submission import Submission
+from ..submission import Submission, SubmissionType
 from ..exceptions import InvalidEvent
 
 
@@ -46,6 +47,45 @@ def submission_is_not_finalized(event: Event, submission: Submission) -> None:
     """
     if submission.is_finalized:
         raise InvalidEvent(event, "Cannot apply to a finalized submission")
+
+
+def no_conflicting_active_submission(
+        event: Event, api, submission: Submission,
+        allowed_types: Sequence[SubmissionType] = ()) -> None:
+    """Reject a journal reference when the paper has a conflicting submission.
+
+    By default *any* in-progress submission on the paper conflicts. Pass
+    ``allowed_types`` to exempt particular types.
+
+    Parameters
+    ----------
+    event : :class:`.Event`
+    api : :class:`submit_ce.api.submit.SubmitApi`
+        Used to look up other submissions on the paper.
+    submission : :class:`.domain.submission.Submission`
+        The state before the event is applied. Checks are skipped unless this
+        is the announced paper, since only then are there sibling submissions
+        to conflict with.
+    allowed_types : sequence of :class:`.SubmissionType`
+        Submission types that do *not* conflict. Empty (the default) means an
+        in-progress submission of any type blocks the event.
+
+    Raises
+    ------
+    :class:`.InvalidEvent`
+        If the announced paper already has a conflicting submission in progress.
+
+    """
+    if submission is None or not submission.is_announced:
+        return
+    document = api.get_document(submission.arxiv_id)
+    conflicting = [s for s in document.active_submissions
+                   if s.submission_type not in allowed_types]
+    if conflicting:
+        raise InvalidEvent(
+            event,
+            "This paper already has a submission in progress; finish or cancel "
+            "it before adding a journal reference.")
 
 
 def no_trailing_period(event: Event, submission: Submission,
@@ -174,7 +214,8 @@ def no_secondaries_on_general_primary(event: Event,
 
 
 def no_secondary_when_primary_general(event: Event,
-                                      submission: Submission) -> None:
+                                      submission: Submission,
+                                      ignore_version: bool = False) -> None:
     """A cross-list (secondary) may not be *added* when the primary category
     is general (SUBMISSION-158).
 
@@ -186,9 +227,13 @@ def no_secondary_when_primary_general(event: Event,
     submission).
 
     Replacements (``version > 1``) are exempt for the same reason as
-    :func:`no_secondaries_on_general_primary`.
+    :func:`no_secondaries_on_general_primary`. Pass ``ignore_version=True`` to
+    apply the rule whatever the version: a ``cross`` submission inherits the
+    announced paper's version, which may be 1 or 20, but legacy blocks
+    cross-listing onto a general primary either way (see
+    :func:`primary_is_not_general`).
     """
-    if submission.version > 1:
+    if submission.version > 1 and not ignore_version:
         return
     if (submission.primary_classification
             and CATEGORIES[submission.primary_category].is_general):
@@ -204,3 +249,57 @@ def max_secondaries(event: Event, submission: Submission) -> None:
             len(submission.secondary_classification) + 1 > 4):
         raise InvalidEvent(
             event, "No more than 4 secondary categories per submission.")
+
+
+MAX_UNIQUE_SECONDARIES = 4
+"""Legacy cap on a paper's secondary categories (``num_unique_secondaries``)."""
+
+
+def unique_secondaries(submission: Submission) -> Set[str]:
+    """The submission's secondary categories with aliases collapsed.
+
+    Legacy counts secondaries after ``arXiv::Categories->minimal_list``, which
+    folds aliased and subsumed categories together, so ``math.MP`` and
+    ``math-ph`` are one category and not two. The taxonomy exposes the same
+    relation as :meth:`arxiv.taxonomy.category.Category.get_canonical`.
+    """
+    unique = set()
+    for category in submission.secondary_categories:
+        cat = CATEGORIES.get(category)
+        unique.add(cat.get_canonical().id if cat is not None else category)
+    return unique
+
+
+def max_unique_secondaries(event: Event, submission: Submission,
+                           limit: int = MAX_UNIQUE_SECONDARIES) -> None:
+    """No more than ``limit`` secondary categories, counting aliases once.
+
+    The alias-collapsing counterpart of :func:`max_secondaries`, and the rule
+    legacy applies both when deciding whether a paper may be cross-listed at all
+    (``num_unique_secondaries >= 4`` blocks the whole flow) and when adding each
+    category. Called *before* the event projects, so a submission already at the
+    limit rejects the add.
+    """
+    if len(unique_secondaries(submission)) >= limit:
+        raise InvalidEvent(
+            event, f"No more than {limit} secondary categories per submission.")
+
+
+def primary_is_not_general(event: Event, submission: Submission) -> None:
+    """A paper whose primary category is general cannot be cross-listed.
+
+    Legacy checks this when the cross is created
+    (``document->categories->primary->category_def->is_general``) and turns it
+    into "<paper_id> is not appropriate for cross-listing".
+
+    TODO(admin bypass): legacy lets administrators past this check. The domain
+    has no representation of an administrative agent, so the check is
+    unconditional here.
+    """
+    if (submission.primary_classification
+            and CATEGORIES[submission.primary_category].is_general):
+        raise InvalidEvent(
+            event,
+            f"A paper with a general primary category "
+            f"({submission.primary_category}) is not appropriate for "
+            f"cross-listing.")

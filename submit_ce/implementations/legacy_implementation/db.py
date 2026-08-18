@@ -36,7 +36,8 @@ from datetime import datetime
 from functools import wraps
 from itertools import groupby
 from operator import attrgetter
-from typing import List, Optional, Tuple, Callable, Any, TypeVar, cast, Iterable
+from typing import Dict, List, Optional, Tuple, Callable, Any, TypeVar, cast, \
+    Iterable
 import logging
 
 from arxiv.license import LICENSES
@@ -49,7 +50,7 @@ from sqlalchemy.orm.exc import NoResultFound
 
 from submit_ce.domain.agent import Client, HttpClient, System
 from submit_ce.domain.event.legacy import Withdraw
-from submit_ce.domain.event.request import CancelRequest, RequestCrossList, RequestWithdrawal
+from submit_ce.domain.event.request import CancelRequest, RequestWithdrawal
 
 from . import models, interpolate, log
 from .models import DBEvent
@@ -58,14 +59,12 @@ from submit_ce import domain
 from submit_ce.domain.uploads import SourceFormat
 from submit_ce.domain import Event, Submission, User, WithdrawalRequest, CrossListClassificationRequest,  License
 from submit_ce.domain.submission import SubmissionType
-from submit_ce.domain.event import SetJournalReference, SetDOI, SetReportNumber, CreateSubmission, Rollback, \
-    ProposeClassification
-from submit_ce.domain.exceptions import NoSuchSubmission
+from submit_ce.domain.event import CreateSubmission, CreateJrefSubmission, \
+    CreateCrossSubmission, Rollback, ProposeClassification
+from submit_ce.domain.exceptions import NoSuchSubmission, NoSuchDocument
 
 logger = logging.getLogger(__name__)
 logger.propagate = False
-
-JREFEvents = [SetDOI, SetJournalReference, SetReportNumber]
 
 FuncType = Callable[..., Any]
 F = TypeVar('F', bound=FuncType)
@@ -300,19 +299,24 @@ def store_event(session: SQLAlchemySession, event: Event, before: Optional[Submi
                 dbs = _create_withdrawal(doc_id, event.reason,
                                          before.arxiv_id, after.version, after,
                                          event.created)
-            elif isinstance(event, RequestCrossList):
-                dbs = _create_crosslist(doc_id, event.categories,
-                                        before.arxiv_id, after.version, after,
-                                        event.created)
-
-            # Adding DOIs and citation information (so-called "journal reference")
-            # also requires a new row. The version number is not incremented.
-            elif before.is_announced and type(event) in JREFEvents:
-                dbs = _create_jref(session, doc_id, before.arxiv_id, after.version, after,
-                                   event.created)
-
             elif isinstance(event, CancelRequest):
                 dbs = _cancel_request(session, event, before, after)
+
+            # A jref or a cross is its own row, but it carries the announced
+            # paper's `doc_paper_id`, so it lands in this branch. Each must be
+            # loaded by its own submission id: `_load` by paper_id defaults to
+            # the new/rep rows and would return the announced row instead.
+            elif before.submission_type == SubmissionType.JOURNAL_REFERENCE:
+                dbs = _load(session, submission_id=before.submission_id,
+                            row_type=models.Submission.JOURNAL_REFERENCE)
+                _preserve_sticky_hold(dbs, before, after, event)
+                dbs.update_from_submission(after)
+
+            elif before.submission_type == SubmissionType.CROSS_LIST:
+                dbs = _load(session, submission_id=before.submission_id,
+                            row_type=models.Submission.CROSS_LIST)
+                _preserve_sticky_hold(dbs, before, after, event)
+                dbs.update_from_submission(after)
 
             # The submission has been announced.
             # TODO Redundant logic in this next clause
@@ -490,7 +494,9 @@ def _create_replacement(document_id: int, paper_id: str, version: int,
     incremented version number. This requires a new row in the database.
     """
     dbs = models.Submission(type=models.Submission.REPLACEMENT,
-                            document_id=document_id, version=version)
+                            document_id=document_id, version=version,
+                            remote_addr=submission.client.remote_addr,
+                            remote_host=submission.client.remote_host)
     dbs.update_from_submission(submission)
     dbs.created = created
     dbs.updated = created
@@ -584,54 +590,92 @@ def store_withdrawal(session: SQLAlchemySession, event: Withdraw,
     return event, after
 
 
-def _create_crosslist(document_id: int, categories: List[str], paper_id: str,
-                      version: int, submission: Submission,
-                      created: datetime) -> models.Submission:
+def store_jref_create(session: SQLAlchemySession, event: CreateJrefSubmission,
+                      seed: Submission) -> Tuple[Event, Submission]:
+    """Create a new ``jref`` submission row from a `CreateJrefSubmission`.
+
+    Like :func:`store_withdrawal`, and unlike :func:`store_event`, this
+    *creates* a row rather than updating the one the event was saved against:
+    a journal reference is its own submission. The row is flushed here so the
+    returned ``after`` carries the new submission id.
+
+    The row is left at ``WORKING``; a journal reference is not submitted until
+    it is finalized, which matches legacy, where ``create_submission(...,
+    'jref')`` makes the row at status 0.
     """
-    Create a new crosslist request.
+    return _store_create_against_paper(
+        session, event, seed, models.Submission.JOURNAL_REFERENCE)
 
-    Cross list requests also require a new row, and they use the most recent
-    version number.
+
+def store_cross_create(session: SQLAlchemySession,
+                       event: CreateCrossSubmission,
+                       seed: Submission) -> Tuple[Event, Submission]:
+    """Create a new ``cross`` submission row from a `CreateCrossSubmission`.
+
+    The cross-list counterpart of :func:`store_jref_create`, and the same shape:
+    a cross-list is its own submission, created against an announced paper at
+    classic status 0 (``WORKING``) with the announced version, not an
+    incremented one.
+
+    The categories the cross is adding are not written here. They arrive as
+    later `AddCrossCategory` events and land through
+    :meth:`.models.Submission._update_secondaries`; what this row gets at create
+    time is the snapshot of the paper's current categories, all
+    ``is_published = 1`` (legacy ``User::make_sub_cats``).
     """
-    dbs = models.Submission(type=models.Submission.CROSS_LIST,
-                            document_id=document_id,
-                            version=version)
-    dbs.update_cross(submission, categories, paper_id, version, created)
-    return dbs
+    return _store_create_against_paper(
+        session, event, seed, models.Submission.CROSS_LIST)
 
 
-def _create_jref(session: SQLAlchemySession, document_id: int, paper_id: str, version: int,
-                 submission: Submission,
-                 created: datetime) -> models.Submission:
+def _store_create_against_paper(session: SQLAlchemySession, event: Event,
+                                seed: Submission, row_type: str) \
+        -> Tuple[Event, Submission]:
+    """Create the classic row for a submission made against an announced paper.
+
+    Shared by :func:`store_jref_create` and :func:`store_cross_create`: both
+    make a brand-new row of their own type against ``event.paper_id``, at the
+    announced version and classic status 0, with no file side effect to sequence
+    afterwards (unlike :func:`store_withdrawal`).
     """
-    Create a JREF submission.
+    if event.committed:
+        raise ValueError(f'{event.event_type} {event.event_id} already committed')
+    if event.created is None:
+        raise ValueError('Event creation timestamp not set')
 
-    Adding DOIs and citation information (so-called "journal reference") also
-    requires a new row. The version number is not incremented.
-    """
-    # Try to piggyback on an existing JREF row. In the classic system, all
-    # three fields can get updated on the same row.
-    try:
-        most_recent_sb = _load(session, paper_id=paper_id, version=version,
-                               row_type=models.Submission.JOURNAL_REFERENCE)
-        if most_recent_sb and not most_recent_sb.is_announced():
-            most_recent_sb.update_from_submission(submission)
-            return most_recent_sb
-    except NoSuchSubmission:
-        pass
+    after = event.apply(seed)
 
-    # Otherwise, create a new JREF row.
-    dbs = models.Submission(type=models.Submission.JOURNAL_REFERENCE,
-                            document_id=document_id,
-                            version=version,
-                            remote_addr=submission.client.remote_addr,
-                            remote_host=submission.client.remote_host)
-    dbs.update_from_submission(submission)
-    dbs.created = created
-    dbs.updated = created
-    dbs.doc_paper_id = paper_id
-    dbs.status = models.Submission.PROCESSING_SUBMISSION
-    return dbs
+    # Neither type increments the version, so this resolves the document of the
+    # announced version being annotated.
+    doc_id = _load_document_id(session, event.paper_id, after.version)
+
+    # These columns are NOT NULL, so fall back to empty rather than None.
+    client = after.client
+    dbs = models.Submission(
+        type=row_type,
+        document_id=doc_id,
+        version=after.version,
+        remote_addr=str(client.remote_addr) if client and client.remote_addr else "",
+        remote_host=(client.remote_host or "") if client else "")
+    dbs.update_from_submission(after)
+    dbs.created = event.created
+    dbs.updated = event.created
+    dbs.doc_paper_id = event.paper_id
+
+    # Flush to assign the autoincrement submission id for the new row.
+    session.add(dbs)
+    session.flush([dbs])
+
+    # Set the new db rows id on the event
+    after.submission_id = str(dbs.submission_id)
+    dbs.package = str(dbs.submission_id)
+    event.submission_id = str(dbs.submission_id)
+
+    db_event = _new_dbevent(event)
+    session.add(db_event)
+    event.committed = True
+
+    log.handle(session, event, seed, after)
+    return event, after
 
 
 def _new_dbevent(event: Event) -> DBEvent:
@@ -724,9 +768,12 @@ def to_submission(row: models.Submission,
 
     primary_clsn: Optional[domain.Classification] = None
     if primary and primary.category:
-        primary_clsn = domain.Classification(category=primary.category)
+        primary_clsn = domain.Classification(
+            category=primary.category,
+            is_published=bool(primary.is_published))
     secondary_clsn = [
-        domain.Classification(category=db_cat.category)
+        domain.Classification(category=db_cat.category,
+                              is_published=bool(db_cat.is_published))
         for db_cat in row.categories if not db_cat.is_primary
     ]
 
@@ -806,6 +853,201 @@ def _to_proposal(row: models.CategoryProposal) -> domain.Proposal:
         comment=comment,
         status=status,
         classic_proposal_id=row.proposal_id,
+    )
+
+
+def _to_document_metadata(row: models.Metadata) -> domain.DocMetadata:
+    """Build a domain :class:`.DocMetadata` from an ``arXiv_metadata`` row."""
+    return domain.DocMetadata(
+        version=row.version,
+        title=row.title,
+        abstract=row.abstract,
+        authors=row.authors,
+        categories=row.abs_categories,
+        comments=row.comments,
+        report_num=row.report_num,
+        msc_class=row.msc_class,
+        acm_class=row.acm_class,
+        journal_ref=row.journal_ref,
+        doi=row.doi,
+        license=row.license,
+        source_size=row.source_size,
+        source_format=row.source_format,
+        submitter_name=row.submitter_name,
+        submitter_email=row.submitter_email,
+        submitter_id=row.submitter_id,
+        created=row.created,
+        updated=row.updated,
+        is_current=bool(row.is_current),
+        is_withdrawn=bool(row.is_withdrawn),
+    )
+
+
+def has_active_submission(session: SQLAlchemySession, paper_id: str,
+                          exclude_submission_id: Optional[str] = None) -> bool:
+    """Whether ``paper_id`` has an in-progress (non-announced, non-deleted) row.
+
+    ``exclude_submission_id`` is ignored when checking, so a submission does not
+    count itself as a conflict.
+    """
+    rows = session.query(models.Submission) \
+        .filter(models.Submission.doc_paper_id == paper_id).all()
+    for row in rows:
+        if exclude_submission_id is not None \
+                and str(row.submission_id) == str(exclude_submission_id):
+            continue
+        if row.is_active():
+            return True
+    return False
+
+
+def to_document(session: SQLAlchemySession, paper_id: str) -> domain.Document:
+    """Build a :class:`.domain.document.Document` for an announced paper.
+
+    Composes the announced state from three classic tables: the submission rows
+    (``arXiv_submissions``) for identity, version and the list of submissions;
+    the per-version metadata (``arXiv_metadata``); and the current published
+    categories (``arXiv_document_category``).
+
+    Raises
+    ------
+    :class:`.NoSuchDocument`
+        If there is no announced submission row for ``paper_id``.
+    """
+    rows = session.query(models.Submission) \
+        .filter(models.Submission.doc_paper_id == paper_id) \
+        .order_by(models.Submission.version.asc(),
+                  models.Submission.submission_id.asc()) \
+        .all()
+    if not any(row.is_announced() for row in rows):
+        raise NoSuchDocument(f"No announced paper {paper_id}")
+
+    md_rows = session.query(models.Metadata) \
+        .filter(models.Metadata.paper_id == paper_id) \
+        .order_by(models.Metadata.version.asc()) \
+        .all()
+
+    document_id = _latest_announced(rows).document_id
+    cat_rows: List[models.DocumentCategory] = []
+    if document_id is not None:
+        cat_rows = session.query(models.DocumentCategory) \
+            .filter(models.DocumentCategory.document_id == document_id).all()
+
+    return _assemble_document(paper_id, rows, md_rows, cat_rows)
+
+
+def to_documents_for_user(session: SQLAlchemySession,
+                          user_id: str) -> List[domain.Document]:
+    """Build a :class:`.domain.document.Document` per announced paper of a user.
+
+    TODO This is narrower than classic's ``arXiv_paper_owners``, which also
+    carries ownership granted by a claim or by an administrator.
+    """
+    paper_ids = [row[0] for row in
+                 session.query(models.Document.paper_id)
+                 .filter(models.Document.submitter_id == int(user_id))
+                 .order_by(models.Document.created.desc())
+                 .all()]
+    if not paper_ids:
+        return []
+
+    subs_for_paper: Dict[str, List[models.Submission]] = \
+        {paper_id: [] for paper_id in paper_ids}
+    for row in session.query(models.Submission) \
+            .filter(models.Submission.doc_paper_id.in_(paper_ids)) \
+            .order_by(models.Submission.version.asc(),
+                      models.Submission.submission_id.asc()).all():
+        subs_for_paper[row.doc_paper_id].append(row)
+
+    # A paper's version, submitter and identity are read from its announced
+    # submission row, so one without such a row cannot be assembled -- and could
+    # not offer Replace/Withdraw/Add cross-list anyway, since all three are keyed
+    # on that row's id. Classic has such papers: `arXiv_documents` reaches back
+    # further than `arXiv_submissions` does.
+    unannounced = [paper_id for paper_id in paper_ids
+                   if not any(row.is_announced()
+                              for row in subs_for_paper[paper_id])]
+    if unannounced:
+        logger.warning('User %s: skipping %d paper(s) with no announced'
+                       ' submission row: %s', user_id, len(unannounced),
+                       ', '.join(unannounced))
+        paper_ids = [paper_id for paper_id in paper_ids
+                     if paper_id not in set(unannounced)]
+        if not paper_ids:
+            return []
+
+    md_by_paper: Dict[str, List[models.Metadata]] = \
+        {paper_id: [] for paper_id in paper_ids}
+    for md in session.query(models.Metadata) \
+            .filter(models.Metadata.paper_id.in_(paper_ids)) \
+            .order_by(models.Metadata.version.asc()).all():
+        md_by_paper[md.paper_id].append(md)
+
+    document_ids = {paper_id: _latest_announced(subs_for_paper[paper_id])
+                    .document_id for paper_id in paper_ids}
+    cats_by_document: Dict[int, List[models.DocumentCategory]] = {}
+    known_ids = [doc_id for doc_id in document_ids.values()
+                 if doc_id is not None]
+    if known_ids:
+        for cat in session.query(models.DocumentCategory) \
+                .filter(models.DocumentCategory.document_id.in_(known_ids)) \
+                .all():
+            cats_by_document.setdefault(cat.document_id, []).append(cat)
+
+    return [_assemble_document(paper_id,
+                               subs_for_paper[paper_id],
+                               md_by_paper[paper_id],
+                               cats_by_document.get(document_ids[paper_id], []))
+            for paper_id in paper_ids]
+
+
+def _latest_announced(rows: Iterable[models.Submission]) -> models.Submission:
+    """The announced row for the highest announced version of a paper.
+
+    The row a paper's identity is read from. Raises `ValueError` on rows with no
+    announced row among them; callers check for that first.
+    """
+    return max((row for row in rows if row.is_announced()),
+               key=lambda r: (r.version, r.submission_id))
+
+
+def _assemble_document(paper_id: str,
+                       rows: List[models.Submission],
+                       md_rows: List[models.Metadata],
+                       cat_rows: List[models.DocumentCategory]) \
+        -> domain.Document:
+    """Compose a :class:`.domain.document.Document` from its classic rows.
+
+    Shared by :func:`to_document` and :func:`to_documents_for_user` so the two
+    agree; they differ only in how the rows are fetched (per paper, or in bulk
+    for a user). ``rows`` are all the submissions on the paper in ascending
+    ``(version, submission_id)`` order, and must include an announced one.
+    """
+    announced = [row for row in rows if row.is_announced()]
+    latest = _latest_announced(rows)
+
+    # `arXiv_document_category` rows are the paper's *announced* categories, so
+    # everything read from them is published by definition.
+    primary_clsn: Optional[domain.Classification] = None
+    secondary_clsn: List[domain.Classification] = []
+    for cat in cat_rows:
+        clsn = domain.Classification(category=cat.category, is_published=True)
+        if cat.is_primary:
+            primary_clsn = clsn
+        else:
+            secondary_clsn.append(clsn)
+
+    return domain.Document(
+        paper_id=paper_id,
+        document_id=latest.document_id,
+        latest_version=latest.version,
+        primary_classification=primary_clsn,
+        secondary_classification=secondary_clsn,
+        metadata=[_to_document_metadata(m) for m in md_rows],
+        submitter_email=latest.submitter_email,
+        submitter_id=latest.submitter_id,
+        created=announced[0].get_created(),
+        submissions=[to_submission(row) for row in rows],
     )
 
 
@@ -909,7 +1151,13 @@ def announce_submission(session: SQLAlchemySession, submission_id: str) -> None:
         paper_id = datetime.now().strftime('%s')[-4:] \
                    + "." \
                    + datetime.now().strftime('%s')[-5:]
-        head.document = models.Document(paper_id=paper_id)
+        # `submitter_id`/`created`/`title` as legacy's publish would set them;
+        # `to_documents_for_user` selects and orders papers on the first two.
+        head.document = models.Document(paper_id=paper_id,
+                                        title=head.title,
+                                        submitter_id=head.submitter_id,
+                                        submitter_email=head.submitter_email,
+                                        created=datetime.now())
         head.doc_paper_id = paper_id
     session.add(head)
     session.commit()

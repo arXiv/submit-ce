@@ -20,6 +20,10 @@ class NoSuchSubmission(RuntimeError):
     """An operation was performed on/for a submission that does not exist."""
 
 
+class NoSuchDocument(RuntimeError):
+    """An operation referenced an arXiv paper (document) that does not exist."""
+
+
 class SaveError(RuntimeError):
     """Failed to persist event state."""
 

@@ -30,6 +30,10 @@ from wtforms.validators import DataRequired
 from submit_ce.domain.uploads import Workspace, SourceFormat
 from submit_ce.domain.exceptions import InvalidEvent, SaveError
 from submit_ce.ui.controllers.util import validate_command
+from submit_ce.ui.preflight.issues import (
+    build_issue_context, has_blocking_issues, group_notifications_by_severity,
+)
+from submit_ce.ui.preflight.file_context import build_file_rows
 from submit_ce.ui.routes.flow_control import (
     stay_on_this_stage, ready_for_next, return_to_parent_stage,
     return_to_previous_stage, advance_to_current,
@@ -154,6 +158,8 @@ def review_files(method: str, params: MultiDict, session: Session,
         'form': form,
         'preflight_files': {},
         'file_notes': {},
+        'selected_top_level_files': [],
+        'file_issues': {},
     }
 
     if not workspace:
@@ -185,27 +191,38 @@ def review_files(method: str, params: MultiDict, session: Session,
                 title="Preflight unavailable")
             return stay_on_this_stage((rdata, status.OK, {}))
 
-        rdata['file_notes'] = dm.get_files_from_preflight(preflight_data)
-        _populate_form(form, preflight_data, user_decisions_data)
-        rdata['immediate_notifications'] = _get_notifications(submission_id, preflight_data)
-
-        return stay_on_this_stage((rdata, status.OK, {}))
+        return _render_review_page(rdata, form, submission_id,
+                                   preflight_data, user_decisions_data)
 
     elif method == 'POST':
-        has_changes = _update_preflight(params, submission_id, workspace, submitter, client)
+        # _update_preflight persists the submitted decisions and returns True only
+        # when preflight was invalidated (a file was deleted). A selection-only
+        # change (compiler / top-level) keeps preflight valid, so we fall through
+        # and advance rather than bouncing to Upload for a needless re-scan. (G29)
+        preflight_invalidated = _update_preflight(params, submission_id, workspace, submitter, client)
 
-        if has_changes:
+        if preflight_invalidated:
             return return_to_parent_stage((rdata, status.OK, {}))
         else:
-            _load_or_create_directives(params, session, submission_id, token)
-
-            preflight_data, user_decisions_data = _load_or_create_preflight(submission_id, params, session, token, workspace, submitter, client)
+            preflight_data, user_decisions_data = _load_or_create_preflight(
+                submission_id, params, session, token, workspace, submitter, client)
 
             if preflight_data is None:
                 alerts.flash_warning(
                     f"Preflight data is not available for this submission. {SUPPORT}",
                     title="Cannot generate directives")
                 return stay_on_this_stage((rdata, status.OK, {}))
+
+            # C1.4 (SUBMISSION-216): a danger-severity preflight issue blocks
+            # Continue -- mirrors 1.5's hasPreflightBlockers. Re-render Review
+            # Files with the issue banners instead of advancing.
+            if has_blocking_issues(preflight_data):
+                # danger issue(s) present -> re-render with the "Cannot continue"
+                # card (added by _render_review_page) instead of advancing.
+                return _render_review_page(rdata, form, submission_id,
+                                           preflight_data, user_decisions_data)
+
+            _load_or_create_directives(params, session, submission_id, token)
 
             zzrm = ZeroZeroReadMe()
             if user_decisions_data:
@@ -222,6 +239,54 @@ def review_files(method: str, params: MultiDict, session: Session,
             )
 
             return ready_for_next((rdata, status.OK, {}))
+
+
+def _render_review_page(rdata, form, submission_id, preflight_data,
+                        user_decisions_data):
+    """Populate ``rdata`` for the Review Files template and stay on the stage.
+
+    Shared by the GET path and the C1.4 danger-gate on POST so both render the
+    same page (file table, per-file badges, severity-grouped issue banners).
+    Also sets ``has_blocking_issues`` so the template can reflect the blocked
+    state. Returns a ``stay_on_this_stage`` flow-control result.
+    """
+    _populate_form(form, preflight_data, user_decisions_data)
+    selected_top_level_files = [f for f in [form.source_file.data] if f]
+    rdata['selected_top_level_files'] = selected_top_level_files
+    # Surface preflight issues (SUBMISSION-210): reason-code-grouped banners
+    # + per-file badges, extracted server-side. Issue banners lead; the
+    # backend-status cards follow.
+    issue_notifications, file_issues = build_issue_context(preflight_data)
+    rdata['file_issues'] = file_issues
+    # F0 (SUBMISSION-219): fold the per-file badges and the top-level / README
+    # flags into each file row so the template renders fields from one object
+    # instead of computing them inline (and re-deriving them from separate
+    # file_issues / selected_top_level_files parameters). Gives C3 a single
+    # per-file object to extend with used/unused + delete defaults later.
+    rdata['file_notes'] = build_file_rows(
+        dm.get_files_from_preflight(preflight_data),
+        file_issues,
+        selected_top_level_files,
+    )
+    rdata['has_blocking_issues'] = any(
+        n.get('severity') == 'danger' for n in issue_notifications)
+    # C1.6 (SUBMISSION-218): collapse the per-code issue banners into one card
+    # per severity (danger / warning / info) so the page isn't a long stack.
+    cards = group_notifications_by_severity(issue_notifications)
+    if rdata['has_blocking_issues']:
+        # C1.4: a persistent danger summary card explaining the block leads the
+        # list (rendered on GET too, since the button stays enabled).
+        cards = [{
+            'title': 'Cannot continue',
+            'severity': 'danger',
+            'body': 'Please resolve the highlighted problem(s) before you can continue.',
+        }] + cards
+    rdata['immediate_notifications'] = cards
+    # C1.5/G6: the passive "preflight complete" / "directives" status cards are
+    # dropped entirely (per UI-design review) -- the main column is reserved for
+    # issues that need the submitter's attention, and nothing replaces them in
+    # the sidebar.
+    return stay_on_this_stage((rdata, status.OK, {}))
 
 
 def _get_zzrm_data(workspace: Workspace, submission_id: str) -> Optional[dict]:
@@ -244,9 +309,44 @@ def _get_user_decisions_data(submission_id: str) -> Optional[dict]:
         return None
     return json.loads(blob.download_as_text())
 
+def _selected_top_level_files(params: MultiDict) -> list[str]:
+    """Return the top-level TeX file(s) the user has selected, in order.
+
+    Supports the current single ``source_file`` field and a future multi-select
+    (``top_level_tex_files[]``), so the delete guard already handles one or more
+    selected top-level files (SUBMISSION-209 / C2).
+    """
+    values = list(params.getlist('source_file')) + \
+        list(params.getlist('top_level_tex_files[]'))
+    seen: list[str] = []
+    for value in values:
+        if value and value not in seen:
+            seen.append(value)
+    return seen
+
+
 def _update_preflight(params: MultiDict, submission_id: str, workspace: Workspace, submitter, client) -> bool:
     existing_paths = {f.path for f in workspace.files}
     files_to_delete = [p for p in params.getlist('selected_files') if p in existing_paths]
+
+    # Never delete files the submission needs: the selected top-level TeX
+    # file(s) (SUBMISSION-209) and any file preflight resolved a reference to
+    # (SUBMISSION-221 / C3.2a). maybe-used and unused files stay deletable. The
+    # template disables these checkboxes, but a crafted or stale POST can still
+    # carry them, so we filter here and warn. The authoritative guard is in
+    # SetDecisions.execute, which runs under the submission row lock.
+    selected_top_levels = _selected_top_level_files(params)
+    used_files = dm.used_source_filenames(_get_preflight_data(submission_id) or {})
+    protected_set = set(selected_top_levels) | used_files
+    protected = [p for p in files_to_delete if p in protected_set]
+    if protected:
+        files_to_delete = [p for p in files_to_delete if p not in protected_set]
+        alerts.flash_warning(
+            "We kept files your submission needs and did not delete them: "
+            f"{', '.join(protected)}. A top-level TeX file can be freed for "
+            "deletion by removing it from the Top-Level TeX selection; a "
+            "referenced file must first be unreferenced in your source.",
+            title="Files not deleted")
 
     # If the POST carries none of the review-form fields, the user clicked
     # "next" without changing anything; don't invalidate preflight.
@@ -270,9 +370,15 @@ def _update_preflight(params: MultiDict, submission_id: str, workspace: Workspac
 
     try:
         cmd = SetDecisions(creator=submitter, client=client,
-                           decisions=new_decisions, files_to_delete=files_to_delete)
+                           decisions=new_decisions, files_to_delete=files_to_delete,
+                           protected_sources=sorted(used_files))
         current_app.api.save(cmd, submission_id=submission_id)
-        return True
+        # Return whether PREFLIGHT was invalidated. Only a change to the file *set*
+        # (a deletion) invalidates it, so the caller returns to Upload to re-run the
+        # scan. A selection-only change (compiler / top-level) keeps preflight valid
+        # -- SetDecisions regenerated directives but left the report -- so the caller
+        # can advance without a re-scan. (G29 / SUBMISSION-215)
+        return bool(files_to_delete)
     except InvalidEvent:
         # TODO Somehow inform the user
         return False
@@ -385,37 +491,6 @@ def _load_or_create_directives(params: MultiDict, session: Session, submission_i
     file_store = current_app.api.get_file_store()
     if not file_store.does_directives_exist(submission_id):
         start_directives(params, session, submission_id, token)
-
-
-def _get_notifications(submission_id: str, preflight_data: Optional[dict]) -> List[Dict[str, str]]:
-    notifications = []
-    if preflight_data is not None:
-        notifications.append({
-            'title': 'Preflight complete',
-            'severity': 'success',
-            'body': 'Your files have been analyzed.',
-        })
-    else:
-        notifications.append({
-            'title': 'Preflight pending',
-            'severity': 'warning',
-            'body': 'Preflight analysis is not yet available for your files.',
-        })
-
-    if current_app.api.get_file_store().does_directives_exist(submission_id):
-        notifications.append({
-            'title': 'Directives ready',
-            'severity': 'success',
-            'body': 'Compilation directives have been generated.',
-        })
-    else:
-        notifications.append({
-            'title': 'Directives pending',
-            'severity': 'info',
-            'body': 'Compilation directives have not yet been generated.',
-        })
-
-    return notifications
 
 
 def start_preflight(params: MultiDict, session: Session, submission_id: str,

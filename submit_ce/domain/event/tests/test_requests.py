@@ -6,13 +6,13 @@ from dataclasses import dataclass
 from pytz import UTC
 
 from submit_ce.domain import agent
+from submit_ce.domain.event.base import event_factory as make_event
 from submit_ce.domain.event.request import (
     ApproveRequest, RejectRequest, CancelRequest, ApplyRequest,
     RequestCrossList, RequestWithdrawal
 )
 from submit_ce.domain.submission import (
-    Submission, UserRequest, WithdrawalRequest, CrossListClassificationRequest,
-    Classification
+    Submission, UserRequest, WithdrawalRequest
 )
 from submit_ce.domain.exceptions import InvalidEvent
 
@@ -127,37 +127,35 @@ class TestRequestEvents(unittest.TestCase):
         with self.assertRaises(InvalidEvent):
             e_invalid.validate_pre_lock(self.submission)
 
-    def test_request_crosslist(self):
-        """Test RequestCrossList validation and projection."""
+    def test_request_crosslist_is_a_no_op_shim(self):
+        """`RequestCrossList` is deprecated and must replay as a no-op.
+
+        Cross-listing is now its own submission (`CreateCrossSubmission`). The
+        class survives only so rows already persisted still deserialize and
+        replay; if it validated or projected anything, replaying an old
+        submission would change its state.
+        """
         self.submission.status = Submission.ANNOUNCED
         self.submission.arxiv_id = "1234.5678"
-        self.submission.primary_classification = Classification(category="physics.gen-ph")
-        
-        # Test valid crosslist request
-        created = datetime.now(UTC)
-        e = RequestCrossList(creator=self.user, created=created, categories=["astro-ph.GA"])
-        e.validate_pre_lock(self.submission)
+
+        e = RequestCrossList(creator=self.user, created=datetime.now(UTC),
+                             categories=["astro-ph.GA"])
+        e.validate_pre_lock(self.submission)    # Must not raise.
         updated_submission = e.project(self.submission)
-        
-        self.assertEqual(len(updated_submission.user_requests), 1)
-        req = list(updated_submission.user_requests.values())[0]
-        self.assertIsInstance(req, CrossListClassificationRequest)
-        self.assertEqual(req.categories, ["astro-ph.GA"])
 
-        # Clear requests for further validation tests
-        self.submission.user_requests = {}
+        self.assertEqual(updated_submission.user_requests, {})
+        self.assertEqual(updated_submission.secondary_categories, [])
 
-        # Test invalid: not announced
-        self.submission.status = Submission.WORKING
-        with self.assertRaises(InvalidEvent) as cm:
-            e.validate_pre_lock(self.submission)
-        self.assertIn("Submission must already be announced", str(cm.exception))
-        self.submission.status = Submission.ANNOUNCED
+    def test_request_crosslist_deserializes(self):
+        """An old persisted `RequestCrossList` row still loads.
 
-        # Test invalid: already primary
-        e_bad = RequestCrossList(creator=self.user, categories=["physics.gen-ph"])
-        with self.assertRaises(InvalidEvent):
-            e_bad.validate_pre_lock(self.submission)
+        Without a class of this name `event_factory` raises `Unknown event type`
+        and the whole submission fails to load.
+        """
+        created = datetime.now(UTC)
+        e = make_event('RequestCrossList', created, creator=self.user,
+                       categories=["astro-ph.GA"])
+        self.assertIsInstance(e, RequestCrossList)
 
     def test_request_withdrawal(self):
         """Test RequestWithdrawal validation and projection."""

@@ -1,5 +1,6 @@
 """Tests for :mod:`submit_ce.ui.controllers.new.review`."""
 
+import re
 from http import HTTPStatus as status
 from unittest.mock import MagicMock
 
@@ -160,6 +161,102 @@ def test_review_files_post_no_changes_stores_zzrm_and_advances(
     assert zzrm_calls[0].kwargs['submission_id'] == str(sub_files_tex.submission_id)
 
 
+def test_review_files_post_danger_issue_blocks_continue(
+        app, authorized_client, sub_files_tex, mocker):
+    """C1.4/SUBMISSION-216: a danger-severity preflight issue blocks Continue --
+    the controller stays on the stage (200, not a 303 redirect), renders the
+    'Cannot continue' card, and does not generate directives or store the
+    00README."""
+    url = f"/{sub_files_tex.submission_id}/review_files"
+    csrf = _get_csrf(authorized_client, url, mocker)
+
+    mocker.patch.object(review, '_update_preflight', return_value=False)
+    # A real danger payload so the gate and the rendered card agree
+    # (conflicting_file_type is a danger code).
+    danger_preflight = {
+        'tex_files': [],
+        'detected_toplevel_files': [
+            {'filename': 'main.tex',
+             'issues': [{'key': 'conflicting_file_type', 'info': ''}]}],
+    }
+    mocker.patch.object(review, '_load_or_create_preflight',
+                        return_value=(danger_preflight, {'sources': []}))
+    mock_load_dir = mocker.patch.object(review, '_load_or_create_directives')
+    mock_save = mocker.patch.object(app.api, 'save',
+                                    return_value=(MagicMock(), []))
+
+    resp = authorized_client.post(url, data={'csrf_token': csrf, 'action': 'next'})
+
+    assert resp.status_code == status.OK           # stayed; did not advance
+    mock_load_dir.assert_not_called()              # no directives generated
+    assert b'Cannot continue' in resp.data          # persistent danger card rendered
+    assert not any(c.args and isinstance(c.args[0], review.StoreZzrm)
+                   for c in mock_save.call_args_list)
+
+
+def test_review_files_get_auto_checks_only_unused(
+        app, authorized_client, sub_files_tex, mocker):
+    """SUBMISSION-222 / C3.2: the delete box is pre-checked for UNUSED files
+    only. Used and selected-top-level files are disabled and unchecked;
+    maybe-used files are enabled but left unchecked (we don't suggest deleting
+    something we merely couldn't resolve)."""
+    preflight = {
+        'detected_toplevel_files': [{'filename': 'main.tex'}],
+        'tex_files': [{'filename': 'main.tex', 'used_other_files': ['used.png']}],
+        'image_files': [{'filename': 'used.png'}, {'filename': 'orphan.png'}],
+        'maybe_used_files': ['guess.pygtex'],
+    }
+    mocker.patch.object(review, '_load_or_create_preflight',
+                        return_value=(preflight, None))
+    url = f"/{sub_files_tex.submission_id}/review_files"
+    resp = authorized_client.get(url)
+    assert resp.status_code == status.OK
+    html = resp.data.decode()
+
+    def box(name):
+        m = re.search(
+            r'<input type="checkbox" name="selected_files" value="%s"[^>]*>'
+            % re.escape(name), html)
+        assert m, f"no delete checkbox rendered for {name}"
+        return m.group(0)
+
+    assert 'checked' in box('orphan.png')                       # unused -> pre-checked
+    assert 'disabled' in box('used.png')                        # used -> protected
+    assert 'checked' not in box('used.png')
+    assert 'disabled' in box('main.tex')                        # top-level -> protected
+    assert 'checked' not in box('main.tex')
+    assert 'disabled' not in box('guess.pygtex')                # maybe-used -> deletable
+    assert 'checked' not in box('guess.pygtex')                 #            -> but not suggested
+
+
+def test_review_files_get_renders_directory_cascade_checkbox(
+        app, authorized_client, sub_files_tex, mocker):
+    """SUBMISSION-223 / C3.2: directory rows carry a JS-only cascade checkbox
+    whose data-dir is the full path prefix (so the cascade JS matches nested
+    file values). The folder control has no `name`, so it is never submitted."""
+    preflight = {
+        'detected_toplevel_files': [{'filename': 'main.tex'}],
+        'tex_files': [{'filename': 'main.tex'}],
+        'image_files': [{'filename': 'fig/plot.png'},
+                        {'filename': 'fig/deep/x.png'}],
+    }
+    mocker.patch.object(review, '_load_or_create_preflight',
+                        return_value=(preflight, None))
+    url = f"/{sub_files_tex.submission_id}/review_files"
+    resp = authorized_client.get(url)
+    assert resp.status_code == status.OK
+    html = resp.data.decode()
+
+    # Nested directory rows get cascade checkboxes with full-path prefixes.
+    assert 'class="dir-delete" data-dir="fig/"' in html
+    assert 'class="dir-delete" data-dir="fig/deep/"' in html
+    # Files render with their full nested paths (what the JS matches against).
+    assert 'name="selected_files" value="fig/plot.png"' in html
+    assert 'name="selected_files" value="fig/deep/x.png"' in html
+    # The folder control is a UI-only toggle: it must not be a submitted field.
+    assert re.search(r'class="dir-delete"[^>]*\bname=', html) is None
+
+
 def _make_workspace(*paths):
     """Build a stand-in workspace whose `.files` carry the given paths."""
     ws = MagicMock()
@@ -261,7 +358,9 @@ def test_update_preflight_decisions_changed_triggers_save(
             params, 'sub1', _make_workspace('main.tex'),
             authorized_user, None,
         )
-    assert result is True
+    # G29/SUBMISSION-215: a selection-only change still saves SetDecisions, but
+    # preflight is NOT invalidated (no file deleted), so this now returns False.
+    assert result is False
     mock_save.assert_called_once()
     cmd = mock_save.call_args[0][0]
     assert cmd.decisions['texlive_version'] == '2025'
@@ -283,7 +382,9 @@ def test_update_preflight_no_existing_decisions_triggers_save(
             params, 'sub1', _make_workspace('main.tex'),
             authorized_user, None,
         )
-    assert result is True
+    # G29/SUBMISSION-215: decisions saved, but no deletion -> preflight not
+    # invalidated -> returns False.
+    assert result is False
     mock_save.assert_called_once()
 
 
@@ -307,6 +408,64 @@ def test_update_preflight_invalid_event_returns_false(
         )
     assert result is False
     mock_save.assert_called_once()
+
+
+def test_selected_top_level_files_dedupes_and_orders():
+    """_selected_top_level_files reads source_file + top_level_tex_files[],
+    de-duped and order-preserving (SUBMISSION-209)."""
+    params = MultiDict([
+        ('source_file', 'a.tex'),
+        ('top_level_tex_files[]', 'b.tex'),
+        ('top_level_tex_files[]', 'a.tex'),
+        ('top_level_tex_files[]', ''),
+    ])
+    assert review._selected_top_level_files(params) == ['a.tex', 'b.tex']
+
+
+def test_update_preflight_protects_selected_top_level_file(
+        app, authorized_user, mocker):
+    """A file that is the selected top-level TeX file is filtered out of the
+    deletion set and the user is warned; other deletions proceed (SUBMISSION-209)."""
+    mocker.patch.object(review, '_get_user_decisions_data', return_value=None)
+    mock_flash = mocker.patch.object(review.alerts, 'flash_warning')
+    with app.app_context():
+        mock_save = mocker.patch.object(app.api, 'save')
+        params = MultiDict([
+            ('source_file', 'main.tex'),
+            ('compiler', 'pdflatex'),
+            ('compiler_version', '2025'),
+            ('selected_files', 'main.tex'),
+            ('selected_files', 'junk.tex'),
+        ])
+        result = review._update_preflight(
+            params, 'sub1', _make_workspace('main.tex', 'junk.tex'),
+            authorized_user, None,
+        )
+    assert result is True
+    mock_flash.assert_called_once()
+    cmd = mock_save.call_args[0][0]
+    assert 'main.tex' not in cmd.files_to_delete
+    assert cmd.files_to_delete == ['junk.tex']
+
+
+def test_update_preflight_no_warning_when_top_level_not_marked(
+        app, authorized_user, mocker):
+    """When the selected top-level isn't marked for deletion, no warning fires."""
+    mocker.patch.object(review, '_get_user_decisions_data', return_value=None)
+    mock_flash = mocker.patch.object(review.alerts, 'flash_warning')
+    with app.app_context():
+        mocker.patch.object(app.api, 'save')
+        params = MultiDict([
+            ('source_file', 'main.tex'),
+            ('compiler', 'pdflatex'),
+            ('compiler_version', '2025'),
+            ('selected_files', 'junk.tex'),
+        ])
+        review._update_preflight(
+            params, 'sub1', _make_workspace('main.tex', 'junk.tex'),
+            authorized_user, None,
+        )
+    mock_flash.assert_not_called()
 
 
 def test_populate_form_choices_come_from_enums_and_preflight(app):
@@ -385,54 +544,6 @@ def test_populate_form_defaults_when_no_user_decisions(app):
         review._populate_form(form, preflight, None)
         assert form.compiler.data == Compilation.SupportedCompiler.PDFLATEX.value
         assert form.compiler_version.data == Compilation.CompilerVersion.TEXLIVE_2025.value
-
-
-def _mock_file_store(app, mocker, directives_exist):
-    """Wire app.api.get_file_store() to a stub whose does_directives_exist
-    returns the given bool."""
-    store = MagicMock()
-    store.does_directives_exist.return_value = directives_exist
-    mocker.patch.object(app.api, 'get_file_store', return_value=store)
-    return store
-
-
-def test_get_notifications_preflight_and_directives(app, mocker):
-    """Both preflight present and directives ready: two success notifications."""
-    with app.app_context():
-        _mock_file_store(app, mocker, directives_exist=True)
-        notes = review._get_notifications('sub1', {'tex_files': []})
-    titles = [n['title'] for n in notes]
-    severities = [n['severity'] for n in notes]
-    assert titles == ['Preflight complete', 'Directives ready']
-    assert severities == ['success', 'success']
-
-
-def test_get_notifications_preflight_only(app, mocker):
-    """Preflight present, directives missing: complete + pending."""
-    with app.app_context():
-        _mock_file_store(app, mocker, directives_exist=False)
-        notes = review._get_notifications('sub1', {'tex_files': []})
-    assert [n['title'] for n in notes] == ['Preflight complete', 'Directives pending']
-    assert [n['severity'] for n in notes] == ['success', 'info']
-
-
-def test_get_notifications_directives_only(app, mocker):
-    """No preflight but directives ready: pending warning + success."""
-    with app.app_context():
-        _mock_file_store(app, mocker, directives_exist=True)
-        notes = review._get_notifications('sub1', None)
-    assert [n['title'] for n in notes] == ['Preflight pending', 'Directives ready']
-    assert [n['severity'] for n in notes] == ['warning', 'success']
-
-
-def test_get_notifications_nothing_ready(app, mocker):
-    """Neither preflight nor directives: two pending notifications."""
-    with app.app_context():
-        store = _mock_file_store(app, mocker, directives_exist=False)
-        notes = review._get_notifications('sub1', None)
-    assert [n['title'] for n in notes] == ['Preflight pending', 'Directives pending']
-    assert [n['severity'] for n in notes] == ['warning', 'info']
-    store.does_directives_exist.assert_called_once_with('sub1')
 
 
 def test_store_source_format_none_preflight_is_noop(app, mocker):

@@ -594,8 +594,11 @@ main .field.secondary-container > label.label {
 }
 
 /* Pills inside the combobox. The base .tag style comes from Bulma; these
-   rules tighten the layout for our two-line code + name format. */
-.combobox-wrapper .tag {
+   rules tighten the layout for our two-line code + name format.
+   `.category-pills` is the cross-list page's server-driven equivalent: same
+   pills, but each one is its own POST form rather than a JS-managed tag. */
+.combobox-wrapper .tag,
+.category-pills .tag {
   background: #e9ecef;
   border: 1px solid #ced4da;
   border-radius: 4px;
@@ -606,12 +609,15 @@ main .field.secondary-container > label.label {
   gap: 5px;
   height: auto;
 }
-.combobox-wrapper .tag .tag-code {
+.combobox-wrapper .tag .tag-code,
+.category-pills .tag .tag-code {
   font-weight: 600;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
-.combobox-wrapper .tag .tag-name { color: #555; }
-.combobox-wrapper .remove-tag {
+.combobox-wrapper .tag .tag-name,
+.category-pills .tag .tag-name { color: #555; }
+.combobox-wrapper .remove-tag,
+.category-pills .remove-tag {
   background: none;
   border: none;
   cursor: pointer;
@@ -620,7 +626,19 @@ main .field.secondary-container > label.label {
   color: #888;
   padding: 0 2px;
 }
-.combobox-wrapper .remove-tag:hover { color: #b31b1b; }
+.combobox-wrapper .remove-tag:hover,
+.category-pills .remove-tag:hover { color: #b31b1b; }
+
+/* The pending cross-lists on the cross-list page. Each pill is a <form>, and
+   forms are block-level, so they need to be told to sit side by side. */
+.category-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 1em;
+}
+.category-pills form { display: inline-flex; margin: 0; }
 
 /* The text input shares the combobox wrapper with the pills. Force it to
    its own line so typing always starts on a fresh row. */

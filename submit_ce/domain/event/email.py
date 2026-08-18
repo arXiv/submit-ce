@@ -290,11 +290,10 @@ def _build_subject_and_body(
             summary=summary,
         )
     elif sub_type == SubmissionType.CROSS_LIST:
-        categories = []
-        if submission.primary_classification:
-            categories.append(submission.primary_classification.category)
-        categories.extend(submission.secondary_categories)
-        new_categories = " ".join(categories)
+        # Only the categories this cross is *adding*. The paper's existing
+        # categories are inherited by the seed and are not what the subject
+        # line means by "cross to".
+        new_categories = " ".join(submission.new_cross_categories)
         subject = f"arXiv cross to {new_categories} for {arxiv_id}"
         body = _CROSS_SUBMISSION_BODY.format(
             name=to_name,

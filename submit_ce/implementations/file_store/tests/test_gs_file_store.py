@@ -152,6 +152,40 @@ def test_store_source_package_extracts_members(store, sub_id):
     assert "fig.pdf" in stored_names
 
 
+def test_store_source_package_strips_dotslash_member_paths(store, sub_id):
+    """Archives packed with `tar -C dir .` prefix every member with "./".
+    Those must be stored under a clean, normalized path so preflight filenames
+    match workspace/store paths (otherwise file deletion silently breaks).
+    (SUBMISSION-224)"""
+    tar_stream = make_targz({"./main.tex": b"hello", "./fig/plot.png": b"png"})
+    f = FakeFile("pkg.tar.gz", b"", "application/gzip")
+    f.stream = tar_stream
+    result = store.store_source_package(sub_id, f, chunk_size=4096)
+
+    stored_names = {item["file"] for item in result}
+    assert "main.tex" in stored_names
+    assert "fig/plot.png" in stored_names
+    assert not any(n.startswith("./") for n in stored_names)
+
+    # And they list/retrieve under the clean names.
+    ws = store.get_workspace(sub_id)
+    names = {x.name for x in ws.files}
+    assert "main.tex" in names
+    assert not any(n.startswith("./") for n in names)
+
+
+def test_store_source_package_rejects_traversal_member(store, sub_id):
+    """An archive whose member escapes the submission via ".." must be
+    rejected outright -- nothing is written under the submission's source
+    (SUBMISSION-230)."""
+    tar_stream = make_targz({"main.tex": b"ok", "../../evil.tex": b"pwn"})
+    f = FakeFile("pkg.tar.gz", b"", "application/gzip")
+    f.stream = tar_stream
+
+    with pytest.raises(ValueError):
+        store.store_source_package(sub_id, f, chunk_size=4096)
+
+
 def test_store_and_get_preview(store, sub_id):
     pdf = b"%PDF-1.4 fake"
     checksum = store.store_preview(sub_id, BytesIO(pdf))

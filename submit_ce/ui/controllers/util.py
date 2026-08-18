@@ -1,16 +1,27 @@
 """Helpers for controllers."""
 
-from typing import Any, Dict, Iterable, Tuple, Optional, Union
+import copy
+from typing import Any, Callable, Dict, Iterable, List, Tuple, Optional, Union
 
+from flask import current_app
 from markupsafe import Markup
 from wtforms.validators import StopValidation
 from wtforms.widgets import Select, html_params
 from wtforms import SelectField, Form
 from wtforms.fields.core import UnboundField
+
+from arxiv.taxonomy.category import Category
+from arxiv.taxonomy.definitions import ARCHIVES_ACTIVE, CATEGORIES_ACTIVE
+
 from submit_ce.domain import Event, Submission
-from submit_ce.domain.exceptions import InvalidEvent
+from submit_ce.domain.exceptions import InvalidEvent, NoSuchDocument
+from submit_ce.domain.submission import SubmissionType
 
 Response = Tuple[Dict[str, Any], int, Dict[str, Any]]   # pylint: disable=C0103
+
+Choices = List[Tuple[str, List[Tuple[str, str]]]]
+"""Nested ``(group, [(value, label), ...])`` shape :class:`.OptGroupSelectField`
+renders and validates against."""
 
 
 class OptGroupSelectWidget(Select):
@@ -50,6 +61,34 @@ class OptGroupSelectField(SelectField):
         data: str = self.data
         return data
 
+
+def category_choices(label: Callable[[str, Category], str]) -> Choices:
+    """Active categories grouped by active archive.
+
+    ``label`` builds the display string from the category id and the category, so
+    each form keeps its own wording.
+    """
+    return [
+        (archive.id, [
+            (category_id, label(category_id, category))
+            for category_id, category in CATEGORIES_ACTIVE.items()
+            if category.in_archive == archive_id
+        ])
+        for archive_id, archive in ARCHIVES_ACTIVE.items()
+    ]
+
+
+def prune_choices(choices: Choices, keep: Callable[[str], bool]) -> Choices:
+    """The choices ``keep`` accepts, without the groups that leaves empty.
+
+    ``keep`` sees the category id. An archive with nothing left to offer is
+    dropped rather than rendered as an empty ``optgroup``.
+    """
+    pruned = [
+        (group, [(value, label) for value, label in items if keep(value)])
+        for group, items in choices
+    ]
+    return [(group, items) for group, items in pruned if items]
 
 
 def validate_command(form: Form, event: Event,
@@ -129,6 +168,51 @@ class FieldMixin:
         """Convenience accessor for form field names."""
         return [key for key in dir(cls)
                 if isinstance(getattr(cls, key), UnboundField)]
+
+
+def prospective_submission(submission: Submission,
+                           commands: Iterable[Event]) -> Submission:
+    """The submission as ``commands`` would leave it, for pre-validation.
+
+    Some commands are only valid against the state an earlier command in the
+    same save is about to produce -- finalizing a jref needs the citation data
+    the pending ``Set*`` events supply; editing a submitted cross-list needs it
+    unfinalized first. Validating those against the submission as it stands
+    would reject every one.
+
+    ``project`` rather than ``apply``: it is the pure field update, so this
+    neither re-runs validation nor leaves ``_before``/``_after`` on the command
+    objects that :meth:`save` is about to apply for real. The deep copy keeps the
+    state the real save starts from untouched.
+    """
+    prospective = copy.deepcopy(submission)
+    for command in commands:
+        prospective = command.project(prospective)
+    return prospective
+
+
+def active_submission_id(paper_id: str,
+                         submission_type: Optional[SubmissionType] = None) \
+        -> Optional[str]:
+    """Id of the paper's in-progress submission, if it has one.
+
+    A paper gets one active submission at a time, so this answers both of the
+    questions the paper-keyed create controllers ask. Pass ``submission_type`` to
+    count only submissions of that type -- an in-progress journal reference (or
+    cross-list) is one to resume, where an in-progress anything-else is one that
+    blocks. With no type, any in-progress submission counts.
+
+    Returns ``None`` for a paper that does not exist, leaving the caller to
+    decide whether that is a 404 or just nothing to resume.
+    """
+    try:
+        document = current_app.api.get_document(paper_id)
+    except NoSuchDocument:
+        return None
+    for sub in document.active_submissions:
+        if submission_type is None or sub.submission_type == submission_type:
+            return str(sub.submission_id)
+    return None
 
 
 def add_immediate_alert(context: dict, severity: str,

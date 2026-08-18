@@ -24,7 +24,10 @@ from submit_ce.domain.uploads import SubmitFile, is_file_tgz
 
 from google.cloud import storage
 
-from submit_ce.implementations.file_store.file_store_mixin import FileStoreMixin
+from submit_ce.implementations.file_store.file_store_mixin import (
+    FileStoreMixin,
+    safe_member_rel,
+)
 
 
 logger = logging.getLogger(__file__)
@@ -169,10 +172,23 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
 
         if is_zip:
             with zipfile.ZipFile(content.stream) as zf:
+                # Validate and normalize every member path up front, so an
+                # archive containing an unsafe entry (absolute path or ".."
+                # traversal) is rejected before we write any blob. normpath
+                # also collapses the "./" prefix that `tar -C dir .` adds, which
+                # would otherwise leave a literal "./" segment in the GCS key
+                # (".../src/./main.tex") that never matches the filenames
+                # preflight reports -- silently breaking file deletion
+                # (SUBMISSION-224). See safe_member_rel (SUBMISSION-230).
+                safe = []
                 for info in zf.infolist():
                     if info.is_dir():
                         continue
-                    store_at = posixpath.join(src_dir, info.filename)
+                    rel = safe_member_rel(info.filename)
+                    if rel is not None:
+                        safe.append((info, rel))
+                for info, rel in safe:
+                    store_at = posixpath.join(src_dir, rel)
                     self._check_path_safe(submission_id, store_at)
                     with zf.open(info) as file:
                         blob = self.bucket.blob(store_at)
@@ -180,14 +196,21 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
                         files.append(self._blob_to_file_status(submission_id, blob))
         elif is_file_tgz(content):
             with tarfile.open(fileobj=content.stream, mode="r:*") as tar:
+                # Validate/normalize all members first; see the zip branch
+                # above (SUBMISSION-224, SUBMISSION-230).
+                safe = []
                 for member in tar.getmembers():
                     if not member.isfile():
                         continue
+                    rel = safe_member_rel(member.name)
+                    if rel is not None:
+                        safe.append((member, rel))
+                for member, rel in safe:
                     extracted = tar.extractfile(member)
                     if extracted is None:
                         continue
                     with extracted as file:
-                        store_at = posixpath.join(src_dir, member.name)
+                        store_at = posixpath.join(src_dir, rel)
                         self._check_path_safe(submission_id, store_at)
                         blob = self.bucket.blob(store_at)
                         blob.upload_from_file(file, size=member.size)
@@ -797,9 +820,17 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
         """Checks if a path is safely part of the files for `submission_id`.
 
         Raises an error if the path is not under the `self._source_path()` for
-        `submission_id`
+        `submission_id`.
+
+        This is real path containment, not a bare string prefix: both sides are
+        normalized (collapsing any "..") and the source path is compared with a
+        trailing "/", so a key like ".../src/../../x" can't slip through by
+        merely starting with ".../src" (SUBMISSION-230).
         """
-        if not path.startswith(self._source_path(submission_id)):
+        root = self._source_path(submission_id)
+        normalized = posixpath.normpath(path)
+        root_bounded = root if root.endswith("/") else root + "/"
+        if normalized != posixpath.normpath(root) and not normalized.startswith(root_bounded):
             raise RuntimeError(f"Path {path} not part of submission_id {submission_id}")
 
     def __repr__(self) -> str:

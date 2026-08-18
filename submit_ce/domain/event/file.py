@@ -17,8 +17,22 @@ import logging
 logger = logging.getLogger(__name__)
 
 def _common_file_change_project(submission: Submission) -> None:
-    """Common changes during `project` to submission when any file change happens."""
+    """Common state changes during `project` when any file change happens.
+
+    A file change invalidates the previous processing outcome: the compiled
+    preview no longer reflects the current source (its file and the compile log
+    are removed in `_common_file_change_execute`). So we mark the submission
+    unprocessed -- `is_source_processed=False`, which round-trips to the legacy
+    `must_process=1` column -- and drop the now-stale `submission.preview`,
+    mirroring `UnConfirmSourceProcessed`. Without this the Process stage stays
+    "complete" after an edit (letting the submitter skip recompilation) and
+    `submission.preview` dangles at a deleted file. Applies to both TeX and
+    PDF-only submissions, since all file-change events route through here.
+    [SUBMISSION-207]
+    """
     submission.submitter_confirmed_preview = False
+    submission.is_source_processed = False
+    submission.preview = None
 
 
 def _common_file_change_execute(api: SubmitApi, submission: Submission) -> None:

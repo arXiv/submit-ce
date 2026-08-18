@@ -122,7 +122,10 @@
 <section class="section">
   <h2>Announced Articles</h2>
   <div class="box">
-    {% if user_submissions|selectattr('is_announced')|list|length > 0 %}
+    {# `user_documents` are the announced papers, from
+       `SubmitApi.load_documents_for_user`. They are not in `user_submissions`:
+       that list is active submissions only. #}
+    {% if user_documents %}
     <table class="table is-fullwidth is-hoverable">
       <thead>
         <tr>
@@ -132,36 +135,61 @@
           <th scope="col">Actions</th>
         </tr>
       </thead>
-      {% for submission in user_submissions %}
-        {% if submission.is_announced %}
+      {% for document in user_documents %}
+      {# Replace / Withdraw / Add cross-list are keyed on the announced
+         submission; only Add Journal Reference is keyed on the paper. #}
+      {% set announced = document.latest_announced_submission %}
+      {% set primary = document.primary_classification or announced.primary_classification %}
       <tr>
-        <td class="user-announced">{{ submission.arxiv_id }}</td>
-        <td class="user-announced"><span class="tag is-link">{{ submission.primary_classification.category }}</span></td>
-        <td class="user-announced">{{ submission.metadata.title }}</td>
+        <td class="user-announced">{{ document.paper_id }}</td>
+        <td class="user-announced">{% if primary %}<span class="tag is-link">{{ primary.category }}</span>{% endif %}</td>
+        <td class="user-announced">{{ document.display_metadata.title if document.display_metadata }}</td>
         <td class="user-announced">
-          {% if submission.has_active_requests %}
-            {% for request in submission.active_user_requests %}
+          {# Note: this first branch does not currently fire. `to_submission`
+             builds a submission from its classic row alone and never rebuilds
+             `user_requests`, so `has_active_requests` is False for every
+             submission on this page. A withdrawal or cross-list request shows up
+             instead as an active wdr/cross submission on the paper, in the
+             branch below. Kept because it is the only route to cancel_request. #}
+          {% if announced and announced.has_active_requests %}
+            {% for request in announced.active_user_requests %}
             <div class="tags has-addons">
               <span class="tag is-warning">{{ request.NAME }} {{ request.status }}</span>
-              <a href="{{ url_for('ui.cancel_request', submission_id=submission.submission_id, request_id=request.request_id) }}" class="tag button button-delete-submission is-link is-small is-outlined">
+              <a href="{{ url_for('ui.cancel_request', submission_id=announced.submission_id, request_id=request.request_id) }}" class="tag button button-delete-submission is-link is-small is-outlined">
                 {{svg.trashcan(title="Delete")}}}
                 <span class="is-sr-only">Delete request id {{ request.request_id }}</span>
               </a>
             </div>
             {% endfor %}
+          {% elif document.has_active_submission %}
+            {# A paper takes one submission at a time, so offering the buttons
+               here would only lead to the blocked page. The submission itself is
+               listed under Submissions in Progress above. #}
+            {% set type_names = {'rep': 'Replacement', 'jref': 'Journal reference', 'wdr': 'Withdrawal', 'cross': 'Cross-list'} %}
+            {% for active in document.active_submissions %}
+            <span class="tag is-warning">{{ type_names.get(active.submission_type.value, active.submission_type.value) }} in progress</span>
+            {% endfor %}
           {% else %}
 
           <div class="buttons is-multiline">
-            <a href="{{ url_for('ui.create_replacement', submission_id=submission.submission_id) }}" class="button is-link is-outlined is-small" aria-label="New version (replacement)">Replace</a>
-            <a href="{{ url_for('ui.jref', submission_id=submission.submission_id) }}" class="button is-link is-outlined is-small" aria-label="Update journal reference">Add Journal Reference</a>
-            <a href="{{ url_for('ui.withdraw', submission_id=submission.submission_id) }}" class="button is-link is-outlined is-small" aria-label="Request withdrawal">Withdraw</a>
-            <a href="{{ url_for('ui.request_cross', submission_id=submission.submission_id) }}" class="button is-link is-outlined is-small" aria-label="Request cross-list">Add cross-list</a>
+            <a href="{{ url_for('ui.create_replacement', submission_id=announced.submission_id) }}" class="button is-link is-outlined is-small" aria-label="New version (replacement)">Replace</a>
+            {# Creating a jref or a cross-list is a write, so each posts. The
+               CSRF token comes from the create-submission form already in this
+               page's context. #}
+            <form class="control" style="margin-right: .5rem" method="POST" action="{{ url_for('paper.add_jref', paper_id=document.paper_id) }}">
+              {{ form.csrf_token }}
+              <button type="submit" class="button is-link is-outlined is-small" aria-label="Update journal reference">Add Journal Reference</button>
+            </form>
+            <a href="{{ url_for('ui.withdraw', submission_id=announced.submission_id) }}" class="button is-link is-outlined is-small" aria-label="Request withdrawal">Withdraw</a>
+            <form class="control" style="margin-right: .5rem" method="POST" action="{{ url_for('paper.add_cross', paper_id=document.paper_id) }}">
+              {{ form.csrf_token }}
+              <button type="submit" class="button is-link is-outlined is-small" aria-label="Add cross-list">Add cross-list</button>
+            </form>
           </div>
 
           {% endif %}
         </td>
       </tr>
-      {% endif %}
       {% endfor %}
     </table>
     {% else %}

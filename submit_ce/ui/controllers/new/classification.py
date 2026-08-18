@@ -43,7 +43,6 @@ from arxiv.base import alerts
 from arxiv.auth.domain import Session
 from arxiv.forms import csrf
 from arxiv.taxonomy.category import Category
-from arxiv.taxonomy.definitions import CATEGORIES_ACTIVE, ARCHIVES_ACTIVE
 
 from submit_ce.domain import User
 from submit_ce.domain.meta import Classification
@@ -61,7 +60,12 @@ from submit_ce.domain.event import (
     AddSecondaryClassification,
     SetPrimaryClassification,
 )
-from submit_ce.ui.controllers.util import OptGroupSelectField, validate_commands
+from submit_ce.ui.controllers.util import (
+    OptGroupSelectField,
+    category_choices,
+    prune_choices,
+    validate_commands,
+)
 from submit_ce.ui.routes.flow_control import ready_for_next, stay_on_this_stage
 from submit_ce.ui.backend import get_submission
 
@@ -69,17 +73,9 @@ from submit_ce.ui.backend import get_submission
 Response = Tuple[Dict[str, Any], int, Dict[str, Any]]  # pylint: disable=C0103
 
 
-CATEGORIES = [
-    (
-        archive.id,
-        [
-            (category_id, f"{category_id}  {category.full_name}")
-            for category_id, category in CATEGORIES_ACTIVE.items()
-            if category.in_archive == archive_id
-        ],
-    )
-    for archive_id, archive in ARCHIVES_ACTIVE.items()
-]
+CATEGORIES = category_choices(
+    lambda category_id, category: f"{category_id}  {category.full_name}"
+)
 """Categories grouped by archive."""
 
 
@@ -125,15 +121,9 @@ class ClassificationFormV2(csrf.CSRFForm):
     """Hiddent set of secondaries to remove on real save."""
 
     def filter_primary_choices(self, user: User) -> None:
-        p_options = []
-        for archive, archive_choices in CATEGORIES:
-            cat_list = []
-            for category, display in archive_choices:
-                if endorsed_for(user, category):
-                    cat_list.append((category, display))
-            if cat_list:
-                p_options.append((archive, cat_list))
-        self.primary.choices = [(archive, _choices) for archive, _choices in p_options if _choices]
+        """Limit the primary select to the categories the user is endorsed for."""
+        self.primary.choices = prune_choices(
+            CATEGORIES, lambda category: endorsed_for(user, category))
 
     def filter_choices(self, submission: Submission, user: User) -> None:
         """Remove redundant secondary choices, and limit to endorsed categories."""
@@ -144,26 +134,20 @@ class ClassificationFormV2(csrf.CSRFForm):
             else ""
         )
 
-        options = []
-        for archive, archive_choices in CATEGORIES:
-            cat_list = []
-            for category, display in archive_choices:
-                if not endorsed_for(user, category) or category == primary:
-                    continue
+        def keep(category: str) -> bool:
+            if not endorsed_for(user, category) or category == primary:
+                return False
 
-                already_saved = category in submission.secondary_categories
-                already_staged = self.secondaries_staged_add.data and \
-                    category in self.secondaries_staged_add.data
-                staged_for_remove = category in submission.secondary_categories and\
-                    self.secondaries_staged_remove.data and \
-                    category in self.secondaries_staged_remove.data
-                if staged_for_remove or not (already_saved or already_staged):
-                    cat_list.append((category, display))
+            already_saved = category in submission.secondary_categories
+            already_staged = self.secondaries_staged_add.data and \
+                category in self.secondaries_staged_add.data
+            staged_for_remove = category in submission.secondary_categories and\
+                self.secondaries_staged_remove.data and \
+                category in self.secondaries_staged_remove.data
+            return bool(staged_for_remove
+                        or not (already_saved or already_staged))
 
-            if cat_list:
-                options.append((archive, cat_list))
-
-        self.add_secondary.choices = [(archive, _choices) for archive, _choices in options if _choices]
+        self.add_secondary.choices = prune_choices(CATEGORIES, keep)
 
     def secondaries_save_and_staged(
             self, submission: Submission, user: User

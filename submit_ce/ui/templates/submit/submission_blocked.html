@@ -1,0 +1,34 @@
+{%- extends "submit/base.html" %}
+{% import "svg.html" as svg %}
+
+{% block title %}
+  {% if conflicting_submission_id %}Submission Already in Progress
+  {%- else %}Cannot Start This Submission{% endif %}
+{% endblock title %}
+
+{% block within_content %}
+  <div class="content">
+    {% if conflicting_submission_id %}
+      <p>
+        This paper already has a submission in progress. arXiv allows only one
+        active submission per paper at a time. Finish or cancel the submission in
+        progress before starting another.
+      </p>
+    {% else %}
+      {# e.g. a general primary category, or the cross-list limit is reached. #}
+      <p>{{ reason or "This paper cannot take that kind of submission." }}</p>
+    {% endif %}
+  </div>
+
+  <div class="buttons">
+    {% if conflicting_submission_id %}
+      <a class="button is-link"
+         href="{{ url_for('ui.submission_edit', submission_id=conflicting_submission_id) }}">
+        Go to the submission in progress
+      </a>
+    {% endif %}
+    <a class="button" href="{{ url_for('ui.manage_submissions') }}">
+      Back to your submissions
+    </a>
+  </div>
+{% endblock within_content %}

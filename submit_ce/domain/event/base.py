@@ -158,10 +158,23 @@ class Event(BaseModel):
         Raise :class:`.InvalidEvent` if the event cannot be applied. This runs
         *before* the submission row lock is taken (during :meth:`apply`), so it
         must not depend on state that a concurrent writer could change. For
-        validation that needs the lock held, see
-        :meth:`EventWithSideEffect.validate_under_lock`.
+        validation that needs the lock held, see :meth:`validate_under_lock`.
         """
         raise NotImplementedError('Must be implemented by subclass')
+
+    def validate_under_lock(self, api: SubmitApi, submission: Submission) -> None:
+        """Validate this event inside the locked transaction, before it is applied.
+
+        Called by ``SubmitApi.save()`` while the submission row lock is held, so
+        it can safely inspect database / on-disk / FileStore state without racing
+        against a concurrent writer (e.g. rejecting a new submission when the
+        paper already has a conflicting active one). For an
+        :class:`.EventWithSideEffect` this runs immediately before ``execute``.
+        Raise :class:`~submit_ce.domain.exceptions.InvalidEvent` to abort the
+        transaction; the caller's ``except InvalidEvent`` block decides the UX.
+        Default: no-op.
+        """
+        pass
 
     def project(self, submission: Submission) -> Submission:
         """Apply this event and its data to a submission.
@@ -246,16 +259,6 @@ class EventWithSideEffect(Event):
     These cannot be serialized to JSON."""
     executed: Optional[datetime] = None  # timezone aware utc
     """Should only be set when `execute` is called."""
-
-    def validate_under_lock(self, api: SubmitApi, submission: Submission) -> None:
-        """Validate that `execute` may proceed; called inside the locked transaction.
-
-        Runs while the submission row lock is held, so it can safely inspect
-        on-disk / FileStore state without racing against a concurrent writer.
-        Raise :class:`~submit_ce.domain.exceptions.InvalidEvent` to abort the
-        transaction; the caller's ``except InvalidEvent`` block decides the UX.
-        """
-        pass
 
     def execute(self, api: SubmitApi, submission: Submission) -> None:
         """

@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime, UTC
-from typing import Optional, List, Tuple, Callable
+from typing import Optional, List, Tuple, Callable, Union
 from sqlalchemy.exc import OperationalError, ProgrammingError
 from typing_extensions import override
 
@@ -11,9 +11,11 @@ from sqlalchemy.orm import Session as SqlalchemySession, Session
 
 from submit_ce.api import SubmitApi
 from submit_ce.api.email_service import EmailService
+from submit_ce.api.save_participant import (SaveContext, SaveFailure,
+                                            SaveParticipant, SavePhase)
 from submit_ce.api.file_store import SubmissionFileStore
 from submit_ce.domain.agent import Client, User
-from submit_ce.domain import Moderator
+from submit_ce.domain import Moderator, Document
 from submit_ce.domain.config import SubmitConfig
 from submit_ce.domain.meta import License
 from ...api.compile_service import CompileService
@@ -28,7 +30,8 @@ from . import moderators
 from ...domain.event.base import Event, EventWithSideEffect
 from ...domain.util import get_tzaware_utc_now
 
-from ...domain.event import CreateSubmission
+from ...domain.event import CreateSubmission, CreateJrefSubmission, \
+    CreateCrossSubmission
 from ...domain.event.legacy import Withdraw
 from ...domain.exceptions import NoSuchSubmission, NothingToDo, SaveError
 from . import db
@@ -69,6 +72,9 @@ class LegacySubmitImplementation(SubmitApi):
         Configuration thta is relevant to the SubmitAPI.
     get_session : Callable[[], SqlalchemySession], optional
         Factory returning a SQLAlchemy session for database access.
+    participants : Optional[List[SaveParticipant]]
+        Participants enlisted in every ``save()`` transaction. See
+        :mod:`submit_ce.api.save_participant`.
     
     Notes
     -----
@@ -83,12 +89,14 @@ class LegacySubmitImplementation(SubmitApi):
                  compiler: CompileService,
                  email_service: EmailService,
                  config: SubmitConfig,
-                 get_session:Callable[[],SqlalchemySession]):
+                 get_session:Callable[[],SqlalchemySession],
+                 participants: Optional[List[SaveParticipant]] = None):
         self.get_session = get_session
         self.compiler = compiler
         self.store = store
         self.email_service = email_service
         self.config = config or SubmitConfig()
+        self.participants = list(participants or [])
 
     def __repr__(self) -> str:
         return (f"{self.__class__.__name__}("
@@ -115,6 +123,20 @@ class LegacySubmitImplementation(SubmitApi):
         return [to_submission(row) for row in
                 session.execute(stmt).unique().scalars().all()]
 
+    @override
+    def load_documents_for_user(self, user_id: str) -> List[Document]:
+        return db.to_documents_for_user(self.get_session(), user_id)
+
+    @override
+    def get_document(self, paper_id: str) -> Document:
+        return db.to_document(self.get_session(), paper_id)
+
+    @override
+    def has_active_submission(self, paper_id: str,
+                              exclude_submission_id: Optional[str] = None) -> bool:
+        return db.has_active_submission(self.get_session(), paper_id,
+                                        exclude_submission_id)
+
     def _load(self, session: SqlalchemySession, submission_id: str, lock_row: bool = False) \
             -> Tuple[Submission, List[Event]]:
         if not submission_id:
@@ -135,63 +157,138 @@ class LegacySubmitImplementation(SubmitApi):
     def save(self, *events: Event, submission_id: Optional[str] = None) -> Tuple[Submission, List[Event]]:
         if not events:
             raise NothingToDo()
-        if isinstance(events[0], Withdraw):
+        if isinstance(events[0], Withdraw) and len(events) > 1:
             # BDC I don't love how the Withdraw is handled. I'd perfer if it were done in a side effect
-            if len(events) > 1:
-                raise SaveError("Must save Withdraw as the only item in the list of Events")
-            else:
-                with self.get_session() as session:
-                    return self._save_withdrawal(events[0], session)
+            raise SaveError("Must save Withdraw as the only item in the list of Events")
+        if isinstance(events[0], (CreateJrefSubmission, CreateCrossSubmission)) \
+                and len(events) > 1:
+            # Same shape as Withdraw: these events create their own submission,
+            # so they cannot share a save with events aimed at another one.
+            raise SaveError(f"Must save {type(events[0]).__name__} as the only "
+                            f"item in the list of Events")
+        ctx = SaveContext(api=self, submission_id=submission_id, requested_events=events)
         with self.get_session() as session:
-            before: Optional[Submission] = None
-            existing_events: List[Event] = []
-            if submission_id is not None:
-                """
-                This is a critical section where:
-                1. the submission is read from the db
-                2. changes are made to submission including file changes via Event.execute
-                3. the file state is written to the db, checksum, size, file type.
+            try:
+                if isinstance(events[0], Withdraw):
+                    result = self._save_withdrawal(events[0], session, ctx)
+                elif isinstance(events[0], (CreateJrefSubmission,
+                                           CreateCrossSubmission)):
+                    result = self._save_create_against_paper(events[0], session,
+                                                             ctx)
+                else:
+                    before: Optional[Submission] = None
+                    existing_events: List[Event] = []
+                    if submission_id is not None:
+                        """
+                        This is a critical section where:
+                        1. the submission is read from the db
+                        2. changes are made to submission including file changes via Event.execute
+                        3. the file state is written to the db, checksum, size, file type.
 
-                The arXiv_submission row for the submission will be
-                locked. Legacy did not lock during file upload.
+                        The arXiv_submission row for the submission will be
+                        locked. Legacy did not lock during file upload.
 
-                There are at least these problems:
+                        There are at least these problems:
 
-                1. Correctness problem: If the files are uploaded, the state of
-                the files changes, these need to be written to the db, if there
-                is an exception before the db is written then the db and files
-                are out of sync.
+                        1. Correctness problem: If the files are uploaded, the state of
+                        the files changes, these need to be written to the db, if there
+                        is an exception before the db is written then the db and files
+                        are out of sync.
 
-                2. Race condition problem: if the db submission row is not
-                locked, two processes can both upload at the same time which can
-                create a file system state that neither intended.
+                        2. Race condition problem: if the db submission row is not
+                        locked, two processes can both upload at the same time which can
+                        create a file system state that neither intended.
 
-                (there may be other problems)
+                        (there may be other problems)
 
-                We may need a different design for this. Maybe a immutable
-                upload space id?  Maybe go to no file state info in the db?
+                        We may need a different design for this. Maybe a immutable
+                        upload space id?  Maybe go to no file state info in the db?
 
-                FAQ:
+                        FAQ:
 
-                What happens if the _load() locks but then there is an exception
-                during file upload or other times?
+                        What happens if the _load() locks but then there is an exception
+                        during file upload or other times?
 
-                The session will be rolled back and the files on the FS may not
-                match what is in the db for size and checksum.  """
+                        The session will be rolled back and the files on the FS may not
+                        match what is in the db for size and checksum.  """
 
-                before, existing_events = self._load(session, submission_id, lock_row=True)
-            elif events[0].submission_id is None and not isinstance(events[0], CreateSubmission):
-                raise NoSuchSubmission('Unable to determine submission')
-            return self._save(*events, submission=before, session=session, existing_events=existing_events)
+                        ctx.phase = SavePhase.LOAD_LOCK
+                        before, existing_events = self._load(session, submission_id, lock_row=True)
+                        ctx.before = before
+                        ctx.existing_events = existing_events
+                    elif events[0].submission_id is None and not isinstance(events[0], CreateSubmission):
+                        raise NoSuchSubmission('Unable to determine submission')
+                    self._participants_under_lock(ctx)
+                    result = self._save(*events, submission=before, session=session,
+                                        existing_events=existing_events, ctx=ctx)
+            except BaseException as exc:
+                # Roll back explicitly (rather than relying on the session
+                # context manager) so on_save_failed participants observe
+                # post-rollback state. If the rollback itself raises, the
+                # failure is recorded (rolledback=False) and participants are
+                # still notified. The original exception propagates unchanged;
+                # participant failures are logged, never masking it.
+
+                rolledback=False
+                try:
+                    session.rollback()
+                    rolledback=True
+                except Exception:
+                     logger.exception("session.rollback() failed during save "
+                                      "error handling; original error preserved")
+
+                failure = SaveFailure(exc=exc, phase=ctx.phase,
+                                      rolledback=rolledback,
+                                      event=ctx.current_event,
+                                      participant=ctx.current_participant)
+                for participant in reversed(self.participants):
+                    try:
+                        participant.on_save_failed(ctx, failure)
+                    except Exception:
+                        logger.exception("on_save_failed handler raised for participant %r",
+                                         participant)
+                raise
+        self._participants_after_commit(ctx)
+        return result
+
+    def _participants_under_lock(self, ctx: SaveContext) -> None:
+        """Fire `under_lock` in participant list order, inside the transaction."""
+        for participant in self.participants:
+            ctx.phase = SavePhase.PARTICIPANT_UNDER_LOCK
+            ctx.current_participant = participant
+            participant.under_lock(ctx)
+        ctx.current_participant = None
+
+    def _participants_before_commit(self, ctx: SaveContext) -> None:
+        """Fire `before_commit` in reverse list order, inside the transaction."""
+        for participant in reversed(self.participants):
+            ctx.phase = SavePhase.PARTICIPANT_BEFORE_COMMIT
+            ctx.current_participant = participant
+            participant.before_commit(ctx)
+        ctx.current_participant = None
+
+    def _participants_after_commit(self, ctx: SaveContext) -> None:
+        """Fire `after_commit` in reverse list order.
+
+        The save has already committed, so exceptions are logged and
+        swallowed — they must not fail a save the caller will be told
+        succeeded."""
+        for participant in reversed(self.participants):
+            try:
+                participant.after_commit(ctx)
+            except Exception:
+                logger.exception("after_commit failed for participant %r",
+                                 participant)
 
     def _save(self, *events,
               submission: Submission,
               session,
-              existing_events: List[Event]
+              existing_events: List[Event],
+              ctx: SaveContext
               ) -> Tuple[Submission, List[Event]]:
         """Internal save for when submission is already read from the db."""
         before = submission
-        committed: List[Event] = []
+        committed: List[Event] = ctx.committed  # alias: participants see it grow
         # A work-queue since events may imply consequent events (see
         # Event.consequences) that need to be processed in this same locked
         # session/transaction. They are inserted at the front of the queue so a
@@ -201,6 +298,7 @@ class LegacySubmitImplementation(SubmitApi):
         queue: List[Event] = list(events)
         while queue:
             event = queue.pop(0)
+            ctx.current_event = event
             if event.submission_id is None and before and before.submission_id is not None:
                 event.submission_id = before.submission_id
 
@@ -208,39 +306,51 @@ class LegacySubmitImplementation(SubmitApi):
             # Since the event may refer to its own ID which in future versions should be based on the
             # creation time, this must be set before the event is applied.
             event.created = datetime.now(UTC)
+
+            # validate_under_lock runs inside the locked transaction so it can
+            # inspect DB / on-disk / FileStore state without racing against
+            # another writer. Raising InvalidEvent here rolls the DB transaction
+            # back. Any earlier EventWithSideEffect.execute() is not rolled back.
+            # The caller's `except InvalidEvent` decides UX. It runs for every
+            # event, and for an EventWithSideEffect it runs before execute().
+            ctx.phase = SavePhase.EVENT_VALIDATE_UNDER_LOCK
+            event.validate_under_lock(self, before)
+
             if isinstance(event, EventWithSideEffect):
                 if event.executed:
                     raise RuntimeError("Must not save and execute an already executed event. "
                                        "{event.event_id} {event.NAME} executed {event.executed}")
-                # validate_under_lock runs inside the locked
-                # transaction so it can inspect on-disk / FileStore
-                # state without racing against another writer. Raising
-                # InvalidEvent here rolls the DB transaction back.
-                # Any earlier EventWithSideEffect.execute() is not rolled back.
-                # The caller's `except InvalidEvent` decides UX.
-                event.validate_under_lock(self, before)
+
                 logger.debug('Execute event %s: %s', event.event_id, event.NAME)
+                ctx.phase = SavePhase.EVENT_EXECUTE
                 event.execute(self, before)
                 if not event.executed:
                     event.executed = get_tzaware_utc_now()
 
             logger.debug('Apply event %s: %s', event.event_id, event.NAME)
+            ctx.phase = SavePhase.EVENT_APPLY
             after = event.apply(before)
             if not event.committed:
-                consequent_event, after = db.store_event(session, event, before, after)
-                committed.append(consequent_event)
+                ctx.phase = SavePhase.EVENT_PERSIST
+                stored_event, after = db.store_event(session, event, before, after)
+                committed.append(stored_event)
 
             before = after  # Prepare for the next event.
+            ctx.after = after
 
             # Queue any follow-on events implied by this one, given the new state.
+            ctx.phase = SavePhase.EVENT_CONSEQUENCES
             for consequence in reversed(event.get_consequences(after)):
                 queue.insert(0, consequence)
 
+        ctx.current_event = None
         all_ = sorted(existing_events + committed, key=lambda e: e.created)
+        self._participants_before_commit(ctx)
+        ctx.phase = SavePhase.COMMIT
         session.commit()
         return after, list(all_)
 
-    def _save_withdrawal(self, event: Withdraw, session) \
+    def _save_withdrawal(self, event: Withdraw, session, ctx: SaveContext) \
             -> Tuple[Submission, List[Event]]:
         """Save a `Withdraw`, creating a new ``wdr`` submission.
 
@@ -250,18 +360,67 @@ class LegacySubmitImplementation(SubmitApi):
         written to the new submission's workspace.
         """
         event.created = datetime.now(UTC)
+        ctx.phase = SavePhase.LOAD_LOCK
         seed = db.to_submission(db.load_latest_announced(session, event.paper_id))
+        ctx.before = seed
+        self._participants_under_lock(ctx)
 
+        ctx.current_event = event
         # Creates the wdr row and assigns the new submission id onto `after`.
+        ctx.phase = SavePhase.EVENT_PERSIST
         consequent, after = db.store_withdrawal(session, event, seed)
 
         # Now that the new id exists, write the `withdrawn` source file to it.
+        ctx.phase = SavePhase.EVENT_EXECUTE
         event.execute(self, after)
         if not event.executed:
             event.executed = get_tzaware_utc_now()
 
+        ctx.after = after
+        ctx.committed.append(consequent)
+        ctx.current_event = None
+        self._participants_before_commit(ctx)
+        ctx.phase = SavePhase.COMMIT
         session.commit()
         return after, [consequent]
+
+    def _save_create_against_paper(
+            self, event: Union[CreateJrefSubmission, CreateCrossSubmission],
+            session, ctx: SaveContext) -> Tuple[Submission, List[Event]]:
+        """Save an event that creates a new submission against an announced paper.
+
+        `CreateJrefSubmission` and `CreateCrossSubmission` both work this way: the
+        new submission is seeded from the announced paper's current metadata
+        rather than from a submission being edited, so they take this path
+        instead of the usual load-by-id one. Neither has a file side effect, so
+        unlike `Withdraw` nothing needs to run after the new row's id exists.
+        """
+        event.created = datetime.now(UTC)
+
+        ctx.phase = SavePhase.LOAD_LOCK
+        document = db.to_document(session, event.paper_id)
+        seed = document.seed_submission(event.creator, event.client)
+        ctx.before = seed
+
+        self._participants_under_lock(ctx)
+        ctx.current_event = event
+
+        ctx.phase = SavePhase.EVENT_VALIDATE_UNDER_LOCK
+        event.validate_under_lock(self, seed)
+
+        ctx.phase = SavePhase.EVENT_PERSIST
+        if isinstance(event, CreateCrossSubmission):
+            saved_event, after = db.store_cross_create(session, event, seed)
+        else:
+            saved_event, after = db.store_jref_create(session, event, seed)
+
+        ctx.after = after
+        ctx.committed.append(saved_event)
+        ctx.current_event = None
+        self._participants_before_commit(ctx)
+        ctx.phase = SavePhase.COMMIT
+        session.commit()
+        return after, [saved_event]
 
     @override
     def get_service_status(self, impl_data: dict):

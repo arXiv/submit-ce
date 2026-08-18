@@ -26,7 +26,10 @@ def manage_submissions(method: str, params: MultiDict, session: Session, *args,
     submitter, client = user_and_client_from_session(session)
     response_data = {}
     if method == 'GET':
+        # Two disjoint lists: `load_submissions_for_user` is active submissions
+        # only, so the announced papers have to be asked for separately.
         response_data['user_submissions'] = current_app.api.load_submissions_for_user(session.user.user_id)
+        response_data['user_documents'] = current_app.api.load_documents_for_user(session.user.user_id)
         response_data['submitter'] = submitter
         params = MultiDict()
 

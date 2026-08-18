@@ -26,6 +26,7 @@ from submit_ce.domain.uploads import (
     Workspace,
 )
 from submit_ce.implementations import NullFileStore
+from submit_ce.implementations.file_store.file_store_mixin import safe_member_rel
 
 
 class _InMemoryFileObj(FileObj):
@@ -111,14 +112,25 @@ class MockFileStore(NullFileStore):
                         continue
                     f = tar.extractfile(member)
                     if f is not None:
-                        files[member.name] = f.read()
+                        # Normalize "./"-prefixed member paths and reject unsafe
+                        # ones, matching the GCS store (SUBMISSION-224,
+                        # SUBMISSION-230). safe_member_rel raises ValueError for
+                        # absolute/".." paths -- not caught by the TarError
+                        # handler below, so the whole archive is rejected.
+                        rel = safe_member_rel(member.name)
+                        if rel is None:
+                            continue
+                        files[rel] = f.read()
         except tarfile.TarError:
             try:
                 with zipfile.ZipFile(io.BytesIO(raw)) as zf:
                     for info in zf.infolist():
                         if info.is_dir():
                             continue
-                        files[info.filename] = zf.read(info)
+                        rel = safe_member_rel(info.filename)  # SUBMISSION-230
+                        if rel is None:
+                            continue
+                        files[rel] = zf.read(info)
             except zipfile.BadZipFile:
                 # Not a recognized archive — store as a single file.
                 files[content.filename] = raw

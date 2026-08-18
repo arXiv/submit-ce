@@ -1,46 +1,124 @@
 {% extends "submit/base_edit.html" %}
+{# svg is imported in base_edit.html for the page blocks, but the
+   display_preflight_tree macro below has its own module namespace and doesn't
+   inherit that import -- so import it here too for svg.folder (SUBMISSION-228). #}
+{% import "svg.html" as svg %}
 
 {% block addl_head %}
 {{super()}}
  <script src="{{ url_for('static', filename='js/filewidget.js') }}"></script>
+ <script src="{{ url_for('static', filename='js/review_top_level_guard.js') }}" defer></script>
+ <script src="{{ url_for('static', filename='js/review_delete_cascade.js') }}" defer></script>
+ <style>
+   /* Oversized-image row highlight (SUBMISSION-172), mirroring 1.5's
+      cream row tint. !important so it wins over the is-striped zebra shading. */
+   .review-files-table tbody tr.is-oversized td { background-color: #fffbe6 !important; }
+   /* Rows auto-checked for deletion get a yellow tint (SUBMISSION-228),
+      mirroring 1.5. Declared after is-oversized so it wins when a row is both. */
+   .review-files-table tbody tr.marked-for-deletion td { background-color: #fff3cd !important; }
+ </style>
 {% endblock addl_head %}
 
 {# Renders one row of the Review Files table for a preflight-detected file,
-   or recurses into a subdirectory listing. The third argument
-   ``top_level_filename`` is the currently-selected top-level TeX file
-   (form.source_file.data) so we can render "Used: top-level file" for it.
-   00README.json gets a dedicated label and a disabled delete checkbox --
-   it's a build-directives file, not a candidate for deletion. #}
-{% macro display_preflight_tree(key, item, top_level_filename) %}
+   or recurses into a subdirectory listing. Each file ``item`` is a per-file
+   context object assembled server-side by ``build_file_rows`` (SUBMISSION-219 /
+   F0), so this macro renders fields instead of computing them inline:
+     ``item.badges``     -- per-file preflight issue badges (SUBMISSION-210);
+     ``item.is_toplevel``-- a currently-selected top-level TeX file: rendered as
+                            "Used: top-level file" with its delete checkbox
+                            disabled, since it's what we're about to compile and
+                            must not be deletable here (SUBMISSION-209);
+     ``item.is_readme``  -- the 00README.json build-directives file: a dedicated
+                            label and a disabled delete checkbox, not a deletion
+                            candidate.
+   C3 will extend this same object (used/unused, delete defaults) without
+   touching this macro. #}
+{% macro display_preflight_tree(key, item, prefix='') %}
   {% if 'filename' in item %}
-  <tr>
+  {# Oversized-image rows get a cream tint (SUBMISSION-172), mirroring
+     1.5. is_oversized is authoritative from preflight (large AND not
+     pdftex-fast-copy). #}
+  {# Rows auto-checked for deletion get a yellow tint (SUBMISSION-228),
+     mirroring 1.5; oversized images keep their cream tint. #}
+  <tr class="{% if item.is_unused %}marked-for-deletion {% endif %}{% if item.is_oversized %}is-oversized{% endif %}">
     <td class="has-text-centered">
       <input type="hidden" name="all_files" value="{{ item.filename }}">
-      {% if item.filename == '00README.json' %}
+      {% if item.is_readme %}
+        <input type="checkbox" name="selected_files" value="{{ item.filename }}"
+               disabled data-lock="permanent"
+               title="00README.json contains build directives and cannot be deleted from this step">
+      {% elif item.is_toplevel %}
         <input type="checkbox" name="selected_files" value="{{ item.filename }}"
                disabled
-               title="00README.json contains build directives and cannot be deleted from this step">
+               title="This is a selected top-level TeX file and cannot be deleted here. Remove it from the Top-Level TeX selection first.">
+      {% elif item.is_used %}
+        {# Confidently used (a resolved reference). Protected from deletion here
+           (SUBMISSION-221 / C3.2a); maybe-used files below stay deletable.
+           data-lock keeps the top-level guard JS from re-enabling it on load. #}
+        <input type="checkbox" name="selected_files" value="{{ item.filename }}"
+               disabled data-lock="used"
+               title="This file is used by your submission and cannot be deleted here.">
+      {% elif item.is_unused %}
+        {# Nothing references this file: pre-checked for deletion, mirroring 1.5
+           (SUBMISSION-222). The submitter can uncheck it, or use "Keep All".
+           maybe-used files (final else) stay deletable but UNchecked -- we don't
+           suggest removing something we merely couldn't resolve. #}
+        <input type="checkbox" name="selected_files" value="{{ item.filename }}" checked>
       {% else %}
         <input type="checkbox" name="selected_files" value="{{ item.filename }}">
       {% endif %}
     </td>
-    <td>{{ item.filename }}</td>
+    {# Image files show their size next to the name, MP to two decimals,
+       mirroring 1.5 (e.g. "figure.png (36.00 MP)"). (SUBMISSION-172)
+       Indent by directory depth (flat table has no nesting) so the file reads as
+       part of its folder subtree (SUBMISSION-228). #}
+    <td style="padding-left: {{ prefix.count('/') * 1.5 + 0.5 }}rem">{{ item.filename }}{% if item.megapixels %} ({{ '%.2f'|format(item.megapixels) }} MP){% endif %}</td>
     <td>
-      {% if item.filename == '00README.json' %}
+      {# Preflight issue badges (SUBMISSION-210), severity-colored, before the
+         auto-detected usage note. #}
+      {% set file_issue_list = item.badges %}
+      {% if file_issue_list %}
+        {% for issue in file_issue_list %}<span class="tag is-{{ issue.severity }}">{{ issue.label }}</span> {% endfor %}<br>
+      {% endif %}
+      {% if item.is_readme %}
         Build directives file
-      {% elif item.filename == top_level_filename %}
+      {% elif item.is_toplevel %}
         Used: top-level file
-      {% else %}
+      {% elif item.is_used %}
         {% if item.used_by %}Used by: {{ item.used_by | join(', ') }}<br>{% endif %}
         {% if item.used_by_tex %}Used by (TeX): {{ item.used_by_tex | join(', ') }}<br>{% endif %}
         {% if item.used_by_bib %}Used by (bib): {{ item.used_by_bib | join(', ') }}{% endif %}
+      {% elif item.is_maybe_used %}
+        {# In preflight's coarse maybe_used_files guess -- kept but no resolved
+           reference. Deletable but not suggested (SUBMISSION-221 / C3.2a). #}
+        Possibly used
+      {% else %}
+        {# Nothing references this file (SUBMISSION-220). #}
+        Not used
       {% endif %}
     </td>
   </tr>
   {% else %}
-  <tr><td colspan="3"><em>{{ key }}/</em></td></tr>
+  {# Directory row (SUBMISSION-223). The Delete-column checkbox is a JS-only
+     control -- it has no `name`, so it is never submitted; only the per-file
+     `selected_files` checkboxes are. `data-dir` is the full path prefix so the
+     cascade JS can match descendant file checkboxes by value and toggle every
+     deletable file under this directory. Progressive enhancement only: with JS
+     off the folder box does nothing and files stay individually deletable. #}
+  <tr class="dir-row">
+    <td class="has-text-centered">
+      <input type="checkbox" class="dir-delete" data-dir="{{ prefix }}{{ key }}/"
+             aria-label="Select all deletable files in {{ prefix }}{{ key }}/ for deletion">
+    </td>
+    {# Folder icon + bold name, indented by depth, matching the Upload page
+       (SUBMISSION-228); the Notes column labels it a Directory. #}
+    <td style="padding-left: {{ prefix.count('/') * 1.5 + 0.5 }}rem">
+      {{ svg.folder(klass="icon filter-blue") }} <strong>{{ key }}/</strong>
+    </td>
+    <td>Directory</td>
+  </tr>
   {% for k, subitem in item.items() %}
-    {{ display_preflight_tree(k, subitem, top_level_filename) }}
+    {{ display_preflight_tree(k, subitem, prefix ~ key ~ '/') }}
   {% endfor %}
   {% endif %}
 {% endmacro %}
@@ -105,9 +183,26 @@
   {% for notification in immediate_notifications %}
   <div class="notification is-{{ notification.severity }}" role="alert" aria-atomic="true">
     {% if notification.title %}<h2 class="is-size-5 is-marginless">{{ notification.title }}</h2>{% endif %}
+    {% if notification.issues %}
+    {# C1.6: a per-severity card listing its issues #}
+    <ul>
+      {% for item in notification.issues %}
+      <li>{{ item.text }}
+        {% if item.body %}<span class="is-size-7 has-text-grey">{{ item.body }}</span>{% endif %}
+        {% if item.url %}<a href="{{ item.url }}">{{ item.link_text }}</a>{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    {% if notification.body %}
     <p>
-      {{ notification.body}}
+      {{ notification.body }}
     </p>
+    {% endif %}
+    {% if notification.url %}
+    <p><a href="{{ notification.url }}">{{ notification.link_text }}</a></p>
+    {% endif %}
+    {% endif %}
   </div>
   {% endfor %}
 {% endif %}
@@ -201,7 +296,7 @@
       </thead>
       <tbody>
         {% for k, item in (file_notes | group_preflight_files).items() %}
-          {{ display_preflight_tree(k, item, form.source_file.data) }}
+          {{ display_preflight_tree(k, item) }}
         {% endfor %}
       </tbody>
     </table>

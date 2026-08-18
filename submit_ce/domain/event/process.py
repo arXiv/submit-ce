@@ -471,6 +471,23 @@ class PreflightStatus(Event):
         return submission
 
 
+def _protected_top_level_sources(decisions: dict) -> set[str]:
+    """Filenames that must never be deleted: user-selected top-level TeX files.
+
+    A source is treated as top-level when its ``usage`` is ``'toplevel'`` or is
+    unset -- the Review Files form lists only top-level sources and does not
+    always set an explicit usage. Handles one or more selected top-level files
+    (SUBMISSION-209).
+    """
+    sources = (decisions or {}).get('sources') or []
+    protected: set[str] = set()
+    for src in sources:
+        filename = src.get('filename')
+        if filename and src.get('usage', 'toplevel') in (None, 'toplevel'):
+            protected.add(filename)
+    return protected
+
+
 class SetDecisions(EventWithSideEffect):
     """Sets the decisions for the submission."""
 
@@ -481,6 +498,12 @@ class SetDecisions(EventWithSideEffect):
     decisions: dict
 
     files_to_delete: list[str]
+
+    # Confidently-used source filenames (preflight resolved-edge set), computed
+    # server-side by the controller. Protected from deletion alongside the
+    # selected top-level file(s) (SUBMISSION-221 / C3.2a). Defaults empty so
+    # existing callers/tests are unaffected.
+    protected_sources: list[str] = field(default_factory=list)
 
     bytes_removed: int = 0
 
@@ -504,11 +527,28 @@ class SetDecisions(EventWithSideEffect):
 
     def execute(self, api: SubmitApi, submission: Submission) -> None:
         file_store = api.get_file_store()
-        # TODO If something fails here, preflight/user_decisions are already changed/deleted.
-        # Delete files and only delete preflight and user_decisions if at least one file is deleted
-        file_store.delete_preflight(submission.submission_id)
         file_store.store_user_decisions(submission.submission_id, self.decisions)
+        # Directives depend on the selection (compiler / top-level), so always drop
+        # them here; the controller regenerates them from the new decisions.
+        file_store.delete_directives(submission.submission_id)
+        # Preflight analyses the *file set*, not the selection. Only invalidate it
+        # when files are actually removed (SUBMISSION-215). A selection-only
+        # change (compiler / top-level) leaves the report valid, so the submitter is
+        # not bounced back to Upload for a needless re-scan.
+        if self.files_to_delete:
+            file_store.delete_preflight(submission.submission_id)
+        # Authoritative guard: never delete files the submission needs -- the
+        # selected top-level TeX file(s) (SUBMISSION-209) and any confidently-used
+        # file preflight resolved a reference to (SUBMISSION-221 / C3.2a). Runs
+        # under the submission row lock taken by save(), so it can't race a
+        # concurrent decisions change.
+        protected = _protected_top_level_sources(self.decisions) | set(self.protected_sources)
         for path in self.files_to_delete:
+            if path in protected:
+                logger.warning(
+                    "Refusing to delete protected (top-level or used) file %s "
+                    "for submission %s", path, submission.submission_id)
+                continue
             file = file_store.delete_source_file(submission.submission_id, path)
             if file:
                 self.bytes_removed += file.bytes
