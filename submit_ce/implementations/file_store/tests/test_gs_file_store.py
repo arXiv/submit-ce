@@ -5,6 +5,7 @@ Run with: TEST_GS_FILE_STORE_AT_GCP=1 uv run pytest submit_ce/implementations/fi
 """
 import json
 import os
+import posixpath
 import tarfile
 import uuid
 from io import BytesIO
@@ -227,6 +228,25 @@ def test_delete_workspace(store, sub_id):
 
     ws = store.get_workspace(sub_id)
     assert ws.files == []
+
+
+def test_delete_all_source_files_ignores_already_removed(store, sub_id):
+    """Delete-all must be idempotent: an object that's already gone (e.g. a
+    retried/interrupted delete over a slow link) must not abort the rest with a
+    404. Simulate by deleting one object out from under the store, then
+    delete-all, then delete-all again. (SUBMISSION-233)"""
+    store.store_source_file(sub_id, FakeFile("a.tex", b"a"), chunk_size=4096)
+    store.store_source_file(sub_id, FakeFile("b.tex", b"b"), chunk_size=4096)
+    store.store_source_file(sub_id, FakeFile("c.tex", b"c"), chunk_size=4096)
+
+    # Remove one object directly so the next list-then-delete hits a NotFound.
+    store.bucket.blob(posixpath.join(store._source_path(sub_id), "b.tex")).delete()
+
+    store.delete_all_source_files(sub_id)          # must not raise on the 404
+    assert store.get_workspace(sub_id).files == []
+
+    store.delete_all_source_files(sub_id)          # already empty -> clean no-op
+    assert store.get_workspace(sub_id).files == []
 
 
 def test_is_available(store):
