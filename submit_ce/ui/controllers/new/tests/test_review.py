@@ -163,7 +163,7 @@ def test_review_files_post_no_changes_stores_zzrm_and_advances(
 
 def test_review_files_post_danger_issue_blocks_continue(
         app, authorized_client, sub_files_tex, mocker):
-    """C1.4/SUBMISSION-216: a danger-severity preflight issue blocks Continue --
+    """SUBMISSION-216: a danger-severity preflight issue blocks Continue --
     the controller stays on the stage (200, not a 303 redirect), renders the
     'Cannot continue' card, and does not generate directives or store the
     00README."""
@@ -196,7 +196,7 @@ def test_review_files_post_danger_issue_blocks_continue(
 
 def test_review_files_get_auto_checks_only_unused(
         app, authorized_client, sub_files_tex, mocker):
-    """SUBMISSION-222 / C3.2: the delete box is pre-checked for UNUSED files
+    """SUBMISSION-222: the delete box is pre-checked for UNUSED files
     only. Used and selected-top-level files are disabled and unchecked;
     maybe-used files are enabled but left unchecked (we don't suggest deleting
     something we merely couldn't resolve)."""
@@ -310,6 +310,77 @@ def test_update_preflight_files_to_delete_triggers_save(
     cmd = mock_save.call_args[0][0]
     assert cmd.files_to_delete == ['paper.tex']
     assert mock_save.call_args[1] == {'submission_id': 'sub1'}
+
+
+def test_ordered_top_level_filenames_reads_sources_in_order():
+    """SUBMISSION-170: ordered, de-duped filenames from persisted sources."""
+    ud = {'sources': [{'filename': 'b.tex'}, {'filename': 'a.tex'},
+                      {'filename': 'b.tex'}]}
+    assert review._ordered_top_level_filenames(ud) == ['b.tex', 'a.tex']
+    assert review._ordered_top_level_filenames(None) == []
+    assert review._ordered_top_level_filenames({}) == []
+    assert review._ordered_top_level_filenames({'sources': []}) == []
+
+
+def test_update_preflight_persists_ordered_multiple_top_levels(
+        app, authorized_user, mocker):
+    """SUBMISSION-170: all selected top-levels persist as an ordered
+    `sources` list (via top_level_tex_files[]), not just `source_file`."""
+    mocker.patch.object(review, '_get_user_decisions_data', return_value=None)
+    with app.app_context():
+        mock_save = mocker.patch.object(app.api, 'save')
+        params = MultiDict([
+            ('top_level_tex_files[]', 'a.tex'),
+            ('top_level_tex_files[]', 'b.tex'),
+            ('compiler', 'pdflatex'),
+            ('compiler_version', '2025'),
+        ])
+        review._update_preflight(
+            params, 'sub1', _make_workspace('a.tex', 'b.tex'),
+            authorized_user, None,
+        )
+    mock_save.assert_called_once()
+    cmd = mock_save.call_args[0][0]
+    assert cmd.decisions['sources'] == [{'filename': 'a.tex'}, {'filename': 'b.tex'}]
+
+
+def test_update_preflight_preserves_top_level_order(app, authorized_user, mocker):
+    """Reordering the selection persists the new order (B before A)."""
+    mocker.patch.object(review, '_get_user_decisions_data', return_value=None)
+    with app.app_context():
+        mock_save = mocker.patch.object(app.api, 'save')
+        params = MultiDict([
+            ('top_level_tex_files[]', 'b.tex'),
+            ('top_level_tex_files[]', 'a.tex'),
+            ('compiler', 'pdflatex'),
+            ('compiler_version', '2025'),
+        ])
+        review._update_preflight(
+            params, 'sub1', _make_workspace('a.tex', 'b.tex'),
+            authorized_user, None,
+        )
+    cmd = mock_save.call_args[0][0]
+    assert cmd.decisions['sources'] == [{'filename': 'b.tex'}, {'filename': 'a.tex'}]
+
+
+def test_update_preflight_single_source_file_unchanged_shape(
+        app, authorized_user, mocker):
+    """Single-dropdown UI (source_file only) still persists a one-item sources
+    list -- is a no-op for the current UI."""
+    mocker.patch.object(review, '_get_user_decisions_data', return_value=None)
+    with app.app_context():
+        mock_save = mocker.patch.object(app.api, 'save')
+        params = MultiDict([
+            ('source_file', 'main.tex'),
+            ('compiler', 'pdflatex'),
+            ('compiler_version', '2025'),
+        ])
+        review._update_preflight(
+            params, 'sub1', _make_workspace('main.tex'),
+            authorized_user, None,
+        )
+    cmd = mock_save.call_args[0][0]
+    assert cmd.decisions['sources'] == [{'filename': 'main.tex'}]
 
 
 def test_update_preflight_decisions_unchanged_returns_false(
