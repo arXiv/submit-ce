@@ -182,7 +182,26 @@ def test_store_source_package_rejects_traversal_member(store, sub_id):
     tar_stream = make_targz({"main.tex": b"ok", "../../evil.tex": b"pwn"})
     f = FakeFile("pkg.tar.gz", b"", "application/gzip")
     f.stream = tar_stream
+    with pytest.raises(ValueError):
+        store.store_source_package(sub_id, f, chunk_size=4096)
 
+
+def test_store_source_package_garbage_archive_raises_valueerror(store, sub_id):
+    """Non-archive bytes named .tar.gz surface as a ValueError (which the upload
+    controller turns into a friendly message), not an opaque TarError that would
+    fall through to the generic error handler (SUBMISSION-225)."""
+    f = FakeFile("corrupt.tar.gz", b"\x1f\x8b\x08 not a valid gzip tar stream",
+                 "application/gzip")
+    with pytest.raises(ValueError):
+        store.store_source_package(sub_id, f, chunk_size=4096)
+
+
+def test_store_source_package_truncated_archive_raises_valueerror(store, sub_id):
+    """A *valid* .tar.gz truncated mid-stream raises gzip EOFError, not a
+    TarError -- so the corrupt-archive handling must translate that too
+    (SUBMISSION-225)."""
+    good = make_targz({"main.tex": b"x" * 500}).getvalue()
+    f = FakeFile("truncated.tar.gz", good[: len(good) // 2], "application/gzip")
     with pytest.raises(ValueError):
         store.store_source_package(sub_id, f, chunk_size=4096)
 

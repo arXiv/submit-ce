@@ -219,6 +219,17 @@ def upload_files(method: str, params: MultiDict, session: Session,
                                         'our maximum size limit. ' + SUPPORT))
         except HTTPException as ex:
             alerts.flash_failure(Markup(ex.detail))
+        except ValueError as ex:
+            # An unreadable upload the file store rejected -- a corrupt/truncated
+            # archive, or an unsupported content type. Surface a specific message
+            # instead of the generic catch-all below (save() re-raises the store's
+            # ValueError unchanged). (corrupt-archive handling)
+            logger.warning('Unreadable upload for %s: %s',
+                           submission.submission_id, ex)
+            alerts.flash_failure(Markup(
+                'We could not read your uploaded file. It may be corrupt, '
+                'incomplete, or not a supported archive format. Please check the '
+                'file and try uploading it again. ' + SUPPORT))
         except Exception:
             logger.exception('Problem POSTing upload')
             alerts.flash_failure(Markup('There was a problem uploading your file. ' + SUPPORT))
