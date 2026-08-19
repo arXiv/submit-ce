@@ -161,6 +161,7 @@ def review_files(method: str, params: MultiDict, session: Session,
         'selected_top_level_files': [],
         'top_level_candidates': [],
         'file_issues': {},
+        'recompute': {'edges': {}, 'candidates': [], 'maybe_used': []},
     }
 
     if not workspace:
@@ -275,11 +276,35 @@ def _render_review_page(rdata, form, submission_id, preflight_data,
     # instead of computing them inline (and re-deriving them from separate
     # file_issues / selected_top_level_files parameters). Gives a single
     # per-file object to extend with used/unused + delete defaults later.
+    #
+    # SUBMISSION-231: root "used" at the current top-level selection. The set of
+    # files reachable from the selected top-level(s) drives is_used/is_unused, so
+    # the auto-detected notes (and the auto-checked-for-deletion defaults) reflect
+    # THIS selection rather than a flat union over every tex file. No preflight
+    # re-run -- the edges are already in the report (see reachable_from).
+    used_filenames = dm.reachable_from(selected_top_level_files, preflight_data)
     rdata['file_notes'] = build_file_rows(
         dm.get_files_from_preflight(preflight_data),
         file_issues,
         selected_top_level_files,
+        used_filenames,
     )
+    # SUBMISSION-231 (part 2): data for the client-side live recompute. The same
+    # resolved-edge graph the server walked (used_edges), plus the detected
+    # top-level candidates and the coarse maybe-used set, so review_used_recompute.js
+    # can re-root used/unused in the browser as the top-level selection changes --
+    # display only, persisting/deleting nothing until Continue. Candidates are
+    # never auto-checked for deletion (a file the submitter might pick next).
+    rdata['recompute'] = {
+        'edges': dm.used_edges(preflight_data),
+        # Detected top-level files (the genuine alternative "mains"): never
+        # auto-check one for deletion, since the submitter might select it next.
+        # This is preflight's detected set, NOT every tex candidate in the dropdown.
+        'candidates': [t.get('filename') for t
+                       in (preflight_data.get('detected_toplevel_files') or [])
+                       if t.get('filename')],
+        'maybe_used': [f for f in (preflight_data.get('maybe_used_files') or []) if f],
+    }
     rdata['has_blocking_issues'] = any(
         n.get('severity') == 'danger' for n in issue_notifications)
     # SUBMISSION-218: collapse the per-code issue banners into one card
@@ -358,13 +383,19 @@ def _update_preflight(params: MultiDict, submission_id: str, workspace: Workspac
     files_to_delete = [p for p in params.getlist('selected_files') if p in existing_paths]
 
     # Never delete files the submission needs: the selected top-level TeX
-    # file(s) (SUBMISSION-209) and any file preflight resolved a reference to
-    # (SUBMISSION-221). maybe-used and unused files stay deletable. The
-    # template disables these checkboxes, but a crafted or stale POST can still
-    # carry them, so we filter here and warn. The authoritative guard is in
-    # SetDecisions.execute, which runs under the submission row lock.
+    # file(s) (SUBMISSION-209) and any file needed by that selection
+    # (SUBMISSION-221 / SUBMISSION-231). maybe-used and unused files stay
+    # deletable. The template disables these checkboxes, but a crafted or stale
+    # POST can still carry them, so we filter here and warn. The authoritative
+    # guard is in SetDecisions.execute (via protected_sources), which runs under
+    # the submission row lock.
+    #
+    # "used" is rooted at the top-level(s) being saved (SUBMISSION-231): a file
+    # protected because it's reachable from the OLD top-level should become
+    # deletable once the submitter switches away from it. reachable_from re-roots
+    # over the existing preflight edges -- no re-scan.
     selected_top_levels = _selected_top_level_files(params)
-    used_files = dm.used_source_filenames(_get_preflight_data(submission_id) or {})
+    used_files = dm.reachable_from(selected_top_levels, _get_preflight_data(submission_id) or {})
     protected_set = set(selected_top_levels) | used_files
     protected = [p for p in files_to_delete if p in protected_set]
     if protected:

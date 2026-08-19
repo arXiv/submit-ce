@@ -130,6 +130,67 @@ def test_used_source_filenames_unions_resolved_edges():
     assert dm.used_source_filenames({}) == set()
 
 
+# --- reachable_from: rooted reachability (SUBMISSION-231) -------------------
+
+_TWO_TOP_LEVELS = {"tex_files": [
+    {"filename": "main1.tex", "used_tex_files": ["chap1.tex"],
+     "used_other_files": ["shared.png"]},
+    {"filename": "chap1.tex", "used_other_files": ["fig1.png"]},
+    {"filename": "main2.tex", "used_tex_files": ["chap2.tex"],
+     "used_bib_files": ["refs.bib"]},
+    {"filename": "chap2.tex", "used_other_files": ["fig2.png"]},
+]}
+
+
+def test_reachable_from_is_rooted_at_selection():
+    """Only files reachable from the selected top-level count as used, and the
+    traversal is transitive (main1 -> chap1 -> fig1)."""
+    assert dm.reachable_from(["main1.tex"], _TWO_TOP_LEVELS) == {
+        "chap1.tex", "fig1.png", "shared.png"}
+    assert dm.reachable_from(["main2.tex"], _TWO_TOP_LEVELS) == {
+        "chap2.tex", "fig2.png", "refs.bib"}
+
+
+def test_reachable_from_multiple_roots_is_union():
+    both = dm.reachable_from(["main1.tex", "main2.tex"], _TWO_TOP_LEVELS)
+    assert both == (dm.reachable_from(["main1.tex"], _TWO_TOP_LEVELS)
+                    | dm.reachable_from(["main2.tex"], _TWO_TOP_LEVELS))
+
+
+def test_reachable_from_excludes_roots_and_handles_cycles():
+    # a <-> b cycle plus a self-reference must terminate and not include roots.
+    preflight = {"tex_files": [
+        {"filename": "a.tex", "used_tex_files": ["b.tex", "a.tex"]},
+        {"filename": "b.tex", "used_tex_files": ["a.tex"], "used_other_files": ["c.png"]},
+    ]}
+    assert dm.reachable_from(["a.tex"], preflight) == {"b.tex", "c.png"}
+
+
+def test_reachable_from_empty_roots_or_data():
+    assert dm.reachable_from([], _TWO_TOP_LEVELS) == set()
+    assert dm.reachable_from(["main1.tex"], {}) == set()
+    assert dm.reachable_from(None, None) == set()
+
+
+def test_used_edges_flattens_resolved_references():
+    """used_edges is the adjacency the client walk and reachable_from share:
+    {tex filename: [all referenced filenames]} (SUBMISSION-231)."""
+    edges = dm.used_edges(_TWO_TOP_LEVELS)
+    assert edges["main1.tex"] == ["chap1.tex", "shared.png"]
+    assert edges["chap1.tex"] == ["fig1.png"]
+    assert edges["main2.tex"] == ["chap2.tex", "refs.bib"]
+    assert dm.used_edges({}) == {}
+
+
+def test_reachable_from_uses_used_edges_graph():
+    """reachable_from is a BFS over exactly the used_edges adjacency."""
+    edges = dm.used_edges(_TWO_TOP_LEVELS)
+    # Everything reachable from main1 is a node/target present in the graph.
+    reach = dm.reachable_from(["main1.tex"], _TWO_TOP_LEVELS)
+    assert reach == {"chap1.tex", "shared.png", "fig1.png"}
+    assert set(edges["main1.tex"]) <= reach
+
+
 def test_get_files_from_preflight_tags_maybe_used():
     """Files from the maybe_used_files section are tagged is_maybe_used so the UI
     can tell them apart from truly-unused files (SUBMISSION-221 / C3.2a)."""

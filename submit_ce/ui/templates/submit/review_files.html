@@ -10,6 +10,7 @@
  <script src="{{ url_for('static', filename='js/review_top_level_guard.js') }}" defer></script>
  <script src="{{ url_for('static', filename='js/review_top_level_select.js') }}" defer></script>
  <script src="{{ url_for('static', filename='js/review_delete_cascade.js') }}" defer></script>
+ <script src="{{ url_for('static', filename='js/review_used_recompute.js') }}" defer></script>
  <style>
    /* Oversized-image row highlight (SUBMISSION-172), mirroring 1.5's
       cream row tint. !important so it wins over the is-striped zebra shading. */
@@ -81,6 +82,11 @@
       {% if file_issue_list %}
         {% for issue in file_issue_list %}<span class="tag is-{{ issue.severity }}">{{ issue.label }}</span> {% endfor %}<br>
       {% endif %}
+      {# The usage note is wrapped in a span the client-side recompute updates
+         in place as the top-level selection changes (SUBMISSION-231 part 2).
+         The server render is authoritative on load and on Continue; the JS only
+         re-labels for live feedback. #}
+      <span class="file-usage-note">
       {% if item.is_readme %}
         Build directives file
       {% elif item.is_toplevel %}
@@ -89,6 +95,7 @@
         {% if item.used_by %}Used by: {{ item.used_by | join(', ') }}<br>{% endif %}
         {% if item.used_by_tex %}Used by (TeX): {{ item.used_by_tex | join(', ') }}<br>{% endif %}
         {% if item.used_by_bib %}Used by (bib): {{ item.used_by_bib | join(', ') }}{% endif %}
+        {% if not (item.used_by or item.used_by_tex or item.used_by_bib) %}Used{% endif %}
       {% elif item.is_maybe_used %}
         {# In preflight's coarse maybe_used_files guess -- kept but no resolved
            reference. Deletable but not suggested (SUBMISSION-221 / C3.2a). #}
@@ -97,6 +104,7 @@
         {# Nothing references this file (SUBMISSION-220). #}
         Not used
       {% endif %}
+      </span>
     </td>
   </tr>
   {% else %}
@@ -228,6 +236,12 @@
       method="POST" enctype="multipart/form-data">
   <div class="action-container">
     {{ form.csrf_token }}
+
+    {# Resolved-reference graph + candidate/maybe-used sets for the client-side
+       live recompute (SUBMISSION-231 part 2). review_used_recompute.js reads
+       this to re-root used/unused in the browser as the top-level selection
+       changes -- no server round-trip, and nothing is deleted until Continue. #}
+    <script type="application/json" id="review-recompute-data">{{ recompute | tojson }}</script>
 
   {# Compiler engine + TeX Live version (auto-selected from preflight) #}
   <div class="field">

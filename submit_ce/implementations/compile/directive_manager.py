@@ -70,6 +70,54 @@ class DirectiveManager:
                         used.add(name)
         return used
 
+    def used_edges(preflight_data: dict) -> dict:
+        '''Adjacency list ``{tex_filename: [referenced filenames]}``.
+
+        Preflight's resolved-reference graph, flattened per tex file from
+        ``used_tex_files`` / ``used_other_files`` / ``used_bib_files``. Shared by
+        ``reachable_from`` (the server-side rooted walk) and embedded verbatim in
+        the Review Files page so the client-side live recompute walks the *same*
+        graph (SUBMISSION-231). One definition, two consumers.
+        '''
+        adjacency: dict = {}
+        for tex_file in (preflight_data or {}).get('tex_files', []):
+            name = tex_file.get('filename')
+            if not name:
+                continue
+            refs = adjacency.setdefault(name, [])
+            for key in ('used_tex_files', 'used_other_files', 'used_bib_files'):
+                refs.extend(r for r in tex_file.get(key, []) if r)
+        return adjacency
+
+    def reachable_from(roots, preflight_data: dict) -> set:
+        '''Files reachable from `roots` over preflight's resolved-edge graph.
+
+        The rooted counterpart of ``used_source_filenames``: instead of the flat
+        union of *every* tex file's resolved edges, walk the reference graph
+        starting from the selected top-level file(s) and return every file
+        transitively referenced. This is what lets the "used / not used"
+        classification change with the top-level selection (SUBMISSION-231)
+        **without re-running preflight** -- the edges are already in the report,
+        so re-rooting is just a graph traversal (consistent with SUBMISSION-215,
+        which keeps the report valid on selection-only changes).
+
+        Traversal is transitive (a used ``.tex`` may pull in further files). The
+        roots themselves are excluded from the result -- they are the selected
+        top-levels, classified separately (is_toplevel) and protected on their
+        own. Uses the same adjacency (`used_edges`) embedded for the client.
+        '''
+        adjacency = DirectiveManager.used_edges(preflight_data)
+        root_set = {r for r in (roots or []) if r}
+        used: set = set()
+        stack = list(root_set)
+        while stack:
+            node = stack.pop()
+            for ref in adjacency.get(node, ()):
+                if ref not in used and ref not in root_set:
+                    used.add(ref)
+                    stack.append(ref)  # transitive: a used file may reference more
+        return used
+
     def get_files_from_preflight(preflight_data: dict) -> list:
         files = {}
         # Object sections: each entry is a dict carrying a 'filename'.
