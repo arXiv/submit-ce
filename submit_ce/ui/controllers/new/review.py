@@ -159,6 +159,7 @@ def review_files(method: str, params: MultiDict, session: Session,
         'preflight_files': {},
         'file_notes': {},
         'selected_top_level_files': [],
+        'top_level_candidates': [],
         'file_issues': {},
     }
 
@@ -260,6 +261,10 @@ def _render_review_page(rdata, form, submission_id, preflight_data,
         or [f for f in [form.source_file.data] if f]
     )
     rdata['selected_top_level_files'] = selected_top_level_files
+    # Candidate top-level TeX files for the multi-select UI (SUBMISSION-226).
+    # `_populate_form` set `source_file.choices` to the detected tex files;
+    # the template builds each `top_level_tex_files[]` dropdown from this list.
+    rdata['top_level_candidates'] = [c[0] for c in form.source_file.choices]
     # Surface preflight issues (SUBMISSION-210): reason-code-grouped banners
     # + per-file badges, extracted server-side. Issue banners lead; the
     # backend-status cards follow.

@@ -257,6 +257,33 @@ def test_review_files_get_renders_directory_cascade_checkbox(
     assert re.search(r'class="dir-delete"[^>]*\bname=', html) is None
 
 
+def test_review_files_get_renders_multiple_top_level_selectors(
+        app, authorized_client, sub_files_tex, mocker):
+    """SUBMISSION-226: persisted multiple top-levels render as ordered
+    `top_level_tex_files[]` dropdowns, each preselected, built from the candidate
+    tex-file list; the field exposes the candidate count for the add cap."""
+    preflight = {
+        'detected_toplevel_files': [{'filename': 'a.tex'}],
+        'tex_files': [{'filename': 'a.tex'}, {'filename': 'b.tex'},
+                      {'filename': 'c.tex'}],
+    }
+    decisions = {'sources': [{'filename': 'b.tex'}, {'filename': 'a.tex'}]}
+    mocker.patch.object(review, '_load_or_create_preflight',
+                        return_value=(preflight, decisions))
+    url = f"/{sub_files_tex.submission_id}/review_files"
+    resp = authorized_client.get(url)
+    assert resp.status_code == status.OK
+    html = resp.data.decode()
+
+    selects = re.findall(
+        r'<select name="top_level_tex_files\[\]"[^>]*>(.*?)</select>', html, re.S)
+    assert len(selects) == 2                                   # one per top-level
+    assert re.search(r'<option value="b.tex" selected>', selects[0])   # order kept
+    assert re.search(r'<option value="a.tex" selected>', selects[1])
+    assert 'data-candidate-count="3"' in html                 # a/b/c candidates
+    assert 'id="tl-add"' in html
+
+
 def _make_workspace(*paths):
     """Build a stand-in workspace whose `.files` carry the given paths."""
     ws = MagicMock()
