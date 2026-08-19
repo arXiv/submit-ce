@@ -23,7 +23,7 @@ uv run python submit_ce/make_test_db.py bootstrap_db
 # Use a safe browser extension (e.g. Requestly) to set an Authorization header on localhost
 
 uv run python local_ui.py
-open http://localhost:8000
+open http://localhost:8000/debug/login
 ```
 
 ##  Run the tests
