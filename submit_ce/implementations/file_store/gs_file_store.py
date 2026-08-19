@@ -411,9 +411,7 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
 
     @override
     def delete_workspace(self, submission_id: str) -> None:
-        blobs = self.bucket.list_blobs(prefix=self._source_path(submission_id))
-        for blob in blobs:
-            blob.delete()
+        self._delete_blobs_under(self._source_path(submission_id))
 
     @override
     def is_available(self) -> bool:
@@ -426,9 +424,22 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
 
     @override
     def delete_all_source_files(self, submission_id: str) -> None:
-        blobs = self.bucket.list_blobs(prefix=self._source_path(submission_id))
-        for blob in blobs:
-            blob.delete()
+        self._delete_blobs_under(self._source_path(submission_id))
+
+    def _delete_blobs_under(self, prefix: str) -> None:
+        """Delete every object under `prefix`, idempotently.
+
+        Uses ``delete_blobs`` with an ``on_error`` that ignores per-object
+        NotFound, so an already-removed object doesn't abort the whole
+        operation. Deleting a file set is meant to be idempotent: a retried or
+        interrupted "delete all" over a slow link would otherwise 404 on the
+        objects the first pass already removed (the bug this fixes). A bare
+        ``blob.delete()`` loop raised on the first missing object and left the
+        rest undeleted.
+        """
+        blobs = list(self.bucket.list_blobs(prefix=prefix))
+        if blobs:
+            self.bucket.delete_blobs(blobs, on_error=lambda blob: None)
 
     @override
     def delete_preview(self, submission_id: str) -> None:
