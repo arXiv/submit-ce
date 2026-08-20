@@ -19,8 +19,6 @@ uv sync
 
 # Bootstrap the local test DB (also creates test users):
 uv run python submit_ce/make_test_db.py bootstrap_db
-# This will output an Authorization token
-# Use a safe browser extension (e.g. Requestly) to set an Authorization header on localhost
 
 uv run python local_ui.py
 open http://localhost:8000/debug/login
