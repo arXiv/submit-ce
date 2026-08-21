@@ -27,7 +27,7 @@ def passes_qa_checks(event: Event, check_result: Result) -> None:
 
     """
     if check_result.disposition == Disposition.REJECT:
-        raise InvalidEvent(event, check_result.failure_messages(Disposition.REJECT))
+        raise InvalidEvent(event, check_result._messages(Disposition.REJECT))
 
 
 def submission_is_not_finalized(event: Event, submission: Submission) -> None:
