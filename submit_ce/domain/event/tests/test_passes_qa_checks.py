@@ -63,7 +63,7 @@ def test_reject_disposition_raises_with_aggregate_message():
 
 
 def test_reject_disposition_message_includes_only_reject_sub_results():
-    """The exception message is built from failure_messages(REJECT): the
+    """The exception message is built from _messages(REJECT): the
     joined messages of failing sub-results whose own disposition is REJECT,
     excluding WARN-tier sub-results."""
     result = Result(
