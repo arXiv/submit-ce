@@ -159,7 +159,9 @@ def review_files(method: str, params: MultiDict, session: Session,
         'preflight_files': {},
         'file_notes': {},
         'selected_top_level_files': [],
+        'top_level_candidates': [],
         'file_issues': {},
+        'recompute': {'edges': {}, 'candidates': [], 'maybe_used': []},
     }
 
     if not workspace:
@@ -198,7 +200,7 @@ def review_files(method: str, params: MultiDict, session: Session,
         # _update_preflight persists the submitted decisions and returns True only
         # when preflight was invalidated (a file was deleted). A selection-only
         # change (compiler / top-level) keeps preflight valid, so we fall through
-        # and advance rather than bouncing to Upload for a needless re-scan. (G29)
+        # and advance rather than bouncing to Upload for a needless re-scan.
         preflight_invalidated = _update_preflight(params, submission_id, workspace, submitter, client)
 
         if preflight_invalidated:
@@ -213,7 +215,7 @@ def review_files(method: str, params: MultiDict, session: Session,
                     title="Cannot generate directives")
                 return stay_on_this_stage((rdata, status.OK, {}))
 
-            # C1.4 (SUBMISSION-216): a danger-severity preflight issue blocks
+            # SUBMISSION-216: a danger-severity preflight issue blocks
             # Continue -- mirrors 1.5's hasPreflightBlockers. Re-render Review
             # Files with the issue banners instead of advancing.
             if has_blocking_issues(preflight_data):
@@ -245,36 +247,71 @@ def _render_review_page(rdata, form, submission_id, preflight_data,
                         user_decisions_data):
     """Populate ``rdata`` for the Review Files template and stay on the stage.
 
-    Shared by the GET path and the C1.4 danger-gate on POST so both render the
+    Shared by the GET path and the danger-gate on POST so both render the
     same page (file table, per-file badges, severity-grouped issue banners).
     Also sets ``has_blocking_issues`` so the template can reflect the blocked
     state. Returns a ``stay_on_this_stage`` flow-control result.
     """
     _populate_form(form, preflight_data, user_decisions_data)
-    selected_top_level_files = [f for f in [form.source_file.data] if f]
+    # Reflect ALL persisted top-levels, in order (SUBMISSION-170), so every
+    # selected top-level is protected/rendered -- not just the one in the single
+    # dropdown. Falls back to the form's single selection on a fresh page (no
+    # user_decisions yet).
+    selected_top_level_files = (
+        _ordered_top_level_filenames(user_decisions_data)
+        or [f for f in [form.source_file.data] if f]
+    )
     rdata['selected_top_level_files'] = selected_top_level_files
+    # Candidate top-level TeX files for the multi-select UI (SUBMISSION-226).
+    # `_populate_form` set `source_file.choices` to the detected tex files;
+    # the template builds each `top_level_tex_files[]` dropdown from this list.
+    rdata['top_level_candidates'] = [c[0] for c in form.source_file.choices]
     # Surface preflight issues (SUBMISSION-210): reason-code-grouped banners
     # + per-file badges, extracted server-side. Issue banners lead; the
     # backend-status cards follow.
     issue_notifications, file_issues = build_issue_context(preflight_data)
     rdata['file_issues'] = file_issues
-    # F0 (SUBMISSION-219): fold the per-file badges and the top-level / README
+    # SUBMISSION-219: fold the per-file badges and the top-level / README
     # flags into each file row so the template renders fields from one object
     # instead of computing them inline (and re-deriving them from separate
-    # file_issues / selected_top_level_files parameters). Gives C3 a single
+    # file_issues / selected_top_level_files parameters). Gives a single
     # per-file object to extend with used/unused + delete defaults later.
+    #
+    # SUBMISSION-231: root "used" at the current top-level selection. The set of
+    # files reachable from the selected top-level(s) drives is_used/is_unused, so
+    # the auto-detected notes (and the auto-checked-for-deletion defaults) reflect
+    # THIS selection rather than a flat union over every tex file. No preflight
+    # re-run -- the edges are already in the report (see reachable_from).
+    used_filenames = dm.reachable_from(selected_top_level_files, preflight_data)
     rdata['file_notes'] = build_file_rows(
         dm.get_files_from_preflight(preflight_data),
         file_issues,
         selected_top_level_files,
+        used_filenames,
     )
+    # SUBMISSION-231 (part 2): data for the client-side live recompute. The same
+    # resolved-edge graph the server walked (used_edges), plus the detected
+    # top-level candidates and the coarse maybe-used set, so review_used_recompute.js
+    # can re-root used/unused in the browser as the top-level selection changes --
+    # display only, persisting/deleting nothing until Continue. Candidates are
+    # never auto-checked for deletion (a file the submitter might pick next).
+    rdata['recompute'] = {
+        'edges': dm.used_edges(preflight_data),
+        # Detected top-level files (the genuine alternative "mains"): never
+        # auto-check one for deletion, since the submitter might select it next.
+        # This is preflight's detected set, NOT every tex candidate in the dropdown.
+        'candidates': [t.get('filename') for t
+                       in (preflight_data.get('detected_toplevel_files') or [])
+                       if t.get('filename')],
+        'maybe_used': [f for f in (preflight_data.get('maybe_used_files') or []) if f],
+    }
     rdata['has_blocking_issues'] = any(
         n.get('severity') == 'danger' for n in issue_notifications)
-    # C1.6 (SUBMISSION-218): collapse the per-code issue banners into one card
+    # SUBMISSION-218: collapse the per-code issue banners into one card
     # per severity (danger / warning / info) so the page isn't a long stack.
     cards = group_notifications_by_severity(issue_notifications)
     if rdata['has_blocking_issues']:
-        # C1.4: a persistent danger summary card explaining the block leads the
+        # A persistent danger summary card explaining the block leads the
         # list (rendered on GET too, since the button stays enabled).
         cards = [{
             'title': 'Cannot continue',
@@ -282,7 +319,7 @@ def _render_review_page(rdata, form, submission_id, preflight_data,
             'body': 'Please resolve the highlighted problem(s) before you can continue.',
         }] + cards
     rdata['immediate_notifications'] = cards
-    # C1.5/G6: the passive "preflight complete" / "directives" status cards are
+    # The passive "preflight complete" / "directives" status cards are
     # dropped entirely (per UI-design review) -- the main column is reserved for
     # issues that need the submitter's attention, and nothing replaces them in
     # the sidebar.
@@ -309,12 +346,28 @@ def _get_user_decisions_data(submission_id: str) -> Optional[dict]:
         return None
     return json.loads(blob.download_as_text())
 
+def _ordered_top_level_filenames(user_decisions_data: Optional[dict]) -> list[str]:
+    """Ordered, de-duped top-level filenames from persisted user_decisions.
+
+    Reads the ``sources`` list (the ordered set written by ``_update_preflight``)
+    so multiple selected top-levels round-trip in order on reload
+    (SUBMISSION-170). Returns ``[]`` when there are none.
+    """
+    sources = (user_decisions_data or {}).get('sources') or []
+    out: list[str] = []
+    for src in sources:
+        filename = src.get('filename')
+        if filename and filename not in out:
+            out.append(filename)
+    return out
+
+
 def _selected_top_level_files(params: MultiDict) -> list[str]:
     """Return the top-level TeX file(s) the user has selected, in order.
 
     Supports the current single ``source_file`` field and a future multi-select
     (``top_level_tex_files[]``), so the delete guard already handles one or more
-    selected top-level files (SUBMISSION-209 / C2).
+    selected top-level files (SUBMISSION-209).
     """
     values = list(params.getlist('source_file')) + \
         list(params.getlist('top_level_tex_files[]'))
@@ -330,13 +383,19 @@ def _update_preflight(params: MultiDict, submission_id: str, workspace: Workspac
     files_to_delete = [p for p in params.getlist('selected_files') if p in existing_paths]
 
     # Never delete files the submission needs: the selected top-level TeX
-    # file(s) (SUBMISSION-209) and any file preflight resolved a reference to
-    # (SUBMISSION-221 / C3.2a). maybe-used and unused files stay deletable. The
-    # template disables these checkboxes, but a crafted or stale POST can still
-    # carry them, so we filter here and warn. The authoritative guard is in
-    # SetDecisions.execute, which runs under the submission row lock.
+    # file(s) (SUBMISSION-209) and any file needed by that selection
+    # (SUBMISSION-221 / SUBMISSION-231). maybe-used and unused files stay
+    # deletable. The template disables these checkboxes, but a crafted or stale
+    # POST can still carry them, so we filter here and warn. The authoritative
+    # guard is in SetDecisions.execute (via protected_sources), which runs under
+    # the submission row lock.
+    #
+    # "used" is rooted at the top-level(s) being saved (SUBMISSION-231): a file
+    # protected because it's reachable from the OLD top-level should become
+    # deletable once the submitter switches away from it. reachable_from re-roots
+    # over the existing preflight edges -- no re-scan.
     selected_top_levels = _selected_top_level_files(params)
-    used_files = dm.used_source_filenames(_get_preflight_data(submission_id) or {})
+    used_files = dm.reachable_from(selected_top_levels, _get_preflight_data(submission_id) or {})
     protected_set = set(selected_top_levels) | used_files
     protected = [p for p in files_to_delete if p in protected_set]
     if protected:
@@ -355,8 +414,14 @@ def _update_preflight(params: MultiDict, submission_id: str, workspace: Workspac
     if not form_fields_present and not files_to_delete:
         return False
 
+    # Persist ALL selected top-level TeX files, in submission order, so multiple
+    # ordered top-levels round-trip (SUBMISSION-170). `selected_top_levels`
+    # comes from `_selected_top_level_files` (source_file + top_level_tex_files[]).
+    # For today's single-dropdown UI this is a one-item list -- identical to the
+    # previous single-source behavior -- so it's a no-op until the multi-select UI
+    # lands (SUBMISSION-226).
     new_decisions = {
-        'sources': [{'filename': params.get('source_file', '')}],
+        'sources': [{'filename': f} for f in selected_top_levels],
         'texlive_version': params.get('compiler_version', ''),
         'process': {
             'compiler': params.get('compiler', ''),
@@ -377,7 +442,7 @@ def _update_preflight(params: MultiDict, submission_id: str, workspace: Workspac
         # (a deletion) invalidates it, so the caller returns to Upload to re-run the
         # scan. A selection-only change (compiler / top-level) keeps preflight valid
         # -- SetDecisions regenerated directives but left the report -- so the caller
-        # can advance without a re-scan. (G29 / SUBMISSION-215)
+        # can advance without a re-scan. (SUBMISSION-215)
         return bool(files_to_delete)
     except InvalidEvent:
         # TODO Somehow inform the user

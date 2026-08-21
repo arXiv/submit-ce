@@ -16,7 +16,7 @@ Pure transform -- no I/O.
 """
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set
 
 # The build-directives file: not a deletion candidate, and it gets a dedicated
 # note rather than a usage line.
@@ -27,6 +27,7 @@ def build_file_rows(
     file_notes: List[Dict[str, Any]],
     file_issues: Optional[Dict[str, List[Dict[str, str]]]],
     selected_top_level_files: List[str],
+    used_filenames: Optional[Set[str]] = None,
 ) -> List[Dict[str, Any]]:
     """Return the preflight file list enriched for the Review Files table.
 
@@ -37,7 +38,12 @@ def build_file_rows(
       list when the file has none);
     * ``is_readme`` -- ``True`` for ``00README.json`` (build-directives file);
     * ``is_toplevel`` -- ``True`` when the file is a selected top-level TeX file;
-    * ``is_used`` -- an ordinary file preflight resolved a reference to;
+    * ``is_used`` -- an ordinary file that is *needed by the selected top-level(s)*.
+      When ``used_filenames`` is given (SUBMISSION-231) this is rooted membership
+      in that set -- the files reachable from the selected top-level(s), so the
+      classification changes as the selection changes. When it is ``None`` (older
+      callers/tests) it falls back to "preflight resolved any reference to it"
+      (the ``used_by*`` reverse edges), the pre-231 behavior;
     * ``is_maybe_used`` -- an ordinary file only in the coarse ``maybe_used_files``
       guess bucket (rendered "Possibly used");
     * ``is_unused`` -- an ordinary file nothing references (rendered "Not used");
@@ -64,15 +70,25 @@ def build_file_rows(
         row["is_readme"] = filename == README_FILENAME
         row["is_toplevel"] = filename in top_levels
         # Usage classification (SUBMISSION-221 / C3.2a), by descending confidence:
-        #   is_used       -- preflight resolved a reference to it (used_by* edges);
+        #   is_used       -- needed by the selected top-level(s);
         #   is_maybe_used -- only in the coarse maybe_used_files guess bucket;
         #   is_unused     -- nothing references it at all ("Not used").
         # A resolved edge wins over the maybe-used flag. The 00README and a
         # selected top-level are handled separately and are none of these.
+        #
+        # "used" is rooted at the current selection when `used_filenames` is
+        # supplied (SUBMISSION-231): membership in the set of files reachable
+        # from the selected top-level(s), so the note flips as the top-level
+        # changes. Without it (older callers), fall back to the flat "referenced
+        # by any tex file" signal (the used_by* reverse edges) -- the pre-231
+        # behavior, preserved so existing callers/tests are unaffected.
         raw_maybe_used = bool(row.get("is_maybe_used"))
-        used_refs = bool(row.get("used_by")
-                         or row.get("used_by_tex")
-                         or row.get("used_by_bib"))
+        if used_filenames is not None:
+            used_refs = filename in used_filenames
+        else:
+            used_refs = bool(row.get("used_by")
+                             or row.get("used_by_tex")
+                             or row.get("used_by_bib"))
         ordinary = not row["is_readme"] and not row["is_toplevel"]
         row["is_used"] = ordinary and used_refs
         row["is_maybe_used"] = ordinary and not used_refs and raw_maybe_used

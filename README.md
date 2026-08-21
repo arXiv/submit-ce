@@ -20,9 +20,7 @@ uv sync
 # Bootstrap the local test DB (also creates test users):
 uv run python submit_ce/make_test_db.py bootstrap_db
 
-# Change LOCAL_LOGIN_USER_ID in local_dev.py, as needed.
-
-uv run python local_dev.py
+uv run python local_ui.py
 open http://localhost:8000/debug/login
 ```
 

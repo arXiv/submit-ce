@@ -5,6 +5,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import IO, List, Optional
 import json
+import gzip
 import io
 import logging
 import posixpath
@@ -170,53 +171,71 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
         is_zip = (content.content_type in ('application/zip', 'application/x-zip-compressed', 'application/x-zip')
                   or (content.filename and content.filename.endswith('.zip')))
 
-        if is_zip:
-            with zipfile.ZipFile(content.stream) as zf:
-                # Validate and normalize every member path up front, so an
-                # archive containing an unsafe entry (absolute path or ".."
-                # traversal) is rejected before we write any blob. normpath
-                # also collapses the "./" prefix that `tar -C dir .` adds, which
-                # would otherwise leave a literal "./" segment in the GCS key
-                # (".../src/./main.tex") that never matches the filenames
-                # preflight reports -- silently breaking file deletion
-                # (SUBMISSION-224). See safe_member_rel (SUBMISSION-230).
-                safe = []
-                for info in zf.infolist():
-                    if info.is_dir():
-                        continue
-                    rel = safe_member_rel(info.filename)
-                    if rel is not None:
-                        safe.append((info, rel))
-                for info, rel in safe:
-                    store_at = posixpath.join(src_dir, rel)
-                    self._check_path_safe(submission_id, store_at)
-                    with zf.open(info) as file:
-                        blob = self.bucket.blob(store_at)
-                        blob.upload_from_file(file, size=info.file_size)
-                        files.append(self._blob_to_file_status(submission_id, blob))
-        elif is_file_tgz(content):
-            with tarfile.open(fileobj=content.stream, mode="r:*") as tar:
-                # Validate/normalize all members first; see the zip branch
-                # above (SUBMISSION-224, SUBMISSION-230).
-                safe = []
-                for member in tar.getmembers():
-                    if not member.isfile():
-                        continue
-                    rel = safe_member_rel(member.name)
-                    if rel is not None:
-                        safe.append((member, rel))
-                for member, rel in safe:
-                    extracted = tar.extractfile(member)
-                    if extracted is None:
-                        continue
-                    with extracted as file:
+        # A corrupt / truncated / mislabeled archive raises BadZipFile / TarError
+        # / gzip errors (at open or mid-iteration). Re-raise as a ValueError with
+        # a user-facing message; the upload controller catches ValueError and
+        # flashes it, so the submitter sees "your archive is unreadable" instead
+        # of a generic "problem uploading" (SUBMISSION-225). The unsafe-path
+        # ValueError raised by safe_member_rel (SUBMISSION-230) is NOT in the
+        # caught tuple, so its specific message still surfaces.
+        try:
+            if is_zip:
+                with zipfile.ZipFile(content.stream) as zf:
+                    # Validate and normalize every member path up front, so an
+                    # archive containing an unsafe entry (absolute path or ".."
+                    # traversal) is rejected before we write any blob. normpath
+                    # also collapses the "./" prefix that `tar -C dir .` adds,
+                    # which would otherwise leave a literal "./" segment in the
+                    # GCS key (".../src/./main.tex") that never matches the
+                    # filenames preflight reports -- silently breaking file
+                    # deletion (SUBMISSION-224). See safe_member_rel
+                    # (SUBMISSION-230).
+                    safe = []
+                    for info in zf.infolist():
+                        if info.is_dir():
+                            continue
+                        rel = safe_member_rel(info.filename)
+                        if rel is not None:
+                            safe.append((info, rel))
+                    for info, rel in safe:
                         store_at = posixpath.join(src_dir, rel)
                         self._check_path_safe(submission_id, store_at)
-                        blob = self.bucket.blob(store_at)
-                        blob.upload_from_file(file, size=member.size)
-                        files.append(self._blob_to_file_status(submission_id, blob))
-        else:
-            raise ValueError(f"Unsupported source package content type: {content.content_type!r}")
+                        with zf.open(info) as file:
+                            blob = self.bucket.blob(store_at)
+                            blob.upload_from_file(file, size=info.file_size)
+                            files.append(self._blob_to_file_status(submission_id, blob))
+            elif is_file_tgz(content):
+                with tarfile.open(fileobj=content.stream, mode="r:*") as tar:
+                    # Validate/normalize all members first; see the zip branch
+                    # above (SUBMISSION-224, SUBMISSION-230).
+                    safe = []
+                    for member in tar.getmembers():
+                        if not member.isfile():
+                            continue
+                        rel = safe_member_rel(member.name)
+                        if rel is not None:
+                            safe.append((member, rel))
+                    for member, rel in safe:
+                        extracted = tar.extractfile(member)
+                        if extracted is None:
+                            continue
+                        with extracted as file:
+                            store_at = posixpath.join(src_dir, rel)
+                            self._check_path_safe(submission_id, store_at)
+                            blob = self.bucket.blob(store_at)
+                            blob.upload_from_file(file, size=member.size)
+                            files.append(self._blob_to_file_status(submission_id, blob))
+            else:
+                raise ValueError(f"Unsupported source package content type: {content.content_type!r}")
+        except (zipfile.BadZipFile, tarfile.TarError,
+                gzip.BadGzipFile, EOFError) as exc:
+            # BadZipFile / TarError.ReadError -> bad magic or non-archive;
+            # gzip.BadGzipFile -> bad CRC; EOFError -> truncated gzip stream.
+            raise ValueError(
+                "We couldn't read your uploaded archive. It may be corrupt or "
+                "incomplete -- please re-create the .tar.gz or .zip and upload "
+                "again."
+            ) from exc
 
         return files
 
@@ -411,9 +430,7 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
 
     @override
     def delete_workspace(self, submission_id: str) -> None:
-        blobs = self.bucket.list_blobs(prefix=self._source_path(submission_id))
-        for blob in blobs:
-            blob.delete()
+        self._delete_blobs_under(self._source_path(submission_id))
 
     @override
     def is_available(self) -> bool:
@@ -426,9 +443,22 @@ class GsFileStore(SubmissionFileStore, FileStoreMixin):
 
     @override
     def delete_all_source_files(self, submission_id: str) -> None:
-        blobs = self.bucket.list_blobs(prefix=self._source_path(submission_id))
-        for blob in blobs:
-            blob.delete()
+        self._delete_blobs_under(self._source_path(submission_id))
+
+    def _delete_blobs_under(self, prefix: str) -> None:
+        """Delete every object under `prefix`, idempotently.
+
+        Uses ``delete_blobs`` with an ``on_error`` that ignores per-object
+        NotFound, so an already-removed object doesn't abort the whole
+        operation. Deleting a file set is meant to be idempotent: a retried or
+        interrupted "delete all" over a slow link would otherwise 404 on the
+        objects the first pass already removed (the bug this fixes). A bare
+        ``blob.delete()`` loop raised on the first missing object and left the
+        rest undeleted.
+        """
+        blobs = list(self.bucket.list_blobs(prefix=prefix))
+        if blobs:
+            self.bucket.delete_blobs(blobs, on_error=lambda blob: None)
 
     @override
     def delete_preview(self, submission_id: str) -> None:
