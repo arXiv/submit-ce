@@ -28,6 +28,7 @@ def build_file_rows(
     file_issues: Optional[Dict[str, List[Dict[str, str]]]],
     selected_top_level_files: List[str],
     used_filenames: Optional[Set[str]] = None,
+    toplevel_candidates: Optional[Set[str]] = None,
 ) -> List[Dict[str, Any]]:
     """Return the preflight file list enriched for the Review Files table.
 
@@ -46,9 +47,22 @@ def build_file_rows(
       (the ``used_by*`` reverse edges), the pre-231 behavior;
     * ``is_maybe_used`` -- an ordinary file only in the coarse ``maybe_used_files``
       guess bucket (rendered "Possibly used");
-    * ``is_unused`` -- an ordinary file nothing references (rendered "Not used");
+    * ``is_unused`` -- an ordinary file nothing references (rendered "Not used").
+      Auto-checked for deletion by the template -- EXCEPT for an unselected
+      detected top-level candidate (see ``toplevel_candidates``), which is left
+      unchecked;
     * ``is_protected`` -- must not be deleted here (readme, selected top-level, or
       confidently-used); drives the disabled delete checkbox.
+
+    ``toplevel_candidates`` (SUBMISSION-244) is the set of preflight-detected
+    top-level TeX files. A detected candidate the submitter has NOT selected is a
+    plausible alternative "main" they may pick next, so it must never be
+    *auto-checked* for deletion even when nothing currently references it: for
+    such a file ``is_unused`` is cleared (it renders "Not used" but unchecked and
+    still deletable). This mirrors the client-side live recompute and, crucially,
+    protects the JavaScript-disabled path -- where nothing would otherwise
+    uncheck it before Continue and the delete guard doesn't cover an unselected
+    candidate.
 
     ``is_readme`` / ``is_toplevel`` / ``is_used`` / ``is_maybe_used`` / ``is_unused``
     are mutually exclusive and drive the usage note; ``is_protected`` drives the
@@ -93,6 +107,14 @@ def build_file_rows(
         row["is_used"] = ordinary and used_refs
         row["is_maybe_used"] = ordinary and not used_refs and raw_maybe_used
         row["is_unused"] = ordinary and not used_refs and not raw_maybe_used
+        # An unselected detected top-level candidate is a plausible alternative
+        # "main" the submitter may pick next -- never auto-check it for deletion,
+        # even when unreferenced. Clear is_unused so the template renders it
+        # "Not used" but UNCHECKED; it stays deletable if the submitter opts in.
+        # Protects the no-JS path (SUBMISSION-244 / SUBMISSION-231).
+        if (toplevel_candidates and row["is_unused"]
+                and filename in toplevel_candidates):
+            row["is_unused"] = False
         # Protected from deletion (C3.2a): the 00README, a selected top-level, or
         # a confidently-used file. maybe-used and unused files stay deletable.
         row["is_protected"] = row["is_readme"] or row["is_toplevel"] or row["is_used"]
