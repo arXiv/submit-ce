@@ -13,6 +13,9 @@ brew install protobuf@21
 # For service account use, to use buckets.
 gcloud auth application-default login
 
+# To create tokens while impersonating the compile SA
+gcloud iam service-accounts add-iam-policy-binding submit-ce-dev-sa@arxiv-development.iam.gserviceaccount.com --member="{your username}" --role="roles/iam.serviceAccountTokenCreator"
+
 pyenv shell 3.11  # or similar
 source .venv/bin/activate
 uv sync
