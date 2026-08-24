@@ -67,6 +67,12 @@
 
   function refresh() { syncDirStates(); syncDeletionTints(); }
 
+  // Exposed so the live top-level recompute (review_used_recompute.js) can
+  // resync folder tri-states after it sets file checkboxes programmatically --
+  // programmatic `.checked` fires no `change` event, so the listeners below
+  // wouldn't otherwise run (SUBMISSION-245).
+  window.reviewDeleteCascadeRefresh = refresh;
+
   window.addEventListener("DOMContentLoaded", function () {
     dirCheckboxes().forEach(function (dir) {
       dir.addEventListener("change", function () {
