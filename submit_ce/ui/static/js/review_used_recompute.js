@@ -93,6 +93,12 @@
       // Selected top-level: what we compile -- not deletable.
       return { disabled: true, checked: false, lock: null, note: "Used: top-level file" };
     }
+    if (sets.unanalyzedSet[fn]) {
+      // Stored in the bucket but absent from the preflight report -- preflight
+      // couldn't analyze it (SUBMISSION-246). Selection-independent: shown,
+      // deletable, but never auto-checked.
+      return { disabled: false, checked: false, lock: null, note: "Not analyzed" };
+    }
     if (sets.used[fn]) {
       // Needed by the current selection: protected from deletion here.
       return { disabled: true, checked: false, lock: "used", note: "Used" };
@@ -117,6 +123,8 @@
     ((data && data.candidates) || []).forEach(function (f) { candidateSet[f] = true; });
     var maybeSet = {};
     ((data && data.maybe_used) || []).forEach(function (f) { maybeSet[f] = true; });
+    var unanalyzedSet = {};
+    ((data && data.unanalyzed) || []).forEach(function (f) { unanalyzedSet[f] = true; });
     var rootSet = {};
     (roots || []).forEach(function (r) { rootSet[r] = true; });
     return {
@@ -124,6 +132,7 @@
       used: reachableFrom(roots, (data && data.edges) || {}),
       candidateSet: candidateSet,
       maybeSet: maybeSet,
+      unanalyzedSet: unanalyzedSet,
     };
   }
 

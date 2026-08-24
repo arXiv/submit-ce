@@ -158,6 +158,27 @@ def test_toplevel_candidates_omitted_keeps_auto_check():
     assert by["main2.tex"]["is_unused"] is True
 
 
+def test_unanalyzed_file_labeled_not_auto_checked():
+    """A stored file preflight never analyzed (is_unanalyzed) renders "Not
+    analyzed": not is_used/maybe/unused, not auto-checked, still deletable
+    (SUBMISSION-246). The 00README guard still wins over is_unanalyzed."""
+    notes = [
+        {"filename": "main.tex"},                        # top-level
+        {"filename": "stray.txt", "is_unanalyzed": True},  # bucket-only
+        {"filename": "00README.json", "is_unanalyzed": True},  # readme wins
+    ]
+    by = {r["filename"]: r for r in build_file_rows(
+        notes, {}, ["main.tex"], used_filenames=set())}
+
+    s = by["stray.txt"]
+    assert s["is_unanalyzed"] is True
+    assert not (s["is_used"] or s["is_maybe_used"] or s["is_unused"])
+    assert s["is_protected"] is False        # deletable, but template leaves it unchecked
+    # readme classification takes precedence over is_unanalyzed
+    assert by["00README.json"]["is_readme"] is True
+    assert by["00README.json"]["is_unanalyzed"] is False
+
+
 def test_empty_used_filenames_marks_all_ordinary_unused():
     """An empty rooted set (e.g. no top-level yet selected, or nothing reachable)
     is distinct from None: every ordinary file is 'not used' even if it carries

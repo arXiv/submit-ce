@@ -173,3 +173,34 @@ class DirectiveManager:
             entry['is_oversized'] = img.get('is_oversized', False)
 
         return list(files.values())
+
+    def files_for_review(stored_filenames, preflight_data: dict) -> list:
+        '''Review Files list built from the ACTUAL stored files, annotated with
+        preflight info (SUBMISSION-246).
+
+        Preflight has no contract to enumerate every uploaded file -- for some
+        errors it omits the files it couldn't analyze (e.g. an unsupported
+        ``00README`` format), so a list sourced purely from the preflight report
+        under-counts what's really in the bucket (the D1 bug). The bucket
+        listing (``stored_filenames``) is therefore the authoritative inventory;
+        we overlay the per-file preflight annotations (``used_by*`` edges,
+        ``is_maybe_used``, image size) from ``get_files_from_preflight`` onto it.
+
+        A stored file preflight never mentioned is tagged ``is_unanalyzed`` so
+        the UI can label it "Not analyzed" (rather than silently "Not used" and
+        auto-checking it for deletion). A preflight entry that names a file NOT
+        in the bucket (e.g. a resolved reference to a missing file) is dropped --
+        we can't show or delete a file that isn't stored.
+        '''
+        annotations = {row['filename']: row
+                       for row in DirectiveManager.get_files_from_preflight(preflight_data)}
+        rows = []
+        for filename in stored_filenames:
+            if not filename:
+                continue
+            row = dict(annotations.get(filename, {}))
+            row['filename'] = filename
+            if filename not in annotations:
+                row['is_unanalyzed'] = True
+            rows.append(row)
+        return rows

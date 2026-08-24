@@ -191,6 +191,38 @@ def test_reachable_from_uses_used_edges_graph():
     assert set(edges["main1.tex"]) <= reach
 
 
+def test_files_for_review_is_bucket_authoritative():
+    """The Review file list comes from the STORED files (bucket), annotated with
+    preflight info. A stored file preflight never mentioned is tagged
+    is_unanalyzed; a preflight-referenced file NOT stored is dropped
+    (SUBMISSION-246)."""
+    preflight = {"tex_files": [
+        {"filename": "main.tex", "used_other_files": ["fig.png", "missing.png"]},
+    ]}
+    # Bucket has main.tex, fig.png, and a stray file preflight never analyzed.
+    # "missing.png" is referenced by preflight but NOT in the bucket.
+    stored = ["main.tex", "fig.png", "stray.txt"]
+    rows = {r["filename"]: r for r in dm.files_for_review(stored, preflight)}
+
+    assert set(rows) == {"main.tex", "fig.png", "stray.txt"}   # bucket, not preflight
+    assert "missing.png" not in rows                            # phantom ref dropped
+    assert rows["fig.png"].get("used_by") == ["main.tex"]       # annotation carried
+    assert not rows["fig.png"].get("is_unanalyzed")
+    assert rows["stray.txt"].get("is_unanalyzed") is True       # no preflight entry
+
+
+def test_files_for_review_d1_regression_unsupported_readme():
+    """D1: preflight omits files it can't analyze (e.g. an unsupported 00README
+    format), so a report-sourced list under-counts. Bucket-sourced list shows
+    all three; the offending 00README.yaml is visible (SUBMISSION-246)."""
+    preflight = {"tex_files": [{"filename": "main.tex"}]}   # only main.tex analyzed
+    stored = ["main.tex", "00README.yaml", "notes.txt"]
+    rows = {r["filename"]: r for r in dm.files_for_review(stored, preflight)}
+    assert set(rows) == {"main.tex", "00README.yaml", "notes.txt"}
+    assert rows["00README.yaml"]["is_unanalyzed"] is True
+    assert rows["notes.txt"]["is_unanalyzed"] is True
+
+
 def test_get_files_from_preflight_tags_maybe_used():
     """Files from the maybe_used_files section are tagged is_maybe_used so the UI
     can tell them apart from truly-unused files (SUBMISSION-221 / C3.2a)."""

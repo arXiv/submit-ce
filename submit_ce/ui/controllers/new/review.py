@@ -161,7 +161,7 @@ def review_files(method: str, params: MultiDict, session: Session,
         'selected_top_level_files': [],
         'top_level_candidates': [],
         'file_issues': {},
-        'recompute': {'edges': {}, 'candidates': [], 'maybe_used': []},
+        'recompute': {'edges': {}, 'candidates': [], 'maybe_used': [], 'unanalyzed': []},
     }
 
     if not workspace:
@@ -292,8 +292,14 @@ def _render_review_page(rdata, form, submission_id, preflight_data,
     detected_toplevels = [t.get('filename') for t
                           in (preflight_data.get('detected_toplevel_files') or [])
                           if t.get('filename')]
+    # SUBMISSION-246: enumerate the file list from the ACTUAL stored files (the
+    # bucket) and annotate with preflight info, rather than sourcing it from the
+    # preflight report -- preflight has no contract to list files it couldn't
+    # analyze, so a report-sourced list under-counts what's really uploaded.
+    # Stored files with no preflight annotation are tagged is_unanalyzed.
+    stored_filenames = [f.path for f in (rdata['workspace'].files or [])]
     rdata['file_notes'] = build_file_rows(
-        dm.get_files_from_preflight(preflight_data),
+        dm.files_for_review(stored_filenames, preflight_data),
         file_issues,
         selected_top_level_files,
         used_filenames,
@@ -301,14 +307,17 @@ def _render_review_page(rdata, form, submission_id, preflight_data,
     )
     # SUBMISSION-231 (part 2): data for the client-side live recompute. The same
     # resolved-edge graph the server walked (used_edges), plus the detected
-    # top-level candidates and the coarse maybe-used set, so review_used_recompute.js
-    # can re-root used/unused in the browser as the top-level selection changes --
-    # display only, persisting/deleting nothing until Continue. Candidates are
-    # never auto-checked for deletion (a file the submitter might pick next).
+    # top-level candidates, the coarse maybe-used set, and the unanalyzed files
+    # (SUBMISSION-246), so review_used_recompute.js can re-root used/unused in
+    # the browser as the top-level selection changes -- display only, persisting
+    # /deleting nothing until Continue. Candidates and unanalyzed files are never
+    # auto-checked for deletion.
     rdata['recompute'] = {
         'edges': dm.used_edges(preflight_data),
         'candidates': detected_toplevels,
         'maybe_used': [f for f in (preflight_data.get('maybe_used_files') or []) if f],
+        'unanalyzed': [r['filename'] for r in rdata['file_notes']
+                       if r.get('is_unanalyzed')],
     }
     rdata['has_blocking_issues'] = any(
         n.get('severity') == 'danger' for n in issue_notifications)
