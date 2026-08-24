@@ -171,10 +171,79 @@ def delete_file(method: str, params: MultiDict, session: Session,
 
 
 
+def _files_under(workspace, prefix: str) -> list[str]:
+    """Paths of every stored file under directory ``prefix`` (normalized to end
+    with '/'). A file belongs to the directory when its path starts with the
+    prefix (SUBMISSION-229)."""
+    p = prefix if prefix.endswith('/') else prefix + '/'
+    files = workspace.files if workspace is not None else []
+    return [f.path for f in files if f.path.startswith(p)]
+
+
+def delete_dir(method: str, params: MultiDict, session: Session,
+               submission_id: str, token: Optional[str] = None,
+               **kwargs) -> Response:
+    """Delete every file under a directory (SUBMISSION-229).
+
+    Directory-scoped counterpart of :func:`delete_file`: reuses the locked
+    ``RemoveFiles`` event with the full list of files under the directory
+    prefix. Like ``delete_file``, deletion only happens on a POST carrying
+    ``confirmed``; a GET only reads the ``prefix`` query param and renders the
+    confirmation form, so a GET can never delete.
+    """
+    submission, _ = get_submission(submission_id)
+    submitter, client = user_and_client_from_session(session)
+    rdata = {'submission': submission, 'submission_id': submission_id}
+    workspace = current_app.api.get_file_store().get_workspace(
+        submission_id=str(submission_id))
+
+    if method == 'GET':
+        # Only read the directory prefix from the GET; never delete on GET.
+        prefix = params['prefix']
+        rdata.update({'form': DeleteDirForm(MultiDict({'dir_prefix': prefix})),
+                      'dir_prefix': prefix,
+                      'dir_files': _files_under(workspace, prefix)})
+        return stay_on_this_stage((rdata, status.OK, {}))
+    elif method == 'POST':
+        form = DeleteDirForm(params)
+        rdata.update({'form': form})
+        if not (form.validate() and form.confirmed.data and form.dir_prefix.data):
+            return stay_on_this_stage((rdata, status.OK, {}))
+
+        targets = _files_under(workspace, form.dir_prefix.data)
+        if not targets:
+            # Nothing under the prefix (already gone / bad prefix): no-op.
+            return return_to_parent_stage((rdata, status.OK, {}))
+
+        command = RemoveFiles(creator=submitter, client=client, files=targets)
+        if validate_command(form, command, submission, 'add_files'):
+            submission, _ = current_app.api.save(command, submission_id=submission.submission_id)
+            workspace = current_app.api.get_file_store().get_workspace(
+                submission_id=str(submission.submission_id))
+            if workspace is not None:
+                inferred = _infer_source_format(workspace.files)
+                if submission.source_format != inferred:
+                    target = inferred.value if inferred is not None else None
+                    current_app.api.save(
+                        SetSourceFormat(creator=submitter, client=client, source_format=target),
+                        submission_id=submission.submission_id,
+                    )
+            return return_to_parent_stage((rdata, status.OK, {}))
+
+    return return_to_parent_stage((rdata, status.BAD_REQUEST, {}))
+
+
 class DeleteFileForm(csrf.CSRFForm):
     """Form for deleting individual files."""
 
     file_path = HiddenField('File', validators=[DataRequired()])
+    confirmed = BooleanField('Confirmed', validators=[DataRequired()])
+
+
+class DeleteDirForm(csrf.CSRFForm):
+    """Form for deleting all files under a directory (SUBMISSION-229)."""
+
+    dir_prefix = HiddenField('Directory', validators=[DataRequired()])
     confirmed = BooleanField('Confirmed', validators=[DataRequired()])
 
 

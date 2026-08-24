@@ -5,7 +5,7 @@
  <script src="{{ url_for('static', filename='js/filewidget.js') }}"></script>
 {% endblock addl_head %}
 
-{% macro display_tree(key, item, even) %}
+{% macro display_tree(key, item, even, prefix='') %}
   {% if key %}
   <li class="{% if item.errors %}is-warning{% elif item.modified and item|just_updated %}is-success{% endif %} {% if even %}even{% endif %}">
   {% endif %}
@@ -29,13 +29,21 @@
     </div>
     {% else %}
     {# Directory row (SUBMISSION-227): a folder icon + bold name so the
-       tree reads clearly; children are indented via the nested <ol> below. #}
+       tree reads clearly; children are indented via the nested <ol> below.
+       The trashcan deletes every file under this directory (SUBMISSION-229);
+       `prefix ~ key ~ '/'` is the directory's full path, threaded through the
+       recursion so nested folders get their correct prefix. #}
     {% if key %}
     {{svg.folder(klass="icon filter-blue")}}
-    <strong>{{ key }}/</strong>{% endif %}
+    <strong>{{ key }}/</strong>
+    <a href="{{ url_for('ui.file_delete_dir', submission_id=submission_id) }}?prefix={{ prefix }}{{ key }}/"
+       aria-label="Delete directory {{ prefix }}{{ key }}/">
+      {{svg.trashcan()}}
+      <span class="is-sr-only">Delete directory</span>
+    </a>{% endif %}
     <ol class="{% if not key %}file-tree{% endif %}" style="list-style-type: none;">
       {% for k, subitem in item.items() %}
-      {{ display_tree(k, subitem, loop.cycle('', 'even')) }}
+      {{ display_tree(k, subitem, loop.cycle('', 'even'), (prefix ~ key ~ '/') if key else prefix) }}
       {% endfor %}
     </ol>
     {% endif %}
