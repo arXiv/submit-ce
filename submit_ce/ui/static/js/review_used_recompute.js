@@ -139,6 +139,12 @@
       setNote(cb, s.note);
       setTint(cb);
     });
+    // We set `.checked` programmatically above, which fires no `change` event,
+    // so the delete-cascade's folder tri-states won't resync on their own.
+    // Nudge it directly (SUBMISSION-245). Guarded in case that script is absent.
+    if (typeof window !== "undefined" && window.reviewDeleteCascadeRefresh) {
+      window.reviewDeleteCascadeRefresh();
+    }
   }
 
   if (typeof window !== "undefined") { window.addEventListener("DOMContentLoaded", function () {
