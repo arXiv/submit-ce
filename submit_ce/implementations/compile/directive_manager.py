@@ -175,32 +175,47 @@ class DirectiveManager:
         return list(files.values())
 
     def files_for_review(stored_filenames, preflight_data: dict) -> list:
-        '''Review Files list built from the ACTUAL stored files, annotated with
-        preflight info (SUBMISSION-246).
+        '''Review Files list: the UNION of the actually-stored files (the bucket)
+        and the files preflight reported, annotated with preflight info
+        (SUBMISSION-246).
 
         Preflight has no contract to enumerate every uploaded file -- for some
         errors it omits the files it couldn't analyze (e.g. an unsupported
         ``00README`` format), so a list sourced purely from the preflight report
-        under-counts what's really in the bucket (the D1 bug). The bucket
-        listing (``stored_filenames``) is therefore the authoritative inventory;
-        we overlay the per-file preflight annotations (``used_by*`` edges,
-        ``is_maybe_used``, image size) from ``get_files_from_preflight`` onto it.
+        under-counts what's really in the bucket (the D1 bug). We therefore drive
+        the list from the stored files and overlay the per-file preflight
+        annotations (``used_by*`` edges, ``is_maybe_used``, image size) from
+        ``get_files_from_preflight``.
 
         A stored file preflight never mentioned is tagged ``is_unanalyzed`` so
         the UI can label it "Not analyzed" (rather than silently "Not used" and
-        auto-checking it for deletion). A preflight entry that names a file NOT
-        in the bucket (e.g. a resolved reference to a missing file) is dropped --
-        we can't show or delete a file that isn't stored.
+        auto-checking it for deletion). Files preflight reported that are not in
+        the ``stored_filenames`` listing are still included (annotated) -- this
+        keeps the legacy behavior and makes the list robust if the bucket listing
+        is unavailable or empty.
         '''
         annotations = {row['filename']: row
                        for row in DirectiveManager.get_files_from_preflight(preflight_data)}
         rows = []
-        for filename in stored_filenames:
-            if not filename:
+        seen: set = set()
+        # Stored files (authoritative inventory) first, annotated where preflight
+        # had something to say; bucket-only files are tagged is_unanalyzed.
+        for filename in stored_filenames or []:
+            if not filename or filename in seen:
                 continue
+            seen.add(filename)
             row = dict(annotations.get(filename, {}))
             row['filename'] = filename
             if filename not in annotations:
                 row['is_unanalyzed'] = True
+            rows.append(row)
+        # Any preflight-reported file not in the bucket listing (e.g. a resolved
+        # reference, or a fallback when the listing is empty): include it too.
+        for filename, ann in annotations.items():
+            if filename in seen:
+                continue
+            seen.add(filename)
+            row = dict(ann)
+            row['filename'] = filename
             rows.append(row)
         return rows
