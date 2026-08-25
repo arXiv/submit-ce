@@ -201,6 +201,18 @@ PREFLIGHT_ISSUE_DIRECTIVES: Dict[str, Dict[str, Any]] = {
 # Unknown codes (e.g. plugin-defined) fall back to a visible warning.
 DEFAULT_DIRECTIVE: Dict[str, Any] = {"severity": "warning", "message": None}
 
+# Danger codes that must block regardless of whether their file is used in the
+# selected compilation (SUBMISSION-247). These are safety/policy concerns, not
+# compilation concerns, so "the file isn't compiled" does not make them moot.
+# Every other `danger` code is downgraded to non-blocking when its file is not
+# used by the selected top-level (see build_issue_context).
+ALWAYS_ACT: frozenset = frozenset({
+    "pdf_javascript",          # security: arXiv rejects JS-bearing PDFs outright
+    "pdf_not_pdf",             # policy: an invalid PDF is unacceptable regardless
+    "unsupported_zzrm_format",  # submission-level 00README config, not a source file
+    "no_top_level_file",       # submission-level: there is no compilable top-level
+})
+
 
 def directive_for(key: str) -> Dict[str, Any]:
     """Return the presentation directive for an issue code (or the default)."""

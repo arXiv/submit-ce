@@ -80,6 +80,67 @@ def test_group_notifications_end_to_end_from_build_issue_context():
     assert [g["severity"] for g in grouped] == ["danger", "warning"]
 
 
+# --- SUBMISSION-247: severity by usage --------------------------------------
+
+def _pf_texfile(filename, *keys):
+    """Preflight payload where `keys` issues are carried by tex_file `filename`."""
+    return {
+        "detected_toplevel_files": [],
+        "tex_files": [
+            {"filename": filename,
+             "issues": [{"key": k, "info": ""} for k in keys]}
+        ],
+    }
+
+
+def test_danger_in_unused_file_downgraded_to_non_blocking():
+    """A danger issue whose file isn't used by the selection is downgraded to a
+    non-blocking warning, and a nudge lists the file (SUBMISSION-247)."""
+    pf = _pf_texfile("draft-old.tex", "conflicting_file_type")
+    assert has_blocking_issues(pf, used_filenames=set()) is False
+
+    notes, file_issues = build_issue_context(pf, used_filenames=set())
+    assert file_issues["draft-old.tex"][0]["severity"] == "warning"
+    assert any(n["severity"] == "info" and "draft-old.tex" in n["body"]
+               for n in notes)
+
+
+def test_danger_in_used_file_still_blocks():
+    pf = _pf_texfile("main.tex", "conflicting_file_type")
+    assert has_blocking_issues(pf, used_filenames={"main.tex"}) is True
+    _, file_issues = build_issue_context(pf, used_filenames={"main.tex"})
+    assert file_issues["main.tex"][0]["severity"] == "danger"
+
+
+def test_same_danger_code_in_used_and_unused_files_still_blocks():
+    """If a code appears in both a used and an unused file, the group keeps the
+    most severe (danger) so it still blocks."""
+    pf = {
+        "detected_toplevel_files": [],
+        "tex_files": [
+            {"filename": "main.tex",
+             "issues": [{"key": "conflicting_file_type", "info": ""}]},
+            {"filename": "draft.tex",
+             "issues": [{"key": "conflicting_file_type", "info": ""}]},
+        ],
+    }
+    assert has_blocking_issues(pf, used_filenames={"main.tex"}) is True
+
+
+def test_always_act_code_blocks_even_in_unused_file():
+    """Safety/policy codes (pdf_javascript, pdf_not_pdf) block regardless of
+    whether the file is used (SUBMISSION-247)."""
+    for code in ("pdf_javascript", "pdf_not_pdf"):
+        pf = _pf_texfile("orphan.pdf", code)
+        assert has_blocking_issues(pf, used_filenames=set()) is True, code
+
+
+def test_without_used_filenames_no_downgrade_pre247_behavior():
+    """Older callers that pass no used set get the pre-247 behavior unchanged."""
+    pf = _pf_texfile("draft-old.tex", "conflicting_file_type")
+    assert has_blocking_issues(pf) is True
+
+
 def test_directives_cover_every_producer_issue_type():
     """Every IssueType the preflight producer can emit has a directive, so new
     producer codes can't silently fall through to the default unnoticed."""

@@ -12,9 +12,10 @@ separately under SUBMISSION-211); this module is only the extraction logic.
 """
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from submit_ce.ui.preflight.issue_table import (
+    ALWAYS_ACT,
     DEFAULT_DIRECTIVE,
     PREFLIGHT_ISSUE_DIRECTIVES,
     SEVERITY_RANK,
@@ -77,6 +78,7 @@ def _derived_issues(preflight_data: dict):
 
 def build_issue_context(
     preflight_data: Optional[dict],
+    used_filenames: Optional[Set[str]] = None,
 ) -> Tuple[List[Dict[str, Any]], Dict[str, List[Dict[str, str]]]]:
     """Return ``(notifications, file_issues)`` for the Review Files template.
 
@@ -88,6 +90,16 @@ def build_issue_context(
     badges in the Notes column.
 
     Silent codes are skipped entirely (banners and badges), matching 1.5.
+
+    Severity-by-usage (SUBMISSION-247): when ``used_filenames`` is given (the set
+    of files reachable from the selected top-level(s), including the selected
+    top-levels themselves), a ``danger`` issue whose carrying file is NOT in that
+    set is downgraded to a non-blocking ``warning`` -- the file won't be
+    compiled, so its errors shouldn't block. Codes in ``ALWAYS_ACT``
+    (pdf_javascript, pdf_not_pdf, ...) are never downgraded. Issues with no file
+    attribution, and everything when ``used_filenames`` is ``None`` (older
+    callers), are left unchanged. A single info nudge lists the unused files that
+    carried downgraded issues, so the submitter is prompted to remove them.
     """
     notifications: List[Dict[str, Any]] = []
     file_issues: Dict[str, List[Dict[str, str]]] = {}
@@ -95,6 +107,7 @@ def build_issue_context(
         return notifications, file_issues
 
     groups: Dict[str, Dict[str, Any]] = {}
+    downgraded_files: List[str] = []
     all_issues = list(_iter_issues(preflight_data)) + \
         list(_derived_issues(preflight_data))
     for key, info, filename, container in all_issues:
@@ -103,26 +116,43 @@ def build_issue_context(
         severity = _directive(key).get("severity", "warning")
         if severity == SILENT:
             continue
-        group = groups.setdefault(
-            key, {"count": 0, "files": [], "severity": severity})
-        group["count"] += 1
 
         if key in _REFERENCED_FILE_CODES:
             # The named file is a *missing* file (not the carrier); list it in
             # the banner but never badge -- it has no row, and the carrier is
-            # fine.
+            # fine. Usage is judged by the carrier (the referencing file).
             subject = filename or info
             badge_target = None
+            owner = container
         else:
             # The issue is about the carrying file (or its own filename).
             subject = filename or container
             badge_target = subject
+            owner = subject
+
+        # SUBMISSION-247: downgrade a danger issue to non-blocking when its file
+        # is not used by the selected top-level(s) and the code isn't always-act.
+        effective = severity
+        if (used_filenames is not None and severity == "danger"
+                and key not in ALWAYS_ACT
+                and owner and owner not in used_filenames):
+            effective = "warning"
+            if owner not in downgraded_files:
+                downgraded_files.append(owner)
+
+        group = groups.setdefault(
+            key, {"count": 0, "files": [], "severity": effective})
+        group["count"] += 1
+        # The group takes the most severe effective severity among its issues,
+        # so a code present in BOTH a used and an unused file still blocks.
+        if _SEVERITY_RANK.get(effective, 9) < _SEVERITY_RANK.get(group["severity"], 9):
+            group["severity"] = effective
 
         if subject and subject not in group["files"]:
             group["files"].append(subject)
         if badge_target:
             file_issues.setdefault(badge_target, []).append(
-                {"severity": severity, "label": _humanize(key)})
+                {"severity": effective, "label": _humanize(key)})
 
     for key in sorted(groups,
                       key=lambda k: (_SEVERITY_RANK.get(groups[k]["severity"], 9), k)):
@@ -140,17 +170,34 @@ def build_issue_context(
             notification["link_text"] = directive.get("link_text", "Learn more")
         notifications.append(notification)
 
+    # SUBMISSION-247: nudge the submitter to remove the unused files whose issues
+    # we downgraded (they're already auto-checked for deletion, SUBMISSION-222).
+    if downgraded_files:
+        notifications.append({
+            "title": "Some problems are in files your selected top-level "
+                     "doesn't use",
+            "severity": "info",
+            "body": "These files aren't part of the selected compilation, so "
+                    "their problems no longer block you -- consider removing "
+                    "them: " + ", ".join(downgraded_files),
+        })
+
     return notifications, file_issues
 
 
-def has_blocking_issues(preflight_data: Optional[dict]) -> bool:
+def has_blocking_issues(preflight_data: Optional[dict],
+                        used_filenames: Optional[Set[str]] = None) -> bool:
     """Return True if any surfaced preflight issue is ``danger`` severity.
 
     Mirrors 1.5's ``hasPreflightBlockers``: a ``danger`` issue must block the
     submitter from continuing past Review Files. Silent/warning/info issues do
     not block. (SUBMISSION-216 / C1.4)
+
+    Passing ``used_filenames`` makes the gate selection-aware (SUBMISSION-247):
+    a danger issue in a file the selected top-level doesn't use is downgraded
+    and no longer blocks (unless its code is in ``ALWAYS_ACT``).
     """
-    notifications, _ = build_issue_context(preflight_data)
+    notifications, _ = build_issue_context(preflight_data, used_filenames)
     return any(n.get("severity") == "danger" for n in notifications)
 
 
