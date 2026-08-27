@@ -93,6 +93,13 @@
       // Selected top-level: what we compile -- not deletable.
       return { disabled: true, checked: false, lock: null, note: "Used: top-level file" };
     }
+    if (fn && fn.indexOf("anc/") === 0) {
+      // Ancillary file (under anc/) -- supplementary, selection-independent.
+      // Never auto-checked for deletion; labeled. Mirrors build_file_rows
+      // (SUBMISSION-252). Kept out of the used/unused reclassification so the
+      // live recompute can't re-check it.
+      return { disabled: false, checked: false, lock: null, note: "Ancillary" };
+    }
     if (sets.unanalyzedSet[fn]) {
       // Stored in the bucket but absent from the preflight report -- preflight
       // couldn't analyze it (SUBMISSION-246). Selection-independent: shown,
