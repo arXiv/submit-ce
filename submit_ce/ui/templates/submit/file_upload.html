@@ -5,7 +5,7 @@
  <script src="{{ url_for('static', filename='js/filewidget.js') }}"></script>
 {% endblock addl_head %}
 
-{% macro display_tree(key, item, even) %}
+{% macro display_tree(key, item, even, prefix='') %}
   {% if key %}
   <li class="{% if item.errors %}is-warning{% elif item.modified and item|just_updated %}is-success{% endif %} {% if even %}even{% endif %}">
   {% endif %}
@@ -29,13 +29,36 @@
     </div>
     {% else %}
     {# Directory row (SUBMISSION-227): a folder icon + bold name so the
-       tree reads clearly; children are indented via the nested <ol> below. #}
+       tree reads clearly; children are indented via the nested <ol> below.
+       The trashcan deletes every file under this directory (SUBMISSION-229);
+       `prefix ~ key ~ '/'` is the directory's full path, threaded through the
+       recursion so nested folders get their correct prefix. #}
     {% if key %}
-    {{svg.folder(klass="icon filter-blue")}}
-    <strong>{{ key }}/</strong>{% endif %}
+    {# Same two-column grid as file rows so the directory trashcan lines up in
+       the right-hand delete column; the size/modified cells are empty for a
+       directory (SUBMISSION-229). #}
+    <div class="columns">
+      <div class="column">
+        {{svg.folder(klass="icon filter-blue")}}
+        <strong>{{ key }}/</strong>
+      </div>
+      <div class="column is-one-third-tablet">
+        <div class="columns is-mobile">
+          <div class="column"></div>
+          <div class="column"></div>
+          <div class="column has-text-centered is-narrow">
+            <a href="{{ url_for('ui.file_delete_dir', submission_id=submission_id) }}?prefix={{ prefix }}{{ key }}/"
+               aria-label="Delete directory {{ prefix }}{{ key }}/">
+              {{svg.trashcan()}}
+              <span class="is-sr-only">Delete directory</span>
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>{% endif %}
     <ol class="{% if not key %}file-tree{% endif %}" style="list-style-type: none;">
       {% for k, subitem in item.items() %}
-      {{ display_tree(k, subitem, loop.cycle('', 'even')) }}
+      {{ display_tree(k, subitem, loop.cycle('', 'even'), (prefix ~ key ~ '/') if key else prefix) }}
       {% endfor %}
     </ol>
     {% endif %}

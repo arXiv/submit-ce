@@ -48,6 +48,7 @@ def redirect_to_login(*args, **kwargs) -> Response:
 
 _SUB_ROUTE_PARENT_STAGE = {
     'file_delete': 'file_upload',
+    'file_delete_dir': 'file_upload',
     'file_delete_all': 'file_upload',
 }
 """Auxiliary routes that don't have their own workflow stage but live under one.
@@ -380,6 +381,18 @@ def file_delete(submission_id: str) -> Response:
     """Provide the file deletion endpoint, part of the upload step."""
     return handle(upload_delete.delete_file, 'submit/confirm_delete.html',
                   'Delete File', submission_id, get_params=True,
+                  token=request.environ['token'], flow_controlled=True)
+
+
+@UI.route('/<submission_id>/file_delete_dir', methods=["GET", "POST"])
+@scoped(scopes.EDIT_SUBMISSION, authorizer=is_owner,
+                        unauthorized=redirect_to_login)
+@flow_control(FileUpload)
+def file_delete_dir(submission_id: str) -> Response:
+    """Delete every file under a directory, part of the upload step
+    (SUBMISSION-229)."""
+    return handle(upload_delete.delete_dir, 'submit/confirm_delete_dir.html',
+                  'Delete Directory', submission_id, get_params=True,
                   token=request.environ['token'], flow_controlled=True)
 
 
