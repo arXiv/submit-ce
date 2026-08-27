@@ -1,0 +1,6 @@
+TEST SUBMISSION: 05_graphics_driver_unsupported
+============================================================
+
+Expected preflight code(s): graphics_driver_unsupported  [WARNING]
+
+graphicx is loaded with the unsupported driver option [dvipdfm].

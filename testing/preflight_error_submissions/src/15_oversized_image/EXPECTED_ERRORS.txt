@@ -1,0 +1,6 @@
+TEST SUBMISSION: 15_oversized_image
+============================================================
+
+Expected preflight code(s): oversized_image  [WARNING]
+
+huge.png is 6000x6000 = 36 megapixels, above the 34 MP threshold (DEFAULT_IMAGE_SIZE_THRESHOLD_MPIXELS).

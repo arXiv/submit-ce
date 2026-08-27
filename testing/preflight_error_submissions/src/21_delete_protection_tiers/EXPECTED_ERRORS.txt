@@ -1,0 +1,35 @@
+TEST SUBMISSION: 21_delete_protection_tiers
+============================================================
+
+Demonstrates the Review Files DELETE-PROTECTION TIERS (SUBMISSION-221 / C3.2a),
+the used / not-used labels (SUBMISSION-220), and image-size display + the
+oversize row highlight (SUBMISSION-172) -- all in one submission. Unlike the
+other cases here, the point is not an error code but the delete/usage UI.
+
+Files and expected Review Files behavior:
+
+  main.tex        top-level TeX            delete DISABLED  "Used: top-level file"
+  intro.tex       \input{intro}           delete DISABLED  "Used by (TeX): main.tex"
+  mystyle.sty     \usepackage{mystyle}    delete DISABLED  "Used by: main.tex"
+  plot.png        \includegraphics        delete DISABLED  "Used by: main.tex"  (~0.48 MP)
+  bigplot.png     \includegraphics        delete DISABLED  "Used by: main.tex"  (36.00 MP)
+                  6000x6000 RGBA -> NOT pdftex-fast-copy -> is_oversized = True:
+                  row HIGHLIGHTED (cream), size shown red with "oversized".
+  snippet.pygtex  .pygtex (maybe_used)    delete ENABLED   "Possibly used"
+  leftover.png    unreferenced            delete ENABLED   "Not used"  (~0.20 MP)
+  scratch.txt     unreferenced            delete ENABLED   "Not used"
+  EXPECTED_ERRORS.txt (this file)         delete ENABLED   "Not used"
+
+Protection policy (C3.2a): confidently-used files (preflight resolved-edge set)
++ the selected top-level + 00README are protected from deletion. maybe_used_files
+(only the .pygtex extension) are DELETABLE but not suggested, labelled
+"Possibly used" (NOT "Not used"). Truly-unreferenced files are "Not used" and
+deletable.
+
+Server-side guard: even if the disabled checkbox is bypassed (crafted or stale
+POST), SetDecisions.execute refuses to delete a protected file under the
+submission row lock, and the page flashes "We kept files your submission
+needs...".
+
+Expected preflight: status=success; exactly one `oversized_image` warning
+(bigplot.png). No danger issues -> Continue is NOT blocked.

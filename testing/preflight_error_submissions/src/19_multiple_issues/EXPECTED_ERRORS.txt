@@ -1,0 +1,22 @@
+TEST SUBMISSION: 19_multiple_issues
+============================================================
+
+A single compilable submission that intentionally trips MANY issues at once,
+to see how the Review Files page renders multiple banners (danger + warnings +
+info), grouping, and per-file badges together.
+
+Expected banners (danger first):
+  DANGER   multiple_bibliography_types  -- biblatex (\addbibresource) mixed with
+                                          classic \bibliographystyle/\bibliography
+  WARNING  file_not_found (x3)          -- missing_figure, refs.bib (x2 refs)
+  WARNING  graphics_driver_unsupported  -- graphicx loaded with [dvipdfm]
+  WARNING  oversized_image              -- huge.png is 6000x6000 (36 MP > 34 MP)
+  WARNING  index_definition_missing     -- \printindex[people], 'people' undefined
+  WARNING  unsupported_zzrm_format      -- 00README.yaml present
+  INFO     hyperref_not_found           -- hyperref not loaded (synthesized in UI)
+
+Silent (collected, not shown): issue_in_subfile.
+
+Note (see gap G31): 00README.yaml and the referenced-but-missing files are named
+in banners but do NOT appear as rows in the file table; huge.png should appear as
+a row with an oversized-image badge.

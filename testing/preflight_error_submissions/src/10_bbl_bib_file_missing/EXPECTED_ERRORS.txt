@@ -1,0 +1,6 @@
+TEST SUBMISSION: 10_bbl_bib_file_missing
+============================================================
+
+Expected preflight code(s): bbl_bib_file_missing  [DANGER]  (+ file_not_found for references.bib)
+
+main.tex cites a bibliography but neither the .bib source nor a precompiled main.bbl is present.

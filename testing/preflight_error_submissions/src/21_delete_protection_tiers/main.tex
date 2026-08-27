@@ -1,0 +1,8 @@
+\documentclass{article}
+\usepackage{graphicx}
+\usepackage{mystyle}      % -> mystyle.sty is "used"
+\begin{document}
+\input{intro}             % -> intro.tex is "used (TeX)"
+\includegraphics[width=\linewidth]{plot}     % -> plot.png "used"
+\includegraphics[width=\linewidth]{bigplot}  % -> bigplot.png "used" + oversized
+\end{document}

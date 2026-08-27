@@ -1,0 +1,6 @@
+TEST SUBMISSION: 13_bbl_usage_mismatch
+============================================================
+
+Expected preflight code(s): bbl_usage_mismatch  [DANGER]
+
+main.tex uses classic bibtex (\bibliographystyle/\bibliography) but main.bbl is a biblatex/biber aux file.

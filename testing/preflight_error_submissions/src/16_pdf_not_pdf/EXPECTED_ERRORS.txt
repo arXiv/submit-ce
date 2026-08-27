@@ -1,0 +1,7 @@
+TEST SUBMISSION: 16_pdf_not_pdf
+============================================================
+
+Expected preflight code(s): pdf_not_pdf  [DANGER]  -- surfaces as a QA status error
+
+figure.pdf is actually a text file. Preflight's file check reports status=error:
+'QA check failed: Found 1 PDFs that don't look like a PDF.'

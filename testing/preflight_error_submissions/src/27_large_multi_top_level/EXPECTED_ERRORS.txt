@@ -1,0 +1,39 @@
+Case 27 — large multi-top-level submission (SUBMISSION-231 live recompute test)
+
+Not an error/issue-code case. A performance/UX fixture for the live used/unused
+recompute (SUBMISSION-231). Two top-level TeX files with subtrees named after
+which top-level uses them, so the expected state is obvious from the path.
+
+Two top-levels:
+    paperA.tex, paperB.tex
+
+File groups (462 files total; each secNNN.tex \includegraphics its sibling figNNN.png):
+    used_by_A/     (200 files)  \input by paperA only
+    used_by_B/     (200 files)  \input by paperB only
+    used_by_both/  (30 files)   \input by BOTH paperA and paperB
+    used_by_none/  (30 files)   \input by NEITHER -- deliberately orphaned
+
+Verified against real preflight (tex2pdf_tools):
+    select paperA          -> Used: used_by_A/ + used_by_both/ ; Not used: used_by_B/ + used_by_none/
+    select paperB          -> Used: used_by_B/ + used_by_both/ ; Not used: used_by_A/ + used_by_none/
+    select paperA + paperB -> Used: used_by_A/ + used_by_B/ + used_by_both/ ; Not used: used_by_none/ only
+
+WHICH TOP-LEVELS USE ALL FILES?
+    None -- by design. used_by_none/ is referenced by neither top-level, so it is
+    ALWAYS "Not used" (and auto-checked for deletion). This exists to show the
+    auto-delete behavior still works. Selecting BOTH paperA and paperB uses
+    everything EXCEPT used_by_none/. If you want a submission where a selection
+    uses every file, delete the used_by_none/ directory from the archive.
+
+What to check on Review Files (SUBMISSION-231 part 2, client-side live recompute):
+    - Select paperA: used_by_A/ + used_by_both/ read "Used" (locked, unchecked);
+      used_by_B/ + used_by_none/ read "Not used" (auto-checked for deletion).
+    - Switch to paperB: used_by_A/ and used_by_B/ swap, instantly, with no page
+      reload and no server round-trip.
+    - Add paperB alongside paperA (multi-select): used_by_B/ flips to "Used" too;
+      only used_by_none/ stays checked for deletion.
+    - Nothing is actually deleted until you click Continue with your final
+      selection. paperB, while unselected, shows "Not used" but is NEVER
+      auto-checked (a detected top-level you might pick next).
+
+Packed without a leading "./" (matches the repo convention; see ../README.md).

@@ -1,0 +1,25 @@
+TEST SUBMISSION: 20_oversized_fastcopy_vs_slow
+============================================================
+
+Two oversized images (both 6000x6000 = 36 MP, over the 34 MP threshold) that
+preflight treats DIFFERENTLY, to demonstrate the oversize ROW HIGHLIGHT:
+
+  bigphoto.jpg   -> non-PNG is always pdfTeX "fast-copy" -> is_oversized = False
+                    Result: size shown ("36.00 MP"), row NOT highlighted,
+                    and this file does NOT contribute an oversized_image issue.
+
+  bigfigure.png  -> RGBA (alpha channel) -> NOT fast-copy -> is_oversized = True
+                    Result: size shown AND row highlighted; contributes the
+                    oversized_image warning.
+
+Expected preflight: status=success; exactly one `oversized_image` issue (the PNG).
+
+Mechanism: check_image_sizes() flags an image only when megapixels > threshold
+AND NOT pdftex_fast_copy. The row highlight in 1.5 is driven by the per-image
+is_oversized flag (image_is_oversized), NOT by the issue; the MP number is shown
+for every image regardless.
+
+Note: the flat-PNG case (15_oversized_image) is environment-dependent -- a plain
+RGB PNG is only recognized as fast-copy when `pngcheck` is installed; without it
+preflight falls back to "not fast-copy" and flags it. This case avoids that
+ambiguity (JPEG deterministically fast-copy; RGBA PNG deterministically not).
