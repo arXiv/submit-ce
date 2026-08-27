@@ -124,6 +124,40 @@ def test_used_is_rooted_at_selection_when_used_filenames_given():
     assert by2["only1.png"]["is_unused"] and not by2["only1.png"]["is_protected"]
 
 
+def test_unselected_toplevel_candidate_not_auto_checked():
+    """A detected top-level the submitter hasn't selected must NOT be auto-checked
+    for deletion (is_unused cleared), while a plain unused file still is. Protects
+    the no-JS path (SUBMISSION-244). Both remain deletable (not protected)."""
+    notes = [
+        {"filename": "main1.tex"},   # selected top-level
+        {"filename": "main2.tex"},   # detected candidate, NOT selected
+        {"filename": "orphan.png"},  # plain unused, not a candidate
+    ]
+    by = {r["filename"]: r for r in build_file_rows(
+        notes, {}, ["main1.tex"],
+        used_filenames=set(),                       # nothing reachable
+        toplevel_candidates={"main1.tex", "main2.tex"},
+    )}
+
+    # Selected top-level: handled as top-level, not unused.
+    assert by["main1.tex"]["is_toplevel"] and not by["main1.tex"]["is_unused"]
+    # Unselected candidate: "Not used" but NOT auto-checked (is_unused cleared),
+    # and still deletable (not protected).
+    assert by["main2.tex"]["is_unused"] is False
+    assert by["main2.tex"]["is_protected"] is False
+    # Plain unused non-candidate: auto-checked as usual.
+    assert by["orphan.png"]["is_unused"] is True
+
+
+def test_toplevel_candidates_omitted_keeps_auto_check():
+    """Without toplevel_candidates (older callers), an unreferenced file is still
+    is_unused -- the pre-244 behavior is unchanged."""
+    notes = [{"filename": "main1.tex"}, {"filename": "main2.tex"}]
+    by = {r["filename"]: r for r in build_file_rows(
+        notes, {}, ["main1.tex"], used_filenames=set())}
+    assert by["main2.tex"]["is_unused"] is True
+
+
 def test_empty_used_filenames_marks_all_ordinary_unused():
     """An empty rooted set (e.g. no top-level yet selected, or nothing reachable)
     is distinct from None: every ordinary file is 'not used' even if it carries

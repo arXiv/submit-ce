@@ -283,11 +283,21 @@ def _render_review_page(rdata, form, submission_id, preflight_data,
     # THIS selection rather than a flat union over every tex file. No preflight
     # re-run -- the edges are already in the report (see reachable_from).
     used_filenames = dm.reachable_from(selected_top_level_files, preflight_data)
+    # Preflight-detected top-level files (the genuine alternative "mains"). An
+    # unselected one must never be auto-checked for deletion -- the submitter may
+    # pick it next. Passed to build_file_rows so the server render (the no-JS
+    # path) leaves it unchecked, matching the client-side recompute
+    # (SUBMISSION-244). NOT every tex candidate in the dropdown -- just the
+    # detected set.
+    detected_toplevels = [t.get('filename') for t
+                          in (preflight_data.get('detected_toplevel_files') or [])
+                          if t.get('filename')]
     rdata['file_notes'] = build_file_rows(
         dm.get_files_from_preflight(preflight_data),
         file_issues,
         selected_top_level_files,
         used_filenames,
+        set(detected_toplevels),
     )
     # SUBMISSION-231 (part 2): data for the client-side live recompute. The same
     # resolved-edge graph the server walked (used_edges), plus the detected
@@ -297,12 +307,7 @@ def _render_review_page(rdata, form, submission_id, preflight_data,
     # never auto-checked for deletion (a file the submitter might pick next).
     rdata['recompute'] = {
         'edges': dm.used_edges(preflight_data),
-        # Detected top-level files (the genuine alternative "mains"): never
-        # auto-check one for deletion, since the submitter might select it next.
-        # This is preflight's detected set, NOT every tex candidate in the dropdown.
-        'candidates': [t.get('filename') for t
-                       in (preflight_data.get('detected_toplevel_files') or [])
-                       if t.get('filename')],
+        'candidates': detected_toplevels,
         'maybe_used': [f for f in (preflight_data.get('maybe_used_files') or []) if f],
     }
     rdata['has_blocking_issues'] = any(
