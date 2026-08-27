@@ -56,8 +56,14 @@ def _iter_issues(preflight_data: dict):
     referenced-file codes (see ``_REFERENCED_FILE_CODES``).
     """
     for tlf in preflight_data.get("detected_toplevel_files") or []:
+        # A document-level issue is carried by the top-level file it was
+        # detected on -- pass that as the container so it can be attributed to a
+        # file (needed for selection-aware severity, SUBMISSION-247: a danger on
+        # an *unselected* top-level should downgrade). container was previously
+        # None here, which left such issues unattributable.
         for issue in tlf.get("issues") or []:
-            yield issue.get("key"), issue.get("info"), issue.get("filename"), None
+            yield (issue.get("key"), issue.get("info"),
+                   issue.get("filename"), tlf.get("filename"))
     for tex_file in preflight_data.get("tex_files") or []:
         container = tex_file.get("filename")
         for issue in tex_file.get("issues") or []:

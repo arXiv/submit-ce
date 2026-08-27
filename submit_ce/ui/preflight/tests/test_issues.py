@@ -141,6 +141,29 @@ def test_without_used_filenames_no_downgrade_pre247_behavior():
     assert has_blocking_issues(pf) is True
 
 
+def test_document_level_danger_attributed_to_its_top_level():
+    """A document-level danger (e.g. conflicting_file_type) is carried by the
+    top-level it was detected on, so it downgrades when THAT top-level isn't
+    selected and blocks when it is (SUBMISSION-247). Mirrors real preflight,
+    which reports conflicting_file_type at document level on the top-level."""
+    pf = {
+        "detected_toplevel_files": [
+            {"filename": "main_good.tex", "issues": []},
+            {"filename": "main_bad.tex",
+             "issues": [{"key": "conflicting_file_type", "info": ""}]},
+        ],
+        "tex_files": [],
+    }
+    # main_bad selected -> its danger blocks
+    assert has_blocking_issues(pf, {"main_bad.tex"}) is True
+    # main_good selected -> main_bad's danger is in an unused top-level -> downgrade
+    assert has_blocking_issues(pf, {"main_good.tex"}) is False
+    notes, file_issues = build_issue_context(pf, {"main_good.tex"})
+    assert file_issues["main_bad.tex"][0]["severity"] == "warning"
+    assert any(n["severity"] == "info" and "main_bad.tex" in n["body"]
+               for n in notes)
+
+
 def test_directives_cover_every_producer_issue_type():
     """Every IssueType the preflight producer can emit has a directive, so new
     producer codes can't silently fall through to the default unnoticed."""

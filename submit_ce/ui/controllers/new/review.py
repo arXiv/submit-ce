@@ -223,8 +223,10 @@ def review_files(method: str, params: MultiDict, session: Session,
             # blocks (except ALWAYS_ACT codes). Used set = reachable from the
             # selection, plus the selected top-levels themselves.
             selected = _selected_top_level_files(params)
-            used_for_issues = (dm.reachable_from(selected, preflight_data)
-                               | set(selected))
+            # Only downgrade when a top-level is selected; with none, keep every
+            # severity (no compilation to judge against) -- SUBMISSION-247.
+            used_for_issues = ((dm.reachable_from(selected, preflight_data)
+                                | set(selected)) if selected else None)
             if has_blocking_issues(preflight_data, used_for_issues):
                 # danger issue(s) present -> re-render with the "Cannot continue"
                 # card (added by _render_review_page) instead of advancing.
@@ -278,8 +280,11 @@ def _render_review_page(rdata, form, submission_id, preflight_data,
     # (SUBMISSION-247). No preflight re-run -- the edges are already in the report.
     used_filenames = dm.reachable_from(selected_top_level_files, preflight_data)
     # For issue severity, a file counts as "used" if it's reachable OR is itself
-    # a selected top-level (an issue on the selected main must still block).
-    used_for_issues = used_filenames | set(selected_top_level_files)
+    # a selected top-level (an issue on the selected main must still block). Only
+    # downgrade when a top-level is actually selected -- with no selection there
+    # is no compilation to judge against, so keep every severity (SUBMISSION-247).
+    used_for_issues = (used_filenames | set(selected_top_level_files)
+                       if selected_top_level_files else None)
     # Surface preflight issues (SUBMISSION-210): reason-code-grouped banners
     # + per-file badges, extracted server-side. Issue banners lead; the
     # backend-status cards follow. Danger issues in files the selected top-level

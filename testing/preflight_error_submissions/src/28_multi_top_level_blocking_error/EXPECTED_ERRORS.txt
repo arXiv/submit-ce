@@ -1,0 +1,35 @@
+Case 28 — multi top-level with a blocking error in one subtree (SUBMISSION-247)
+
+Two independent top-level TeX files; the DANGER error lives only in the subtree
+of one of them:
+
+    main_good.tex  -> \input good/intro.tex        (clean)
+    main_bad.tex   -> \input bad/broken.tex         (bad/broken.tex has \bye in a
+                                                     LaTeX doc -> conflicting_file_type, DANGER)
+
+Purpose: exercise selection-aware severity (SUBMISSION-247).
+
+Expected on Review Files:
+    - Select main_bad.tex  -> the conflicting_file_type danger is in a file the
+      selected top-level USES -> it BLOCKS Continue (the "Cannot continue" card).
+    - Select main_good.tex -> bad/broken.tex is NOT reachable from main_good, so
+      its danger is DOWNGRADED to a non-blocking warning; Continue is allowed,
+      and the info nudge lists bad/broken.tex as removable.
+    - Select BOTH -> bad/broken.tex is used again -> blocks.
+
+VERIFICATION STILL NEEDED (could not run preflight when this was created --
+sandbox VM was down):
+    1. Confirm preflight actually emits `conflicting_file_type` for this source.
+    2. **Confirm it is attributed to bad/broken.tex (a tex_files[] issue with
+       that container), NOT document-level.** SUBMISSION-247 only downgrades
+       *file-attributed* issues; if preflight reports this at the document level
+       (no carrying file), it will NOT downgrade and will block regardless of
+       selection -- which is itself a useful finding about 247's reach.
+    Run preflight on this tree (or upload it) and inspect the issue's
+    `filename` / carrying `tex_files[]` entry.
+
+Packing: pack without a leading "./" like the other cases, e.g.
+    (cd src/28_multi_top_level_blocking_error && \
+     find . -mindepth 1 -printf '%P\n' | tar --no-recursion -T - -czf \
+     ../../tarballs/28_multi_top_level_blocking_error.tar.gz)
+(No figures needed; \input-only so it's pure text.)
