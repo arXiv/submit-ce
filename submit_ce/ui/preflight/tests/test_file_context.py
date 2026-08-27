@@ -158,6 +158,29 @@ def test_toplevel_candidates_omitted_keeps_auto_check():
     assert by["main2.tex"]["is_unused"] is True
 
 
+def test_ancillary_files_labeled_and_not_auto_checked():
+    """Files under anc/ are ancillary: labeled, never classified used/unused, and
+    NOT auto-checked for deletion (they must not be swept away on Continue).
+    Deletable-but-unchecked, matching 1.5 (SUBMISSION-252)."""
+    notes = [
+        {"filename": "main.tex"},                       # selected top-level
+        {"filename": "anc/readme.txt"},                 # ancillary depth 1
+        {"filename": "anc/code/lib/helper.py"},         # ancillary depth 3
+        {"filename": "orphan.png"},                     # genuinely unused
+    ]
+    by = {r["filename"]: r for r in build_file_rows(
+        notes, {}, ["main.tex"], used_filenames=set())}
+
+    for anc in ("anc/readme.txt", "anc/code/lib/helper.py"):
+        r = by[anc]
+        assert r["is_ancillary"] is True
+        assert not (r["is_used"] or r["is_maybe_used"]
+                    or r["is_unused"] or r.get("is_unanalyzed"))
+        assert r["is_protected"] is False        # deletable, but template leaves unchecked
+    # a real unused file is still auto-checked (is_unused) -- ancillary is the exception
+    assert by["orphan.png"]["is_unused"] is True
+
+
 def test_unanalyzed_file_labeled_not_auto_checked():
     """A stored file preflight never analyzed (is_unanalyzed) renders "Not
     analyzed": not is_used/maybe/unused, not auto-checked, still deletable

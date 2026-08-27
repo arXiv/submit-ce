@@ -81,4 +81,11 @@ assert.deepStrictEqual(state("stray.txt", ["main1.tex"]),
 assert.deepStrictEqual(state("stray.txt", ["main2.tex"]),
   { disabled: false, checked: false, note: "Not analyzed" });
 
+// ancillary (anc/) file: "Ancillary", never auto-checked, path-based &
+// selection-independent (SUBMISSION-252)
+assert.deepStrictEqual(state("anc/readme.txt", ["main1.tex"]),
+  { disabled: false, checked: false, note: "Ancillary" });
+assert.deepStrictEqual(state("anc/code/lib/helper.py", ["main2.tex"]),
+  { disabled: false, checked: false, note: "Ancillary" });
+
 console.log("review_used_recompute.test.js: all assertions passed");

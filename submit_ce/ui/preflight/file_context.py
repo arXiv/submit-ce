@@ -22,6 +22,13 @@ from typing import Any, Dict, List, Optional, Set
 # note rather than a usage line.
 README_FILENAME = "00README.json"
 
+# Source-relative prefix for ancillary files. arXiv stores ancillary data/code
+# under anc/ (matched by preflight's ancillary_files, the store's
+# FileStatus.ancillary, and 1.5's Upload.pm). Files here are supplementary --
+# not compiled -- so they must NOT be classified "unused"/auto-checked for
+# deletion (SUBMISSION-252); they get their own "Ancillary" label.
+ANCILLARY_PREFIX = "anc/"
+
 
 def build_file_rows(
     file_notes: List[Dict[str, Any]],
@@ -51,6 +58,10 @@ def build_file_rows(
       Auto-checked for deletion by the template -- EXCEPT for an unselected
       detected top-level candidate (see ``toplevel_candidates``), which is left
       unchecked;
+    * ``is_ancillary`` -- a file under ``anc/`` (SUBMISSION-252). Rendered
+      "Ancillary"; supplementary, so it is NOT classified used/unused and is
+      never auto-checked for deletion (it stays deletable-but-unchecked, matching
+      1.5). Its own class, mutually exclusive with used/maybe/unused/unanalyzed;
     * ``is_unanalyzed`` -- a stored file the preflight report never mentioned
       (SUBMISSION-246). Rendered "Not analyzed"; not auto-checked for deletion
       but still deletable. Mutually exclusive with used/maybe/unused;
@@ -100,18 +111,28 @@ def build_file_rows(
         # by any tex file" signal (the used_by* reverse edges) -- the pre-231
         # behavior, preserved so existing callers/tests are unaffected.
         raw_maybe_used = bool(row.get("is_maybe_used"))
+        # Ancillary files (anc/) are supplementary, not compiled: they must never
+        # be classified "unused" and auto-checked for deletion -- that would let
+        # a submitter wipe their data/code on Continue. They get a dedicated
+        # "Ancillary" label and stay deletable-but-unchecked (SUBMISSION-252).
+        is_ancillary = bool(filename) and filename.startswith(ANCILLARY_PREFIX)
         # A file the preflight report never mentioned (SUBMISSION-246): the
         # bucket listing is authoritative, so it's shown, but we can't say
         # anything about its use. Label it "Not analyzed" and -- like an
         # unselected top-level candidate -- never auto-check it for deletion.
-        unanalyzed = bool(row.get("is_unanalyzed")) and not row["is_readme"] and not row["is_toplevel"]
+        unanalyzed = (bool(row.get("is_unanalyzed")) and not row["is_readme"]
+                      and not row["is_toplevel"] and not is_ancillary)
         if used_filenames is not None:
             used_refs = filename in used_filenames
         else:
             used_refs = bool(row.get("used_by")
                              or row.get("used_by_tex")
                              or row.get("used_by_bib"))
-        ordinary = not row["is_readme"] and not row["is_toplevel"]
+        # Ancillary, like the 00README and a selected top-level, is its own class
+        # and is none of used/maybe/unused/unanalyzed.
+        ordinary = (not row["is_readme"] and not row["is_toplevel"]
+                    and not is_ancillary)
+        row["is_ancillary"] = is_ancillary
         row["is_unanalyzed"] = unanalyzed
         row["is_used"] = ordinary and not unanalyzed and used_refs
         row["is_maybe_used"] = ordinary and not unanalyzed and not used_refs and raw_maybe_used

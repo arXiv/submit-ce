@@ -96,6 +96,10 @@
         {% if item.used_by_tex %}Used by (TeX): {{ item.used_by_tex | join(', ') }}<br>{% endif %}
         {% if item.used_by_bib %}Used by (bib): {{ item.used_by_bib | join(', ') }}{% endif %}
         {% if not (item.used_by or item.used_by_tex or item.used_by_bib) %}Used{% endif %}
+      {% elif item.is_ancillary %}
+        {# A file under anc/ -- supplementary data/code, not compiled. Labeled
+           and never auto-checked for deletion (SUBMISSION-252). #}
+        Ancillary
       {% elif item.is_maybe_used %}
         {# In preflight's coarse maybe_used_files guess -- kept but no resolved
            reference. Deletable but not suggested (SUBMISSION-221 / C3.2a). #}
@@ -125,11 +129,13 @@
              aria-label="Select all deletable files in {{ prefix }}{{ key }}/ for deletion">
     </td>
     {# Folder icon + bold name, indented by depth, matching the Upload page
-       (SUBMISSION-228); the Notes column labels it a Directory. #}
+       (SUBMISSION-228). A directory under anc/ is labeled "Ancillary directory"
+       so the ancillary cue carries to the folders too (SUBMISSION-252), rather
+       than a bare "Directory" -- but not "Ancillary file", since it's a dir. #}
     <td style="padding-left: {{ prefix.count('/') * 1.5 + 0.5 }}rem">
       {{ svg.folder(klass="icon filter-blue") }} <strong>{{ key }}/</strong>
     </td>
-    <td>Directory</td>
+    <td>{% if (prefix ~ key ~ '/').startswith('anc/') %}Ancillary directory{% else %}Directory{% endif %}</td>
   </tr>
   {% for k, subitem in item.items() %}
     {{ display_preflight_tree(k, subitem, prefix ~ key ~ '/') }}
