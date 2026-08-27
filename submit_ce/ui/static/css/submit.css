@@ -291,11 +291,24 @@ ol.file-tree {
     padding: 0; }
     ol.file-tree .column .columns {
       margin: 0; }
+  /* Pin the delete (trash) column to a fixed width and right-align its icon so
+     every trashcan lands at the same offset regardless of the row's zebra /
+     updated highlighting or how deeply the directory is nested
+     (SUBMISSION-229). Applies uniformly to file and directory rows. */
+  ol.file-tree .column.is-narrow {
+    flex: none;
+    width: 2.5rem;
+    text-align: right; }
   ol.file-tree > li ol {
     border-left: 2px solid #CCC;
     margin: 0 0 0 1rem; }
     ol.file-tree > li ol li {
-      padding-left: 1em; }
+      padding-left: 1em;
+      /* Indentation belongs on the left only. The base li padding-right (.25em)
+         otherwise accumulates one level per nesting depth, creeping each deeper
+         row's right edge -- and its delete icon -- leftward. Zero it on nested
+         rows so every trashcan lines up in the same column (SUBMISSION-229). */
+      padding-right: 0; }
       ol.file-tree > li ol li:first-child {
         margin-top: 0; }
 
