@@ -1,0 +1,6 @@
+TEST SUBMISSION: 09_multiple_bibliography_types
+============================================================
+
+Expected preflight code(s): multiple_bibliography_types  [DANGER]  (+ file_not_found for the missing refs.bib)
+
+main.tex mixes biblatex (\usepackage{biblatex}/\addbibresource) with the classic \bibliographystyle/\bibliography.

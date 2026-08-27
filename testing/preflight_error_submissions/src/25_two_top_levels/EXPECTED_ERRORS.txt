@@ -1,0 +1,19 @@
+TEST SUBMISSION: 25_two_top_levels   (multiple top-level TeX -- C2 / C2.1 probe)
+============================================================
+Two complete, standalone top-level TeX files -- main1.tex and main2.tex -- each
+with its own \documentclass ... \begin{document} ... \end{document}. No external
+dependencies (no images/bib/sty), so the ONLY variable is how the system handles
+more than one top-level.
+
+Purpose: upload to PRODUCTION 1.5 to observe the deployed multi-top-level
+behavior (informs C2.1 compile caps: MAX_TOPLEVEL_TEX_FILES).
+
+What to look for:
+  - Are BOTH main1.tex and main2.tex offered as top-level candidates? Can you
+    add/order both in the "Select Top-Level TeX" widget?
+  - Does the produced PDF contain BOTH "Top-level file 1" AND "Top-level file 2"
+    pages (concatenated, in order), or only one?
+  - Any message about a maximum number of top-level files.
+
+No preflight "errors" are expected -- this is a behavior/capability probe, not
+an issue-code fixture.

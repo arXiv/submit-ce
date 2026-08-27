@@ -1,0 +1,24 @@
+TEST SUBMISSION: 24_corrupt_archive   (corrupt-archive handling fixture)
+============================================================
+The artifact IS the corrupt upload: `tarballs/24_corrupt_archive.tar.gz` is a
+VALID .tar.gz that has been TRUNCATED mid-stream. There is no real source here.
+
+How to test (upload the tarball on the Upload Files / Prepare Files page):
+  BEFORE the fix: the upload fails with the GENERIC "There was a problem
+  uploading your file." (the gzip EOFError / TarError falls through to the
+  catch-all), and you stay on the Upload page.
+  AFTER the fix: you get the SPECIFIC message "We could not read your uploaded
+  file. It may be corrupt, incomplete, or not a supported archive format..."
+  and stay on the Upload page. No 500 either way.
+
+Mechanism:
+  gs_file_store.store_source_package wraps the zip/tgz extraction and translates
+  BadZipFile / TarError.ReadError (bad magic / non-archive) AND gzip.BadGzipFile
+  (bad CRC) / EOFError (truncated stream) into a ValueError with a friendly
+  message. save() re-raises it unchanged; upload_files() catches ValueError and
+  flashes the specific message.
+
+Variants to try by hand:
+  - garbage bytes named `x.tar.gz` (bad magic)      -> TarError.ReadError
+  - this truncated-but-valid-header .tar.gz          -> gzip EOFError
+  - a .zip with a corrupt central directory          -> zipfile.BadZipFile

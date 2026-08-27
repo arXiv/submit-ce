@@ -1,0 +1,8 @@
+TEST SUBMISSION: 03_conflicting_output_type
+============================================================
+
+Expected preflight code(s): conflicting_output_type  [WARNING] -- KNOWN NON-SURFACING
+
+main.tex sets \pdfoutput=1 AND \pdfoutput=0. Preflight detects both flags but currently does NOT emit the
+issue: guess_compilation_parameters() appends conflicting_output_type to tl.issues and then overwrites
+tl.issues with a fresh list (preflight/__init__.py ~line 1435 vs ~1553). Kept as a regression/known-bug case.

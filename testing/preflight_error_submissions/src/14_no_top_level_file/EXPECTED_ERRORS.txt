@@ -1,0 +1,7 @@
+TEST SUBMISSION: 14_no_top_level_file
+============================================================
+
+Expected preflight code(s): no_top_level_file  [DANGER, derived in the UI]
+
+Only orphan fragments (\section...) with no \documentclass and no \bye. Preflight returns status=success
+with an EMPTY detected_toplevel_files list; the 2.0 UI derives 'no viable top-level TeX file' from that.

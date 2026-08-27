@@ -1,0 +1,6 @@
+TEST SUBMISSION: 06_graphics_driver_option
+============================================================
+
+Expected preflight code(s): graphics_driver_option  [INFO]
+
+graphicx is loaded with an explicit but supported driver option [dvips]; the driver is normally auto-detected.

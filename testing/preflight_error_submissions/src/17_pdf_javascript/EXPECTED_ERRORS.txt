@@ -1,0 +1,7 @@
+TEST SUBMISSION: 17_pdf_javascript
+============================================================
+
+Expected preflight code(s): pdf_javascript  [WARNING]
+
+PDF-only submission whose PDF embeds document-level JavaScript. NOTE: this case must be uploaded as a
+SINGLE PDF -- the tarball contains only paper.pdf. Adding any other file disables the single-PDF check path.

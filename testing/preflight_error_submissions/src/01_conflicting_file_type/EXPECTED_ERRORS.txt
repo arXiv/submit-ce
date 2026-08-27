@@ -1,0 +1,6 @@
+TEST SUBMISSION: 01_conflicting_file_type
+============================================================
+
+Expected preflight code(s): conflicting_file_type  [DANGER]
+
+main.tex contains BOTH a LaTeX \documentclass and a plain-TeX \bye. Preflight flags the mixed document type.

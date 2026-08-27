@@ -1,0 +1,31 @@
+TEST SUBMISSION: 22_dotslash_delete_bug   (REGRESSION FIXTURE)
+============================================================
+
+Purpose: reproduce the archive-path normalization bug. This tarball is packed
+with `tar -C dir .`, so every member is prefixed with `./` (e.g. ./main.tex).
+gs_file_store.store_source_package stores members verbatim, so the files land in
+GCS as .../src/./main.tex, .../src/./orphan.txt, etc.
+
+Bug it catches (ticket: normalize archive member paths on extraction):
+  Preflight reports normalized filenames (orphan.txt), so the Review Files page
+  renders and keys its checkboxes on "orphan.txt", but the workspace/store path
+  is "./orphan.txt". review._update_preflight intersects the checked filenames
+  with workspace paths, so the "./" mismatch empties files_to_delete and NOTHING
+  is deleted.
+
+How to test:
+  1. Upload to a FRESH submission.
+  2. On Review Files, orphan.txt is auto-checked for deletion ("Not used").
+  3. Click Continue.
+     - BROKEN (current): orphan.txt is NOT deleted; you are returned to Review
+       Files. `gcloud storage ls` shows .../src/./orphan.txt still present and a
+       freshly written user_decisions.json (SetDecisions ran with an empty
+       files_to_delete).
+     - FIXED: extraction normalizes "./orphan.txt" -> "orphan.txt"; the file is
+       deleted and the flow returns to Upload for a re-scan.
+
+Expected files (as they SHOULD be stored after the fix): main.tex, sec.tex,
+orphan.txt -- with NO "./" segment in the GCS keys.
+
+Contrast: every OTHER case in tarballs/ has been repacked WITHOUT "./" so they
+work as normal delete tests. This case is the deliberate exception.

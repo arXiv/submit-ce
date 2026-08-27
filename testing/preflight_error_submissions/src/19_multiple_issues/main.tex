@@ -1,0 +1,15 @@
+\documentclass{article}
+\usepackage[dvipdfm]{graphicx}   % unsupported driver option
+\usepackage{biblatex}            % biblatex ...
+\addbibresource{refs.bib}
+\usepackage{index}
+\newindex{names}{ndx}{nnd}{Name Index}
+\begin{document}
+\includegraphics{missing_figure} % file not found
+\includegraphics{huge}           % oversized image
+Some text with a citation.\cite{smith2020}
+\index[people]{Euler}            % index 'people' never defined
+\bibliographystyle{plain}        % ... plus classic bibtex -> multiple bib types
+\bibliography{refs}
+\printindex[people]
+\end{document}

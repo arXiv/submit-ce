@@ -1,0 +1,71 @@
+Preflight verification log
+generated: Wed Jul 29 22:21:34 UTC 2026  |  tool: tex2pdf_tools.preflight (submission-tools)
+===========================================================================
+
+### 01_conflicting_file_type
+status=success
+  keys=['conflicting_file_type', 'issue_in_subfile']
+
+### 02_latex209
+status=success
+  keys=['unsupported_compiler_type_latex209']
+
+### 03_conflicting_output_type
+status=success
+  keys=(none in issues[] arrays)
+
+### 04_file_not_found
+status=success
+  keys=['file_not_found', 'issue_in_subfile']
+
+### 05_graphics_driver_unsupported
+status=success
+  keys=['graphics_driver_unsupported', 'issue_in_subfile']
+
+### 06_graphics_driver_option
+status=success
+  keys=['graphics_driver_option', 'issue_in_subfile']
+
+### 08_unsupported_zzrm_format
+status=success
+  keys=['unsupported_zzrm_format']
+
+### 09_multiple_bibliography_types
+status=success
+  keys=['file_not_found', 'issue_in_subfile', 'multiple_bibliography_types']
+
+### 10_bbl_bib_file_missing
+status=success
+  keys=['bbl_bib_file_missing', 'file_not_found', 'issue_in_subfile']
+
+### 11_bbl_version_mismatch
+status=success
+  keys=['bbl_version_mismatch', 'file_not_found', 'issue_in_subfile']
+
+### 12_bbl_version_needs_previous
+status=success
+  keys=['bbl_version_needs_previous_version', 'file_not_found', 'issue_in_subfile']
+
+### 13_bbl_usage_mismatch
+status=success
+  keys=['bbl_usage_mismatch', 'issue_in_subfile']
+
+### 14_no_top_level_file
+status=success
+  keys=(none in issues[] arrays)
+
+### 15_oversized_image
+status=success
+  keys=['oversized_image']
+
+### 16_pdf_not_pdf
+status=error | QA check failed: Found 1 PDFs that don't look like a PDF.
+  keys=(none in issues[] arrays)
+
+### 17_pdf_javascript
+status=success
+  keys=['pdf_javascript']
+
+### 18_index_definition_missing
+status=success
+  keys=['index_definition_missing']

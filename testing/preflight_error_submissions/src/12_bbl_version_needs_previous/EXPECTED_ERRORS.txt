@@ -1,0 +1,6 @@
+TEST SUBMISSION: 12_bbl_version_needs_previous
+============================================================
+
+Expected preflight code(s): bbl_version_needs_previous_version  [WARNING]  (+ file_not_found for refs.bib)
+
+main.bbl declares biblatex 'bbl format version 3.2', supported only under the previous TeX Live (2023).

@@ -1,0 +1,32 @@
+TEST SUBMISSION: 23_nested_directories   (cascade UI fixture, SUBMISSION-223)
+============================================================
+Exercises the cascading directory delete checkbox across nested folders.
+
+Files and expected Review Files state:
+  main.tex                       top-level         delete DISABLED
+  sections/intro.tex             used (\input)     delete DISABLED
+  sections/notes.txt             Not used          auto-CHECKED
+  figures/used_fig.png           used (\includegraphics)   delete DISABLED
+  figures/unused_fig.png         Not used          auto-CHECKED
+  figures/extra/deep_used.png    used (\includegraphics)   delete DISABLED
+  figures/extra/deep_unused.png  Not used          auto-CHECKED
+  junk/a.txt                     Not used          auto-CHECKED
+  junk/b.log                     Not used          auto-CHECKED
+
+Folder (directory) checkboxes on load:
+  junk/           all children deletable & checked      -> CHECKED
+  sections/       intro.tex locked, notes.txt checked    -> INDETERMINATE
+  figures/        used_fig locked; unused_fig + extra/*  -> INDETERMINATE
+  figures/extra/  deep_used locked, deep_unused checked  -> INDETERMINATE
+
+Cascade behavior to verify:
+  - Toggling figures/ flips unused_fig.png AND figures/extra/deep_unused.png
+    (nested), while the locked used files stay unchecked.
+  - Toggling junk/ off then on flips both junk files together.
+  - Unchecking a single child flips its folder to INDETERMINATE; re-checking all
+    children flips the folder back to CHECKED.
+  - With JavaScript disabled, folder boxes do nothing; files remain individually
+    checkable (unused ones still arrive pre-checked from SUBMISSION-222).
+
+Packed WITHOUT a leading "./" so paths are clean and deletion works regardless
+of the SUBMISSION-224 fix.

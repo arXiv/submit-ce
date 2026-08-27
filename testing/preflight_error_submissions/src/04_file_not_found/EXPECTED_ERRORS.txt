@@ -1,0 +1,6 @@
+TEST SUBMISSION: 04_file_not_found
+============================================================
+
+Expected preflight code(s): file_not_found  [WARNING]
+
+main.tex \input{chapter_that_does_not_exist}; the referenced file is absent from the source.

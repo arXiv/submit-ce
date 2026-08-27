@@ -1,0 +1,6 @@
+TEST SUBMISSION: 18_index_definition_missing
+============================================================
+
+Expected preflight code(s): index_definition_missing  [WARNING]
+
+main.tex references a named index ('people') via \index[people]/\printindex[people] that is never defined.

@@ -1,0 +1,6 @@
+TEST SUBMISSION: 02_latex209
+============================================================
+
+Expected preflight code(s): unsupported_compiler_type_latex209  [DANGER]
+
+main.tex uses the obsolete LaTeX 2.09 \documentstyle syntax, which arXiv no longer supports.

@@ -1,0 +1,6 @@
+TEST SUBMISSION: 08_unsupported_zzrm_format
+============================================================
+
+Expected preflight code(s): unsupported_zzrm_format  [WARNING]
+
+An old-format 00README.yaml is present. Only 00README.json is accepted now.
