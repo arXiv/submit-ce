@@ -218,7 +218,16 @@ def review_files(method: str, params: MultiDict, session: Session,
             # SUBMISSION-216: a danger-severity preflight issue blocks
             # Continue -- mirrors 1.5's hasPreflightBlockers. Re-render Review
             # Files with the issue banners instead of advancing.
-            if has_blocking_issues(preflight_data):
+            # SUBMISSION-247: the gate is selection-aware -- an issue in a file
+            # the submitted top-level(s) don't use is downgraded and no longer
+            # blocks (except ALWAYS_ACT codes). Used set = reachable from the
+            # selection, plus the selected top-levels themselves.
+            selected = _selected_top_level_files(params)
+            # Only downgrade when a top-level is selected; with none, keep every
+            # severity (no compilation to judge against) -- SUBMISSION-247.
+            used_for_issues = ((dm.reachable_from(selected, preflight_data)
+                                | set(selected)) if selected else None)
+            if has_blocking_issues(preflight_data, used_for_issues):
                 # danger issue(s) present -> re-render with the "Cannot continue"
                 # card (added by _render_review_page) instead of advancing.
                 return _render_review_page(rdata, form, submission_id,
@@ -266,10 +275,21 @@ def _render_review_page(rdata, form, submission_id, preflight_data,
     # `_populate_form` set `source_file.choices` to the detected tex files;
     # the template builds each `top_level_tex_files[]` dropdown from this list.
     rdata['top_level_candidates'] = [c[0] for c in form.source_file.choices]
+    # Files reachable from the selected top-level(s) (SUBMISSION-231). Drives the
+    # used/unused row classification AND the selection-aware issue severity
+    # (SUBMISSION-247). No preflight re-run -- the edges are already in the report.
+    used_filenames = dm.reachable_from(selected_top_level_files, preflight_data)
+    # For issue severity, a file counts as "used" if it's reachable OR is itself
+    # a selected top-level (an issue on the selected main must still block). Only
+    # downgrade when a top-level is actually selected -- with no selection there
+    # is no compilation to judge against, so keep every severity (SUBMISSION-247).
+    used_for_issues = (used_filenames | set(selected_top_level_files)
+                       if selected_top_level_files else None)
     # Surface preflight issues (SUBMISSION-210): reason-code-grouped banners
     # + per-file badges, extracted server-side. Issue banners lead; the
-    # backend-status cards follow.
-    issue_notifications, file_issues = build_issue_context(preflight_data)
+    # backend-status cards follow. Danger issues in files the selected top-level
+    # doesn't use are downgraded to non-blocking (SUBMISSION-247).
+    issue_notifications, file_issues = build_issue_context(preflight_data, used_for_issues)
     rdata['file_issues'] = file_issues
     # SUBMISSION-219: fold the per-file badges and the top-level / README
     # flags into each file row so the template renders fields from one object
@@ -277,12 +297,10 @@ def _render_review_page(rdata, form, submission_id, preflight_data,
     # file_issues / selected_top_level_files parameters). Gives a single
     # per-file object to extend with used/unused + delete defaults later.
     #
-    # SUBMISSION-231: root "used" at the current top-level selection. The set of
-    # files reachable from the selected top-level(s) drives is_used/is_unused, so
-    # the auto-detected notes (and the auto-checked-for-deletion defaults) reflect
-    # THIS selection rather than a flat union over every tex file. No preflight
-    # re-run -- the edges are already in the report (see reachable_from).
-    used_filenames = dm.reachable_from(selected_top_level_files, preflight_data)
+    # SUBMISSION-231: root "used" at the current top-level selection
+    # (`used_filenames`, computed above) drives is_used/is_unused, so the
+    # auto-detected notes (and auto-checked-for-deletion defaults) reflect THIS
+    # selection rather than a flat union over every tex file.
     # Preflight-detected top-level files (the genuine alternative "mains"). An
     # unselected one must never be auto-checked for deletion -- the submitter may
     # pick it next. Passed to build_file_rows so the server render (the no-JS
