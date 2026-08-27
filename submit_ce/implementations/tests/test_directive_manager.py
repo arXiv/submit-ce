@@ -191,6 +191,49 @@ def test_reachable_from_uses_used_edges_graph():
     assert set(edges["main1.tex"]) <= reach
 
 
+def test_files_for_review_unions_bucket_and_preflight():
+    """The Review file list is the union of stored files and preflight-reported
+    files, annotated with preflight info. A stored file preflight never mentioned
+    is tagged is_unanalyzed; a preflight-referenced file not in the bucket is
+    still included (annotated) (SUBMISSION-246)."""
+    preflight = {"tex_files": [
+        {"filename": "main.tex", "used_other_files": ["fig.png", "referenced.png"]},
+    ]}
+    # Bucket has main.tex, fig.png, and a stray file preflight never analyzed.
+    # "referenced.png" is named by preflight but NOT in the bucket listing.
+    stored = ["main.tex", "fig.png", "stray.txt"]
+    rows = {r["filename"]: r for r in dm.files_for_review(stored, preflight)}
+
+    assert set(rows) == {"main.tex", "fig.png", "stray.txt", "referenced.png"}
+    assert rows["fig.png"].get("used_by") == ["main.tex"]       # annotation carried
+    assert not rows["fig.png"].get("is_unanalyzed")
+    assert rows["stray.txt"].get("is_unanalyzed") is True       # stored, no preflight entry
+    assert not rows["referenced.png"].get("is_unanalyzed")      # preflight-known, included
+
+
+def test_files_for_review_empty_bucket_falls_back_to_preflight():
+    """If the bucket listing is empty, the list still shows the preflight-reported
+    files (none tagged unanalyzed) -- resilience, and what the controller tests
+    that mock preflight rely on."""
+    preflight = {"tex_files": [{"filename": "main.tex"}],
+                 "image_files": [{"filename": "fig.png"}]}
+    rows = {r["filename"]: r for r in dm.files_for_review([], preflight)}
+    assert set(rows) == {"main.tex", "fig.png"}
+    assert not any(r.get("is_unanalyzed") for r in rows.values())
+
+
+def test_files_for_review_d1_regression_unsupported_readme():
+    """D1: preflight omits files it can't analyze (e.g. an unsupported 00README
+    format), so a report-sourced list under-counts. Bucket-sourced list shows
+    all three; the offending 00README.yaml is visible (SUBMISSION-246)."""
+    preflight = {"tex_files": [{"filename": "main.tex"}]}   # only main.tex analyzed
+    stored = ["main.tex", "00README.yaml", "notes.txt"]
+    rows = {r["filename"]: r for r in dm.files_for_review(stored, preflight)}
+    assert set(rows) == {"main.tex", "00README.yaml", "notes.txt"}
+    assert rows["00README.yaml"]["is_unanalyzed"] is True
+    assert rows["notes.txt"]["is_unanalyzed"] is True
+
+
 def test_get_files_from_preflight_tags_maybe_used():
     """Files from the maybe_used_files section are tagged is_maybe_used so the UI
     can tell them apart from truly-unused files (SUBMISSION-221 / C3.2a)."""

@@ -22,6 +22,7 @@ const DATA = {
   },
   candidates: ["main1.tex", "main2.tex"],
   maybe_used: ["guess.sty"],
+  unanalyzed: ["stray.txt"],
 };
 
 function keys(setObj) { return Object.keys(setObj).sort(); }
@@ -72,5 +73,12 @@ assert.deepStrictEqual(state("chap1.tex", ["main1.tex", "main2.tex"]),
   { disabled: true, checked: false, note: "Used" });
 assert.deepStrictEqual(state("chap2.tex", ["main1.tex", "main2.tex"]),
   { disabled: true, checked: false, note: "Used" });
+
+// unanalyzed file: "Not analyzed", never auto-checked, selection-independent
+// (SUBMISSION-246)
+assert.deepStrictEqual(state("stray.txt", ["main1.tex"]),
+  { disabled: false, checked: false, note: "Not analyzed" });
+assert.deepStrictEqual(state("stray.txt", ["main2.tex"]),
+  { disabled: false, checked: false, note: "Not analyzed" });
 
 console.log("review_used_recompute.test.js: all assertions passed");

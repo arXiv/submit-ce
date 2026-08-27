@@ -100,6 +100,11 @@
         {# In preflight's coarse maybe_used_files guess -- kept but no resolved
            reference. Deletable but not suggested (SUBMISSION-221 / C3.2a). #}
         Possibly used
+      {% elif item.is_unanalyzed %}
+        {# Stored in the bucket but absent from the preflight report -- preflight
+           couldn't analyze it (SUBMISSION-246). Shown so the submitter can act
+           on it; not auto-checked for deletion. #}
+        Not analyzed
       {% else %}
         {# Nothing references this file (SUBMISSION-220). #}
         Not used

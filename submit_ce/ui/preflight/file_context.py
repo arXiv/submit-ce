@@ -51,6 +51,9 @@ def build_file_rows(
       Auto-checked for deletion by the template -- EXCEPT for an unselected
       detected top-level candidate (see ``toplevel_candidates``), which is left
       unchecked;
+    * ``is_unanalyzed`` -- a stored file the preflight report never mentioned
+      (SUBMISSION-246). Rendered "Not analyzed"; not auto-checked for deletion
+      but still deletable. Mutually exclusive with used/maybe/unused;
     * ``is_protected`` -- must not be deleted here (readme, selected top-level, or
       confidently-used); drives the disabled delete checkbox.
 
@@ -97,6 +100,11 @@ def build_file_rows(
         # by any tex file" signal (the used_by* reverse edges) -- the pre-231
         # behavior, preserved so existing callers/tests are unaffected.
         raw_maybe_used = bool(row.get("is_maybe_used"))
+        # A file the preflight report never mentioned (SUBMISSION-246): the
+        # bucket listing is authoritative, so it's shown, but we can't say
+        # anything about its use. Label it "Not analyzed" and -- like an
+        # unselected top-level candidate -- never auto-check it for deletion.
+        unanalyzed = bool(row.get("is_unanalyzed")) and not row["is_readme"] and not row["is_toplevel"]
         if used_filenames is not None:
             used_refs = filename in used_filenames
         else:
@@ -104,9 +112,10 @@ def build_file_rows(
                              or row.get("used_by_tex")
                              or row.get("used_by_bib"))
         ordinary = not row["is_readme"] and not row["is_toplevel"]
-        row["is_used"] = ordinary and used_refs
-        row["is_maybe_used"] = ordinary and not used_refs and raw_maybe_used
-        row["is_unused"] = ordinary and not used_refs and not raw_maybe_used
+        row["is_unanalyzed"] = unanalyzed
+        row["is_used"] = ordinary and not unanalyzed and used_refs
+        row["is_maybe_used"] = ordinary and not unanalyzed and not used_refs and raw_maybe_used
+        row["is_unused"] = ordinary and not unanalyzed and not used_refs and not raw_maybe_used
         # An unselected detected top-level candidate is a plausible alternative
         # "main" the submitter may pick next -- never auto-check it for deletion,
         # even when unreferenced. Clear is_unused so the template renders it
