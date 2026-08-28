@@ -11,6 +11,7 @@
  <script src="{{ url_for('static', filename='js/review_top_level_select.js') }}" defer></script>
  <script src="{{ url_for('static', filename='js/review_delete_cascade.js') }}" defer></script>
  <script src="{{ url_for('static', filename='js/review_used_recompute.js') }}" defer></script>
+ <script src="{{ url_for('static', filename='js/review_delete_confirm.js') }}" defer></script>
  <style>
    /* Oversized-image row highlight (SUBMISSION-172), mirroring 1.5's
       cream row tint. !important so it wins over the is-striped zebra shading. */
@@ -352,6 +353,9 @@
   </div>
   </div>{# /.action-container #}
 </form>
+{# Confirm-on-delete dialog (SUBMISSION-253). Progressive enhancement wired by
+   review_delete_confirm.js; only meaningful when the file form is present. #}
+{% include "submit/review_delete_confirm_modal.html" %}
 {% else %}
   <div class="notification is-warning" role="alert">
     <h2 class="is-size-5 is-marginless">
