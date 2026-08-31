@@ -19,7 +19,14 @@ def test_metadata(app, authorized_client, sub_processed):
     resp = authorized_client.post(url, data={})
     assert resp.status_code == 400 \
         and b"<title>Add or Edit Metadata" in resp.data and b"<form " in resp.data
-    resp = authorized_client.post(url, data={"csrf_token":parse_csrf_token(resp)})
+    # A real browser submits title/abstract/authors_display as empty strings
+    # (not omitted) when the fields are left blank; requiredness is now
+    # enforced by the QA checks rather than WTForms, so this must supply
+    # them to trigger that rejection.
+    resp = authorized_client.post(url, data={"csrf_token": parse_csrf_token(resp),
+                                             "title": "",
+                                             "abstract": "",
+                                             "authors_display": ""})
     assert resp.status_code == 400 \
         and b"<title>Add or Edit Metadata" in resp.data and b"<form " in resp.data
 
@@ -49,6 +56,44 @@ def test_metadata(app, authorized_client, sub_processed):
     assert sub_db.metadata.title == data["title"] \
         and sub_db.metadata.abstract == data["abstract"] \
         and sub_db.metadata.authors_display == data["authors_display"]
+
+
+def test_metadata_empty_title_shows_qa_message(app, authorized_client, sub_processed):
+    """Clearing the title should reach the QA check and surface its message,
+    not be silently swallowed by client-side/WTForms required validation."""
+    sub: Submission = sub_processed
+    url = f"/{sub.submission_id}/add_metadata"
+
+    resp = authorized_client.get(url)
+    assert resp.status_code == 200
+    assert b'required' not in resp.data.split(b'name="title"')[1].split(b'>')[0]
+
+    assert b'required' not in resp.data.split(b'name="abstract"')[1].split(b'>')[0]
+    assert b'required' not in resp.data.split(b'name="authors_display"')[1].split(b'>')[0]
+
+    resp = authorized_client.post(url, data={
+        "csrf_token": parse_csrf_token(resp),
+        "title": "",
+        "abstract": "Cheese onion cat table backpack plywood x.",
+        "authors_display": "Bob Smith",
+        'action': 'next',
+    })
+    assert resp.status_code == 400
+    assert b"Title is required and cannot be empty." in resp.data
+    sub_db = gets(app, sub)
+    assert sub_db.metadata is None or sub_db.metadata.title != ""
+
+    resp = authorized_client.get(url)
+    resp = authorized_client.post(url, data={
+        "csrf_token": parse_csrf_token(resp),
+        "title": "A perfectly fine title",
+        "abstract": "",
+        "authors_display": "",
+        'action': 'next',
+    })
+    assert resp.status_code == 400
+    assert b"Abstract is required and cannot be empty." in resp.data
+    assert b"Authors are required and cannot be empty." in resp.data
 
     
 #     @mock.patch(f'{metadata.__name__}.OptionalMetadataForm.Meta.csrf', False)
