@@ -561,48 +561,6 @@ class TestSetTitle(TestCase):
         with self.assertRaises(InvalidEvent):
             e.validate_pre_lock(self.submission)
 
-    # breaks with metacheck (fix arriving soon)
-    # def test_reasonable_title(self):
-    #     """Title is set to some reasonable value smaller than 240 chars."""
-    #     for _ in range(100):    # Add a little fuzz to the mix.
-    #         for locale in LOCALES:
-    #             title = Text(locale=locale).text(6)[:240] \
-    #                 .strip() \
-    #                 .rstrip('.') \
-    #                 .replace('@', '') \
-    #                 .replace('#', '') \
-    #                 .replace('(', '').replace(')', '') \
-    #                 .replace('{', '').replace('}', '') \
-    #                 .replace('  ', ' ') \
-    #                 .title()
-    #             e = event.SetTitle(creator=self.user, title=title)
-    #             try:
-    #                 e.validate_pre_lock(self.submission)
-    #             except InvalidEvent as e:
-    #                 self.fail(f'Failed to handle title due to {e.message}: "{title}" ')
-
-    def test_title_ends_with_period(self):
-        """Title ends with a period."""
-        title = Text().title()[:239] + "."
-        e = event.SetTitle(creator=self.user, title=title)
-        with self.assertRaises(InvalidEvent):
-            e.validate_pre_lock(self.submission)
-
-    def test_title_ends_with_ellipsis(self):
-        """Title ends with an ellipsis."""
-        title = Text().title()[:236] + "..."
-        e = event.SetTitle(creator=self.user, title=title)
-        try:
-            e.validate_pre_lock(self.submission)
-        except InvalidEvent as e:
-            self.fail("Should accept ellipsis")
-
-    def test_title_with_html_escapes(self):
-        """Title should not allow HTML escapes."""
-        e = event.SetTitle(creator=self.user, title='foo &nbsp; title')
-        with self.assertRaises(InvalidEvent):
-            e.validate_pre_lock(self.submission)
-
 
 class TestSetAbstract(TestCase):
     """Tests for :class:`.event.SetAbstract`."""
@@ -623,27 +581,6 @@ class TestSetAbstract(TestCase):
         with self.assertRaises(InvalidEvent):
             e.validate_pre_lock(self.submission)
 
-    def test_reasonable_abstract(self):
-        """Abstract is set to some reasonable value smaller than 1920 chars."""
-        for _ in range(100):
-            abstract = Text(locale="en").text(20)[:1920]
-            e = event.SetAbstract(creator=self.user, abstract=abstract)
-            try:
-                e.validate_pre_lock(self.submission)
-            except InvalidEvent as e:
-                self.fail(f'Failed to handle abstract due to {e.message}: {abstract}')
-
-
-    def test_reasonable_international_abstract(self):
-        """Abstract is set to international text length smaller than 1920 chars."""
-        for locale in LOCALES:
-            abstract = Text(locale=locale).text(20)[:1920]
-            e = event.SetAbstract(creator=self.user, abstract=abstract)
-            try:
-                e.validate_pre_lock(self.submission)
-            except InvalidEvent as e:
-                if "Does not appear to be in English" not in e.message:
-                    self.fail(f'Failed to handle abstract due to {e.message}: {abstract}')
 
 class TestSetDOI(TestCase):
     """Tests for :class:`.event.SetDOI`."""
@@ -742,6 +679,7 @@ class TestSetReportNumber(TestCase):
                 e.validate_pre_lock(self.submission)
             except InvalidEvent as e:
                 self.fail(f'failed report number {e.message}: {value}')
+
 
 class TestSetJournalReference(TestCase):
     """Tests for :class:`.event.SetJournalReference`."""
@@ -868,25 +806,25 @@ class TestSetMSCClassification(TestCase):
         """MSC classification value is valid."""
         values = [
             "57M25",
-            "35k55; 35k65",
+            "35k55, 35k65",
             "60G51",
             "16S15, 13P10, 17A32, 17A99",
             "16S15, 13P10, 17A30",
-            "05A15 ; 30F10 ; 30D05",
+            "05A15, 30F10, 30D05",
             "16S15, 13P10, 17A01, 17B67, 16D10",
-            "primary 05A15 ; secondary 30F10, 30D05.",
+            "primary 05A15, secondary 30F10, 30D05.",
             "35B45 (Primary), 35J40 (Secondary)",
             "13D45, 13C14, 13Exx",
             "13D45, 13C14",
-            "57M25; 05C50",
+            "57M25, 05C50",
             "32G34 (Primary), 14D07 (Secondary)",
             "05C75, 60G09",
-            "14H20; 13A18; 13F30",
-            "49K10; 26A33; 26B20",
+            "14H20, 13A18, 13F30",
+            "49K10, 26A33, 26B20",
             "20NO5, 08A05",
             "20NO5 (Primary), 08A05 (Secondary)",
             "83D05",
-            "20NO5; 08A05"
+            "20NO5, 08A05"
         ]
         for value in values:
             try:

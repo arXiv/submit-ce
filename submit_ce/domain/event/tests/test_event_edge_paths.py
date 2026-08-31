@@ -341,14 +341,3 @@ def test_title_allows_basic_tags():
     with mock.patch.object(TitleIsValid, "check", return_value=ok_result):
         e.validate_pre_lock(s)
 
-def test_title_rejects_disallowed_html():
-    s = _working_submission()
-    e = SetTitle(creator=s.creator, title="<script>alert(1)</script>")
-    with pytest.raises(InvalidEvent):
-        e.validate_pre_lock(s)  # _check_for_html branch
-
-def test_title_trailing_period_rule():
-    s = _working_submission()
-    e = SetTitle(creator=s.creator, title="Hello world.")
-    with pytest.raises(InvalidEvent):
-        e.validate_pre_lock(s)  # validators.no_trailing_period

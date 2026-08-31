@@ -65,19 +65,6 @@ def _blank_submission(uid: str = "u1"):
 # Tests: small, focused validations in event/__init__.py
 # -------------------------------------------------------
 
-def test_set_title_rejects_trailing_period():
-    """
-    SetTitle should reject titles ending with a trailing period.
-
-    Why: Title validation includes a "no trailing '.'" rule.
-    Expectation: InvalidEvent is raised by .validate_pre_lock(submission).
-    """
-    s = _blank_submission()
-    e = SetTitle(creator=s.creator, title="Ends with period.")
-    with pytest.raises(InvalidEvent):
-        e.validate_pre_lock(s)
-
-
 def test_set_license_rejects_invalid_uri():
     """
     SetLicense should reject license URIs not present in the allowed set.

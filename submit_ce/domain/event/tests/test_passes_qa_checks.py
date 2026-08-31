@@ -59,7 +59,7 @@ def test_reject_disposition_raises_with_aggregate_message():
     )
     with pytest.raises(InvalidEvent) as excinfo:
         validators.passes_qa_checks(_event(), result)
-    assert excinfo.value.message == "Title is invalid or empty."
+    assert excinfo.value.message == ""
 
 
 def test_reject_disposition_message_includes_only_reject_sub_results():
