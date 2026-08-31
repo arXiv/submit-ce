@@ -1734,7 +1734,7 @@ wheels = [
 [[package]]
 name = "qa"
 version = "0.1.0"
-source = { git = "https://github.com/arXiv/arxiv-base.git?subdirectory=qa&branch=add-metadata-cleanup-methods#44e03d05e35abcb2daab3422fcf94e9f223404fe" }
+source = { git = "https://github.com/arXiv/arxiv-base.git?subdirectory=qa&branch=add-metadata-cleanup-methods#5b82e11c959971bc7090b35fbaf08dc6561c6679" }
 dependencies = [
     { name = "arxiv-base" },
     { name = "fasttext-langdetect" },
