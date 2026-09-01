@@ -1733,7 +1733,7 @@ wheels = [
 [[package]]
 name = "qa"
 version = "0.1.0"
-source = { git = "https://github.com/arXiv/arxiv-base.git?subdirectory=qa&branch=add-metadata-cleanup-methods#a5c003eae80772b62d0b04f99e50e437783311ca" }
+source = { git = "https://github.com/arXiv/arxiv-base.git?subdirectory=qa&branch=develop#4f79630115a6153a54e1efb3b10b2d24e8a5c72c" }
 dependencies = [
     { name = "arxiv-base" },
     { name = "bleach" },
@@ -2291,7 +2291,7 @@ requires-dist = [
     { name = "python-multipart", specifier = "==0.0.9" },
     { name = "pytz", specifier = "==2018.7" },
     { name = "pyyaml", specifier = "==6.0.2" },
-    { name = "qa", git = "https://github.com/arXiv/arxiv-base.git?subdirectory=qa&branch=add-metadata-cleanup-methods" },
+    { name = "qa", git = "https://github.com/arXiv/arxiv-base.git?subdirectory=qa&branch=develop" },
     { name = "referencing", specifier = "==0.35.1" },
     { name = "reportlab", specifier = ">=4.2.0" },
     { name = "requests", specifier = "==2.32.3" },
