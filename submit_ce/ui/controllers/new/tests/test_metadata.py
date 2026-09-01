@@ -1,5 +1,11 @@
 """Tests for :mod:`submit_ce.controllers.metadata`."""
+from flask import request
+from werkzeug.datastructures import MultiDict
+
+from submit_ce.domain.agent import InternalClient
+from submit_ce.domain.event import SetMSCClassification
 from submit_ce.domain.submission import Submission
+from submit_ce.ui.controllers.new.metadata import MetadataForm, _commands
 from submit_ce.ui.tests import gets
 from submit_ce.ui.tests.csrf_util import parse_csrf_token
 
@@ -94,6 +100,51 @@ def test_metadata_empty_title_shows_qa_message(app, authorized_client, sub_proce
     assert resp.status_code == 400
     assert b"Abstract is required and cannot be empty." in resp.data
     assert b"Authors are required and cannot be empty." in resp.data
+
+
+def test_metadata_omitted_required_fields_do_not_skip_qa(app, authorized_client, sub_processed):
+    """A POST that omits the title/abstract/authors_display keys entirely
+    (rather than sending them as empty strings) must still be rejected by
+    the QA presence checks, not silently advance the stage."""
+    sub: Submission = sub_processed
+    url = f"/{sub.submission_id}/add_metadata"
+
+    resp = authorized_client.get(url)
+    assert resp.status_code == 200
+
+    resp = authorized_client.post(url, data={
+        "csrf_token": parse_csrf_token(resp),
+        "action": "next",
+    })
+    assert resp.status_code == 400
+    sub_db = gets(app, sub)
+    assert not sub_db.metadata.title
+
+
+def test_commands_runs_qa_checks_for_omitted_optional_fields(
+        app, authorized_user, authorized_user_session, sub_processed):
+    """An optional field's requiredness lives entirely in its QA check's
+    on_failure_policy. If that policy is later tightened to REJECT, the
+    controller must still be running the check even when the field is
+    omitted from the POST body -- not just when it's present and changed."""
+    sub: Submission = sub_processed
+    session, _ = authorized_user_session
+    with app.test_request_context("/"):
+        request.auth = session  # CSRFForm needs an active session on the request
+        form = MetadataForm(MultiDict({
+            "title": "A perfectly fine title",
+            "abstract": "Cheese onion cat table backpack plywood x.",
+            "authors_display": "Bob Smith",
+            # msc_class intentionally omitted, unlike the old
+            # `if form.msc_class.data and ...` guard, which skipped
+            # building (and therefore validating) a command whenever the
+            # field was falsy -- whether omitted or unchanged-and-blank.
+        }))
+        client = InternalClient(name="test_client")
+        commands, valid = _commands(form, sub, authorized_user, client)
+
+    assert any(isinstance(c, SetMSCClassification) for c in commands)
+    assert len(commands) == len(valid)
 
 
 def test_metadata_blank_optional_fields_are_accepted(app, authorized_client, sub_processed):
