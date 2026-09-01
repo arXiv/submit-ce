@@ -300,16 +300,6 @@ def test_set_license_invalid_uri(mock_user, base_submission):
     with pytest.raises(InvalidEvent, match="License URL is not on the list of valid licenses"):
         e.validate_pre_lock(base_submission)
 
-def test_set_title_html_escapes(mock_user, base_submission):
-    e = event.SetTitle(creator=mock_user, created=datetime.now(UTC), title="A title with &amp; escape")
-    with pytest.raises(InvalidEvent, match="Title may not contain HTML escapes"):
-        e.validate_pre_lock(base_submission)
-
-def test_set_title_invalid_html(mock_user, base_submission):
-    e = event.SetTitle(creator=mock_user, created=datetime.now(UTC), title="A title with <script>alert(1)</script>")
-    with pytest.raises(InvalidEvent, match="Title contains unacceptable HTML tags"):
-        e.validate_pre_lock(base_submission)
-
 def test_set_abstract_invalid_length(mock_user, base_submission):
     # SetAbstract.validate calls metacheck.check_abstract
     # We can't easily trigger InvalidEvent here without metacheck returning error.

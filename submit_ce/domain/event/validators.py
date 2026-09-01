@@ -4,10 +4,32 @@ import re
 from typing import Sequence, Set
 
 from arxiv.taxonomy.definitions import CATEGORIES
+from qa.checks.models import Disposition, Result
 
 from .base import Event
 from ..submission import Submission, SubmissionType
 from ..exceptions import InvalidEvent
+
+
+
+def passes_qa_checks(event: Event, check_result: Result) -> None:
+    """
+    Verify that the input passes quality assurance checks.
+
+    Parameters
+    ----------
+    event : :class:`.Event`
+    check_result : :class:`qa.checks.models.Result`
+
+    Raises
+    ------
+    :class:`.InvalidEvent`
+        Raised if `check_result.disposition` is `REJECT`.
+
+    """
+    if check_result.disposition == Disposition.REJECT:
+        message = check_result._messages(Disposition.REJECT)
+        raise InvalidEvent(event, message)
 
 
 def submission_is_not_finalized(event: Event, submission: Submission) -> None:

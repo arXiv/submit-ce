@@ -9,7 +9,6 @@ submit_ce/domain/event/__init__.py:
 - ConfirmPreview: no preview / checksum mismatch / correct checksum
 - CreateSubmissionVersion: .validate requires an announced submission
 - Rollback: version==1 (delete), version>1 with history, invalid scenarios
-- SetReportNumber: invalid vs. valid formats
 """
 
 from datetime import datetime
@@ -30,10 +29,7 @@ from submit_ce.domain.event import (
     FinalizeSubmission,
     RemoveSecondaryClassification,
     Rollback,
-    SetAbstract,
     SetLicense,
-    SetReportNumber,
-    SetTitle,
     InvalidEvent,
 )
 
@@ -281,22 +277,6 @@ def test_rollback_version1_sets_deleted():
     assert out.status == Submission.DELETED
 
 # -------------------------------------------------------
-# SetAbstract
-# -------------------------------------------------------
-def test_abstract_too_short_fails():
-    s = _working_submission()
-    e = SetAbstract(creator=s.creator, abstract="short")
-    with pytest.raises(InvalidEvent):
-        e.validate_pre_lock(s)  # MIN_LENGTH branch
-
-def test_abstract_valid_passes():
-    s = _working_submission()
-    e = SetAbstract(creator=s.creator, abstract="This abstract is just long enough")
-    e.validate_pre_lock(s)
-    s2 = e.project(s)
-    assert s2.metadata.abstract == "This abstract is just long enough"
-
-# -------------------------------------------------------
 # SetLicense
 # -------------------------------------------------------
 def test_license_requires_url():
@@ -312,48 +292,3 @@ def test_license_valid_url():
     e = SetLicense(creator=s.creator, license_name="CC BY 4.0",
                    license_uri="http://creativecommons.org/licenses/by/4.0/")
     e.validate_pre_lock(s)  # passes if LICENSES marks it current
-
-# -------------------------------------------------------
-# SetReportNumber: invalid vs. valid formats
-# -------------------------------------------------------
-
-def test_set_report_number_rejects_invalid_value():
-    """
-    SetReportNumber.validate requires at least two consecutive digits in the value.
-    """
-    s = _working_submission()
-    e = SetReportNumber(creator=s.creator, report_num="not a report number")
-    with pytest.raises(InvalidEvent):
-        e.validate_pre_lock(s)
-
-def test_set_report_number_accepts_common_formats():
-    """
-    SetReportNumber.validate accepts values with consecutive digits (e.g. '1003.1130').
-    """
-    s = _working_submission()
-    e = SetReportNumber(creator=s.creator, report_num="CORNELL-1003-1130")
-    # Should not raise
-    e.validate_pre_lock(s)
-    after = e.apply(s)
-    assert after.metadata.report_num == "CORNELL-1003-1130"
-
-# -------------------------------------------------------
-# SetTitle
-# -------------------------------------------------------
-def test_title_allows_basic_tags():
-    s = _working_submission()
-    e = SetTitle(creator=s.creator, title="Hello<br>World")
-    with pytest.raises(InvalidEvent):
-        e.validate_pre_lock(s)  # No HTML tags are allowed
-
-def test_title_rejects_disallowed_html():
-    s = _working_submission()
-    e = SetTitle(creator=s.creator, title="<script>alert(1)</script>")
-    with pytest.raises(InvalidEvent):
-        e.validate_pre_lock(s)  # _check_for_html branch
-
-def test_title_trailing_period_rule():
-    s = _working_submission()
-    e = SetTitle(creator=s.creator, title="Hello world.")
-    with pytest.raises(InvalidEvent):
-        e.validate_pre_lock(s)  # validators.no_trailing_period

@@ -32,18 +32,18 @@ Response = Tuple[Dict[str, Any], int, Dict[str, Any]]  # pylint: disable=C0103
 
 
 class MetadataForm(csrf.CSRFForm, FieldMixin):
-    """Handles metadata fields on a submission."""
+    """Handles metadata fields on a submission. QA checks enforce required fields."""
 
-    title = StringField('Title', validators=[validators.DataRequired()])
+    title = StringField('Title', validators=[validators.optional()])
     authors_display = TextAreaField(
         'Authors',
-        validators=[validators.DataRequired()],
+        validators=[validators.optional()],
         description=("use <code>GivenName(s) FamilyName(s)</code> or <code>I. "
                      "FamilyName</code>; separate individual authors with "
                      "a comma or 'and'.")
     )
     abstract = TextAreaField('Abstract',
-                             validators=[validators.DataRequired()],
+                             validators=[validators.optional()],
                              description='Limit of 1920 characters')
     comments = StringField('Comments',
                          default='',
@@ -122,76 +122,44 @@ def metadata(method: str, params: MultiDict, session: Session,
     return ready_for_next((response_data, status.OK, {}))
 
 
+# Field name, and the Event class whose constructor takes that same name
+# as its keyword argument. Whether a field is actually required is decided
+# entirely by that field's QA check (its EmptyFieldCheck on_failure_policy),
+# not here -- so every field is treated identically below.
+_METADATA_FIELDS: List[Tuple[str, type]] = [
+    ('title', SetTitle),
+    ('abstract', SetAbstract),
+    ('comments', SetComments),
+    ('authors_display', SetAuthors),
+    ('msc_class', SetMSCClassification),
+    ('acm_class', SetACMClassification),
+    ('report_num', SetReportNumber),
+    ('journal_ref', SetJournalReference),
+    ('doi', SetDOI),
+]
+
+
 def _commands(form: MetadataForm, submission: Submission,
               creator: User, client: Client) -> Tuple[List[Event], List[bool]]:
     commands: List[Event] = []
     valid: List[bool] = []
 
-    if form.title.data and submission.metadata \
-            and form.title.data != submission.metadata.title:
-        command = SetTitle(title=form.title.data, creator=creator,
-                           client=client)
-        valid.append(validate_command(form, command, submission, 'title'))
-        commands.append(command)
+    if not submission.metadata:
+        return commands, valid
 
-    if form.abstract.data and submission.metadata \
-            and form.abstract.data != submission.metadata.abstract:
-        command = SetAbstract(abstract=form.abstract.data, creator=creator,
-                              client=client)
-        valid.append(validate_command(form, command, submission, 'abstract'))
-        commands.append(command)
-
-    if form.comments.data and submission.metadata \
-            and form.comments.data != submission.metadata.comments:
-        command = SetComments(comments=form.comments.data, creator=creator,
-                              client=client)
-        valid.append(validate_command(form, command, submission, 'comments'))
-        commands.append(command)
-
-    value = form.authors_display.data
-    if value and submission.metadata \
-            and value != submission.metadata.authors_display:
-        command = SetAuthors(authors_display=form.authors_display.data,
-                             creator=creator, client=client)
-        valid.append(validate_command(form, command, submission,
-                                      'authors_display'))
-        commands.append(command)
-
-    # #################### OPTIONAL FIELDS #################### #
-
-    if form.msc_class.data and submission.metadata \
-            and form.msc_class.data != submission.metadata.msc_class:
-        command = SetMSCClassification(msc_class=form.msc_class.data,
-                                       creator=creator, client=client)
-        valid.append(validate_command(form, command, submission, 'msc_class'))
-        commands.append(command)
-
-    if form.acm_class.data and submission.metadata \
-            and form.acm_class.data != submission.metadata.acm_class:
-        command = SetACMClassification(acm_class=form.acm_class.data,
-                                       creator=creator, client=client)
-        valid.append(validate_command(form, command, submission, 'acm_class'))
-        commands.append(command)
-
-    if form.report_num.data and submission.metadata \
-            and form.report_num.data != submission.metadata.report_num:
-        command = SetReportNumber(report_num=form.report_num.data,
-                                  creator=creator, client=client)
-        valid.append(validate_command(form, command, submission, 'report_num'))
-        commands.append(command)
-
-    if form.journal_ref.data and submission.metadata \
-            and form.journal_ref.data != submission.metadata.journal_ref:
-        command = SetJournalReference(journal_ref=form.journal_ref.data,
-                                      creator=creator, client=client)
-        valid.append(validate_command(form, command, submission,
-                                      'journal_ref'))
-        commands.append(command)
-
-    if form.doi.data and submission.metadata \
-            and form.doi.data != submission.metadata.doi:
-        command = SetDOI(doi=form.doi.data, creator=creator, client=client)
-        valid.append(validate_command(form, command, submission, 'doi'))
-        commands.append(command)
+    for field_name, event_cls in _METADATA_FIELDS:
+        # A missing key in the POST body (as opposed to an empty string)
+        # leaves form.<field>.data as None; treat it the same as blank so
+        # an omitted field can't skip its QA check below. Also run the
+        # check whenever the field is (still) blank, not just on change,
+        # so a field's QA policy can be tightened to require it without
+        # also having to change this controller.
+        data = getattr(form, field_name).data or ''
+        stored = getattr(submission.metadata, field_name)
+        if data != stored or not data:
+            command = event_cls(creator=creator, client=client,
+                                **{field_name: data})
+            valid.append(validate_command(form, command, submission, field_name))
+            commands.append(command)
 
     return commands, valid

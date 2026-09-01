@@ -1,5 +1,11 @@
 """Tests for :mod:`submit_ce.controllers.metadata`."""
+from flask import request
+from werkzeug.datastructures import MultiDict
+
+from submit_ce.domain.agent import InternalClient
+from submit_ce.domain.event import SetMSCClassification
 from submit_ce.domain.submission import Submission
+from submit_ce.ui.controllers.new.metadata import MetadataForm, _commands
 from submit_ce.ui.tests import gets
 from submit_ce.ui.tests.csrf_util import parse_csrf_token
 
@@ -19,15 +25,14 @@ def test_metadata(app, authorized_client, sub_processed):
     resp = authorized_client.post(url, data={})
     assert resp.status_code == 400 \
         and b"<title>Add or Edit Metadata" in resp.data and b"<form " in resp.data
-    resp = authorized_client.post(url, data={"csrf_token":parse_csrf_token(resp)})
-    assert resp.status_code == 400 \
-        and b"<title>Add or Edit Metadata" in resp.data and b"<form " in resp.data
-
-    # test a short abstract to check that validation works
-    resp = authorized_client.post(url, data={"csrf_token":parse_csrf_token(resp),
-                                             "title": "TitleX bla bla bla bla",
-                                             "abstract": "too short abs",
-                                             "authors_display": "Bob Smith"})
+    # A real browser submits title/abstract/authors_display as empty strings
+    # (not omitted) when the fields are left blank; requiredness is now
+    # enforced by the QA checks rather than WTForms, so this must supply
+    # them to trigger that rejection.
+    resp = authorized_client.post(url, data={"csrf_token": parse_csrf_token(resp),
+                                             "title": "",
+                                             "abstract": "",
+                                             "authors_display": ""})
     assert resp.status_code == 400 \
         and b"<title>Add or Edit Metadata" in resp.data and b"<form " in resp.data
 
@@ -58,7 +63,117 @@ def test_metadata(app, authorized_client, sub_processed):
         and sub_db.metadata.abstract == data["abstract"] \
         and sub_db.metadata.authors_display == data["authors_display"]
 
-    
+
+def test_metadata_empty_title_shows_qa_message(app, authorized_client, sub_processed):
+    """Clearing the title should reach the QA check and surface its message,
+    not be silently swallowed by client-side/WTForms required validation."""
+    sub: Submission = sub_processed
+    url = f"/{sub.submission_id}/add_metadata"
+
+    resp = authorized_client.get(url)
+    assert resp.status_code == 200
+    assert b'required' not in resp.data.split(b'name="title"')[1].split(b'>')[0]
+
+    assert b'required' not in resp.data.split(b'name="abstract"')[1].split(b'>')[0]
+    assert b'required' not in resp.data.split(b'name="authors_display"')[1].split(b'>')[0]
+
+    resp = authorized_client.post(url, data={
+        "csrf_token": parse_csrf_token(resp),
+        "title": "",
+        "abstract": "Cheese onion cat table backpack plywood x.",
+        "authors_display": "Bob Smith",
+        'action': 'next',
+    })
+    assert resp.status_code == 400
+    assert b"Title is required and cannot be empty." in resp.data
+    sub_db = gets(app, sub)
+    assert sub_db.metadata is None or sub_db.metadata.title != ""
+
+    resp = authorized_client.get(url)
+    resp = authorized_client.post(url, data={
+        "csrf_token": parse_csrf_token(resp),
+        "title": "A perfectly fine title",
+        "abstract": "",
+        "authors_display": "",
+        'action': 'next',
+    })
+    assert resp.status_code == 400
+    assert b"Abstract is required and cannot be empty." in resp.data
+    assert b"Authors are required and cannot be empty." in resp.data
+
+
+def test_metadata_omitted_required_fields_do_not_skip_qa(app, authorized_client, sub_processed):
+    """A POST that omits the title/abstract/authors_display keys entirely
+    (rather than sending them as empty strings) must still be rejected by
+    the QA presence checks, not silently advance the stage."""
+    sub: Submission = sub_processed
+    url = f"/{sub.submission_id}/add_metadata"
+
+    resp = authorized_client.get(url)
+    assert resp.status_code == 200
+
+    resp = authorized_client.post(url, data={
+        "csrf_token": parse_csrf_token(resp),
+        "action": "next",
+    })
+    assert resp.status_code == 400
+    sub_db = gets(app, sub)
+    assert not sub_db.metadata.title
+
+
+def test_commands_runs_qa_checks_for_omitted_optional_fields(
+        app, authorized_user, authorized_user_session, sub_processed):
+    """An optional field's requiredness lives entirely in its QA check's
+    on_failure_policy. If that policy is later tightened to REJECT, the
+    controller must still be running the check even when the field is
+    omitted from the POST body -- not just when it's present and changed."""
+    sub: Submission = sub_processed
+    session, _ = authorized_user_session
+    with app.test_request_context("/"):
+        request.auth = session  # CSRFForm needs an active session on the request
+        form = MetadataForm(MultiDict({
+            "title": "A perfectly fine title",
+            "abstract": "Cheese onion cat table backpack plywood x.",
+            "authors_display": "Bob Smith",
+            # msc_class intentionally omitted, unlike the old
+            # `if form.msc_class.data and ...` guard, which skipped
+            # building (and therefore validating) a command whenever the
+            # field was falsy -- whether omitted or unchanged-and-blank.
+        }))
+        client = InternalClient(name="test_client")
+        commands, valid = _commands(form, sub, authorized_user, client)
+
+    assert any(isinstance(c, SetMSCClassification) for c in commands)
+    assert len(commands) == len(valid)
+
+
+def test_metadata_blank_optional_fields_are_accepted(app, authorized_client, sub_processed):
+    """Blank comments/doi/journal_ref/report_num/acm_class/msc_class are still
+    optional: removing the domain layer's local "blank is OK" early-returns
+    must not make these fields required."""
+    sub: Submission = sub_processed
+    url = f"/{sub.submission_id}/add_metadata"
+
+    resp = authorized_client.get(url)
+    assert resp.status_code == 200
+    resp = authorized_client.post(url, data={
+        "csrf_token": parse_csrf_token(resp),
+        "title": "A perfectly fine title",
+        "abstract": "Cheese onion cat table backpack plywood x.",
+        "authors_display": "Bob Smith",
+        "comments": "",
+        "doi": "",
+        "journal_ref": "",
+        "report_num": "",
+        "acm_class": "",
+        "msc_class": "",
+        'action': 'next',
+    })
+    assert resp.status_code == 303
+    sub_db = gets(app, sub)
+    assert sub_db.metadata.title == "A perfectly fine title"
+
+
 #     @mock.patch(f'{metadata.__name__}.OptionalMetadataForm.Meta.csrf', False)
 #     @mock.patch(f'{metadata.__name__}.api.save')
 #     @mock.patch(f'{metadata.__name__}.get_submission')

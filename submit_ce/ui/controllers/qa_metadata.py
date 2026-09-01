@@ -21,7 +21,7 @@ from arxiv.db.models import (
     SubmissionAbsClassifierDatum,
     SubmissionClassifierDatum,
 )
-from arxiv.metadata.checksum import checksum_metadata
+from qa.checks.utils.checksum import checksum_metadata
 
 from submit_ce.domain import qa_metadata
 
@@ -57,7 +57,7 @@ def build_qa_metadata(submission_id: str) -> Dict[str, Any]:
                       .filter(SubmissionClassifierDatum.submission_id == sid).first())
 
         # adler32 of descriptive metadata; computed from the ORM row (which
-        # satisfies arxiv.metadata.MetadataProtocol) before it is flattened.
+        # satisfies qa.checks.models.MetadataProtocol) before it is flattened.
         metadata_checksum = checksum_metadata(submission)
 
         urls, crc32c = current_app.api.get_file_store().get_qa_artifact_info(submission_id)

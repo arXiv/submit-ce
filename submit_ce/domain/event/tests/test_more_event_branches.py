@@ -21,7 +21,6 @@ from submit_ce.domain import submission as submod, meta, agent
 # Event classes (and exception) we target for branch coverage.
 from submit_ce.domain.event import (
     SetTitle,
-    SetAbstract,
     SetLicense,
     RemoveSecondaryClassification,
     FinalizeSubmission,
@@ -66,54 +65,6 @@ def _blank_submission(uid: str = "u1"):
 # Tests: small, focused validations in event/__init__.py
 # -------------------------------------------------------
 
-def test_set_title_rejects_all_caps():
-    """
-    SetTitle should reject titles that are entirely uppercase.
-
-    Why: The event validation explicitly checks for all-caps titles.
-    Expectation: InvalidEvent is raised by .validate_pre_lock(submission).
-    """
-    s = _blank_submission()
-    e = SetTitle(creator=s.creator, title="ALL CAPS TITLE")
-    with pytest.raises(InvalidEvent):
-        e.validate_pre_lock(s)
-
-
-def test_set_title_rejects_trailing_period():
-    """
-    SetTitle should reject titles ending with a trailing period.
-
-    Why: Title validation includes a "no trailing '.'" rule.
-    Expectation: InvalidEvent is raised by .validate_pre_lock(submission).
-    """
-    s = _blank_submission()
-    e = SetTitle(creator=s.creator, title="Ends with period.")
-    with pytest.raises(InvalidEvent):
-        e.validate_pre_lock(s)
-
-
-def test_set_abstract_length_bounds_both_paths():
-    """
-    SetAbstract length rules: too short -> reject; reasonable -> accept.
-
-    Why: MIN_LENGTH and MAX_LENGTH constraints are enforced in validation.
-    Expectation:
-      - too short: InvalidEvent
-      - reasonable length: validate() does not raise
-    """
-    s = _blank_submission()
-
-    # Too short: MIN_LENGTH is 20, so this should fail.
-    e_short = SetAbstract(creator=s.creator, abstract="too short")
-    with pytest.raises(InvalidEvent):
-        e_short.validate_pre_lock(s)
-
-    # Reasonable: 25 chars satisfies the minimum.
-    ok_text = "This abstract is valid length."
-    e_ok = SetAbstract(creator=s.creator, abstract=ok_text)
-    e_ok.validate_pre_lock(s)  # no exception means the branch was accepted
-
-
 def test_set_license_rejects_invalid_uri():
     """
     SetLicense should reject license URIs not present in the allowed set.
@@ -123,30 +74,6 @@ def test_set_license_rejects_invalid_uri():
     """
     s = _blank_submission()
     e = SetLicense(creator=s.creator, license_uri="http://not-on-our-list")
-    with pytest.raises(InvalidEvent):
-        e.validate_pre_lock(s)
-
-
-def test_abstract_rejects_when_not_capitalized():
-    """
-    Abstracts must start with a capital letter.
-    Expect InvalidEvent when the first character is lowercase.
-    """
-    s = _blank_submission()
-    e = SetAbstract(creator=s.creator, abstract="not capitalized first sentence.")
-    with pytest.raises(InvalidEvent):
-        e.validate_pre_lock(s)
-
-
-def test_abstract_rejects_when_too_long():
-    """
-    Abstracts longer than MAX_LENGTH should be rejected.
-    Your existing SetAbstract enforces MAX_LENGTH=1920.
-    """
-    s = _blank_submission()
-    # Start with a capital letter to isolate the length failure.
-    too_long = "A" + ("x" * 2000)
-    e = SetAbstract(creator=s.creator, abstract=too_long)
     with pytest.raises(InvalidEvent):
         e.validate_pre_lock(s)
 
