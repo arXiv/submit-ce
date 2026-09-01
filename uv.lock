@@ -1733,7 +1733,7 @@ wheels = [
 [[package]]
 name = "qa"
 version = "0.1.0"
-source = { git = "https://github.com/arXiv/arxiv-base.git?subdirectory=qa&branch=add-metadata-cleanup-methods#7877fe359afc2cf87e773be7bba3745ed3018382" }
+source = { git = "https://github.com/arXiv/arxiv-base.git?subdirectory=qa&branch=add-metadata-cleanup-methods#a5c003eae80772b62d0b04f99e50e437783311ca" }
 dependencies = [
     { name = "arxiv-base" },
     { name = "bleach" },
