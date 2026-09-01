@@ -4,9 +4,7 @@ These tests construct :class:`qa.checks.models.Result` objects directly,
 rather than exercising real qa checks against real-world strings. That
 keeps this coverage independent of how any individual qa sub-check's
 ``on_failure_policy`` happens to be configured upstream: submit-ce only
-needs to guarantee how it reacts to a given disposition, not which real
-input strings currently produce which disposition (that's qa's own
-responsibility to test).
+needs to guarantee how it reacts to a given disposition.
 """
 import pytest
 from qa.checks.models import Disposition, Result
@@ -24,7 +22,6 @@ user = agent.PublicUser(
 
 
 def _event() -> SetTitle:
-    """Any Event instance works; passes_qa_checks only needs .event_type."""
     return SetTitle(creator=user, title="A perfectly fine title")
 
 
@@ -48,8 +45,6 @@ def test_warn_disposition_does_not_raise():
 
 
 def test_reject_disposition_raises_with_aggregate_message():
-    """Mirrors the empty/missing-field path: no sub-results, just the
-    aggregate's own failure message."""
     result = Result(
         check_config={},
         passed=False,
@@ -63,9 +58,6 @@ def test_reject_disposition_raises_with_aggregate_message():
 
 
 def test_reject_disposition_message_includes_only_reject_sub_results():
-    """The exception message is built from _messages(REJECT): the
-    joined messages of failing sub-results whose own disposition is REJECT,
-    excluding WARN-tier sub-results."""
     result = Result(
         check_config={},
         passed=False,
@@ -82,7 +74,6 @@ def test_reject_disposition_message_includes_only_reject_sub_results():
 
 
 def test_reject_disposition_message_joins_multiple_reject_sub_results():
-    """Multiple failing REJECT-tier sub-results are newline-joined."""
     result = Result(
         check_config={},
         passed=False,

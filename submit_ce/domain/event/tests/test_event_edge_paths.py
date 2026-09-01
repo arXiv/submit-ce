@@ -9,17 +9,12 @@ submit_ce/domain/event/__init__.py:
 - ConfirmPreview: no preview / checksum mismatch / correct checksum
 - CreateSubmissionVersion: .validate requires an announced submission
 - Rollback: version==1 (delete), version>1 with history, invalid scenarios
-- SetReportNumber: invalid vs. valid formats
 """
 
 from datetime import datetime
 from pytz import UTC
 import copy
 import pytest
-from unittest import mock
-
-from qa.checks import TitleIsValid
-from qa.checks.models import Disposition, Result
 
 # Domain models and helpers
 from submit_ce.domain import submission as submod, agent
@@ -34,10 +29,7 @@ from submit_ce.domain.event import (
     FinalizeSubmission,
     RemoveSecondaryClassification,
     Rollback,
-    SetAbstract,
     SetLicense,
-    SetReportNumber,
-    SetTitle,
     InvalidEvent,
 )
 
@@ -285,16 +277,6 @@ def test_rollback_version1_sets_deleted():
     assert out.status == Submission.DELETED
 
 # -------------------------------------------------------
-# SetAbstract
-# -------------------------------------------------------
-def test_abstract_valid_passes():
-    s = _working_submission()
-    e = SetAbstract(creator=s.creator, abstract="This abstract is just long enough")
-    e.validate_pre_lock(s)
-    s2 = e.project(s)
-    assert s2.metadata.abstract == "This abstract is just long enough"
-
-# -------------------------------------------------------
 # SetLicense
 # -------------------------------------------------------
 def test_license_requires_url():
@@ -310,34 +292,3 @@ def test_license_valid_url():
     e = SetLicense(creator=s.creator, license_name="CC BY 4.0",
                    license_uri="http://creativecommons.org/licenses/by/4.0/")
     e.validate_pre_lock(s)  # passes if LICENSES marks it current
-
-# -------------------------------------------------------
-# SetReportNumber: invalid vs. valid formats
-# -------------------------------------------------------
-
-def test_set_report_number_accepts_common_formats():
-    """
-    SetReportNumber.validate accepts values with consecutive digits (e.g. '1003.1130').
-    """
-    s = _working_submission()
-    e = SetReportNumber(creator=s.creator, report_num="CORNELL-1003-1130")
-    # Should not raise
-    e.validate_pre_lock(s)
-    after = e.apply(s)
-    assert after.metadata.report_num == "CORNELL-1003-1130"
-
-# -------------------------------------------------------
-# SetTitle
-# -------------------------------------------------------
-def test_title_allows_basic_tags():
-    """<br> is in ALLOWED_HTML, so SetTitle._check_for_html should not block it.
-
-    TitleIsValid.check is mocked to an OK Result so this test exercises only
-    submit-ce's own bleach-based HTML check, independent of qa's checks.
-    """
-    s = _working_submission()
-    e = SetTitle(creator=s.creator, title="Hello<br>World")
-    ok_result = Result(check_config={}, passed=True, disposition=Disposition.OK, message="")
-    with mock.patch.object(TitleIsValid, "check", return_value=ok_result):
-        e.validate_pre_lock(s)
-

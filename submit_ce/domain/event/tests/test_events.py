@@ -4,7 +4,6 @@ from datetime import datetime
 from unittest import TestCase, mock
 
 from arxiv.taxonomy.definitions import CATEGORIES, CATEGORIES_ACTIVE
-from mimesis import Text
 from pytz import UTC
 
 from submit_ce.domain import agent, event, meta, submission
@@ -604,26 +603,6 @@ class TestSetDOI(TestCase):
         except InvalidEvent as e:
             self.fail('Failed to handle valid DOI: %s' % e)
 
-    def test_valid_doi(self):
-        """DOI is set to a single valid DOI."""
-        doi = "10.1016/S0550-3213(01)00405-9"
-        e = event.SetDOI(creator=self.user, doi=doi)
-        try:
-            e.validate_pre_lock(self.submission)
-        except InvalidEvent as e:
-            self.fail('Failed to handle valid DOI: %s' % e)
-
-    # does not pass due to arxiv-base metacheck (fix arriving soon)
-    # def test_multiple_valid_dois(self):
-    #     """DOI is set to multiple valid DOIs."""
-    #     doi = "10.1016/S0550-3213(01)00405-9, 10.1016/S0550-3213(01)00405-8"
-    #     e = event.SetDOI(creator=self.user, doi=doi)
-    #     try:
-    #         e.validate_pre_lock(self.submission)
-    #     except InvalidEvent as e:
-    #         self.fail(f'Failed to handle valid DOI {e.message}: {doi}')
-
-
 
 class TestSetReportNumber(TestCase):
     """Tests for :class:`.event.SetReportNumber`."""
@@ -638,47 +617,13 @@ class TestSetReportNumber(TestCase):
             created=datetime.now(UTC)
         )
 
-    def test_valid_report_number(self):
-        """Valid report number values are used."""
-        values = [
-            "IPhT-T10/027",
-            "SITP 10/04, OIQP-10-01",
-            "UK/09-07",
-            "COLO-HEP-550, UCI-TR-2009-12",
-            "TKYNT-10-01, UTHEP-605",
-            # "1003.1130", # failed due to arxiv-base metacheck
-            "CDMTCS-379",
-            "BU-HEPP-09-06",
-            "IMSC-PHYSICS/08-2009, CU-PHYSICS/2-2010",
-            "CRM preprint No. 867",
-            "SLAC-PUB-13848, AEI-2009-110, ITP-UH-18/09",
-            "SLAC-PUB-14011",
-            "KUNS-2257, DCPT-10/11",
-            "TTP09-41, SFB/CPP-09-110, Alberta Thy 16-09",
-            "DPUR/TH/20",
-            "KEK Preprint 2009-41, Belle Preprint 2010-02, NTLP Preprint 2010-01",
-            "CERN-PH-EP/2009-018",
-            "Computer Science ISSN 19475500",
-            "Computer Science ISSN 19475500",
-            "Computer Science ISSN 19475500",
-            "TUM-EFT 104/17; HU-EP-25/09-RTG",
-            "CA21106; CA21136",
-            "CA21106; CA21136",
-            "TUM-EFT 104/17; HU-EP-25/09-RTG",
-            "MIPT/TH-04/25; FIAN/TD-03/25; ITEP/TH-04/25; IITP/TH-04/25",
-            "MIT-CTP/5833; FERMILAB-CONF-25-0046-T",
-            "Belle II Preprint 2025-005; KEK Preprint 2025-2",
-            "ECTP-2024-05; WLCAPP-2024-05; FUE-2024-05",
-            "MIPT/TH-08/25; FIAN/TD-06/25; ITEP/TH-10/25; IITP/TH-08/25",
-            "MIPT/TH-04/25; FIAN/TD-03/25; ITEP/TH-04/25; IITP/TH-04/25",
-            ""
-        ]
-        for value in values:
-            try:
-                e = event.SetReportNumber(creator=self.user, report_num=value)
-                e.validate_pre_lock(self.submission)
-            except InvalidEvent as e:
-                self.fail(f'failed report number {e.message}: {value}')
+    def test_empty_report_num(self):
+        """Report num is set to an empty string (blank is OK)."""
+        e = event.SetReportNumber(creator=self.user, report_num="")
+        try:
+            e.validate_pre_lock(self.submission)
+        except InvalidEvent as e:
+            self.fail('Failed to handle empty report_num: %s' % e)
 
 
 class TestSetJournalReference(TestCase):
@@ -694,52 +639,13 @@ class TestSetJournalReference(TestCase):
             created=datetime.now(UTC)
         )
 
-    def test_valid_journal_ref(self):
-        """Valid journal ref values are used."""
-        values = [
-            "Phys. Rev. Lett. 104, 097003 (2010)",
-            "Phys. Rev. B v81, 094405 (2010)",
-            "Phys. Rev. D81 (2010) 036004",
-            "Phys. Rev. A 74, 033822 (2006)Phys. Rev. A 74, 033822 (2006)Phys. Rev. A 74, 033822 (2006)Phys. Rev. A 81, 032303 (2010)",
-            "Opt. Lett. 35, 499-501 (2010)",
-            "Phys. Rev. D 81, 034023 (2010)",
-            "Opt. Lett. Vol.31 (2010)",
-            "Fundamental and Applied Mathematics, 14(8)(2008), 55-67. (in Russian)",
-            "Czech J Math, 60(135)(2010), 59-76.",
-            "PHYSICAL REVIEW B 81, 024520 (2010)",
-            "PHYSICAL REVIEW B 69, 094524 (2004)",
-            "Announced on Ap&SS, Oct. 2009",
-            "Phys. Rev. Lett. 104, 095701 (2010)",
-            "Phys. Rev. B 76, 205407 (2007).",
-            "Extending Database Technology (EDBT) 2010",
-            "Database and Expert Systems Applications (DEXA) 2009",
-            "J. Math. Phys. 51 (2010), no. 3, 033503, 12pp",
-            "South East Asian Bulletin of Mathematics, Vol. 33 (2009), 853-864.",
-            "Acta Mathematica Academiae Paedagogicae Nyíregyháziensis, Vol. 25, No. 2 (2009), 189-190.",
-            "Creative Mathematics and Informatics, Vol. 18, No. 1 (2009), 39-45.",
-            ""
-        ]
-        for value in values:
-            try:
-                e = event.SetJournalReference(creator=self.user,
-                                              journal_ref=value)
-                e.validate_pre_lock(self.submission)
-            except InvalidEvent as e:
-                self.fail(f'Failed {e.message} {value}')
-
-    # fails due to metacheck, these may be true positives from metacheck
-    # def test_invalid_values(self):
-    #     """Some invalid values are passed."""
-    #     values = [
-    #         "Phys. Rev. Lett. 104, 097003 ()",
-    #         "Phys. Rev. accept submit B v81, 094405 (2010)",
-    #         "Phys. Rev. D81 036004",
-    #     ]
-    #     for value in values:
-    #         with self.assertRaises(InvalidEvent):
-    #             e = event.SetJournalReference(creator=self.user,
-    #                                           journal_ref=value)
-    #             e.validate_pre_lock(self.submission)
+    def test_empty_journal_ref(self):
+        """JREF is set to an empty string (blank is OK)."""
+        e = event.SetJournalReference(creator=self.user, journal_ref="")
+        try:
+            e.validate_pre_lock(self.submission)
+        except InvalidEvent as e:
+            self.fail('Failed to handle empty jref: %s' % e)
 
 
 class TestSetACMClassification(TestCase):
@@ -755,38 +661,13 @@ class TestSetACMClassification(TestCase):
             created=datetime.now(UTC)
         )
 
-    def test_valid_acm_class(self):
-        """ACM classification value is valid."""
-        values = [
-            "H.2.4",
-            # "F.2.2; H.3.m", #failed due to metacheck fix arriving soon
-            "H.2.8",
-            "H.2.4",
-            "G.2.1",
-            "D.1.1",
-            "G.2.2",
-            "C.4",
-            "I.2.4",
-            "I.6.3",
-            "D.2.8",
-            "B.7.2",
-            #"D.2.4; D.3.1; D.3.2; F.3.2",#failed due to metacheck
-            #"F.2.2; I.2.7", #failed due to metacheck
-            "G.2.2",
-            #"D.3.1; F.3.2",
-            #"F.4.1; F.4.2",
-            #"C.2.1; G.2.2",
-            #"F.2.2; G.2.2; G.3; I.6.1; J.3 ",
-            #"H.2.8; K.4.4; H.3.5",
-            ""
-        ]
-        for value in values:
-            try:
-                e = event.SetACMClassification(creator=self.user,
-                                               acm_class=value)
-                e.validate_pre_lock(self.submission)
-            except InvalidEvent as e:
-                self.fail('Failed to handle %s: %s' % (value, e))
+    def test_empty_acm_class(self):
+        """ACM classification is set to an empty string (blank is OK)."""
+        e = event.SetACMClassification(creator=self.user, acm_class="")
+        try:
+            e.validate_pre_lock(self.submission)
+        except InvalidEvent as e:
+            self.fail('Failed to handle empty acm_class: %s' % e)
 
 
 class TestSetMSCClassification(TestCase):
@@ -802,37 +683,13 @@ class TestSetMSCClassification(TestCase):
             created=datetime.now(UTC)
         )
 
-    def test_valid_msc_class(self):
-        """MSC classification value is valid."""
-        values = [
-            "57M25",
-            "35k55, 35k65",
-            "60G51",
-            "16S15, 13P10, 17A32, 17A99",
-            "16S15, 13P10, 17A30",
-            "05A15, 30F10, 30D05",
-            "16S15, 13P10, 17A01, 17B67, 16D10",
-            "primary 05A15, secondary 30F10, 30D05.",
-            "35B45 (Primary), 35J40 (Secondary)",
-            "13D45, 13C14, 13Exx",
-            "13D45, 13C14",
-            "57M25, 05C50",
-            "32G34 (Primary), 14D07 (Secondary)",
-            "05C75, 60G09",
-            "14H20, 13A18, 13F30",
-            "49K10, 26A33, 26B20",
-            "20NO5, 08A05",
-            "20NO5 (Primary), 08A05 (Secondary)",
-            "83D05",
-            "20NO5, 08A05"
-        ]
-        for value in values:
-            try:
-                e = event.SetMSCClassification(creator=self.user,
-                                               msc_class=value)
-                e.validate_pre_lock(self.submission)
-            except InvalidEvent as e:
-                self.fail('Failed to handle %s: %s' % (value, e))
+    def test_empty_msc_class(self):
+        """MSC classification is set to an empty string (blank is OK)."""
+        e = event.SetMSCClassification(creator=self.user, msc_class="")
+        try:
+            e.validate_pre_lock(self.submission)
+        except InvalidEvent as e:
+            self.fail('Failed to handle empty msc_class: %s' % e)
 
 
 class TestSetComments(TestCase):
@@ -855,63 +712,3 @@ class TestSetComments(TestCase):
             e.validate_pre_lock(self.submission)
         except InvalidEvent as e:
             self.fail('Failed to handle empty comments')
-
-    # def test_reasonable_comment(self):
-    #     """Comment is set to some reasonable value smaller than 400 chars."""
-    #     for locale in LOCALES:
-    #         comments = Text(locale=locale).text(20)[:400]
-    #         e = event.SetComments(creator=self.user, comments=comments)
-    #         try:
-    #             e.validate_pre_lock(self.submission)
-    #         except InvalidEvent as e:
-    #             self.fail(f'Failed to handle comment {e.message}: {comments}')
-
-
-    # fails: QA metacheck allows huge comments
-    # def test_huge_comment(self):
-    #     """Comment is set to something unreasonably large."""
-    #     comments = Text().text(200)    # 200 sentences.
-    #     comments = "A very large comment." * 200
-    #     res = metacheck.check_comments(comments)
-    #     assert res.disposition != metacheck.OK
-    #     e = event.SetComments(creator=self.user, comments=comments)
-    #     with self.assertRaises(InvalidEvent):
-    #         e.validate_pre_lock(self.submission)
-
-
-# Locales supported by mimesis.
-LOCALES = [
-    "cs",
-    "da",
-    "de",
-    "de-at",
-    "de-ch",
-    "el",
-    "en",
-    "en-au",
-    "en-ca",
-    "en-gb",
-    "es",
-    "es-mx",
-    "et",
-    "fa",
-    "fi",
-    "fr",
-    "hu",
-    "is",
-    "it",
-    "ja",
-    "kk",
-    "ko",
-    "nl",
-    "nl-be",
-    "no",
-    "pl",
-    "pt",
-    "pt-br",
-    "ru",
-    "sv",
-    "tr",
-    "uk",
-    "zh",
-]

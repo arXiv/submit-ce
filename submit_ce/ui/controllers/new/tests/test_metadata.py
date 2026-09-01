@@ -95,7 +95,34 @@ def test_metadata_empty_title_shows_qa_message(app, authorized_client, sub_proce
     assert b"Abstract is required and cannot be empty." in resp.data
     assert b"Authors are required and cannot be empty." in resp.data
 
-    
+
+def test_metadata_blank_optional_fields_are_accepted(app, authorized_client, sub_processed):
+    """Blank comments/doi/journal_ref/report_num/acm_class/msc_class are still
+    optional: removing the domain layer's local "blank is OK" early-returns
+    must not make these fields required."""
+    sub: Submission = sub_processed
+    url = f"/{sub.submission_id}/add_metadata"
+
+    resp = authorized_client.get(url)
+    assert resp.status_code == 200
+    resp = authorized_client.post(url, data={
+        "csrf_token": parse_csrf_token(resp),
+        "title": "A perfectly fine title",
+        "abstract": "Cheese onion cat table backpack plywood x.",
+        "authors_display": "Bob Smith",
+        "comments": "",
+        "doi": "",
+        "journal_ref": "",
+        "report_num": "",
+        "acm_class": "",
+        "msc_class": "",
+        'action': 'next',
+    })
+    assert resp.status_code == 303
+    sub_db = gets(app, sub)
+    assert sub_db.metadata.title == "A perfectly fine title"
+
+
 #     @mock.patch(f'{metadata.__name__}.OptionalMetadataForm.Meta.csrf', False)
 #     @mock.patch(f'{metadata.__name__}.api.save')
 #     @mock.patch(f'{metadata.__name__}.get_submission')
