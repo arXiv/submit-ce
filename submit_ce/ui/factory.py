@@ -13,7 +13,7 @@ from submit_ce.implementations.wiring import config_backend_api
 
 from .auth import request_auth
 from .config import settings
-from . import backend, filters
+from . import filters
 from .routes.paper_id_ui import PAPER_ID_UI
 from .routes.ui import UI
 

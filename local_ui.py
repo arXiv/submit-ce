@@ -17,7 +17,6 @@ DEV_NAME = None
 
 os.environ.setdefault('COMPILE_API_IMPERSONATE_SA', 'submit-ce-dev-sa@arxiv-development.iam.gserviceaccount.com')
 os.environ.setdefault('GCLOUD_PROJECT', 'arxiv-development')
-os.environ.setdefault('LOCAL_LOGIN', '1')
 os.environ.setdefault('PUBSUB_EMULATOR_HOST', 'localhost:8085')
 os.environ.setdefault('LOCAL_LOGIN', 'True')
 os.environ.setdefault('QA_PUBSUB_ENABLED', 'False')
