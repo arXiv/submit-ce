@@ -12,6 +12,7 @@ import pytest
 from arxiv.db import Session
 
 from submit_ce.domain.exceptions import NoSuchSubmission
+from submit_ce.domain.submission import SubmissionType
 from submit_ce.implementations.legacy_implementation import db
 
 PAPER = "2607.55555"
@@ -121,7 +122,8 @@ def test_the_original_id_is_the_lowest_in_the_family(family):
     # Submission, and these rows are built with arxiv.db.models.
     for row in (origin, later):
         before = SimpleNamespace(arxiv_id=PAPER,
-                                 submission_id=str(row.submission_id))
+                                 submission_id=str(row.submission_id),
+                                 submission_type=SubmissionType(row.type))
         assert _original_submission_id(Session, before) == str(origin.submission_id)
 
 
@@ -143,5 +145,28 @@ def test_a_paper_with_no_rows_falls_back_to_the_caller(classic_db):
     from submit_ce.implementations.legacy_implementation.db import (
         _original_submission_id,
     )
-    before = SimpleNamespace(arxiv_id="9999.99999", submission_id="7")
+    before = SimpleNamespace(arxiv_id="9999.99999", submission_id="7",
+                             submission_type=SubmissionType.NEW)
     assert _original_submission_id(Session, before) == "7"
+
+
+def test_a_jref_or_cross_keeps_its_own_id(family):
+    """Sharing a paper id is not being a version of it.
+
+    A ``jref``, ``wdr`` or ``cross`` row hangs off the announced paper without
+    joining its version chain. Resolving one to the paper's origin filed its
+    events under that paper, and left the next event in the same save looking
+    for a jref row under the announced id.
+    """
+    from types import SimpleNamespace
+
+    from submit_ce.implementations.legacy_implementation.db import (
+        _original_submission_id,
+    )
+    origin, _later = family
+
+    for kind in (SubmissionType.JOURNAL_REFERENCE, SubmissionType.WITHDRAWAL,
+                 SubmissionType.CROSS_LIST):
+        before = SimpleNamespace(arxiv_id=PAPER, submission_id="8181",
+                                 submission_type=kind)
+        assert _original_submission_id(Session, before) == "8181"

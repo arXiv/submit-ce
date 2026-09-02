@@ -157,8 +157,9 @@ def family_head(session: SQLAlchemySession,
     """The newest ``new``/``rep`` row for a paper: its current state.
 
     Versions are separate rows, so "what does this submission look like now" is
-    the latest of them -- not the row whose id happens to be the identity. ``jref``
-    and ``wdr`` rows are excluded: they carry no version of their own.
+    the latest of them -- not the row whose id happens to be the identity. ``jref``,
+    ``wdr`` and ``cross`` rows are excluded: they carry no version of their own,
+    so callers must not ask this about one -- see `_load`.
 
     A deleted replacement does not count: rolling one back has to leave the
     previous version as the current state, or the paper would appear stuck at a
@@ -465,14 +466,24 @@ def _original_submission_id(session: SQLAlchemySession,
     latest announced row to build the next version on) would otherwise split one
     paper's history across two ids.
 
-    The original is the lowest ``submission_id`` sharing the paper id. Falls back
-    to whatever the caller had when there is no paper id -- an unannounced
-    submission is a single row and already its own original.
+    The original is the lowest ``submission_id`` among the paper's version rows.
+    Falls back to whatever the caller had when there is no paper id -- an
+    unannounced submission is a single row and already its own original.
+
+    Only ``new``/``rep`` rows are versions of one another. A ``jref``, ``wdr`` or
+    ``cross`` row carries the announced paper's id without being another version
+    of it: each is its own domain identity, with its own history. Collapsing one
+    onto the announced paper's id filed its events under that paper and left the
+    next event in the chain looking for a jref row under the announced id.
     """
-    if not before.arxiv_id:
+    if not before.arxiv_id \
+            or before.submission_type not in (SubmissionType.NEW,
+                                              SubmissionType.REPLACEMENT):
         return before.submission_id
     earliest = session.query(func.min(models.Submission.submission_id)) \
-        .filter(models.Submission.doc_paper_id == before.arxiv_id) \
+        .filter(models.Submission.doc_paper_id == before.arxiv_id,
+                models.Submission.type.in_([models.Submission.NEW_SUBMISSION,
+                                            models.Submission.REPLACEMENT])) \
         .scalar()
     return str(earliest) if earliest is not None else before.submission_id
 
