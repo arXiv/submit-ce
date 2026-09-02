@@ -48,3 +48,21 @@ def test_guard_is_active_by_default():
 def test_allow_network_marker_lifts_the_guard():
     import conftest
     assert conftest._allow_network is True
+
+
+def test_the_fasttext_model_download_is_exempt():
+    """ftlangdetect may fetch its model; nothing else may follow it out.
+
+    That exemption is what lets a fresh CI container run the metadata checks at
+    all -- ``qa``'s ``IsEnglish`` needs a 131MB model that no new container has
+    cached. One that stayed lifted would silently re-open the whole suite to the
+    network, so assert the guard is back afterwards.
+    """
+    from ftlangdetect import detect
+
+    # Downloads on a cold cache, no-ops on a warm one. Either way it must not
+    # raise, and it must leave the guard as it found it.
+    assert detect("This sentence is long enough to identify as English.")["lang"] == "en"
+
+    with pytest.raises(OSError, match="Blocked outbound connection"):
+        socket.create_connection(UNROUTABLE, timeout=1)

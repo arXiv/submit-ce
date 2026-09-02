@@ -22,9 +22,11 @@ A test that genuinely needs the network can opt out::
         ...
 
 Loopback is always allowed, so sqlite, the Pub/Sub emulator and any local
-service still work.
+service still work. One standing exemption is granted, to ftlangdetect's model
+download -- see `_allow_fasttext_model_download`.
 """
 
+import importlib
 import socket
 
 import pytest
@@ -95,6 +97,43 @@ def _network_guard(request):
         yield
     finally:
         _allow_network = previous
+
+
+@pytest.fixture(autouse=True, scope="session")
+def _allow_fasttext_model_download():
+    """Permit the one outbound fetch the suite is allowed to make.
+
+    `qa`'s ``IsEnglish`` check detects language with ftlangdetect, which
+    downloads Facebook's 131MB ``lid.176.bin`` from ``dl.fbaipublicfiles.com``
+    on first use and caches it under ``$FTLANG_CACHE`` (default: the system temp
+    directory). A fresh CI container has no cache, so the guard would fail every
+    test that runs a metadata check.
+
+    Scoped to `download_model` rather than to the host: the guard sees addresses
+    after DNS -- ``('13.33.67.42', 443)`` -- so there is no hostname to match on,
+    and that CDN's addresses rotate. This is the only code that reaches it, so
+    exempting it and nothing else is what a host allowlist would have achieved.
+
+    Costs one download per machine or CI container; every run after that is a
+    cache hit and makes no request at all.
+    """
+    detect_mod = importlib.import_module("ftlangdetect.detect")
+    original = detect_mod.download_model
+
+    def permitted(*args, **kwargs):
+        global _allow_network
+        previous = _allow_network
+        _allow_network = True
+        try:
+            return original(*args, **kwargs)
+        finally:
+            _allow_network = previous
+
+    detect_mod.download_model = permitted
+    try:
+        yield
+    finally:
+        detect_mod.download_model = original
 
 
 @pytest.fixture(autouse=True, scope="session")
