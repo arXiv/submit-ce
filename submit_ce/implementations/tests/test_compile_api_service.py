@@ -63,13 +63,12 @@ def _mock_file_store():
     return store
 
 
-def _patch_current_app(mocker, store=None):
-    """Replace current_app in the module with a stub whose api.get_file_store()
-    returns the given store (default: a fresh _mock_file_store)."""
-    mock_app = MagicMock()
-    mock_app.api.get_file_store.return_value = store or _mock_file_store()
-    mocker.patch.object(compile_api_service, 'current_app', mock_app)
-    return mock_app
+def _mock_api(store=None):
+    """A `SubmitApi` stub whose get_file_store() returns the given store
+    (default: a fresh _mock_file_store)."""
+    api = MagicMock()
+    api.get_file_store.return_value = store or _mock_file_store()
+    return api
 
 
 def _submission():
@@ -204,11 +203,10 @@ def test_is_available_false_on_request_error(mocker):
 def test_start_preflight_success_returns_result(mocker):
     mocker.patch.object(settings, 'COMPILE_API_URL', 'http://localhost:9001')
     store = _mock_file_store()
-    _patch_current_app(mocker, store)
     _mock_httpx_post(mocker, status_code=200)
 
     result = CompileApiService().start_preflight(
-        _submission(), MagicMock(), MagicMock(), MagicMock())
+        _submission(), MagicMock(), MagicMock(), _mock_api(store))
 
     assert result.status.status == result.status.Status.SUCCEEDED
     store.get_full_source_package_path.assert_called_once_with('sub1')
@@ -219,11 +217,10 @@ def test_start_preflight_retries_on_500_then_succeeds(mocker):
     mocker.patch.object(settings, 'COMPILE_API_URL', 'http://localhost:9001')
     mocker.patch.object(settings, 'COMPILE_API_MAX_RETRIES', 3)
     mocker.patch.object(compile_api_service.time, 'sleep')
-    _patch_current_app(mocker)
     _mock_httpx_post_sequence(mocker, [500, 200])
 
     result = CompileApiService().start_preflight(
-        _submission(), MagicMock(), MagicMock(), MagicMock())
+        _submission(), MagicMock(), MagicMock(), _mock_api())
 
     assert result.status.status == result.status.Status.SUCCEEDED
 
@@ -232,12 +229,11 @@ def test_start_preflight_raises_when_500_persists(mocker):
     mocker.patch.object(settings, 'COMPILE_API_URL', 'http://localhost:9001')
     mocker.patch.object(settings, 'COMPILE_API_MAX_RETRIES', 2)
     mocker.patch.object(compile_api_service.time, 'sleep')
-    _patch_current_app(mocker)
     _mock_httpx_post(mocker, status_code=500)
 
     with pytest.raises(httpx.HTTPStatusError):
         CompileApiService().start_preflight(
-            _submission(), MagicMock(), MagicMock(), MagicMock())
+            _submission(), MagicMock(), MagicMock(), _mock_api())
 
 
 # ------------------------------------------------------------ start_compile
@@ -246,11 +242,10 @@ def test_start_preflight_raises_when_500_persists(mocker):
 def test_start_compile_success_returns_result(mocker):
     mocker.patch.object(settings, 'COMPILE_API_URL', 'http://localhost:9001')
     store = _mock_file_store()
-    _patch_current_app(mocker, store)
     _mock_httpx_post(mocker, status_code=200)
 
     result = CompileApiService().start_compile(
-        _submission(), MagicMock(), MagicMock(), MagicMock())
+        _submission(), MagicMock(), MagicMock(), _mock_api(store))
 
     assert result.status.status == result.status.Status.SUCCEEDED
     store.get_full_submission_source_path.assert_called_once_with('sub1')
@@ -259,13 +254,12 @@ def test_start_compile_success_returns_result(mocker):
 
 def test_start_compile_raises_on_4xx(mocker):
     mocker.patch.object(settings, 'COMPILE_API_URL', 'http://localhost:9001')
-    _patch_current_app(mocker)
     err = httpx.HTTPStatusError("400", request=MagicMock(), response=MagicMock())
     _mock_httpx_post(mocker, status_code=400, raise_for_status=err)
 
     with pytest.raises(httpx.HTTPStatusError):
         CompileApiService().start_compile(
-            _submission(), MagicMock(), MagicMock(), MagicMock())
+            _submission(), MagicMock(), MagicMock(), _mock_api())
 
 
 # ------------------------------------------------------------ start_directives
@@ -274,11 +268,10 @@ def test_start_compile_raises_on_4xx(mocker):
 def test_start_directives_success_returns_result(mocker):
     mocker.patch.object(settings, 'COMPILE_API_URL', 'http://localhost:9001')
     store = _mock_file_store()
-    _patch_current_app(mocker, store)
     _mock_httpx_post(mocker, status_code=200)
 
     result = CompileApiService().start_directives(
-        _submission(), MagicMock(), MagicMock(), MagicMock())
+        _submission(), MagicMock(), MagicMock(), _mock_api(store))
 
     assert result.status.status == result.status.Status.SUCCEEDED
     store.get_full_submission_path.assert_called_once_with('sub1')
@@ -289,9 +282,8 @@ def test_start_directives_raises_when_500_persists(mocker):
     mocker.patch.object(settings, 'COMPILE_API_URL', 'http://localhost:9001')
     mocker.patch.object(settings, 'COMPILE_API_MAX_RETRIES', 2)
     mocker.patch.object(compile_api_service.time, 'sleep')
-    _patch_current_app(mocker)
     _mock_httpx_post(mocker, status_code=500)
 
     with pytest.raises(httpx.HTTPStatusError):
         CompileApiService().start_directives(
-            _submission(), MagicMock(), MagicMock(), MagicMock())
+            _submission(), MagicMock(), MagicMock(), _mock_api())

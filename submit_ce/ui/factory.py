@@ -9,9 +9,11 @@ from arxiv.base import Base
 from arxiv.config import settings as base_settings
 from arxiv import db
 
+from submit_ce.implementations.wiring import config_backend_api
+
 from .auth import request_auth
 from .config import settings
-from . import backend, filters
+from . import filters
 from .routes.paper_id_ui import PAPER_ID_UI
 from .routes.ui import UI
 
@@ -34,7 +36,7 @@ def create_web_app(config: Optional[dict]=None) -> Flask:
 
     app.config['TEMPLATES_AUTO_RELOAD']=True
 
-    app.api = backend.config_backend_api(settings)
+    app.api = config_backend_api(settings)
 
     db.init(settings)
     Base(app)

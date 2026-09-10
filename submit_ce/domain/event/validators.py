@@ -100,10 +100,54 @@ def no_trailing_period(event: Event, submission: Submission,
                                   " ellipses.")
 
 
+TEST_ARCHIVE = "test"
+"""The ``test`` archive, whose categories are submittable but never listed.
+
+See :func:`is_submittable_category`.
+"""
+
+
+def is_submittable_category(category: str) -> bool:
+    """Whether a submission may be classified in ``category``.
+
+    ``arxiv.taxonomy`` marks every ``test.*`` category ``is_active=False`` even
+    though the ``test`` archive itself is active. That flag is doing two jobs at
+    once -- "not a current category" *and* "do not offer this in listings" -- and
+    the test categories only want the second. Reading it as a validity check makes
+    the ``test`` archive unsubmittable, for the web UI as much as for SWORD.
+
+    The legacy Perl keeps the two apart:
+
+    * validity comes from ``%Subj_class_name``, where the test subject classes are
+      ordinary entries (``arxiv-lib/lib/arXiv/Config/SubjectClasses.pm:385-399``),
+      and which has no notion of "active" at all;
+    * listing comes from ``%IN_GROUP_NOT_DEFUNCT``, which deletes ``test`` by name
+      alongside the genuinely defunct archives
+      (``arxiv-lib/lib/arXiv/Config/Archives.pm:346-352``) -- so callers that do
+      want it add it back explicitly.
+
+    ``test`` is named here for the same reason it is named there, rather than
+    inferred from a rule like "inactive category in an active archive". It is
+    currently the only archive of that shape, but retiring a real category while
+    its archive stays active would silently make it submittable again, which a
+    rule cannot distinguish and a name can.
+
+    Bare ``test`` stays invalid: the archive requires a subject class
+    (``$Subj_class_required{'test'} = 1``), matching every other archive whose
+    categories are all subdivided.
+    """
+    entry = CATEGORIES.get(category)
+    if entry is None:
+        return False
+    if entry.is_active:
+        return True
+    return entry.in_archive == TEST_ARCHIVE and "." in category
+
+
 def must_be_an_active_category(event: Event, category: str,
                                submission: Submission) -> None:
     """Valid arXiv categories are defined in :mod:`arxiv.taxonomy`."""
-    if not category or category not in CATEGORIES or not CATEGORIES[category].is_active:
+    if not category or not is_submittable_category(category):
         raise InvalidEvent(event, "Not a valid category")
 
 

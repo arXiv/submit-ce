@@ -20,8 +20,15 @@ uv sync
 # Bootstrap the local test DB (also creates test users):
 uv run python submit_ce/make_test_db.py bootstrap_db
 
+# Change LOCAL_LOGIN_USER_ID in local_dev.py, as needed.
+
+# submit-ui:
 uv run python local_ui.py
 open http://localhost:8000/debug/login
+
+# sword-api:
+uv run python local_sword.py
+open http://localhost:8001/status
 ```
 
 ##  Run the tests
@@ -36,13 +43,26 @@ open http://localhost:8000/debug/login
 # Edit local_ui.py:
 #   Set QA_PUBSUB_ENABLED to True
 
-# shell 1, to run the emulator:
+# Run the emulator:
 gcloud beta emulators pubsub start --project=arxiv-development
 
-# shell 2 optional, to echo messages:
+# Echo messages sent to emulator:
 uv run python local_subscriber.py
 ```
 
+##  Test sword
+
+- Also see: [sword-getting-started](docs/sword-getting-started.md)
+
+```
+# Run regression tests:
+cd arxiv-test-regression/pytest
+pyenv shell 3.11.11
+python -m venv venv
+cp envfile.example envfile
+pip install requests pytest pydantic_settings
+services_env=local pytest --run-loggedin --run-readwrite tests/test_sword.py
+```
 
 ## Build Docker Image
 

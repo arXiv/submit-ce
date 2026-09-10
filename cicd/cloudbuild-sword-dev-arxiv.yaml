@@ -1,0 +1,94 @@
+# Build and deploy the SWORD deposit API (SUBMISSION-29).
+#
+# Same Dockerfile and same image as submit-ce-dev; only the entrypoint differs. The
+# UI's default CMD is gunicorn/Flask, and this overrides it with uvicorn to serve
+# the FastAPI app at submit_ce.sword.app:create_sword_app.
+#
+# Deliberately a separate trigger from cloudbuild-submit-dev-arxiv.yaml rather than a
+# second deploy step inside it: a SWORD change must not be able to take down the
+# submission UI, and each service needs to roll back on its own. The cost is one
+# extra image build.
+#
+# Route /sword-app/* and /resolve/app/* here at the edge. /sword-license stays with
+# the UI -- it is an HTML page under cookie auth, not part of the deposit API.
+steps:
+
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - '--no-cache'
+      - '--build-arg=GIT_COMMIT=$COMMIT_SHA'
+      - '-t'
+      - >-
+        $_AR_HOSTNAME/$_AR_PROJECT_ID/$_AR_REPOSITORY/$REPO_NAME/$_SERVICE_NAME:$COMMIT_SHA
+      - .
+      - '-f'
+      - Dockerfile
+    id: Build
+
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - >-
+        $_AR_HOSTNAME/$_AR_PROJECT_ID/$_AR_REPOSITORY/$REPO_NAME/$_SERVICE_NAME:$COMMIT_SHA
+    id: Push
+
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+    args:
+      - run
+      - services
+      - update
+      - $_SERVICE_NAME
+      - '--platform=managed'
+      - >-
+        --image=$_AR_HOSTNAME/$_AR_PROJECT_ID/$_AR_REPOSITORY/$REPO_NAME/$_SERVICE_NAME:$COMMIT_SHA
+      # Override the image's Flask CMD with the ASGI server. --factory because
+      # create_sword_app() is a factory, not a module-level app object.
+      - '--command=uvicorn'
+      - >-
+        --args=--factory,--host=0.0.0.0,--port=8080,submit_ce.sword.app:create_sword_app
+      # Deposits are large uploads from a handful of automated clients, so the
+      # request profile is the opposite of the UI's. Both values are starting points
+      # and want review against real traffic.
+      - '--concurrency=$_CONCURRENCY'
+      - '--timeout=$_REQUEST_TIMEOUT'
+      # Reachable only through the load balancer, not on the service's own
+      # *.run.app URL. Depositors arrive at arxiv.org/sword-app/*, so nothing needs
+      # the direct URL, and this is the layer that holds if the app is ever
+      # misconfigured -- it covers every endpoint rather than the docs pages the
+      # app factory already drops.
+      - '--ingress=$_INGRESS'
+      - >-
+        --labels=managed-by=gcp-cloud-build-deploy-cloud-run,commit-sha=$COMMIT_SHA,gcb-build-id=$BUILD_ID,gcb-trigger-id=$_TRIGGER_ID
+      - '--region=$_DEPLOY_REGION'
+      - '--quiet'
+    id: Deploy
+    entrypoint: gcloud
+images:
+  - >-
+    $_AR_HOSTNAME/$_AR_PROJECT_ID/$_AR_REPOSITORY/$REPO_NAME/$_SERVICE_NAME:$COMMIT_SHA
+options:
+  substitutionOption: ALLOW_LOOSE
+  logging: CLOUD_LOGGING_ONLY
+substitutions:
+  _DEPLOY_REGION: us-central1
+  _AR_HOSTNAME: us-central1-docker.pkg.dev
+  _AR_REPOSITORY: cloud-run-source-deploy
+  _AR_PROJECT_ID: arxiv-development
+  # Set this to the trigger's own id when the trigger is created.
+  _TRIGGER_ID: ''
+  _PLATFORM: managed
+  _SERVICE_NAME: sword-ce-dev
+  # SWORD endpoints are synchronous, so each in-flight request holds an anyio
+  # threadpool thread while it talks to GCS. Keep concurrency well below the
+  # threadpool size rather than at Cloud Run's default of 80.
+  _CONCURRENCY: '8'
+  # A 50 MB deposit plus the bucket write; Cloud Run's default is 300s.
+  _REQUEST_TIMEOUT: '600'
+  # Set to 'all' only to reach the service directly while the load balancer routing
+  # for /sword-app/* and /resolve/app/* is still being set up.
+  _INGRESS: internal-and-cloud-load-balancing
+tags:
+  - gcp-cloud-build-deploy-cloud-run
+  - gcp-cloud-build-deploy-cloud-run-managed
+  - sword-ce-dev
