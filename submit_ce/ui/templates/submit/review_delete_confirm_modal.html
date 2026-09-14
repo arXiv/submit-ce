@@ -1,0 +1,114 @@
+{# SUBMISSION-253: delete-confirmation modal for the Review Files page.
+
+   Progressive enhancement -- review_delete_confirm.js intercepts Continue when
+   any deletable files are checked and shows this dialog listing them. Mirrors
+   Submit 1.5's confirm-on-delete dialog: centered title with a close (x), a
+   centered "By continuing the following N files will be deleted:" lead, a plain
+   bulleted list, and two equal-width Cancel / Confirm buttons. With JavaScript
+   off it stays hidden and Continue behaves as before (no-JS path unchanged). #}
+<div id="review-delete-overlay" role="presentation" hidden>
+  <div id="review-delete-dialog" role="dialog" aria-modal="true"
+       aria-labelledby="review-delete-title"
+       aria-describedby="review-delete-count" tabindex="-1">
+
+    <button type="button" id="review-delete-close"
+            aria-label="Cancel file deletion">&times;</button>
+
+    <h2 id="review-delete-title">Confirm File Deletion</h2>
+
+    <p id="review-delete-count" class="review-delete-count"></p>
+
+    <div class="modal-content">
+      <ul id="review-delete-list" class="review-delete-list"></ul>
+    </div>
+
+    <div class="review-delete-actions">
+      <button type="button" id="review-delete-cancel"
+              class="button review-delete-btn-cancel">
+        Cancel
+      </button>
+      <button type="button" id="review-delete-proceed"
+              class="button review-delete-btn-confirm">
+        Confirm
+      </button>
+    </div>
+  </div>
+</div>
+
+<style>
+#review-delete-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+#review-delete-overlay[hidden] { display: none; }
+
+#review-delete-dialog {
+  position: relative;
+  background: #fff;
+  width: 90%;
+  max-width: 640px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  border-radius: 6px;
+  padding: 2rem 2.5rem;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+}
+
+#review-delete-close {
+  position: absolute;
+  right: 1rem;
+  top: 0.75rem;
+  background: none;
+  border: none;
+  font-size: 1.75rem;
+  line-height: 1;
+  color: #888;
+  cursor: pointer;
+}
+#review-delete-close:hover { color: #333; }
+
+#review-delete-title {
+  text-align: center;
+  font-weight: bold;
+  margin-bottom: 1.25rem;
+}
+
+.review-delete-count {
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+.review-delete-list {
+  overflow: auto;
+  list-style: disc;
+  padding-left: 2rem;
+  margin-bottom: 1.5rem;
+}
+.review-delete-list li { padding: 0.15rem 0; }
+
+/* Two equal-width buttons, mirroring 1.5: Cancel (orange) / Confirm (navy). */
+.review-delete-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: auto;
+}
+.review-delete-btn-cancel,
+.review-delete-btn-confirm {
+  flex: 1 1 0;
+  font-weight: bold;
+  padding: 1.1rem;
+  height: auto;
+  color: #fff;
+  border: none;
+}
+.review-delete-btn-cancel { background: #d0492b; }
+.review-delete-btn-cancel:hover { background: #b93d22; color: #fff; }
+.review-delete-btn-confirm { background: #1b4a72; }
+.review-delete-btn-confirm:hover { background: #163c5d; color: #fff; }
+</style>
