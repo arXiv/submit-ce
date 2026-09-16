@@ -20,8 +20,6 @@ Recipient/header composition mirrors the legacy proposal email
 
 from typing import List, Optional, TYPE_CHECKING
 
-from pydantic import Field
-
 from ..submission import Submission
 from .base import EventWithSideEffect
 

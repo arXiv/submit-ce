@@ -125,7 +125,7 @@ class Settings(ArxivBaseSettings):
     Instead allow creating a test session from an endpoint.
     """
 
-    LOCAL_LOGIN_USER_ID: str = "0"
+    LOCAL_LOGIN_USER_ID: str = "1"
     """The tapir user_id that ``/debug/login`` logs in as. Only used when
     ``LOCAL_LOGIN`` is enabled."""
 

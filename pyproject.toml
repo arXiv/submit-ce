@@ -48,6 +48,7 @@ dependencies = [
     "jsonschema-specifications==2023.12.1",
     "lazy-object-proxy==1.10.0",
     "libsass>=0.23.0",
+    "lxml>=6.1.1",
     "markdown-it-py==3.0.0",
     "markupsafe==2.1.5",
     "mccabe==0.7.0",
@@ -166,6 +167,7 @@ dev = [
     "requests==2.32.3",
     "rfc3339-validator==0.1.4",
     "rpds-py==0.20.0",
+    "ruff==0.16.1",
     "setuptools>=70.3.0",
     "sexpdata>=1.0.2",
     "six==1.16.0",
@@ -220,6 +222,16 @@ target-version="py311"
 exclude = [
     ".git",
 ]
+
+[tool.ruff.lint]
+# Stated explicitly rather than relying on ruff's defaults, which grow between
+# releases: 0.16 promoted UP, I, DTZ, BLE, C4, SIM, PIE, RUF and more into the
+# default set, which turns ~1200 findings loose on existing code (mostly
+# `Optional[X]` and `timezone.utc`, both used throughout this repo on purpose).
+# This is the set the codebase was already clean against -- pyflakes plus the
+# import/syntax/runtime-error subset of pycodestyle. Widen it deliberately, in
+# its own change, with the cleanup that follows; don't let a version bump do it.
+select = ["E4", "E7", "E9", "F"]
 
 [tool.pytest.ini_options]
 # Suppress deprecation warnings we cannot fix from this repo. Each filter is

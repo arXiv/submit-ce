@@ -1,0 +1,97 @@
+# Build and deploy the SWORD background worker as a Cloud Run **Job** (SUBMISSION-29).
+#
+# Same Dockerfile and same image as everything else in this repo; only the
+# entrypoint differs. The worker finishes deposits the API accepts: preflight,
+# source format, directives, compile, finalize. See submit_ce/sword/worker.py.
+#
+# A Job rather than a Service, because there is nothing to serve. One execution
+# makes a single pass over the waiting deposits and exits, which is what
+# `python -m submit_ce.sword.worker_loop` does with no arguments.
+#
+# Nothing here runs it. A Job is inert until something triggers an execution --
+# see "Scheduling" below.
+#
+# One worker at a time
+# --------------------
+# --parallelism=1 and --tasks=1 are load-bearing, not tuning. `advance` has no
+# lease: the candidate query uses FOR UPDATE SKIP LOCKED, which stops a second
+# worker *blocking* on a submission being compiled, but two workers can still
+# claim the same one in the gaps between saves and duplicate a 14-minute compile.
+# --max-retries=0 is the same argument: a failed execution must not be retried
+# while its predecessor may still be finishing. The next scheduled execution
+# picks the work up, because every step re-checks durable state.
+steps:
+
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - '--no-cache'
+      - '--build-arg=GIT_COMMIT=$COMMIT_SHA'
+      - '-t'
+      - >-
+        $_AR_HOSTNAME/$_AR_PROJECT_ID/$_AR_REPOSITORY/$REPO_NAME/$_JOB_NAME:$COMMIT_SHA
+      - .
+      - '-f'
+      - Dockerfile
+    id: Build
+
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - >-
+        $_AR_HOSTNAME/$_AR_PROJECT_ID/$_AR_REPOSITORY/$REPO_NAME/$_JOB_NAME:$COMMIT_SHA
+    id: Push
+
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+    args:
+      - run
+      - jobs
+      - deploy
+      - $_JOB_NAME
+      - >-
+        --image=$_AR_HOSTNAME/$_AR_PROJECT_ID/$_AR_REPOSITORY/$REPO_NAME/$_JOB_NAME:$COMMIT_SHA
+      # Override the image's gunicorn/Flask CMD. No --forever: one pass per
+      # execution, so the Job ends and the scheduler decides when to run again.
+      - '--command=python'
+      - '--args=-m,submit_ce.sword.worker_loop'
+      - '--tasks=1'
+      - '--parallelism=$_PARALLELISM'
+      - '--max-retries=$_MAX_RETRIES'
+      - '--task-timeout=$_TASK_TIMEOUT'
+      - '--memory=$_MEMORY'
+      - >-
+        --labels=managed-by=gcp-cloud-build-deploy-cloud-run,commit-sha=$COMMIT_SHA,gcb-build-id=$BUILD_ID,gcb-trigger-id=$_TRIGGER_ID
+      - '--region=$_DEPLOY_REGION'
+      - '--quiet'
+    id: Deploy
+    entrypoint: gcloud
+images:
+  - >-
+    $_AR_HOSTNAME/$_AR_PROJECT_ID/$_AR_REPOSITORY/$REPO_NAME/$_JOB_NAME:$COMMIT_SHA
+options:
+  substitutionOption: ALLOW_LOOSE
+  logging: CLOUD_LOGGING_ONLY
+substitutions:
+  _DEPLOY_REGION: us-central1
+  _AR_HOSTNAME: us-central1-docker.pkg.dev
+  _AR_REPOSITORY: cloud-run-source-deploy
+  _AR_PROJECT_ID: arxiv-development
+  # Set this to the trigger's own id when the trigger is created.
+  _TRIGGER_ID: ''
+  _JOB_NAME: sword-worker-dev
+  # Not tuning. See the header: there is no lease, so a second concurrent worker
+  # can duplicate a compile.
+  _PARALLELISM: '1'
+  _MAX_RETRIES: '0'
+  # One pass can carry several deposits, and a single TeX compile alone may take
+  # the compile service's full 840s. A task killed at the deadline is safe: every
+  # step is guarded on stored state, so the next execution resumes where this one
+  # stopped rather than redoing it.
+  _TASK_TIMEOUT: '3600'
+  # Preflight builds the source tarball in memory before uploading it, and the
+  # deposit cap is 50 MiB.
+  _MEMORY: 2Gi
+tags:
+  - gcp-cloud-build-deploy-cloud-run
+  - gcp-cloud-build-deploy-cloud-run-managed
+  - sword-worker-dev

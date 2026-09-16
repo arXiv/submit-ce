@@ -149,8 +149,46 @@ class LegacySubmitImplementation(SubmitApi):
         submission = session.scalars(stmt).first()
         if not submission:
             raise NoSuchSubmission()
+
+        # Project the newest version, not whichever row was asked for. Classic
+        # keeps one row per version; the domain keeps one submission, whose
+        # current state is the latest of them. Reading the requested row instead
+        # reported a replaced paper as still at v1 -- so `CreateSubmissionVersion`
+        # recomputed a version that already existed, and the worker saw an
+        # announced submission with nothing to do.
+        #
+        # The identity stays the id the caller asked for: `to_submission` takes
+        # the override for exactly this, and `db.load` does the same when
+        # rebuilding a submission from classic rows alone. That is what keeps the
+        # workspace, the event log and the URL pointing at one place across
+        # versions.
+        #
+        # Only a version-carrying row has a family to catch up with. `jref`,
+        # `wdr` and `cross` rows hang off an announced paper's `doc_paper_id`
+        # without joining its version chain, so `family_head` answers with that
+        # paper's `new` row -- projecting a cross-list as a new submission and
+        # losing the `submission_type` its controller checks.
+        if submission.type in (Submission.NEW_SUBMISSION,
+                               Submission.REPLACEMENT):
+            head = db.family_head(session, submission.doc_paper_id) or submission
         else:
-            return (to_submission(submission), db.get_events(session, submission_id))
+            head = submission
+
+        try:
+            events = db.get_events(session, submission_id)
+        except NoSuchSubmission:
+            # The row exists but has no events of its own, which is what every
+            # version after the first looks like: `store_event` records events
+            # under the submission being versioned, not the row it creates. Fall
+            # back to the family's history rather than reporting a row we just
+            # loaded as missing.
+            #
+            # Only reached where this previously raised, so nothing that works
+            # today changes behaviour.
+            events = db.get_family_events(session, submission)
+            if not events:
+                raise
+        return (to_submission(head, submission_id=submission_id), events)
 
 
     @override

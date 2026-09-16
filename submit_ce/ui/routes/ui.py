@@ -179,6 +179,20 @@ def service_status():
     return 'ok'
 
 
+@UI.route('/sword-license', methods=["GET", "POST"])
+def sword_license():
+    """Register a default license for SWORD deposits.
+
+    Served here rather than by the SWORD API because it is an HTML page under
+    ordinary cookie auth: ``arxiv-httpd/conf/sword.conf`` gates ``/sword-app`` with
+    basic auth but leaves ``/sword-license`` alone. Deliberately not scope-gated --
+    any logged-in user may set one, exactly as the Perl allowed, since the deposit
+    privilege itself is checked at deposit time.
+    """
+    return handle(cntrls.sword_license, 'submit/sword_license.html',
+                  'arXiv SWORD upload license selection')
+
+
 @UI.route('/', methods=["GET"])
 @scoped(scopes.CREATE_SUBMISSION, unauthorized=redirect_to_login)
 def manage_submissions():

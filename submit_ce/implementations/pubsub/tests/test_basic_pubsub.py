@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 from concurrent import futures
 
 
-def test_basic_subscribe(submission_topic, project_id):
+def test_basic_subscribe(submission_topic, project_id, unique_suffix):
     """Test of a subscription with a single event"""
     mock_fn = MagicMock()
 
@@ -15,7 +15,7 @@ def test_basic_subscribe(submission_topic, project_id):
 
     publisher, topic_path = submission_topic
     subscriber = pubsub_v1.SubscriberClient()
-    sub_path = subscriber.subscription_path(project_id, "fake-arxiv-sub")
+    sub_path = subscriber.subscription_path(project_id, f"sub-{unique_suffix}")
 
     with subscriber:
         subscriber.create_subscription(request={"name": sub_path, "topic": topic_path})
@@ -27,7 +27,7 @@ def test_basic_subscribe(submission_topic, project_id):
         assert mock_fn.call_count == 1
 
 
-def test_multi_subscribe(submission_topic, project_id):
+def test_multi_subscribe(submission_topic, project_id, unique_suffix):
     """Test of several subscribers to same publish topic"""
     n = 10
     mock_fns = [MagicMock() for _ in range(0, n)]
@@ -38,7 +38,7 @@ def test_multi_subscribe(submission_topic, project_id):
 
     publisher, topic_path = submission_topic
     subscriber = pubsub_v1.SubscriberClient()
-    sub_paths = [subscriber.subscription_path(project_id, f"fake-arxiv-sub-{i}") for i in range(0, n)]
+    sub_paths = [subscriber.subscription_path(project_id, f"sub-{unique_suffix}-{i}") for i in range(0, n)]
     with subscriber:
         [subscriber.create_subscription(request={"name": sub_path, "topic": topic_path})
          for sub_path in sub_paths]  # make n subscription topics

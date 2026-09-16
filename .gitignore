@@ -1,3 +1,6 @@
+# store cookie from submit_ce/make_test_db.py
+token.txt
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

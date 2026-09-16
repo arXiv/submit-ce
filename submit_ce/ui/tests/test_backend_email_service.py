@@ -1,8 +1,8 @@
-"""Unit tests for backend.email_service_from_settings (EMAIL_MODE switch)."""
+"""Unit tests for wiring.email_service_from_settings (EMAIL_MODE switch)."""
 from types import SimpleNamespace
 from unittest import mock
 
-from submit_ce.ui.backend import email_service_from_settings
+from submit_ce.implementations.wiring import email_service_from_settings
 from submit_ce.implementations.email import HalonEmailService
 from submit_ce.implementations.email.email_in_memory import EmailInMemory
 from submit_ce.implementations.email.smtp_creds import SmtpCreds
@@ -35,7 +35,7 @@ def test_testing_mode_returns_in_memory():
 
 def test_halon_mode_fetches_secret_and_builds_service():
     with mock.patch(
-        "submit_ce.ui.backend.smtp_creds_from_secret", return_value=_ssl_creds()
+        "submit_ce.implementations.wiring.smtp_creds_from_secret", return_value=_ssl_creds()
     ) as mock_fetch:
         service = email_service_from_settings(_halon_settings())
 
@@ -58,7 +58,7 @@ def test_halon_mode_starttls_creds():
         use_starttls=True,
     )
     with mock.patch(
-        "submit_ce.ui.backend.smtp_creds_from_secret", return_value=starttls_creds
+        "submit_ce.implementations.wiring.smtp_creds_from_secret", return_value=starttls_creds
     ):
         service = email_service_from_settings(_halon_settings())
 
@@ -76,7 +76,7 @@ def test_halon_mode_falls_back_to_port_465_when_uri_has_no_port():
         use_starttls=False,
     )
     with mock.patch(
-        "submit_ce.ui.backend.smtp_creds_from_secret", return_value=no_port_creds
+        "submit_ce.implementations.wiring.smtp_creds_from_secret", return_value=no_port_creds
     ):
         service = email_service_from_settings(_halon_settings())
 

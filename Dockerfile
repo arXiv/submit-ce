@@ -85,6 +85,12 @@ WORKDIR /home/e-prints
 COPY --from=builder --chown=e-prints:e-prints /home/e-prints /home/e-prints
 ENV PATH="/home/e-prints/.venv/bin:$PATH"
 
+# The default CMD is the Flask submission UI;
+# The SWORD deposit API is the same image, and Cloud Run overrides the
+# entrypoint per service (see cicd/cloudbuild-sword-dev-arxiv.yaml):
+#
+#     uvicorn --factory --host 0.0.0.0 --port 8080 submit_ce.sword.app:create_sword_app
+#
 CMD ["gunicorn", "--bind", ":8080", \
     "--workers", "5",\
     "--threads", "10",\

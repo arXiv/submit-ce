@@ -286,7 +286,7 @@ def get_endorsements() -> Tuple[List[Category], Category, str]:
 
 def users_v3(count: int = 500) -> list[tuple[models.TapirUser, str, str, str, list[Category]]]:
     _users=[]
-    for ii in range(count):
+    for ii in range(1, count + 1):
         locale = random.choice(LOCALES)
         person = Person(locale)
         net = Internet()

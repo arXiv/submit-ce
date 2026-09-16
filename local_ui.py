@@ -50,6 +50,7 @@ if __name__ == '__main__':
     print(f"INFO: Using GCS bucket gs://arxiv-submit-dev/{user_prefix}/")
     print(f"INFO: GCP project: {os.environ['GCLOUD_PROJECT']}")
     print(f"INFO: Pub/Sub emulator: {os.environ['PUBSUB_EMULATOR_HOST']}")
+    print(f"INFO: Local logins enabled?: {os.environ['LOCAL_LOGIN']}")
     ensure_pubsub_topic()
 
     app = create_web_app()

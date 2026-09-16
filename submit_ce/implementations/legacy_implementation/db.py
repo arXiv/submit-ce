@@ -108,6 +108,80 @@ def get_licenses(session: SQLAlchemySession) -> List[License]:
     return [License(uri=row.name, name=row.label) for row in license_data]
 
 
+@handle_operational_errors
+def get_family_events(session: SQLAlchemySession,
+                      row: models.Submission) -> List[Event]:
+    """Events for the version family ``row`` belongs to.
+
+    A new version does not get its own event rows. ``store_event`` stamps every
+    event with ``event.submission_id``, which for `CreateSubmissionVersion` is the
+    submission being *versioned* -- deliberately, so the domain keeps one identity
+    across versions even though classic splits them into several rows. The
+    consequence is that a ``rep`` row has no events under its own id, and anything
+    loading it by that id finds none.
+
+    The family is the rows sharing a ``doc_paper_id``; its events are under the
+    lowest submission_id, which is where the paper started. Returns an empty list
+    when there is no family to consult -- a submission that has never been
+    announced has no ``doc_paper_id`` to group by.
+    """
+    if not row.doc_paper_id:
+        return []
+    origin = family_origin_id(session, row.doc_paper_id)
+    if origin is None or origin == row.submission_id:
+        return []
+    try:
+        return get_events(session, str(origin))
+    except NoSuchSubmission:
+        return []
+
+
+def family_origin_id(session: SQLAlchemySession,
+                     paper_id: Optional[str]) -> Optional[int]:
+    """The lowest submission_id for a paper: where it started.
+
+    This is the paper's identity. Classic adds a row per version, per jref and
+    per withdrawal, but the domain treats them as one submission and files its
+    history under this id.
+    """
+    if not paper_id:
+        return None
+    row = (session.query(func.min(models.Submission.submission_id))
+           .filter(models.Submission.doc_paper_id == paper_id)
+           .scalar())
+    return int(row) if row is not None else None
+
+
+def family_head(session: SQLAlchemySession,
+                paper_id: Optional[str]) -> Optional[models.Submission]:
+    """The newest ``new``/``rep`` row for a paper: its current state.
+
+    Versions are separate rows, so "what does this submission look like now" is
+    the latest of them -- not the row whose id happens to be the identity. ``jref``,
+    ``wdr`` and ``cross`` rows are excluded: they carry no version of their own,
+    so callers must not ask this about one -- see `_load`.
+
+    A deleted replacement does not count: rolling one back has to leave the
+    previous version as the current state, or the paper would appear stuck at a
+    version that no longer exists. `load` applies the same rule when rebuilding
+    from classic rows -- "advance to the first non-deleted 'new' or 'replacement'
+    row" -- and keeps a deleted ``new`` row, since a paper with only that has
+    nowhere else to fall back to.
+    """
+    if not paper_id:
+        return None
+    return (session.query(models.Submission)
+            .filter(models.Submission.doc_paper_id == paper_id,
+                    models.Submission.type.in_([models.Submission.NEW_SUBMISSION,
+                                                models.Submission.REPLACEMENT]),
+                    or_(models.Submission.type == models.Submission.NEW_SUBMISSION,
+                        models.Submission.status.notin_(
+                            models.Submission.DELETED)))
+            .order_by(models.Submission.version.desc(),
+                      models.Submission.submission_id.desc())
+            .first())
+
+
 @retry(OperationalError, tries=3, delay=1)
 @handle_operational_errors
 def get_events(session: SQLAlchemySession, submission_id: str) -> List[Event]:
@@ -341,9 +415,28 @@ def store_event(session: SQLAlchemySession, event: Event, before: Optional[Submi
     session.add(dbs)
     session.flush([dbs])
 
-    # at this point a new submission will have a submission_id
+    # Settle the submission ID *before* the event row is built, and carry forward
+    # the original one even though the classic database has several rows for this
+    # submission with different IDs.
+    #
+    # Order matters: `_new_dbevent` fills ``DBEvent.submission_id`` from
+    # ``event.submission_id``. Assigning after it -- as this did until now -- left
+    # the persisted row holding whatever id the caller passed and corrected only
+    # the in-memory objects, so a replacement saved against the new version's id
+    # wrote its history under that row instead of the original. `log.handle` and
+    # `_store_proposal` now see the same settled id for the same reason.
+    #
+    # This also subsumes the earlier `this_is_a_new_submission` assignment that
+    # used to sit above `_new_dbevent`; it was the same statement.
     if this_is_a_new_submission:
         event.submission_id = dbs.submission_id
+        after.submission_id = dbs.submission_id
+    else:
+        # TODO: was this assert meant to be temporary?
+        assert before is not None
+        original = _original_submission_id(session, before)
+        event.submission_id = original
+        after.submission_id = original
 
     # Attach the row for Event to the submission
     db_event = _new_dbevent(event)
@@ -352,18 +445,6 @@ def store_event(session: SQLAlchemySession, event: Event, before: Optional[Submi
 
     log.handle(session, event, before, after)  # Create admin log entry.
 
-    # Update the domain event and submission states with the submission ID.
-    # This should carry forward the original submission ID, even if the
-    # classic database has several rows for the submission (with different
-    # IDs).
-    if this_is_a_new_submission:
-        event.submission_id = dbs.submission_id
-        after.submission_id = dbs.submission_id
-    else:
-        assert before is not None
-        event.submission_id = before.submission_id
-        after.submission_id = before.submission_id
-
     # Some events also write to auxiliary classic tables, keyed off the now-final
     # submission_id. A category proposal records a row in
     # arXiv_submission_category_proposal (and an accompanying admin log comment).
@@ -371,6 +452,40 @@ def store_event(session: SQLAlchemySession, event: Event, before: Optional[Submi
         _store_proposal(session, event, after)
 
     return event, after
+
+
+def _original_submission_id(session: SQLAlchemySession,
+                            before: Submission) -> str:
+    """The id this paper's whole history belongs under.
+
+    ``store_event``'s contract is that "the submission ID on the event and the
+    before/after states refer to the original classic submission only" -- one
+    domain identity however many classic rows exist. Trusting
+    ``before.submission_id`` only honours that when the caller happened to load
+    the original: a caller that resolved to a later version (SWORD picks the
+    latest announced row to build the next version on) would otherwise split one
+    paper's history across two ids.
+
+    The original is the lowest ``submission_id`` among the paper's version rows.
+    Falls back to whatever the caller had when there is no paper id -- an
+    unannounced submission is a single row and already its own original.
+
+    Only ``new``/``rep`` rows are versions of one another. A ``jref``, ``wdr`` or
+    ``cross`` row carries the announced paper's id without being another version
+    of it: each is its own domain identity, with its own history. Collapsing one
+    onto the announced paper's id filed its events under that paper and left the
+    next event in the chain looking for a jref row under the announced id.
+    """
+    if not before.arxiv_id \
+            or before.submission_type not in (SubmissionType.NEW,
+                                              SubmissionType.REPLACEMENT):
+        return before.submission_id
+    earliest = session.query(func.min(models.Submission.submission_id)) \
+        .filter(models.Submission.doc_paper_id == before.arxiv_id,
+                models.Submission.type.in_([models.Submission.NEW_SUBMISSION,
+                                            models.Submission.REPLACEMENT])) \
+        .scalar()
+    return str(earliest) if earliest is not None else before.submission_id
 
 
 def _store_proposal(session: SQLAlchemySession, event: ProposeClassification,
@@ -493,6 +608,12 @@ def _create_replacement(document_id: int, paper_id: str, version: int,
     From the perspective of the database, a replacement is mainly an
     incremented version number. This requires a new row in the database.
     """
+    # remote_addr/remote_host have to be passed here, as the withdrawal and JREF
+    # constructors below also do: update_from_submission() only sets them on the
+    # initial row (`version == 1 and type == NEW_SUBMISSION`, models.py:365-369),
+    # where the guard was written for `created` and swept them along. Both columns
+    # are NOT NULL, so omitting them loses the depositor's address on MySQL and
+    # fails outright on a backend without the DDL default.
     dbs = models.Submission(type=models.Submission.REPLACEMENT,
                             document_id=document_id, version=version,
                             remote_addr=submission.client.remote_addr,

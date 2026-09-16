@@ -17,7 +17,7 @@ def event_factory():
     return EventFactory
 
 
-def test_pubsub_impl(submission_topic, project_id, event_factory):
+def test_pubsub_impl(submission_topic, project_id, event_factory, unique_suffix):
     """Test PubSubEventSubmitImplementation."""
     mock_fn = MagicMock()
     mock_api = MagicMock()
@@ -30,7 +30,7 @@ def test_pubsub_impl(submission_topic, project_id, event_factory):
     ps_impl = PubsubEventSubmitImplementation(publisher, topic_path, mock_api)
 
     with pubsub_v1.SubscriberClient() as subscriber:
-        sub_path = subscriber.subscription_path(project_id, "fake-arxiv-sub")
+        sub_path = subscriber.subscription_path(project_id, f"sub-{unique_suffix}")
         subscriber.create_subscription(request={"name": sub_path, "topic": topic_path})
         sub_future = subscriber.subscribe(sub_path, callback=subscription_consumer)
 
@@ -50,7 +50,7 @@ def test_pubsub_impl(submission_topic, project_id, event_factory):
 
 
 
-def test_call_to_inner(submission_topic, project_id):
+def test_call_to_inner(submission_topic, project_id, unique_suffix):
     """Test that PubSubEventSubmitImplementation calls inner instance."""
     mock_api = MagicMock()
 
@@ -61,7 +61,7 @@ def test_call_to_inner(submission_topic, project_id):
     ps_impl = PubsubEventSubmitImplementation(publisher, topic_path, mock_api)
 
     with pubsub_v1.SubscriberClient() as subscriber:
-        sub_path = subscriber.subscription_path(project_id, "fake-arxiv-sub")
+        sub_path = subscriber.subscription_path(project_id, f"sub-{unique_suffix}")
         subscriber.create_subscription(request={"name": sub_path, "topic": topic_path})
         sub_future = subscriber.subscribe(sub_path, callback=subscription_consumer)
 
