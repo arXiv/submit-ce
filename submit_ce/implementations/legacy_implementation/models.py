@@ -328,8 +328,11 @@ class Submission(Base):    # type: ignore
         else:
             self.must_process = 1
 
+        # Admin remove takes precedence over the other status mapping.
+        if submission.is_removed:
+            self.status = Submission.REMOVED
         # Not submitted -> Submitted.
-        if submission.is_finalized \
+        elif submission.is_finalized \
                 and self.status in [Submission.WORKING, None]:
             self.status = Submission.SUBMITTED
             self.submit_time = submission.updated
@@ -504,6 +507,8 @@ class Submission(Base):    # type: ignore
                 return 'announced'
             case self.DELETED_ANNOUNCED:
                 return 'announced'
+            case self.REMOVED:
+                return 'removed'
             case self.USER_DELETED:
                 return 'deleted'
             case self.DELETED_EXPIRED:
