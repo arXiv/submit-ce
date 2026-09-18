@@ -189,6 +189,9 @@ class CompileApiService(CompileService):
         outcome_path = file_store.get_full_outcome_path(submission.submission_id)
 
         query_params = {
+            # arxivid is what puts the submission id on every log record of the
+            # compile; see cloud-run-logs.md in arxiv-converter gcp/genpdf/docs
+            'arxivid': submission.submission_id,
             'source': source_path,
             'dest': outcome_path,
         }
