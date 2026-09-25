@@ -167,7 +167,7 @@ def review_files(method: str, params: MultiDict, session: Session,
     if not workspace:
         return return_to_parent_stage((rdata, status.OK, {}))
 
-    if submission.source_format == SourceFormat.PDF:
+    if submission.source_format in (SourceFormat.PDF, SourceFormat.HTML):
         return advance_to_current((rdata, status.OK, {}))
 
     if submission.source_format != SourceFormat.TEX:

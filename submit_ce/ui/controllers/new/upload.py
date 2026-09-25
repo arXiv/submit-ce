@@ -23,6 +23,7 @@ from arxiv.auth.domain import Session
 from arxiv.base import alerts
 from arxiv.forms import csrf
 from markupsafe import Markup
+from tex2pdf_tools.preflight import PARSED_FILE_EXTENSIONS
 from werkzeug.datastructures import FileStorage
 from werkzeug.datastructures import MultiDict
 from werkzeug.exceptions import (
@@ -76,15 +77,35 @@ def _single_file_archive(files: MultiDict) -> bool:
     return is_file_tgz(pointer) or is_file_zip(pointer)
 
 
+HTML_MAX_FILES = 30
+"""Legacy rejects HTML submissions with this many files or more."""
+
+
+def _is_html_submission(files: List["FileStatus"]) -> bool:
+    """Mirror preflight, which Submission 1.5 takes the format from: among the
+    non-ancillary files, any .html file and no file it parses as TeX."""
+    main = [f for f in files if not f.ancillary]
+    return (any(f.name.lower().endswith('.html') for f in main)
+            and not any(Path(f.name).suffix.lower() in PARSED_FILE_EXTENSIONS
+                        for f in main))
+
+
+def _too_many_html_files(files: List["FileStatus"]) -> bool:
+    """Legacy counts every file except ancillary ones towards the limit."""
+    return (_is_html_submission(files)
+            and sum(not f.ancillary for f in files) >= HTML_MAX_FILES)
+
+
 def _infer_source_format(files: List["FileStatus"]) -> Optional[SourceFormat]:
     """Infer source_format from workspace files.
 
     If any .tex file is present, the submission is TEX (legacy arXiv permits
     .pdf files, e.g. figures, inside a TeX submission, including in
     subdirectories). If the workspace is a single lone .pdf, the submission
-    is PDF. Any other non-empty file set falls back to TEX, matching the
-    legacy default for multi-file submissions. Returns None for an empty
-    workspace.
+    is PDF. Otherwise an HTML file set (see :func:`_is_html_submission`) is
+    HTML, or INVALID when it has too many files. Any other non-empty
+    file set falls back to TEX, matching the legacy default for multi-file
+    submissions. Returns None for an empty workspace.
 
     Ancillary files are ignored, as preflight ignores ``anc/``.
     """
@@ -95,6 +116,10 @@ def _infer_source_format(files: List["FileStatus"]) -> Optional[SourceFormat]:
         return SourceFormat.TEX
     if len(main) == 1 and main[0].name.lower().endswith('.pdf'):
         return SourceFormat.PDF
+    if _is_html_submission(files):
+        if _too_many_html_files(files):
+            return SourceFormat.INVALID
+        return SourceFormat.HTML
     return SourceFormat.TEX
 
 
@@ -422,13 +447,24 @@ def _get_notifications(submission: Submission, workspace: Workspace) -> List[Dic
             'severity': 'success',
             'body': 'Your submission content is supported.'
         })
+    elif submission.source_format == SourceFormat.HTML:
+        notifications.append({
+            'title': 'Detected HTML',
+            'severity': 'success',
+            'body': 'Your submission content is supported.'
+        })
     elif submission.source_format == SourceFormat.INVALID:
+        body = ('It is likely that your submission content is not'
+                ' supported. Please check your files carefully. We may not'
+                ' be able to process your files.')
+        if _too_many_html_files(workspace.files):
+            body = ('It is composed of HTML plus too many image files. HTML is'
+                    ' not a suitable format for submissions with large numbers'
+                    ' of equations; please use LaTeX, PS or PDF instead.')
         notifications.append({
             'title': 'Unsupported submission type',
             'severity': 'danger',
-            'body': 'It is likely that your submission content is not'
-                    ' supported. Please check your files carefully. We may not'
-                    ' be able to process your files.'
+            'body': body
         })
     else:
         notifications.append({

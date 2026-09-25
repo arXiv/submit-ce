@@ -17,6 +17,7 @@ from submit_ce.implementations.compile.mock_compile_mimesis_pdf import MockCompi
 from submit_ce.implementations.file_store.mock_file_store import MockFileStore
 from submit_ce.ui.controllers.new import process
 from submit_ce.ui.controllers.new.process import compile_status, file_process, start_compilation
+from submit_ce.ui.routes.flow_control import get_controllers_desire, STAGE_CURRENT
 
 
 class _CountingCompiler(MockCompileMimesisPdf):
@@ -462,3 +463,22 @@ def test_file_process_pdf_only_installs_the_main_pdf_not_an_ancillary_one(
 
         assert store.does_preview_exist(sid)
         assert store.get_preview(sid).download_as_bytes() == b"STAMPED:" + src
+
+
+def test_file_process_html_advances_without_compile(
+        app, authorized_user_session, sub_files_html):
+    """HTML needs no compile: Process moves on, like PDF-only, and never calls
+    the compile service. [SUBMISSION-127]"""
+    session, _ = authorized_user_session
+    with app.test_request_context("/"):
+        request.auth = session
+        sid = str(sub_files_html.submission_id)
+        compiler = _CountingCompiler()
+        current_app.api.store = MockFileStore()
+        current_app.api.compiler = compiler
+
+        rdata, code, _ = file_process("GET", MultiDict(), session, sid, token="")
+
+        assert code == status.OK
+        assert get_controllers_desire(rdata) == STAGE_CURRENT
+        assert compiler.compile_calls == 0

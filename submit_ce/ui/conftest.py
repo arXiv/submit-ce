@@ -412,6 +412,20 @@ def sub_files_tex(app, authorized_user, sub_files):
 
 
 @pytest.fixture(scope="function")
+def sub_files_html(app, authorized_user, sub_files):
+    """sub_files with source_format set to HTML. [SUBMISSION-127]"""
+    with app.app_context():
+        user = authorized_user
+        ua = InternalClient(name=f"test_client_{__file__}")
+        submission, _ = current_app.api.save(
+            SetSourceFormat(creator=user, client=ua,
+                            source_format=SourceFormat.HTML.value),
+            submission_id=sub_files.submission_id,
+        )
+        return submission
+
+
+@pytest.fixture(scope="function")
 def sub_reviewfiles(app, authorized_user, sub_files):
     """A submission that has passed through the review-files stage."""
     with app.app_context():
