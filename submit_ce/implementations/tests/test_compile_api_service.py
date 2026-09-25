@@ -3,6 +3,7 @@
 from datetime import datetime, timezone, timedelta
 from unittest.mock import MagicMock
 
+import google.auth.exceptions
 import httpx
 import pytest
 
@@ -194,6 +195,23 @@ def test_is_available_false_on_non_200(mocker):
 def test_is_available_false_on_request_error(mocker):
     mocker.patch.object(compile_api_service.httpx, 'get',
                         side_effect=httpx.RequestError("boom"))
+    assert CompileApiService().is_available() is False
+
+
+def test_is_available_sends_the_auth_header(mocker):
+    """Cloud Run answers an unauthenticated health check with 403."""
+    mocker.patch.object(settings, 'COMPILE_API_URL', 'https://example.run.app')
+    mocker.patch.object(compile_api_service, '_get_id_token', return_value='tok-123')
+    get = mocker.patch.object(compile_api_service.httpx, 'get',
+                              return_value=MagicMock(status_code=200))
+    assert CompileApiService().is_available() is True
+    assert get.call_args.kwargs['headers']['Authorization'] == 'Bearer tok-123'
+
+
+def test_is_available_false_when_no_id_token(mocker):
+    mocker.patch.object(settings, 'COMPILE_API_URL', 'https://example.run.app')
+    mocker.patch.object(compile_api_service, '_get_id_token',
+                        side_effect=google.auth.exceptions.DefaultCredentialsError("no ADC"))
     assert CompileApiService().is_available() is False
 
 
