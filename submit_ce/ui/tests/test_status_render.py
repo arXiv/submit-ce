@@ -20,3 +20,8 @@ def test_status_page_renders(admin_client, sub_license):
     assert 'Submission' in body
     assert 'Owner:' in body
     assert 'Metadata' in body
+
+
+def test_status_page_refused_to_a_non_admin(authorized_client, sub_license):
+    response = authorized_client.get(f'/debug/{sub_license.submission_id}')
+    assert response.status_code == status.FORBIDDEN

@@ -210,21 +210,30 @@ def authorized_client(app, authorized_user_session):
 
 
 @pytest.fixture
-def admin_client(app, authorized_user_session):
-    """Authorized client whose user has the classic dev/system capability.
+def admin_client(app, jwt_secret):
+    """Authorized client for a separate user with the classic dev/system capability.
 
     Needed for the ``/debug/<submission_id>`` routes, which are gated by
     ``is_admin_or_dev``. ``request_auth`` recomputes the ``classic`` capability
-    code from the database user (ignoring whatever is in the JWT), so we flip
+    code from the database user (ignoring whatever is in the JWT), so we set
     ``flag_edit_system`` on the underlying TapirUser rather than editing the
-    token. Reuses the same user as ``authorized_client`` so ownership-based
-    fixtures still line up.
+    token. The user is created once, so ``authorized_client``'s user is never a dev.
     """
-    session, jwt = authorized_user_session
+    email, pw = "admin@foo.com", "fakepw-" + jwt_secret
     with app.app_context():
-        db_user = Session.get(classic.TapirUser, int(session.user.user_id))
-        db_user.flag_edit_system = 1
-        Session.commit()
+        try:
+            user, auths = authenticate(email, pw)
+        except AuthenticationFailed:
+            user, auths = register(domain.User(
+                email=email, username="adminuser",
+                name=domain.UserFullName(forename="Ada", surname="Admin"),
+                profile=domain.UserProfile(affiliation="FSU", rank=3, country="de",
+                                           default_category=CATEGORIES['astro-ph.GA'],
+                                           submission_groups=['grp_physics'])),
+                pw, "127.0.0.1", "localhost")
+            Session.get(classic.TapirUser, int(user.user_id)).flag_edit_system = 1
+            Session.commit()
+        jwt = encode(create(auths, "127.0.0.1", "localhost", "", user), jwt_secret)
     app.test_client_class = ClientArxivAuth
     yield app.test_client(jwt=jwt)
 
