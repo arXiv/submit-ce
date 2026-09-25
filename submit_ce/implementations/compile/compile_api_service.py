@@ -7,6 +7,7 @@ import urllib.parse
 from typing_extensions import override
 
 import google.auth
+import google.auth.exceptions
 import google.auth.transport.requests
 import google.oauth2.id_token
 from google.auth import impersonated_credentials
@@ -244,10 +245,13 @@ class CompileApiService(CompileService):
     @override
     def is_available(self) -> bool:
         try:
-            resp = httpx.get(settings.COMPILE_API_URL, timeout=1)
+            resp = httpx.get(settings.COMPILE_API_URL, headers=_auth_headers(), timeout=1)
             return resp.status_code == 200
         except httpx.RequestError as exc:
             logger.error(f"Compile service at '{settings.COMPILE_API_URL}' is not available: {exc}")
+            return False
+        except google.auth.exceptions.GoogleAuthError as exc:
+            logger.error(f"No ID token for the compile service at '{settings.COMPILE_API_URL}': {exc}")
             return False
 
     @override

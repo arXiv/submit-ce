@@ -127,7 +127,3 @@ are collected into `settings.api_config` for the submit-api *client* only.
 
 > **Note (Apr 2026):** File storage supports GCS buckets only — `STORE` accepts `gs` or `null`, and there is
 > no local-filesystem store.
-
-> `CompileApiService.is_available()` GETs `COMPILE_API_URL` without the auth header its other methods send,
-> so an auth-requiring Cloud Run service answers 403. "Compiler unhealthy" at startup is expected locally and
-> does not mean tex2pdf is down.

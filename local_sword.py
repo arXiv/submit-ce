@@ -62,11 +62,6 @@ if __name__ == '__main__':
     # One real backend check at startup, so a misconfigured DB, file store or
     # compile service shows up here instead of on the first deposit. Runs on
     # this thread, so the session it opens is released on this thread too.
-    #
-    # Expect "Compiler unhealthy" even when tex2pdf is fine: is_available() in
-    # CompileApiService GETs COMPILE_API_URL without the auth header every other
-    # method in that class sends, so an auth-requiring Cloud Run service answers
-    # 403. The DB and file store lines are trustworthy.
     try:
         healthy, message = app.state.api.healthy()
     finally:
