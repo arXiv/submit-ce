@@ -3,7 +3,10 @@
 import io
 from http import HTTPStatus as status
 
+import httpx
+import pytest
 from werkzeug.datastructures import MultiDict
+from werkzeug.exceptions import InternalServerError
 from flask import current_app, request
 
 from submit_ce.domain.agent import InternalClient
@@ -12,7 +15,8 @@ from submit_ce.domain.event.process import StartCompileSource
 from submit_ce.domain.uploads import SourceFormat
 from submit_ce.implementations.compile.mock_compile_mimesis_pdf import MockCompileMimesisPdf
 from submit_ce.implementations.file_store.mock_file_store import MockFileStore
-from submit_ce.ui.controllers.new.process import compile_status, file_process
+from submit_ce.ui.controllers.new import process
+from submit_ce.ui.controllers.new.process import compile_status, file_process, start_compilation
 
 
 class _CountingCompiler(MockCompileMimesisPdf):
@@ -367,3 +371,48 @@ def test_file_process_pdf_only_is_idempotent(
         assert code == status.OK
         # Idempotent: preview unchanged because it already existed.
         assert store.get_preview(sid).download_as_bytes() == first
+
+
+class _CompileRefused(MockCompileMimesisPdf):
+    """The compile service answers 403, as dev tex2pdf does for TeX Live 2023."""
+
+    def start_compile(self, submission, user, client, api, source_package_id=None):
+        request = httpx.Request("POST", "https://tex2pdf.example/convert")
+        raise httpx.HTTPStatusError("403 Forbidden", request=request,
+                                    response=httpx.Response(403, request=request))
+
+
+def test_file_process_tex_compile_refusal_is_flashed_not_raised(
+        app, authorized_user_session, sub_files_tex, mocker):
+    """Arriving at Process when the compile service refuses renders the page
+    with a message, as _maybe_autocompile promises, instead of a 500."""
+    session, _ = authorized_user_session
+    flash = mocker.patch.object(process.alerts, "flash_failure")
+    with app.test_request_context("/"):
+        request.auth = session
+        current_app.api.store = MockFileStore()
+        current_app.api.compiler = _CompileRefused()
+
+        _, code, _ = file_process("GET", MultiDict(), session,
+                                  str(sub_files_tex.submission_id), token="")
+
+    assert code == status.OK
+    assert flash.called
+
+
+def test_start_compilation_compile_refusal_is_flashed(
+        app, authorized_user_session, sub_files_tex, mocker):
+    """The Process button reports the refusal, as review_files does for directives."""
+    session, _ = authorized_user_session
+    mocker.patch.object(process.CompilationForm.Meta, "csrf", False)
+    flash = mocker.patch.object(process.alerts, "flash_failure")
+    with app.test_request_context("/"):
+        request.auth = session
+        current_app.api.store = MockFileStore()
+        current_app.api.compiler = _CompileRefused()
+
+        with pytest.raises(InternalServerError):
+            start_compilation(MultiDict({"action": "compile"}), session,
+                              str(sub_files_tex.submission_id), token="")
+
+    assert flash.called

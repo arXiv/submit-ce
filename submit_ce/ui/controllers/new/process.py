@@ -3,6 +3,8 @@
 from http import HTTPStatus as status
 from typing import Tuple, Dict, Any
 import logging
+
+import httpx
 from flask import current_app
 from arxiv.base import alerts
 from arxiv.forms import csrf
@@ -214,6 +216,13 @@ def _maybe_autocompile(params: MultiDict, session: Session, submission_id: str,
             f"We couldn't process your submission automatically. Use the"
             f" Process button to try again. {SUPPORT}",
             title="Processing failed")
+    except httpx.HTTPError as e:
+        logger.error('Compile service error during auto-compile for %s: %s',
+                     submission_id, e)
+        alerts.flash_failure(
+            f"We couldn't process your submission because the compile service"
+            f" is unavailable. Use the Process button to try again. {SUPPORT}",
+            title="Processing failed")
 
 
 def compile_status(params: MultiDict, session: Session, submission_id: str,
@@ -316,6 +325,14 @@ def start_compilation(params: MultiDict, session: Session, submission_id: str,
             current_app.api.save(command, submission_id=submission.submission_id)  # The api implementation will call CompileSource.execute()
         except SaveError as e:
             alerts.flash_failure(f"We couldn't process your submission. {SUPPORT}", title="Processing failed")
+            raise InternalServerError(response_data) from e
+        except httpx.HTTPError as e:
+            logger.error('Compile service error during StartCompileSource for %s: %s',
+                         submission_id, e)
+            alerts.flash_failure(
+                f"We couldn't process your submission because the compile service"
+                f" is unavailable. {SUPPORT}",
+                title="Processing failed")
             raise InternalServerError(response_data) from e
 
     # try:
