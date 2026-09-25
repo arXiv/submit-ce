@@ -49,7 +49,10 @@ from sqlalchemy.orm import Session as SQLAlchemySession
 from sqlalchemy.orm.exc import NoResultFound
 
 from submit_ce.domain.agent import Client, HttpClient, System
+from submit_ce.domain.event import ConfirmSourceProcessed, UnConfirmSourceProcessed
+from submit_ce.domain.event.file import RemoveAllFiles, RemoveFiles, UploadArchive, UploadFiles
 from submit_ce.domain.event.legacy import Withdraw
+from submit_ce.domain.event.process import StartCompileSource
 from submit_ce.domain.event.request import CancelRequest, RequestWithdrawal
 
 from . import models, interpolate, log
@@ -840,6 +843,27 @@ def _get_db_submission_rows(session: SQLAlchemySession, submission_id: str) -> L
     if not dbss:
         raise NoSuchSubmission('No submission found')
     return dbss
+
+
+_PREVIEW_REPLACED = (UploadArchive, UploadFiles, RemoveFiles, RemoveAllFiles,
+                     StartCompileSource, UnConfirmSourceProcessed)
+
+
+def preview_from_events(submission: domain.Submission, events: List[Event]) -> None:
+    """Restore the preview record kept only by the events.
+
+    Replays the latest ``ConfirmSourceProcessed`` unless a file change or a
+    new compile came after it. The classic row has nowhere to keep which PDF
+    was built at Process, and ``ConfirmPreview`` compares against it.
+    """
+    if not submission.is_source_processed:
+        return
+    for event in reversed(events):
+        if isinstance(event, ConfirmSourceProcessed):
+            event.project(submission)
+            return
+        if isinstance(event, _PREVIEW_REPLACED):
+            return
 
 
 def to_submission(row: models.Submission,

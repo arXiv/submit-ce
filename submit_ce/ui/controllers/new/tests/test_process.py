@@ -15,7 +15,9 @@ from submit_ce.domain.event.process import StartCompileSource
 from submit_ce.domain.uploads import SourceFormat
 from submit_ce.implementations.compile.mock_compile_mimesis_pdf import MockCompileMimesisPdf
 from submit_ce.implementations.file_store.mock_file_store import MockFileStore
+from submit_ce.domain.event.file import UploadFiles
 from submit_ce.ui.controllers.new import process
+from submit_ce.ui.controllers.new.preview import file_preview
 from submit_ce.ui.controllers.new.process import compile_status, file_process, start_compilation
 
 
@@ -191,6 +193,95 @@ def test_compile_status_shows_current_log(
 
         assert code == status.OK
         assert rdata.get('compile_log') == "COMPILER LOG OUTPUT"
+
+
+def _tex_submitter(app, session, sid):
+    """Each call is one request by the submitter of TeX submission `sid`."""
+    def request_as_submitter(step):
+        with app.test_request_context("/"):
+            request.auth = session
+            return step()
+    with app.test_request_context("/"):
+        store = MockFileStore()
+        store.get_preview_checksum = lambda submission_id: "checksum-of-the-built-pdf"
+        current_app.api.store = store
+        current_app.api.compiler = MockCompileMimesisPdf()
+    return request_as_submitter
+
+
+def _arrive_and_continue(act, session, sid):
+    act(lambda: file_process("GET", MultiDict(), session, sid, token=""))
+    act(lambda: file_process("POST", MultiDict({"action": "next"}), session, sid, token=""))
+
+
+def _reloaded(app, sid):
+    with app.app_context():
+        return current_app.api.get_with_history(sid)[0]
+
+
+def test_continuing_past_process_records_the_pdf_checksum(
+        app, authorized_user_session, sub_files_tex, mocker):
+    """[D-1] What the submitter must later view is recorded, and survives a reload."""
+    mocker.patch.object(process.CompilationForm.Meta, "csrf", False)
+    session, _ = authorized_user_session
+    sid = str(sub_files_tex.submission_id)
+    act = _tex_submitter(app, session, sid)
+    _arrive_and_continue(act, session, sid)
+
+    submission = _reloaded(app, sid)
+    assert submission.is_source_processed
+    assert submission.preview.preview_checksum == "checksum-of-the-built-pdf"
+
+
+def test_viewing_the_processed_pdf_unlocks_submit(
+        app, authorized_user_session, sub_files_tex, mocker):
+    """[D-1] The PDF is viewed in a later request than the one that built it."""
+    mocker.patch.object(process.CompilationForm.Meta, "csrf", False)
+    session, _ = authorized_user_session
+    sid = str(sub_files_tex.submission_id)
+    act = _tex_submitter(app, session, sid)
+    _arrive_and_continue(act, session, sid)
+
+    act(lambda: file_preview(MultiDict(), session, sid, token=""))
+
+    assert _reloaded(app, sid).submitter_confirmed_preview
+
+
+def test_a_file_change_drops_the_recorded_preview(
+        app, authorized_user, authorized_user_session, sub_files_tex, mocker):
+    mocker.patch.object(process.CompilationForm.Meta, "csrf", False)
+    session, _ = authorized_user_session
+    sid = str(sub_files_tex.submission_id)
+    act = _tex_submitter(app, session, sid)
+    _arrive_and_continue(act, session, sid)
+
+    class _Tex:
+        filename = "extra.tex"
+        content_type = "text/x-tex"
+        stream = io.BytesIO(b"\\relax")
+
+    with app.app_context():
+        current_app.api.save(UploadFiles(creator=authorized_user,
+                                         client=InternalClient(name="test"),
+                                         files=[_Tex()]),
+                             submission_id=sid)
+    assert _reloaded(app, sid).preview is None
+
+
+def test_reprocessing_asks_for_the_new_pdf_to_be_viewed(
+        app, authorized_user_session, sub_files_tex, mocker):
+    mocker.patch.object(process.CompilationForm.Meta, "csrf", False)
+    session, _ = authorized_user_session
+    sid = str(sub_files_tex.submission_id)
+    act = _tex_submitter(app, session, sid)
+    _arrive_and_continue(act, session, sid)
+    act(lambda: file_preview(MultiDict(), session, sid, token=""))
+
+    act(lambda: file_process("POST", MultiDict(), session, sid, token=""))
+
+    submission = _reloaded(app, sid)
+    assert not submission.is_source_processed
+    assert not submission.submitter_confirmed_preview
 
 
 def test_file_process_pdf_only_installs_stamped_preview(
