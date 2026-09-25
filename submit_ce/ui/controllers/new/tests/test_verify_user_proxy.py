@@ -79,3 +79,44 @@ def test_verify_user_rejects_too_short_proxy_name(authorized_client, sub_created
                                              "proxy_email": "a@example.org", "csrf_token": token})
     assert resp.status_code == status.BAD_REQUEST
     assert authorized_client.get("/").status_code == status.OK
+
+
+@pytest.fixture
+def proxy_submitter(monkeypatch):
+    """The logged-in user may proxy."""
+    from arxiv.auth.auth import scopes
+    from submit_ce.ui import auth as auth_mod
+    real = auth_mod.user_and_client_from_session
+
+    def as_proxy(session):
+        submitter, client = real(session)
+        submitter.scopes = set(getattr(submitter, "scopes", [])) | {scopes.PROXY_SUBMISSION}
+        return submitter, client
+
+    monkeypatch.setattr(
+        "submit_ce.ui.controllers.new.verify_user.user_and_client_from_session", as_proxy)
+
+
+def test_verify_user_proxy_submitting_as_self_needs_no_proxy_fields(
+        authorized_client, sub_created, proxy_submitter):
+    url = f"/{sub_created.submission_id}/verify_user"
+    token = parse_csrf_token(authorized_client.get(url))
+    resp = authorized_client.post(url, data={"verify_user": "y", "submit_as_self": "y",
+                                             "action": "next", "csrf_token": token})
+    assert resp.status_code == status.SEE_OTHER
+
+
+def test_verify_user_proxy_submitting_as_self_records_no_proxy(
+        app, authorized_client, sub_created, proxy_submitter):
+    """With the box ticked, the proxy fields are ignored even when filled in."""
+    url = f"/{sub_created.submission_id}/verify_user"
+    token = parse_csrf_token(authorized_client.get(url))
+    resp = authorized_client.post(url, data={"verify_user": "y", "submit_as_self": "y",
+                                             "proxy_name": "Jane Proxy",
+                                             "proxy_email": "jane.proxy@example.org",
+                                             "action": "next", "csrf_token": token})
+    assert resp.status_code == status.SEE_OTHER
+    with app.app_context():
+        submission, _ = app.api.get_with_history(sub_created.submission_id)
+    assert submission.proxy is None
+    assert submission.creator.email != "jane.proxy@example.org"
