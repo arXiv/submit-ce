@@ -4,7 +4,8 @@ from typing import Optional, Callable
 
 from sqlalchemy.orm import Session as SQLAlchemySession
 
-from submit_ce.domain.event import Event, UnFinalizeSubmission, AddContentFlag, AddClassifierResults
+from submit_ce.domain.event import (Event, UnFinalizeSubmission, AddContentFlag,
+                                     AddClassifierResults, AdminRemove, UnRemove)
 from submit_ce.domain.flag import ContentFlag
 from submit_ce.domain.submission import Submission
 from . import models
@@ -50,11 +51,39 @@ def log_classifier_failed(session: SQLAlchemySession, event: Event, before: Opti
                   paper_id=after.arxiv_id)
 
 
+def log_admin_remove(session: SQLAlchemySession, event: Event,
+                     before: Optional[Submission], after: Submission) -> None:
+    """Log an administrative remove (-> classic 'removed'/9) to the admin log."""
+    assert isinstance(event, AdminRemove)
+    text = f"Remove: {event.comment}" if event.comment else "Remove"
+    admin_log(session,
+              event.creator.name, "remove", text,
+              username=event.creator.name,
+              hostname=getattr(event.client, "remote_host", None),
+              submission_id=after.submission_id,
+              paper_id=after.arxiv_id)
+
+
+def log_unremove(session: SQLAlchemySession, event: Event,
+                 before: Optional[Submission], after: Submission) -> None:
+    """Log an un-remove (removed -> on hold/2) to the admin log."""
+    assert isinstance(event, UnRemove)
+    text = f"Unremove: {event.comment}" if event.comment else "Unremove"
+    admin_log(session,
+              event.creator.name, "unremove", text,
+              username=event.creator.name,
+              hostname=getattr(event.client, "remote_host", None),
+              submission_id=after.submission_id,
+              paper_id=after.arxiv_id)
+
+
 Callback = Callable[[SQLAlchemySession, Event, Optional[Submission], Submission], None]
 
 ON_EVENT: dict[type, list[Callback]] = {
     UnFinalizeSubmission: [log_unfinalize],
-    AddContentFlag: [log_stopwords]
+    AddContentFlag: [log_stopwords],
+    AdminRemove: [log_admin_remove],
+    UnRemove: [log_unremove],
 }
 """Logging functions to call when an event is comitted."""
 

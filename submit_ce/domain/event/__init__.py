@@ -48,7 +48,6 @@ methods).
 
 
 import copy
-import re
 from dataclasses import field
 from datetime import datetime
 from typing import Optional, List, Union, ClassVar
@@ -404,6 +403,66 @@ class Rollback(Event):
             target.submitter_confirmed_preview
         submission.license = target.license
         submission.metadata = copy.deepcopy(target.metadata)
+        return submission
+
+
+class AdminRemove(Event):
+    """Administratively remove a submission from the queue (classic 'removed'/9).
+
+    The moderator/admin *remove*, distinct from a user delete
+    (:class:`.Rollback` -> ``USER_DELETED``/10) and from a withdrawal of an
+    announced paper (:class:`.Withdraw`). Reversible with :class:`.UnRemove`.
+    """
+
+    NAME = "administratively remove"
+    NAMED = "administratively removed"
+
+    comment: Optional[str] = field(default=None)
+
+    def validate_pre_lock(self, submission: Submission) -> None:
+        """Only an unannounced, not-already-removed, not-deleted submission."""
+        if submission.is_announced:
+            raise InvalidEvent(self, "Cannot remove an announced submission")
+        if submission.is_deleted:
+            raise InvalidEvent(self, "Cannot remove a deleted submission")
+        if submission.is_removed:
+            raise InvalidEvent(self, "Submission is already removed")
+
+    def project(self, submission: Submission) -> Submission:
+        """Set the submission to removed status."""
+        submission.status = Submission.REMOVED
+        return submission
+
+
+class UnRemove(Event):
+    """Reverse an :class:`.AdminRemove`, returning the submission to on hold.
+
+    Matches legacy, whose 'unremove' sends a removed submission (status 9) to on
+    hold (status 2) rather than straight back into the queue, so a moderator
+    re-reviews it. In 2.0 terms that is ``SUBMITTED`` plus a hold.
+    """
+
+    NAME = "un-remove"
+    NAMED = "un-removed"
+
+    comment: Optional[str] = field(default=None)
+
+    def validate_pre_lock(self, submission: Submission) -> None:
+        """Only a currently-removed submission can be un-removed."""
+        if not submission.is_removed:
+            raise InvalidEvent(self, "Submission is not removed")
+
+    def project(self, submission: Submission) -> Submission:
+        """Return to submitted status with a hold (i.e. on hold)."""
+        assert self.created is not None
+        submission.status = Submission.SUBMITTED
+        submission.holds[self.event_id] = Hold(
+            event_id=self.event_id,
+            created=self.created,
+            creator=self.creator,
+            hold_type=Hold.Type.PATCH,
+            hold_reason=self.comment or "un-removed",
+        )
         return submission
 
 

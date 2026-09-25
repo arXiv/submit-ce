@@ -278,6 +278,7 @@ class Submission:
     ERROR = 'error'     # TODO: eliminate this status.
     DELETED = 'deleted'
     WITHDRAWN = 'withdrawn'
+    REMOVED = 'removed'
 
     creator: User
     owner: User
@@ -386,7 +387,7 @@ class Submission:
     @property
     def is_active(self) -> bool:
         """Actively moving through the submission workflow."""
-        return self.status not in [self.DELETED, self.ANNOUNCED]
+        return self.status not in [self.DELETED, self.ANNOUNCED, self.REMOVED]
 
     @property
     def is_announced(self) -> bool:
@@ -403,8 +404,13 @@ class Submission:
 
     @property
     def is_deleted(self) -> bool:
-        """Submission is removed."""
+        """Submission is deleted (user delete)."""
         return self.status == self.DELETED
+
+    @property
+    def is_removed(self) -> bool:
+        """Submission has been administratively removed (classic 'removed'/9)."""
+        return self.status == self.REMOVED
 
     @property
     def primary_category(self) -> str:
