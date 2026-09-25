@@ -56,3 +56,26 @@ def test_verify_user_proxy_requires_fields(authorized_client, sub_created, monke
     )
     assert resp_ok.status_code in (status.OK, status.FOUND, status.SEE_OTHER)
 
+
+@pytest.mark.usefixtures("app")
+def test_verify_user_rejects_too_short_proxy_name(authorized_client, sub_created, monkeypatch):
+    """A proxy name shorter than PublicUser allows used to be saved, after which
+    every page that loads the submitter's submissions failed with a 500."""
+    from arxiv.auth.auth import scopes
+    from submit_ce.ui import auth as auth_mod
+    real = auth_mod.user_and_client_from_session
+
+    def as_proxy(session):
+        submitter, client = real(session)
+        submitter.scopes = set(getattr(submitter, "scopes", [])) | {scopes.PROXY_SUBMISSION}
+        return submitter, client
+
+    monkeypatch.setattr(
+        "submit_ce.ui.controllers.new.verify_user.user_and_client_from_session", as_proxy)
+
+    url = f"/{sub_created.submission_id}/verify_user"
+    token = parse_csrf_token(authorized_client.get(url))
+    resp = authorized_client.post(url, data={"verify_user": "y", "proxy_name": " A ",
+                                             "proxy_email": "a@example.org", "csrf_token": token})
+    assert resp.status_code == status.BAD_REQUEST
+    assert authorized_client.get("/").status_code == status.OK
