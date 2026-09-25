@@ -484,8 +484,8 @@ def html_preview_index(submission_id: str) -> Response:
     if len(data['pages']) == 1:
         return redirect(url_for('ui.html_preview', submission_id=submission_id,
                                 path=data['pages'][0]))
-    return render_template('submit/html_preview_index.html',
-                           pagetitle="HTML Preview", **data)
+    return make_response(render_template('submit/html_preview_index.html',
+                                         pagetitle="HTML Preview", **data))
 
 
 @UI.route('/<submission_id>/preview/html/<path:path>', methods=["GET"])

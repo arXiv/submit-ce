@@ -191,6 +191,9 @@ def _listing(paper_id: str, version: str, include_abstract: bool, link_site: str
         document = current_app.api.get_document(Identifier(paper_id).id)
     except (IdentifierException, NoSuchDocument):
         document = None
+    except Exception:
+        logger.exception("Could not load %s for an HTML preview listing", paper_id)
+        document = None
     if document is None:
         metadata = None
     elif version:

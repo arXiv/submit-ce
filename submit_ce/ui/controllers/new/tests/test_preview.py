@@ -246,3 +246,11 @@ def test_html_preview_expands_list_lines(authorized_client, html_source, documen
     store._source[sid]['index.html'] = b'<html><body>\nLIST:arXiv:1203.3462\n</body></html>'
     resp = authorized_client.get(f'/{sid}/preview/html/index.html')
     assert b'Gaussian Process Topic Models' in resp.data
+
+
+def test_postprocess_html_survives_a_paper_that_fails_to_load(app, mocker, caplog):
+    """A listing that cannot be built must not break the rest of the page."""
+    mocker.patch.object(app.api, 'get_document', side_effect=ValueError('bad row'))
+    out = _postprocess(app, b'<p>x</p>\nLIST:arXiv:1203.3462\n')
+    assert out == b'<p>x</p>\n<dl>\n<dd>1203.3462 [failed to get metadata for paper]</dd>\n</dl>\n'
+    assert 'bad row' in caplog.text
