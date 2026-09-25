@@ -21,7 +21,7 @@ from werkzeug.exceptions import NotFound
 from submit_ce.domain.event import ConfirmPreview
 from submit_ce.ui.backend import get_submission
 
-from ...auth import user_and_client_from_session
+from ...auth import is_owner, user_and_client_from_session
 
 
 logger = logging.getLogger(__name__)
@@ -86,9 +86,11 @@ def file_preview(params, session: Session, submission_id: str, token: str,
     # We just dispatch the event and let validate() decide; the previous
     # self-heal that fired a bogus ConfirmSourceProcessed with placeholder
     # values is no longer needed (removed in SUBMISSION-167).
+    # Only the submitter viewing it counts, not an admin.
     needs_confirm = (
         bool(pdf_checksum)
         and not submission.submitter_confirmed_preview
+        and is_owner(session, submission_id)
     )
     logger.info(
         "file_preview: submission=%s pdf_checksum=%r confirmed_preview=%s "
