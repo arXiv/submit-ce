@@ -19,7 +19,7 @@ from submit_ce.ui.controllers.new import upload
 from submit_ce.ui.controllers.new import review
 from submit_ce.ui.controllers.new import upload_delete
 
-from ..auth import is_owner, is_admin_or_dev
+from ..auth import is_owner, is_owner_or_moderator, is_admin_or_dev
 from ..config import settings
 from submit_ce.ui.controllers.new import submission_agreement
 from submit_ce.ui.controllers.new import source_package
@@ -471,7 +471,7 @@ def file_preview(submission_id: str) -> Response:
 
 
 @UI.route('/<submission_id>/preview/html/', methods=["GET"])
-@scoped(scopes.VIEW_SUBMISSION, authorizer=is_owner,
+@scoped(scopes.VIEW_SUBMISSION, authorizer=is_owner_or_moderator,
         unauthorized=redirect_to_login)
 def html_preview_index(submission_id: str) -> Response:
     """Open the only page of an HTML submission, or list its pages."""
@@ -489,7 +489,7 @@ def html_preview_index(submission_id: str) -> Response:
 
 
 @UI.route('/<submission_id>/preview/html/<path:path>', methods=["GET"])
-@scoped(scopes.VIEW_SUBMISSION, authorizer=is_owner,
+@scoped(scopes.VIEW_SUBMISSION, authorizer=is_owner_or_moderator,
         unauthorized=redirect_to_login)
 def html_preview(submission_id: str, path: str) -> Response:
     """Serve a file of an HTML submission, pages preprocessed as in legacy."""

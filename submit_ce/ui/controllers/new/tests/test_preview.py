@@ -2,7 +2,9 @@
 
 from http import HTTPStatus as status
 
+import arxiv.db.models as classic
 import pytest
+from arxiv.db import Session
 from flask import current_app, request
 from werkzeug.datastructures import MultiDict
 
@@ -254,3 +256,45 @@ def test_postprocess_html_survives_a_paper_that_fails_to_load(app, mocker, caplo
     out = _postprocess(app, b'<p>x</p>\nLIST:arXiv:1203.3462\n')
     assert out == b'<p>x</p>\n<dl>\n<dd>1203.3462 [failed to get metadata for paper]</dd>\n</dl>\n'
     assert 'bad row' in caplog.text
+
+
+MODERATOR_ID = '900004'
+"""A moderator seeded by make_test_db (cs.AI)."""
+
+
+def test_is_moderator(app, authorized_user):
+    with app.app_context():
+        assert current_app.api.is_moderator(MODERATOR_ID)
+        assert not current_app.api.is_moderator(str(authorized_user.user_id))
+
+
+def _owned_by_someone_else(app, submission_id):
+    with app.app_context():
+        with Session() as session:
+            session.get(classic.Submission, int(submission_id)).submitter_id = 900001
+            session.commit()
+
+
+def test_html_preview_is_open_to_moderators(app, authorized_client, html_source, mocker):
+    """As legacy's /submit/<id>/view was. A moderator opening it is not the
+    submitter previewing it, so it does not unlock Submit."""
+    sid, _ = html_source
+    _owned_by_someone_else(app, sid)
+    mocker.patch.object(app.api, 'is_moderator', return_value=True)
+
+    resp = authorized_client.get(f'/{sid}/preview/html/index.html')
+
+    assert resp.status_code == status.OK
+    with app.app_context():
+        submission, _ = current_app.api.get_with_history(sid)
+    assert not submission.submitter_confirmed_preview
+
+
+def test_html_preview_is_closed_to_other_users(app, authorized_client, html_source, mocker):
+    sid, _ = html_source
+    _owned_by_someone_else(app, sid)
+    mocker.patch.object(app.api, 'is_moderator', return_value=False)
+
+    resp = authorized_client.get(f'/{sid}/preview/html/index.html')
+
+    assert resp.status_code == status.FORBIDDEN

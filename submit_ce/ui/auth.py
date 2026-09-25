@@ -315,6 +315,13 @@ def is_owner(session: auth_domian.Session, submission_id: str, **kw) -> bool:
     return str(submission.owner.user_id) == str(session.user.user_id)
 
 
+def is_owner_or_moderator(session: auth_domian.Session, submission_id: str,
+                           **kw) -> bool:
+    """The owner or any moderator, as legacy's ``/submit/<id>/view`` allowed."""
+    return (is_owner(session, submission_id)
+            or current_app.api.is_moderator(str(session.user.user_id)))
+
+
 def is_paper_owner(session: auth_domian.Session, paper_id: str, **kw) -> bool:
     """Check whether the user has privileges to submit against a paper.
 

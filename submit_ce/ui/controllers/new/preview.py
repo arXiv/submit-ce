@@ -245,9 +245,9 @@ def html_preview(params, session: Session, submission_id: str, token: str,
                  path: str, **kwargs: Any) -> Tuple[bytes, int, Dict[str, str]]:
     """Serve one source file of an HTML submission.
 
-    Pages are preprocessed as legacy's ``/submit/<id>/view`` did, and serving
-    one fires ``ConfirmPreview`` like :func:`file_preview`. Other files, such
-    as images and stylesheets, are served unchanged.
+    Pages are preprocessed as legacy's ``/submit/<id>/view`` did, and the
+    submitter opening one fires ``ConfirmPreview`` like :func:`file_preview`.
+    Other files, such as images and stylesheets, are served unchanged.
     """
     submitter, client = user_and_client_from_session(session)
     submission, _ = get_submission(submission_id)
@@ -274,7 +274,9 @@ def html_preview(params, session: Session, submission_id: str, token: str,
     data = preprocess_html(data, base_url, stamp, settings.BASE_SERVER)
     data = postprocess_html(data, settings.BASE_SERVER)
 
-    if not submission.submitter_confirmed_preview:
+    # Only the submitter viewing it counts, not an admin or moderator.
+    if (not submission.submitter_confirmed_preview and not submission.is_finalized
+            and is_owner(session, submission_id)):
         try:
             current_app.api.save(ConfirmPreview(creator=submitter, client=client),
                                  submission_id=submission.submission_id)
