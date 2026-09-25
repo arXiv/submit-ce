@@ -85,12 +85,15 @@ def _infer_source_format(files: List["FileStatus"]) -> Optional[SourceFormat]:
     is PDF. Any other non-empty file set falls back to TEX, matching the
     legacy default for multi-file submissions. Returns None for an empty
     workspace.
+
+    Ancillary files are ignored, as preflight ignores ``anc/``.
     """
     if not files:
         return None
-    if any(f.name.lower().endswith('.tex') for f in files):
+    main = [f for f in files if not f.ancillary]
+    if any(f.name.lower().endswith('.tex') for f in main):
         return SourceFormat.TEX
-    if len(files) == 1 and files[0].name.lower().endswith('.pdf'):
+    if len(main) == 1 and main[0].name.lower().endswith('.pdf'):
         return SourceFormat.PDF
     return SourceFormat.TEX
 
