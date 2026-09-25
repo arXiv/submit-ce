@@ -18,6 +18,8 @@ from submit_ce.ui.auth import user_and_client_from_session
 from submit_ce.domain.event import FinalizeSubmission
 from submit_ce.domain.event.process import BuildSourcePackage
 from submit_ce.domain.exceptions import SaveError
+from submit_ce.domain.uploads import SourceFormat
+from submit_ce.ui.controllers.new.preview import html_pages
 from submit_ce.ui.controllers.util import validate_command
 from submit_ce.ui.routes.flow_control import ready_for_next, stay_on_this_stage
 from submit_ce.ui.backend import get_submission
@@ -111,7 +113,11 @@ def finalize(method: str, params: MultiDict, session: Session,
     # in the bucket, not just the persisted flag, so an absent PDF can
     # never produce an enabled Submit button.
     file_store = current_app.api.get_file_store()
-    preview_exists = file_store.does_preview_exist(str(submission_id))
+    if submission.source_format == SourceFormat.HTML:
+        # HTML has no <id>.pdf: its pages are its preview. [SUBMISSION-127]
+        preview_exists = bool(html_pages(file_store.get_workspace(str(submission_id))))
+    else:
+        preview_exists = file_store.does_preview_exist(str(submission_id))
     preview_ready = bool(submission.submitter_confirmed_preview
                          and preview_exists)
     logger.info(

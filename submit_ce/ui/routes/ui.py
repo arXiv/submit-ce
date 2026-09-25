@@ -470,6 +470,45 @@ def file_preview(submission_id: str) -> Response:
     return rv
 
 
+@UI.route('/<submission_id>/preview/html/', methods=["GET"])
+@scoped(scopes.VIEW_SUBMISSION, authorizer=is_owner,
+        unauthorized=redirect_to_login)
+def html_preview_index(submission_id: str) -> Response:
+    """Open the only page of an HTML submission, or list its pages."""
+    data, _, _ = cntrls.new.preview.html_preview_index(
+        MultiDict(request.args.items(multi=True)),
+        request.auth,
+        submission_id,
+        request.environ['token']
+    )
+    if len(data['pages']) == 1:
+        return redirect(url_for('ui.html_preview', submission_id=submission_id,
+                                path=data['pages'][0]))
+    return render_template('submit/html_preview_index.html',
+                           pagetitle="HTML Preview", **data)
+
+
+@UI.route('/<submission_id>/preview/html/<path:path>', methods=["GET"])
+@scoped(scopes.VIEW_SUBMISSION, authorizer=is_owner,
+        unauthorized=redirect_to_login)
+def html_preview(submission_id: str, path: str) -> Response:
+    """Serve a file of an HTML submission, pages preprocessed as in legacy."""
+    data, _, headers = cntrls.new.preview.html_preview(
+        MultiDict(request.args.items(multi=True)),
+        request.auth,
+        submission_id,
+        request.environ['token'],
+        path=path,
+    )
+    rv = make_response(data)
+    rv.headers['Content-Type'] = headers['Content-Type']
+    # The files come from the submitter and are opened by admins and
+    # moderators too, so never let them run scripts on this origin.
+    rv.headers['Content-Security-Policy'] = 'sandbox allow-same-origin'
+    rv.headers['Cache-Control'] = 'no-store'
+    return rv
+
+
 @UI.route('/<submission_id>/preview_not_available', methods=["GET"])
 @scoped(scopes.VIEW_SUBMISSION, authorizer=is_owner,
         unauthorized=redirect_to_login)

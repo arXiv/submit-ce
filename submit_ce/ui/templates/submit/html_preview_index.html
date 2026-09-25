@@ -1,0 +1,23 @@
+{%- extends "submit/base.html" %}
+
+{% block title %}HTML Preview{% endblock title %}
+
+{% block within_content %}
+  <div class="content">
+    <p>Your submission has several HTML pages. Open each one to preview it.</p>
+    <ul>
+      {% for page in pages %}
+        <li>
+          <a href="{{ url_for('ui.html_preview', submission_id=submission_id, path=page) }}">{{ page }}</a>
+        </li>
+      {% endfor %}
+    </ul>
+  </div>
+
+  <div class="buttons">
+    <a class="button is-link"
+       href="{{ url_for('ui.final_preview', submission_id=submission_id) }}">
+      Back to Confirm
+    </a>
+  </div>
+{% endblock within_content %}
