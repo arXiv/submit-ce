@@ -75,6 +75,9 @@ def verify(method: str, params: MultiDict, session: Session,
         if not (form.proxy_name.data or "").strip():
             form.proxy_name.errors.append("Proxy for name is required.")
             ok = False
+        elif len(form.proxy_name.data.strip()) < 3:  # PublicUser.name min_length
+            form.proxy_name.errors.append("Proxy for name must be at least 3 characters.")
+            ok = False
         if not (form.proxy_email.data or "").strip():
             form.proxy_email.errors.append("Proxy for e‑mail is required.")
             ok = False
