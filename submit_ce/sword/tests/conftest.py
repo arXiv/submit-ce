@@ -132,6 +132,7 @@ def sword_db():
         yield engine
     finally:
         Session.remove()
+        engine.dispose()
         settings.CLASSIC_DB_URI = previous_uri
         shutil.rmtree(tmp, ignore_errors=True)
 

@@ -28,10 +28,20 @@ jobs:
     - name: Install the project
       run: uv sync --locked --all-extras --dev
 
+    - name: Cache the fastText language model
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/fasttext-langdetect
+        key: fasttext-lid.176.bin
+
     - name: Test with pytest
+      env:
+        FTLANG_CACHE: ~/.cache/fasttext-langdetect
       run: |
+        # Fetch the model once, so the parallel workers don't all download it.
+        uv run python -c "from ftlangdetect.detect import download_model; download_model('lid.176.bin')"
         # Much of the coverage settings are in pyproject.toml
-        uv run pytest \
+        uv run pytest -n auto \
         --cov=submit_ce --cov-report=term-missing \
         --ignore=submit_ce/implementations/pubsub
 
