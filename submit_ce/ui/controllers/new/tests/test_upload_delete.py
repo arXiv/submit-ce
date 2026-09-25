@@ -13,7 +13,8 @@ def _ws(mocker, *paths):
     """
     ws = mocker.MagicMock()
     ws.size = 0
-    ws.files = [SimpleNamespace(path=p, name=p.rsplit('/', 1)[-1], bytes=0)
+    ws.files = [SimpleNamespace(path=p, name=p.rsplit('/', 1)[-1], bytes=0,
+                                ancillary=p.startswith('anc/'))
                 for p in paths]
     return ws
 

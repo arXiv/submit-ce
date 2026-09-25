@@ -50,8 +50,9 @@ def _pdf_submission(sid="1234567"):
     return s
 
 
-def _pdf_file(name):
-    return SimpleNamespace(name=name, path=name, crc32c="c", bytes=10)
+def _pdf_file(name, ancillary=False):
+    return SimpleNamespace(name=name, path=name, crc32c="c", bytes=10,
+                           ancillary=ancillary)
 
 
 def _validate(files):
@@ -73,3 +74,8 @@ def test_multiple_pdfs_rejected():
 def test_exactly_one_pdf_passes():
     # Should not raise.
     _validate([_pdf_file("paper.pdf")])
+
+
+def test_ancillary_pdfs_do_not_count():
+    # Should not raise.
+    _validate([_pdf_file("paper.pdf"), _pdf_file("anc/extra.pdf", ancillary=True)])

@@ -77,6 +77,7 @@ def _file_status_from_bytes(path: str, data: bytes,
         url=URL(f"memory:///{path}"),
         is_versioned=False,
         modified=datetime.now(timezone.utc),
+        ancillary=path.startswith('anc/'),  # as GsFileStore marks them
     )
 
 

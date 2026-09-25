@@ -416,3 +416,25 @@ def test_start_compilation_compile_refusal_is_flashed(
                               str(sub_files_tex.submission_id), token="")
 
     assert flash.called
+
+
+def test_file_process_pdf_only_installs_the_main_pdf_not_an_ancillary_one(
+        app, authorized_user, authorized_user_session, sub_primary):
+    session, _ = authorized_user_session
+    ua = InternalClient(name="test_pdf_only")
+    src = b"%PDF-1.4\n%%EOF\n"
+    with app.app_context():
+        sid = str(sub_primary.submission_id)
+        store = MockFileStore()
+        current_app.api.store = store
+        current_app.api.compiler = MockCompileMimesisPdf()
+        store._source[sid] = {"anc/extra.pdf": b"%PDF-ANCILLARY\n", "paper.pdf": src}
+        current_app.api.save(
+            SetSourceFormat(creator=authorized_user, client=ua,
+                            source_format=SourceFormat.PDF.value),
+            submission_id=sid)
+
+        file_process("GET", MultiDict(), session, sid, token="")
+
+        assert store.does_preview_exist(sid)
+        assert store.get_preview(sid).download_as_bytes() == b"STAMPED:" + src

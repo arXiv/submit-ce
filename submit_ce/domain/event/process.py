@@ -285,7 +285,7 @@ class InstallPdfPreview(EventWithSideEffect):
         sid = submission.submission_id
         workspace = file_store.get_workspace(submission_id=sid)
         pdfs = [f for f in (workspace.files if workspace else [])
-                if f.name.lower().endswith('.pdf')]
+                if f.name.lower().endswith('.pdf') and not f.ancillary]
         if len(pdfs) != 1:
             raise InvalidEvent(
                 self,
@@ -303,7 +303,7 @@ class InstallPdfPreview(EventWithSideEffect):
         sid = submission.submission_id
         workspace = file_store.get_workspace(submission_id=sid)
         pdf = [f for f in workspace.files
-               if f.name.lower().endswith('.pdf')][0]
+               if f.name.lower().endswith('.pdf') and not f.ancillary][0]
         source = file_store.get_source_file(sid, pdf.path)
         with source.open('rb') as stream:
             data = stream.read()
