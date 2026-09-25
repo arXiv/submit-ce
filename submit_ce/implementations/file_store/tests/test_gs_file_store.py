@@ -153,7 +153,7 @@ def test_store_source_package_extracts_members(store, sub_id):
     f.stream = tar_stream
     result = store.store_source_package(sub_id, f, chunk_size=4096)
 
-    stored_names = {item["file"] for item in result}
+    stored_names = {item.path for item in result}
     assert "main.tex" in stored_names
     assert "fig.pdf" in stored_names
 
@@ -168,7 +168,7 @@ def test_store_source_package_strips_dotslash_member_paths(store, sub_id):
     f.stream = tar_stream
     result = store.store_source_package(sub_id, f, chunk_size=4096)
 
-    stored_names = {item["file"] for item in result}
+    stored_names = {item.path for item in result}
     assert "main.tex" in stored_names
     assert "fig/plot.png" in stored_names
     assert not any(n.startswith("./") for n in stored_names)
