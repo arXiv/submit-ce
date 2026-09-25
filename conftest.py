@@ -29,8 +29,11 @@ download -- see `_allow_fasttext_model_download`.
 import contextlib
 import importlib
 import socket
+import sqlite3
 
 import pytest
+from sqlalchemy import event
+from sqlalchemy.engine import Engine
 
 from submit_ce.ui.config import settings
 
@@ -163,3 +166,14 @@ def _no_production_side_effects():
     settings.STORE = "null"                  # -> NullFileStore, never GCS
     settings.COMPILE_API_URL = "http://localhost:0"  # http:// also skips ID tokens
     yield
+
+
+@event.listens_for(Engine, "connect")
+def _sqlite_without_fsync(dbapi_connection, _connection_record):
+    """Test databases are throwaway, so skip sqlite's fsyncs. On a real disk
+    they made the suite several times slower, SWORD's per-test schemas most."""
+    if isinstance(dbapi_connection, sqlite3.Connection):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA synchronous = OFF")
+        cursor.execute("PRAGMA journal_mode = MEMORY")
+        cursor.close()

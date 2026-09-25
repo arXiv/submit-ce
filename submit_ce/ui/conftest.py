@@ -19,6 +19,7 @@ from arxiv.auth.legacy.sessions import create
 from arxiv.db import Session
 from arxiv.taxonomy.definitions import CATEGORIES
 from flask import Flask, current_app
+from jinja2 import BytecodeCache
 from sqlalchemy import desc, select
 
 import submit_ce
@@ -77,6 +78,24 @@ def mocked_file_store(app: Flask) -> None:
     app.api.store = MockFileStore()
 
 
+class _MemoryBytecodeCache(BytecodeCache):
+    """Compiled templates, shared by the per-test apps so each test does not
+    compile them again."""
+
+    def __init__(self):
+        self.store = {}
+
+    def load_bytecode(self, bucket):
+        if bucket.key in self.store:
+            bucket.bytecode_from_string(self.store[bucket.key])
+
+    def dump_bytecode(self, bucket):
+        self.store[bucket.key] = bucket.bytecode_to_string()
+
+
+_TEMPLATE_CACHE = _MemoryBytecodeCache()
+
+
 @pytest.fixture(scope='session')
 def jwt_secret():
     secret = str(uuid.uuid4())
@@ -124,6 +143,7 @@ def app(legacy_db, jwt_secret):
     sce_settings.QA_PUBSUB_ENABLED = False  # no real Pub/Sub in tests
 
     app = create_web_app()
+    app.jinja_env.bytecode_cache = _TEMPLATE_CACHE
     app.config["CLASSIC_DB_URI"] = uri
     app.config["JWT_SECRET"] = jwt_secret
 
