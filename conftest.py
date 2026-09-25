@@ -26,6 +26,7 @@ service still work. One standing exemption is granted, to ftlangdetect's model
 download -- see `_allow_fasttext_model_download`.
 """
 
+import contextlib
 import importlib
 import socket
 
@@ -97,6 +98,24 @@ def _network_guard(request):
         yield
     finally:
         _allow_network = previous
+
+
+@contextlib.contextmanager
+def _network_permitted():
+    global _allow_network
+    previous = _allow_network
+    _allow_network = True
+    try:
+        yield
+    finally:
+        _allow_network = previous
+
+
+@pytest.fixture(scope="session")
+def network_permitted():
+    """Lift the guard in a ``with`` block. For session and module fixtures,
+    which pytest sets up before the per-test ``allow_network`` marker applies."""
+    return _network_permitted
 
 
 @pytest.fixture(autouse=True, scope="session")

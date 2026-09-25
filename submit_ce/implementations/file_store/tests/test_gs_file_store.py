@@ -16,11 +16,14 @@ from google.cloud import storage
 from arxiv.files import FileDoesNotExist
 from submit_ce.implementations.file_store.gs_file_store import GsFileStore
 
-pytestmark = pytest.mark.skipif(
-    not os.environ.get("TEST_GS_FILE_STORE_AT_GCP"),
-    reason="Set TEST_GS_FILE_STORE_AT_GCP=1 and set application default "\
-    "credentials to run GCS integration tests",
-)
+pytestmark = [
+    pytest.mark.skipif(
+        not os.environ.get("TEST_GS_FILE_STORE_AT_GCP"),
+        reason="Set TEST_GS_FILE_STORE_AT_GCP=1 and set application default "\
+        "credentials to run GCS integration tests",
+    ),
+    pytest.mark.allow_network,
+]
 
 BUCKET_NAME = "arxiv-submit-dev"
 PROJECT = "arxiv-development"
@@ -33,28 +36,30 @@ def gcs_client():
 
 
 @pytest.fixture(scope="session")
-def bucket(gcs_client):
+def bucket(gcs_client, network_permitted):
     b = gcs_client.bucket(BUCKET_NAME)
     if gcs_client.project != PROJECT:
         pytest.fail(f"GCS client project is {gcs_client.project!r}, expected {PROJECT!r}; refusing to run against non-dev bucket.")
     if "dev" not in BUCKET_NAME:
         pytest.fail(f"Bucket name {BUCKET_NAME!r} does not contain 'dev'; refusing to run against non-dev bucket.")
     chosen = None
-    for _ in range(8):
-        candidate = f"{TEST_PREFIX_BASE}/{uuid.uuid4().hex[:12]}"
-        existing = list(gcs_client.list_blobs(b, prefix=candidate, max_results=1))
-        if not existing:
-            chosen = candidate
-            break
+    with network_permitted():
+        for _ in range(8):
+            candidate = f"{TEST_PREFIX_BASE}/{uuid.uuid4().hex[:12]}"
+            existing = list(gcs_client.list_blobs(b, prefix=candidate, max_results=1))
+            if not existing:
+                chosen = candidate
+                break
     if chosen is None:
         pytest.fail(
             f"Could not find a free prefix under {TEST_PREFIX_BASE!r} in {BUCKET_NAME} "
             "after 8 attempts; aborting to avoid interference with existing data."
         )
     yield BUCKET_NAME, chosen
-    blobs = list(gcs_client.list_blobs(b, prefix=chosen))
-    if blobs:
-        b.delete_blobs(blobs)
+    with network_permitted():
+        blobs = list(gcs_client.list_blobs(b, prefix=chosen))
+        if blobs:
+            b.delete_blobs(blobs)
 
 
 @pytest.fixture
