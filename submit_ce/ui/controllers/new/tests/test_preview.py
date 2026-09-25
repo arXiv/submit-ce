@@ -7,11 +7,13 @@ from flask import current_app, request
 from werkzeug.datastructures import MultiDict
 
 from submit_ce.domain.agent import InternalClient
+from submit_ce.domain.document import DocMetadata, Document
 from submit_ce.domain.event import ConfirmPreview, SetSourceFormat
+from submit_ce.domain.exceptions import NoSuchDocument
 from submit_ce.domain.uploads import SourceFormat
 from submit_ce.implementations.file_store.mock_file_store import MockFileStore
 from submit_ce.ui.controllers.new import final
-from submit_ce.ui.controllers.new.preview import preprocess_html
+from submit_ce.ui.controllers.new.preview import postprocess_html, preprocess_html
 
 BASE = 'https://submit.example.org/1/preview/html/'
 BASE_TAG = b'<base href="https://submit.example.org/1/preview/html/" />'
@@ -167,3 +169,80 @@ def test_confirm_page_links_html_preview(app, authorized_user, authorized_client
     assert f'href="/{sid}/preview/html/"'.encode() in resp.data
     assert b'Preview your HTML!' in resp.data
     assert f'href="/{sid}/preview.pdf"'.encode() not in resp.data
+
+
+def _metadata(**fields):
+    return DocMetadata(**{'version': 1, 'title': 'Gaussian Process Topic Models',
+                          'authors': 'Amrudin Agovic, Arindam Banerjee',
+                          'categories': 'cs.LG stat.ML', 'abstract': 'We introduce a model.',
+                          'is_current': True, **fields})
+
+
+@pytest.fixture
+def documents(app, mocker):
+    """Announced papers that LIST: and ABS: lines can refer to."""
+    papers = {'1203.3462': Document(paper_id='1203.3462', metadata=[
+        _metadata(version=1, title='First version', is_current=False), _metadata(version=2)])}
+
+    def get_document(paper_id):
+        if paper_id not in papers:
+            raise NoSuchDocument(paper_id)
+        return papers[paper_id]
+
+    mocker.patch.object(app.api, 'get_document', side_effect=get_document)
+    return papers
+
+
+def _postprocess(app, html: bytes) -> bytes:
+    with app.test_request_context('/'):
+        return postprocess_html(html, link_site='arxiv.org')
+
+
+def test_postprocess_html_expands_list_lines(app, documents):
+    out = _postprocess(app, b'<p>x</p>\nLIST:arXiv:1203.3462\n<p>y</p>\n')
+    assert out.startswith(b'<p>x</p>\n<dl>\n') and out.endswith(b'</dl>\n<p>y</p>\n')
+    assert b'<a href="https://arxiv.org/abs/1203.3462"' in out
+    assert b'Gaussian Process Topic Models' in out
+    assert b'Amrudin Agovic, Arindam Banerjee' in out
+    assert b'Machine Learning (cs.LG)' in out
+    assert b'We introduce a model.' not in out
+
+
+def test_postprocess_html_abs_lines_include_the_abstract(app, documents):
+    assert b'We introduce a model.' in _postprocess(app, b'ABS:1203.3462\n')
+
+
+def test_postprocess_html_uses_the_version_asked_for(app, documents):
+    out = _postprocess(app, b'LIST:arXiv:1203.3462v1\n')
+    assert b'First version' in out
+    assert b'<a href="https://arxiv.org/abs/1203.3462v1"' in out
+
+
+def test_postprocess_html_reports_unknown_papers(app, documents):
+    out = _postprocess(app, b'LIST:arXiv:9999.99999\n')
+    assert out == b'<dl>\n<dd>9999.99999 [failed to get metadata for paper]</dd>\n</dl>\n'
+
+
+def test_postprocess_html_escapes_metadata(app, documents):
+    documents['1203.3462'].metadata[1].title = '<script>alert(1)</script>'
+    out = _postprocess(app, b'LIST:1203.3462\n')
+    assert b'<script>' not in out and b'&lt;script&gt;' in out
+
+
+def test_postprocess_html_needs_directives_at_line_start(app, documents):
+    """As arxiv-browse does, so the preview matches the announced paper."""
+    html = b'  LIST:arXiv:1203.3462\n<p>see LIST:arXiv:1203.3462</p>\n'
+    assert _postprocess(app, html) == html
+
+
+def test_postprocess_html_links_report_numbers(app):
+    out = _postprocess(app, b'(paper\n  REPORT-NO:SampleWS/2026/01\n)\n')
+    assert out == (b'(paper\n<a href="https://arxiv.org/search/?searchtype=report_num'
+                   b'&query=SampleWS%2F2026%2F01">SampleWS/2026/01</a>\n)\n')
+
+
+def test_html_preview_expands_list_lines(authorized_client, html_source, documents):
+    sid, store = html_source
+    store._source[sid]['index.html'] = b'<html><body>\nLIST:arXiv:1203.3462\n</body></html>'
+    resp = authorized_client.get(f'/{sid}/preview/html/index.html')
+    assert b'Gaussian Process Topic Models' in resp.data
