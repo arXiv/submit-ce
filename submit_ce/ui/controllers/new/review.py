@@ -253,6 +253,24 @@ def review_files(method: str, params: MultiDict, session: Session,
             return ready_for_next((rdata, status.OK, {}))
 
 
+def _set_issue_cards(rdata, issue_notifications) -> None:
+    """Set ``has_blocking_issues`` and the issue cards in ``rdata``."""
+    rdata['has_blocking_issues'] = any(
+        n.get('severity') == 'danger' for n in issue_notifications)
+    # SUBMISSION-218: collapse the per-code issue banners into one card
+    # per severity (danger / warning / info) so the page isn't a long stack.
+    cards = group_notifications_by_severity(issue_notifications)
+    if rdata['has_blocking_issues']:
+        # A persistent danger summary card explaining the block leads the
+        # list (rendered on GET too, since the button stays enabled).
+        cards = [{
+            'title': 'Cannot continue',
+            'severity': 'danger',
+            'body': 'Please resolve the highlighted problem(s) before you can continue.',
+        }] + cards
+    rdata['immediate_notifications'] = cards
+
+
 def _render_review_page(rdata, form, submission_id, preflight_data,
                         user_decisions_data):
     """Populate ``rdata`` for the Review Files template and stay on the stage.
@@ -338,20 +356,7 @@ def _render_review_page(rdata, form, submission_id, preflight_data,
         'unanalyzed': [r['filename'] for r in rdata['file_notes']
                        if r.get('is_unanalyzed')],
     }
-    rdata['has_blocking_issues'] = any(
-        n.get('severity') == 'danger' for n in issue_notifications)
-    # SUBMISSION-218: collapse the per-code issue banners into one card
-    # per severity (danger / warning / info) so the page isn't a long stack.
-    cards = group_notifications_by_severity(issue_notifications)
-    if rdata['has_blocking_issues']:
-        # A persistent danger summary card explaining the block leads the
-        # list (rendered on GET too, since the button stays enabled).
-        cards = [{
-            'title': 'Cannot continue',
-            'severity': 'danger',
-            'body': 'Please resolve the highlighted problem(s) before you can continue.',
-        }] + cards
-    rdata['immediate_notifications'] = cards
+    _set_issue_cards(rdata, issue_notifications)
     # The passive "preflight complete" / "directives" status cards are
     # dropped entirely (per UI-design review) -- the main column is reserved for
     # issues that need the submitter's attention, and nothing replaces them in
