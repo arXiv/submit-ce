@@ -194,6 +194,33 @@ def test_review_files_post_danger_issue_blocks_continue(
                    for c in mock_save.call_args_list)
 
 
+def test_review_files_post_preflight_error_status_blocks_continue(
+        app, authorized_client, sub_files_tex, mocker):
+    """A preflight ``status: error`` (scan aborted, e.g. a failed QA check)
+    blocks Continue and names the reason, instead of rendering an empty scan."""
+    url = f"/{sub_files_tex.submission_id}/review_files"
+    csrf = _get_csrf(authorized_client, url, mocker)
+
+    mocker.patch.object(review, '_update_preflight', return_value=False)
+    error_preflight = {
+        'status': {'key': 'error',
+                   'info': 'QA check failed: exe-in-submission <b>x</b>'},
+        'tex_files': [],
+        'detected_toplevel_files': [],
+    }
+    mocker.patch.object(review, '_load_or_create_preflight',
+                        return_value=(error_preflight, {'sources': []}))
+    mock_load_dir = mocker.patch.object(review, '_load_or_create_directives')
+
+    resp = authorized_client.post(url, data={'csrf_token': csrf, 'action': 'next'})
+
+    assert resp.status_code == status.OK
+    mock_load_dir.assert_not_called()
+    assert b'Cannot continue' in resp.data
+    assert b'exe-in-submission' in resp.data
+    assert b'<b>x</b>' not in resp.data               # producer text is escaped
+
+
 def test_review_files_get_auto_checks_only_unused(
         app, authorized_client, sub_files_tex, mocker):
     """SUBMISSION-222: the delete box is pre-checked for UNUSED files

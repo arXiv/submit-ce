@@ -39,6 +39,16 @@ SILENT = "silent"
 # Severity ordering for danger-first grouping in the banner area.
 SEVERITY_RANK = {"danger": 0, "warning": 1, "info": 2}
 
+# POLICY: show the reason text of a preflight ``status: error``.
+# The error itself always blocks (``preflight_error`` below); this switch only
+# controls whether the producer's ``status.info`` (e.g. "QA check failed:
+# exe-in-submission", "No TeX files found") is shown to the submitter as the
+# banner body. Producer text is rendered escaped, never as HTML.
+# Revisit (set False) if the compile service is configured to hard-reject on
+# plugin-defined checks: their failure reason then lands in this text, and
+# showing it tells the submitter exactly which check to work around.
+SHOW_PREFLIGHT_ERROR_DETAIL = True
+
 # reason code -> {severity, message?, url?, link_text?}
 PREFLIGHT_ISSUE_DIRECTIVES: Dict[str, Dict[str, Any]] = {
     # --- bibliography ---
@@ -183,6 +193,16 @@ PREFLIGHT_ISSUE_DIRECTIVES: Dict[str, Dict[str, Any]] = {
     # NO `message` key (invariant asserted in test_issue_table.py); the former
     # copy lives in git history if we ever want to resurface it.
     "hyperref_not_found": {"severity": SILENT},
+    # preflight_error is synthesized from ``status.key == "error"``. The producer
+    # then returns no files at all (a failed QA check aborts the scan), so
+    # without this the page showed an empty scan with no reason. ``show_info``
+    # puts ``status.info`` in the banner body (see SHOW_PREFLIGHT_ERROR_DETAIL).
+    "preflight_error": {  # NEW; danger -- the scan was aborted, nothing to compile
+        "severity": "danger",
+        "message": "The scan could not process your submission. Please check "
+                   "the files you uploaded and try again.",
+        "show_info": SHOW_PREFLIGHT_ERROR_DETAIL,
+    },
     # no_top_level_file: 1.5 kept this silent (deferred to a legacy system
     # message). 2.0 has no such message and the flow already blocks advancing
     # without a top-level, so we surface it as a blocking danger with a reason.
@@ -211,6 +231,7 @@ ALWAYS_ACT: frozenset = frozenset({
     "pdf_not_pdf",             # policy: an invalid PDF is unacceptable regardless
     "unsupported_zzrm_format",  # submission-level 00README config, not a source file
     "no_top_level_file",       # submission-level: there is no compilable top-level
+    "preflight_error",         # submission-level: the scan was aborted
 })
 
 

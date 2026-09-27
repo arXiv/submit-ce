@@ -287,3 +287,40 @@ def test_tex_file_issue_without_filename_uses_container():
     _, file_issues = build_issue_context(preflight)
     assert 'main.tex' in file_issues
     assert file_issues['main.tex'][0]['severity'] == 'danger'
+
+
+# --- preflight status "error" -----------------------------------------------------
+
+def _pf_error(info="QA check failed: exe-in-submission"):
+    """Payload the producer returns when the scan is aborted: no files at all."""
+    return {"status": {"key": "error", "info": info},
+            "detected_toplevel_files": [], "tex_files": []}
+
+
+def test_preflight_error_status_blocks():
+    assert has_blocking_issues(_pf_error()) is True
+    # Selection-aware downgrading never applies: the error has no file.
+    assert has_blocking_issues(_pf_error(), {"main.tex"}) is True
+
+
+def test_preflight_error_status_shows_reason():
+    notes, file_issues = build_issue_context(_pf_error())
+    assert len(notes) == 1
+    assert notes[0]["severity"] == "danger"
+    assert "exe-in-submission" in notes[0]["body"]
+    assert file_issues == {}
+
+
+def test_preflight_error_reason_can_be_hidden(monkeypatch):
+    # POLICY switch SHOW_PREFLIGHT_ERROR_DETAIL: still blocks, no reason text.
+    monkeypatch.setitem(PREFLIGHT_ISSUE_DIRECTIVES["preflight_error"],
+                        "show_info", False)
+    notes, _ = build_issue_context(_pf_error())
+    assert notes[0]["severity"] == "danger"
+    assert "exe-in-submission" not in notes[0]["body"]
+
+
+def test_success_status_adds_nothing():
+    pf = _pf()
+    pf["status"] = {"key": "success", "info": None}
+    assert build_issue_context(pf) == ([], {})

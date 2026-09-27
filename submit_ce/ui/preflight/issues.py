@@ -74,12 +74,16 @@ def _iter_issues(preflight_data: dict):
 def _derived_issues(preflight_data: dict):
     """Issues we synthesize because the producer no longer emits them.
 
-    Currently just ``hyperref_not_found``: any detected top-level file whose
-    ``hyperref_found`` is explicitly ``False``.
+    * ``hyperref_not_found``: any detected top-level file whose
+      ``hyperref_found`` is explicitly ``False``.
+    * ``preflight_error``: ``status.key == "error"``, carrying ``status.info``.
     """
     toplevels = preflight_data.get("detected_toplevel_files") or []
     if any(tlf.get("hyperref_found") is False for tlf in toplevels):
         yield "hyperref_not_found", None, None, None
+    status = preflight_data.get("status")
+    if isinstance(status, dict) and status.get("key") == "error":
+        yield "preflight_error", status.get("info"), None, None
 
 
 def build_issue_context(
@@ -147,8 +151,10 @@ def build_issue_context(
                 downgraded_files.append(owner)
 
         group = groups.setdefault(
-            key, {"count": 0, "files": [], "severity": effective})
+            key, {"count": 0, "files": [], "infos": [], "severity": effective})
         group["count"] += 1
+        if info and _directive(key).get("show_info") and info not in group["infos"]:
+            group["infos"].append(info)
         # The group takes the most severe effective severity among its issues,
         # so a code present in BOTH a used and an unused file still blocks.
         if _SEVERITY_RANK.get(effective, 9) < _SEVERITY_RANK.get(group["severity"], 9):
@@ -165,11 +171,15 @@ def build_issue_context(
         group = groups[key]
         directive = _directive(key)
         message = directive.get("message") or f"{_humanize(key)} ({{n}} issue(s))"
+        body_parts = []
+        if group["files"]:
+            body_parts.append("Affected file(s): " + ", ".join(group["files"]))
+        if group["infos"]:
+            body_parts.append("Details: " + "; ".join(group["infos"]))
         notification: Dict[str, Any] = {
             "title": message.replace("{n}", str(group["count"])),
             "severity": group["severity"],
-            "body": ("Affected file(s): " + ", ".join(group["files"]))
-                    if group["files"] else "",
+            "body": " ".join(body_parts),
         }
         if directive.get("url"):
             notification["url"] = directive["url"]
