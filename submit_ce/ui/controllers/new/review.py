@@ -9,6 +9,7 @@ from arxiv.auth.domain import Session
 from arxiv.base import alerts
 from markupsafe import Markup
 from submit_ce.domain.event.process import (
+    PassPdfPreflight,
     SetDecisions,
     SetDirectivesAndCleanup,
     StartPreflight,
@@ -40,6 +41,7 @@ from submit_ce.ui.routes.flow_control import (
     return_to_previous_stage, advance_to_current,
 )
 from submit_ce.ui.backend import get_submission
+from submit_ce.ui.workflow import conditions
 from submit_ce.ui import SUPPORT
 
 from submit_ce.domain.compilation import Compilation
@@ -51,6 +53,16 @@ from tex2pdf_tools.preflight import PreflightResponse
 
 logger = logging.getLogger(__name__)
 #logging.basicConfig(level=logging.DEBUG)
+
+# POLICY: can a PDF-only submission pass Review Files while preflight is
+# unavailable (compile service down or erroring)?
+# True (default): no -- same as TeX, it stays on Review Files with the
+# "Preflight unavailable" message until preflight succeeds. This makes the
+# compile service a dependency of PDF-only submissions, which it was not
+# before they went through preflight.
+# False: let it through unchecked (records PassPdfPreflight anyway), i.e.
+# the pre-preflight behaviour during an outage.
+PDF_PREFLIGHT_REQUIRED = True
 
 Response = Tuple[Dict[str, Any], int, Dict[str, Any]]  # pylint: disable=C0103
 
@@ -146,7 +158,7 @@ def review_files(method: str, params: MultiDict, session: Session,
     if method not in ['GET', 'POST']:
         raise MethodNotAllowed()
 
-    submission, _ = get_submission(submission_id)
+    submission, events = get_submission(submission_id)
 
     workspace = current_app.api.get_file_store().get_workspace(
         submission_id=submission.submission_id)
@@ -169,7 +181,8 @@ def review_files(method: str, params: MultiDict, session: Session,
         return return_to_parent_stage((rdata, status.OK, {}))
 
     if submission.source_format == SourceFormat.PDF:
-        return advance_to_current((rdata, status.OK, {}))
+        return _review_pdf(method, params, session, submission_id, token,
+                           rdata, submission, events)
 
     if submission.source_format != SourceFormat.TEX:
         return return_to_previous_stage((rdata, status.OK, {}))
@@ -269,6 +282,67 @@ def _set_issue_cards(rdata, issue_notifications) -> None:
             'body': 'Please resolve the highlighted problem(s) before you can continue.',
         }] + cards
     rdata['immediate_notifications'] = cards
+
+
+def _review_pdf(method, params, session, submission_id, token, rdata,
+                submission, events):
+    """Review Files for a PDF-only submission: run preflight on the lone PDF.
+
+    Preflight runs the PDF checks on an uploaded single PDF (it is the final
+    artifact). Outcomes:
+
+    * blocking (danger) issue -> stay, with the issue cards;
+    * only non-blocking issues -> record ``PassPdfPreflight``; on GET show the
+      cards (Continue advances), on POST advance;
+    * no issues -> record ``PassPdfPreflight`` and advance without showing the
+      page, as before PDF-only submissions went through preflight.
+
+    ``PassPdfPreflight`` is what completes the Review Files stage for PDF (see
+    ``conditions.has_passed_pdf_preflight``), so a blocked PDF cannot reach
+    Process -- which installs the PDF as the preview -- by skipping ahead.
+    """
+    submitter, client = user_and_client_from_session(session)
+    rdata['pdf_only'] = True
+
+    preflight_data = _get_preflight_data(submission_id)
+    if preflight_data is None:
+        try:
+            start_preflight(params, session, submission_id, token)
+        except Exception as exc:
+            logger.warning("Could not run preflight for PDF-only submission %s: %s",
+                           submission_id, exc)
+        preflight_data = _get_preflight_data(submission_id)
+
+    if preflight_data is None and PDF_PREFLIGHT_REQUIRED:
+        alerts.flash_warning(
+            Markup(
+                "We couldn't check your PDF right now because the preflight "
+                "service is temporarily unavailable. Please refresh this page "
+                "to try again. ") + SUPPORT,
+            title="Preflight unavailable")
+        rdata['pdf_only'] = False  # render the "analysis unavailable" block
+        return stay_on_this_stage((rdata, status.OK, {}))
+
+    issue_notifications, _ = build_issue_context(preflight_data)
+    _set_issue_cards(rdata, issue_notifications)
+    if rdata['has_blocking_issues']:
+        return stay_on_this_stage((rdata, status.OK, {}))
+
+    if not conditions.has_passed_pdf_preflight(submission, events):
+        try:
+            current_app.api.save(PassPdfPreflight(creator=submitter, client=client),
+                                 submission_id=submission_id)
+        except (SaveError, InvalidEvent) as e:
+            logger.error("Could not save PassPdfPreflight for %s: %s", submission_id, e)
+            alerts.flash_failure(f"We couldn't record the file check. {SUPPORT}",
+                                 title="Review failed")
+            return stay_on_this_stage((rdata, status.OK, {}))
+
+    if method == 'POST':
+        return ready_for_next((rdata, status.OK, {}))
+    if not issue_notifications:
+        return advance_to_current((rdata, status.OK, {}))
+    return stay_on_this_stage((rdata, status.OK, {}))
 
 
 def _render_review_page(rdata, form, submission_id, preflight_data,

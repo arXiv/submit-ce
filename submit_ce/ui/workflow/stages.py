@@ -112,7 +112,7 @@ class ReviewFiles(Stage):
     title = "Review Files"
     display = "Review Files"
     always_check = True
-    completed = [conditions.OR(conditions.source_format_pdf,
+    completed = [conditions.OR(conditions.has_passed_pdf_preflight,
                                conditions.source_format_html,
                                conditions.has_current_directives)]
     skipped = [conditions.source_format_html]
