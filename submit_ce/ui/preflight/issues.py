@@ -205,6 +205,26 @@ def build_issue_context(
     return notifications, file_issues
 
 
+def moderator_findings(preflight_data: Optional[dict]) -> List[str]:
+    """Return the codes moderators should know about, in first-seen order.
+
+    These are the findings covered by the POLICY block in issue_table.py:
+    codes the table does not describe (plugin-defined checks) and the
+    ``preflight_suspicious`` status. They are returned regardless of the
+    SHOW_* switches -- whether the submitter also sees them is a separate
+    decision from whether moderators hear about them.
+    """
+    if not preflight_data:
+        return []
+    found: List[str] = []
+    for key, _info, _filename, _container in (
+            list(_iter_issues(preflight_data)) + list(_derived_issues(preflight_data))):
+        if key and key not in found and (
+                key not in PREFLIGHT_ISSUE_DIRECTIVES or key == "preflight_suspicious"):
+            found.append(key)
+    return found
+
+
 def has_blocking_issues(preflight_data: Optional[dict],
                         used_filenames: Optional[Set[str]] = None) -> bool:
     """Return True if any surfaced preflight issue is ``danger`` severity.

@@ -718,3 +718,16 @@ def test_store_source_format_swallows_save_error(app, authorized_user, mocker, c
         review._store_source_format({'tex_files': []}, MagicMock(), 'sub1')
     assert any('Could not save SetSourceFormat for sub1' in r.message
                for r in caplog.records)
+
+
+def test_log_moderator_findings(caplog):
+    pf = {'status': {'key': 'suspicious', 'info': None},
+          'tex_files': [], 'detected_toplevel_files': []}
+    with caplog.at_level('WARNING', logger=review.logger.name):
+        review._log_moderator_findings(pf, '123')
+    assert 'moderator findings for submission 123: preflight_suspicious' in caplog.text
+
+    caplog.clear()
+    with caplog.at_level('WARNING', logger=review.logger.name):
+        review._log_moderator_findings({'tex_files': []}, '123')
+    assert 'moderator findings' not in caplog.text

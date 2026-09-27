@@ -352,3 +352,14 @@ def test_suspicious_status_is_hidden():
     pf["status"] = {"key": "suspicious", "info": None}
     assert build_issue_context(pf) == ([], {})
     assert has_blocking_issues(pf) is False
+
+
+def test_moderator_findings_lists_unlisted_codes_and_suspicious():
+    from submit_ce.ui.preflight.issues import moderator_findings
+    pf = _pf("some_plugin_defined_code", "file_not_found",
+             "some_plugin_defined_code")
+    pf["status"] = {"key": "suspicious", "info": None}
+    assert moderator_findings(pf) == ["some_plugin_defined_code",
+                                      "preflight_suspicious"]
+    assert moderator_findings(_pf("file_not_found")) == []
+    assert moderator_findings(None) == []
