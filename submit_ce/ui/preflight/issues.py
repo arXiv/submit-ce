@@ -77,13 +77,17 @@ def _derived_issues(preflight_data: dict):
     * ``hyperref_not_found``: any detected top-level file whose
       ``hyperref_found`` is explicitly ``False``.
     * ``preflight_error``: ``status.key == "error"``, carrying ``status.info``.
+    * ``preflight_suspicious``: ``status.key == "suspicious"``.
     """
     toplevels = preflight_data.get("detected_toplevel_files") or []
     if any(tlf.get("hyperref_found") is False for tlf in toplevels):
         yield "hyperref_not_found", None, None, None
     status = preflight_data.get("status")
-    if isinstance(status, dict) and status.get("key") == "error":
+    status_key = status.get("key") if isinstance(status, dict) else None
+    if status_key == "error":
         yield "preflight_error", status.get("info"), None, None
+    elif status_key == "suspicious":
+        yield "preflight_suspicious", None, None, None
 
 
 def build_issue_context(

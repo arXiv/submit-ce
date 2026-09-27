@@ -324,3 +324,31 @@ def test_success_status_adds_nothing():
     pf = _pf()
     pf["status"] = {"key": "success", "info": None}
     assert build_issue_context(pf) == ([], {})
+
+
+# --- POLICY: unlisted codes and status "suspicious" are hidden from submitters ----
+
+def test_unlisted_code_is_hidden_and_does_not_block():
+    pf = _pf("some_plugin_defined_code")
+    assert build_issue_context(pf) == ([], {})
+    assert has_blocking_issues(pf) is False
+
+
+def test_unlisted_code_shown_as_warning_when_switched_on(monkeypatch):
+    # POLICY switch SHOW_UNLISTED_CODES=True: the previous behaviour.
+    # Flipping the switch rebinds DEFAULT_DIRECTIVE at import time; both modules
+    # hold that object, so patch both names here.
+    from submit_ce.ui.preflight import issue_table, issues
+    shown = {"severity": "warning", "message": None}
+    monkeypatch.setattr(issue_table, "DEFAULT_DIRECTIVE", shown)
+    monkeypatch.setattr(issues, "DEFAULT_DIRECTIVE", shown)
+    notes, file_issues = build_issue_context(_pf("some_plugin_defined_code"))
+    assert [n["severity"] for n in notes] == ["warning"]
+    assert file_issues["main.tex"][0]["severity"] == "warning"
+
+
+def test_suspicious_status_is_hidden():
+    pf = _pf()
+    pf["status"] = {"key": "suspicious", "info": None}
+    assert build_issue_context(pf) == ([], {})
+    assert has_blocking_issues(pf) is False

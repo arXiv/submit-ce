@@ -49,6 +49,30 @@ SEVERITY_RANK = {"danger": 0, "warning": 1, "info": 2}
 # showing it tells the submitter exactly which check to work around.
 SHOW_PREFLIGHT_ERROR_DETAIL = True
 
+# POLICY: what the submitter sees of findings this table does not describe.
+#
+# The compile service can run plugin-defined checks whose issue codes are
+# deliberately NOT part of the public ``IssueType`` enum, so they never appear
+# in this table. Some of them look for deliberate abuse rather than honest
+# mistakes. Showing such a finding to the submitter right after upload turns
+# the check into a test oracle: re-upload until the finding goes away. So by
+# default these codes are collected but not shown, and moderators are pointed
+# at them instead (see ``moderator_findings`` in issues.py).
+#
+# Why this cannot silence a public code by accident:
+# ``test_directives_cover_every_producer_issue_type`` fails when a public
+# IssueType has no entry here, so every code the public producer knows about
+# must be listed (and gets its own severity) before CI passes.
+#
+# Revisit / switch:
+# * SHOW_UNLISTED_CODES = True restores the previous behaviour: any unlisted
+#   code is shown as a generic, non-blocking warning.
+# * SHOW_SUSPICIOUS_STATUS = True shows preflight ``status: suspicious`` (set by
+#   the compile service when a plugin-defined source check flags a file) as a
+#   non-blocking warning. Same oracle concern as above.
+SHOW_UNLISTED_CODES = False
+SHOW_SUSPICIOUS_STATUS = False
+
 # reason code -> {severity, message?, url?, link_text?}
 PREFLIGHT_ISSUE_DIRECTIVES: Dict[str, Dict[str, Any]] = {
     # --- bibliography ---
@@ -203,6 +227,14 @@ PREFLIGHT_ISSUE_DIRECTIVES: Dict[str, Dict[str, Any]] = {
                    "the files you uploaded and try again.",
         "show_info": SHOW_PREFLIGHT_ERROR_DETAIL,
     },
+    # preflight_suspicious is synthesized from ``status.key == "suspicious"``.
+    # See the POLICY block at the top (SHOW_SUSPICIOUS_STATUS).
+    "preflight_suspicious": (
+        {"severity": "warning",
+         "message": "The scan flagged your submission for a closer look by "
+                    "arXiv staff. You may continue."}
+        if SHOW_SUSPICIOUS_STATUS else {"severity": SILENT}
+    ),
     # no_top_level_file: 1.5 kept this silent (deferred to a legacy system
     # message). 2.0 has no such message and the flow already blocks advancing
     # without a top-level, so we surface it as a blocking danger with a reason.
@@ -218,8 +250,12 @@ PREFLIGHT_ISSUE_DIRECTIVES: Dict[str, Dict[str, Any]] = {
     },
 }
 
-# Unknown codes (e.g. plugin-defined) fall back to a visible warning.
-DEFAULT_DIRECTIVE: Dict[str, Any] = {"severity": "warning", "message": None}
+# Unknown codes (e.g. plugin-defined): see the POLICY block at the top
+# (SHOW_UNLISTED_CODES). Hidden by default; a generic warning when switched on.
+DEFAULT_DIRECTIVE: Dict[str, Any] = (
+    {"severity": "warning", "message": None} if SHOW_UNLISTED_CODES
+    else {"severity": SILENT}
+)
 
 # Danger codes that must block regardless of whether their file is used in the
 # selected compilation (SUBMISSION-247). These are safety/policy concerns, not
