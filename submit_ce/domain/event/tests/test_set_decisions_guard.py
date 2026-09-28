@@ -30,12 +30,19 @@ class _FakeStore:
         self.user_decisions = None
         self.preflight_deleted = False
         self.directives_deleted = False
+        self.preview_deleted = False
 
     def delete_preflight(self, sid):
         self.preflight_deleted = True
 
     def delete_directives(self, sid):
         self.directives_deleted = True
+
+    def delete_preview(self, sid):
+        self.preview_deleted = True
+
+    def delete_compile_log(self, sid):
+        pass
 
     def store_user_decisions(self, sid, decisions):
         self.user_decisions = decisions
@@ -135,6 +142,23 @@ def test_execute_protected_sources_default_empty_deletes_normally():
     )
     e.execute(api, s)
     assert api._store.deleted == ['fig.png']
+
+
+def test_changing_decisions_needs_a_new_process():
+    """The PDF was built from the old selection, so it is dropped and the
+    submitter has to process and view it again."""
+    s = _submission()
+    s.is_source_processed = True
+    s.submitter_confirmed_preview = True
+    api = _FakeApi()
+    e = SetDecisions(creator=s.creator, decisions={'sources': [{'filename': 'main.tex'}]},
+                     files_to_delete=[])
+    e.execute(api, s)
+    s = e.project(s)
+    assert api._store.preview_deleted
+    assert not s.is_source_processed
+    assert not s.submitter_confirmed_preview
+    assert s.preview is None
 
 
 def test_protected_top_level_sources_helper():

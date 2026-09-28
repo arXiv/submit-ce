@@ -531,6 +531,9 @@ class SetDecisions(EventWithSideEffect):
         # Directives depend on the selection (compiler / top-level), so always drop
         # them here; the controller regenerates them from the new decisions.
         file_store.delete_directives(submission.submission_id)
+        # The PDF was built from the old selection or file set.
+        file_store.delete_preview(submission.submission_id)
+        file_store.delete_compile_log(submission.submission_id)
         # Preflight analyses the *file set*, not the selection. Only invalidate it
         # when files are actually removed (SUBMISSION-215). A selection-only
         # change (compiler / top-level) leaves the report valid, so the submitter is
@@ -555,6 +558,10 @@ class SetDecisions(EventWithSideEffect):
 
     def project(self, submission: Submission) -> Submission:
         submission.uncompressed_size -= self.bytes_removed
+        # A new PDF has to be processed and viewed before Submit.
+        submission.is_source_processed = False
+        submission.preview = None
+        submission.submitter_confirmed_preview = False
         return submission
 
 

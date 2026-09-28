@@ -11,7 +11,7 @@ from flask import current_app, request
 
 from submit_ce.domain.agent import InternalClient
 from submit_ce.domain.event import SetSourceFormat
-from submit_ce.domain.event.process import StartCompileSource
+from submit_ce.domain.event.process import SetDecisions, StartCompileSource
 from submit_ce.domain.uploads import SourceFormat
 from submit_ce.implementations.compile.mock_compile_mimesis_pdf import MockCompileMimesisPdf
 from submit_ce.implementations.file_store.mock_file_store import MockFileStore
@@ -130,6 +130,30 @@ def test_file_process_tex_reuses_existing_preview(
 
         assert code == status.OK
         assert counting.compile_calls == 0  # reused, not recompiled
+
+
+def test_file_process_tex_recompiles_after_a_decisions_change(
+        app, authorized_user, authorized_user_session, sub_files_tex):
+    """A new selection at Review Files means the existing PDF was built from
+    other directives: arriving at Process compiles again instead of reusing it."""
+    session, _ = authorized_user_session
+    sid = str(sub_files_tex.submission_id)
+    counting = _CountingCompiler()
+    with app.test_request_context("/"):
+        request.auth = session
+        current_app.api.store = MockFileStore()
+        current_app.api.compiler = counting
+        file_process("GET", MultiDict(), session, sid, token="")
+    with app.test_request_context("/"):
+        current_app.api.save(
+            SetDecisions(creator=authorized_user, files_to_delete=[],
+                         decisions={'sources': [{'filename': 'other.tex'}]}),
+            submission_id=sid)
+    with app.test_request_context("/"):
+        request.auth = session
+        file_process("GET", MultiDict(), session, sid, token="")
+
+    assert counting.compile_calls == 2
 
 
 def test_file_process_tex_does_not_retry_failed_compile_on_refresh(

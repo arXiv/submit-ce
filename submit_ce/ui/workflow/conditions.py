@@ -9,6 +9,7 @@ from submit_ce.domain.event.file import (
 )
 from submit_ce.domain.event.process import (
     PreflightStatus,
+    SetDecisions,
     StartCompileSource,
     StartDirectives,
     StartPreflight,
@@ -18,6 +19,9 @@ from submit_ce.domain.uploads import SourceFormat
 # Events that mutate the source workspace. Each of these invalidates the
 # stored preflight via `_common_file_change_execute` in event/file.py.
 _FILE_CHANGE_EVENTS = (UploadArchive, UploadFiles, RemoveFiles, RemoveAllFiles)
+
+# Events after which the last compile no longer matches what it would build.
+_COMPILE_INPUT_EVENTS = _FILE_CHANGE_EVENTS + (SetDecisions,)
 
 # Events that record a preflight run against the current files.
 _PREFLIGHT_EVENTS = (StartPreflight, PreflightStatus)
@@ -145,10 +149,9 @@ def has_compiled_current_source(submission: Submission, events: List[Event]) -> 
 
     Used by the Process stage to decide whether compilation needs to be
     (re)triggered on arrival. A compile counts as "current" only if no
-    file-change event has occurred since the most recent ``StartCompileSource``:
-    any file change invalidates the prior compile (and deletes its preview and
-    log via ``_common_file_change_execute`` in event/file.py), so the source
-    must be recompiled.
+    file-change or ``SetDecisions`` event has occurred since the most recent
+    ``StartCompileSource``: either invalidates the prior compile (and deletes
+    its preview and log), so the source must be recompiled.
 
     Returns True when the latest compile is current, meaning no new compile is
     needed. Returns False when there has never been a compile, or when the
@@ -168,7 +171,7 @@ def has_compiled_current_source(submission: Submission, events: List[Event]) -> 
             last_compile = i
     if last_compile is None:
         return False
-    return not any(isinstance(event, _FILE_CHANGE_EVENTS)
+    return not any(isinstance(event, _COMPILE_INPUT_EVENTS)
                    for event in events[last_compile + 1:])
 
 
