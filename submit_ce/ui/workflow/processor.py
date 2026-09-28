@@ -28,8 +28,24 @@ class WorkflowProcessor:
         return bool(self.submission.is_finalized)
 
     def next_stage(self, stage: Optional[Stage]) -> Optional[Stage]:
-        """Get the stage after the one in the parameter."""
-        return self.workflow.next_stage(stage)
+        """Get the stage after the one in the parameter, passing over skipped ones."""
+        stage = self.workflow.next_stage(stage)
+        while stage is not None and self.is_skipped(stage):
+            stage = self.workflow.next_stage(stage)
+        return stage
+
+    def previous_stage(self, stage: Optional[Stage]) -> Optional[Stage]:
+        """Get the stage before the one in the parameter, passing over skipped ones."""
+        stage = self.workflow.previous_stage(stage)
+        while stage is not None and self.is_skipped(stage):
+            stage = self.workflow.previous_stage(stage)
+        return stage
+
+    def is_skipped(self, stage: Optional[Stage]) -> bool:
+        """Determine whether the stage does not apply to this submission."""
+        if stage is None:
+            return False
+        return stage.is_skipped(self.submission, self.events)
     
     def can_proceed_to(self, stage: Optional[Stage]) -> bool:
         """Determine whether the user can proceed to a stage."""
@@ -78,9 +94,9 @@ class WorkflowProcessor:
         """Evaluate if stage is sufficiently addressed for this workflow.
 
         This considers whether the stage is complete (if required), and whether
-        the stage has been seen (if it must be seen).
+        the stage has been seen (if it must be seen). A skipped stage is done.
         """
-        if stage is None:
+        if stage is None or self.is_skipped(stage):
             return True
 
         return ((not stage.must_see or self.is_seen(stage))
@@ -91,7 +107,7 @@ class WorkflowProcessor:
         """Returns list of conditons causing stage to be not done.
 
         Retrun empty list if stage is done."""
-        if stage is None:
+        if stage is None or self.is_skipped(stage):
             return []
         not_dones=[]
         if stage.must_see and not self.is_seen(stage):

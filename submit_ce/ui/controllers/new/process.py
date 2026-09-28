@@ -75,9 +75,6 @@ def file_process(method: str, params: MultiDict, session: Session,
         # submitter can review it on the Confirm page, then advance.
         _install_pdf_only_preview(str(submission_id), session)
         return advance_to_current(({}, status.OK, {}))
-    if submission.source_format == SourceFormat.HTML:
-        # HTML has no compile step; its source is served as the preview.
-        return advance_to_current(({}, status.OK, {}))
 
     if method == "GET":
         _maybe_autocompile(params, session, submission_id, token)
