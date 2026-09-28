@@ -1,7 +1,7 @@
 import json
 import logging
 from http import HTTPStatus as status
-from typing import Tuple, Dict, Any, Optional, List
+from typing import Tuple, Dict, Any, Optional
 
 import httpx
 from flask import current_app

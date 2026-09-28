@@ -1,6 +1,5 @@
 """Tests for :mod:`submit_ce.ui.preflight.issues`. [SUBMISSION-210]"""
 
-import pytest
 
 from submit_ce.ui.preflight.issues import (
     PREFLIGHT_ISSUE_DIRECTIVES,

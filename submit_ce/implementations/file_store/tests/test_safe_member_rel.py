@@ -5,7 +5,6 @@ These exercise the pure `safe_member_rel` helper and the in-memory
 The equivalent behavior against real GCS is covered (under the GCP-only skip)
 in test_gs_file_store.py.
 """
-import io
 import tarfile
 import zipfile
 from io import BytesIO

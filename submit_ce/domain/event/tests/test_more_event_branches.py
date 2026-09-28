@@ -20,7 +20,6 @@ from submit_ce.domain import submission as submod, meta, agent
 
 # Event classes (and exception) we target for branch coverage.
 from submit_ce.domain.event import (
-    SetTitle,
     SetLicense,
     RemoveSecondaryClassification,
     FinalizeSubmission,
