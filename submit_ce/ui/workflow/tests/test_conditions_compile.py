@@ -12,7 +12,7 @@ from pytz import UTC
 
 from submit_ce.domain import agent, submission as submod
 from submit_ce.domain.event.file import RemoveAllFiles, UploadFiles
-from submit_ce.domain.event.process import StartCompileSource, StartPreflight
+from submit_ce.domain.event.process import SetDecisions, StartCompileSource, StartPreflight
 from submit_ce.ui.workflow import conditions
 
 
@@ -54,6 +54,13 @@ def test_file_change_after_compile_invalidates_it():
 def test_remove_all_after_compile_invalidates_it():
     """RemoveAllFiles is a file-change event and invalidates the compile."""
     events = [_upload(), _compile(), RemoveAllFiles(creator=_user())]
+    assert conditions.has_compiled_current_source(_submission(), events) is False
+
+
+def test_decisions_change_after_compile_invalidates_it():
+    """A new selection at Review Files changes what the compile builds."""
+    decide = SetDecisions(creator=_user(), decisions={'sources': []}, files_to_delete=[])
+    events = [_upload(), _compile(), decide]
     assert conditions.has_compiled_current_source(_submission(), events) is False
 
 
