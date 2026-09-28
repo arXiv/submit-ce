@@ -303,6 +303,15 @@ class SubmitApi(ABC):
         """
         ...
 
+    @abstractmethod
+    def is_moderator(self, user_id: str) -> bool:
+        """Whether the user moderates any archive or category.
+
+        Legacy lets any moderator open a submission's preview
+        (``/submit/<id>/view``); this is that check.
+        """
+        ...
+
     # Ex what happens on a Command like CompileSource What about longer
     # commands? or things like compile source that may have a later result?  In
     # legacy compile source is just synchronous.

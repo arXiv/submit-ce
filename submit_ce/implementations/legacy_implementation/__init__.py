@@ -510,6 +510,10 @@ class LegacySubmitImplementation(SubmitApi):
             exclude_no_reply_to=exclude_no_reply_to)
 
     @override
+    def is_moderator(self, user_id: str) -> bool:
+        return moderators.is_moderator(self.get_session(), user_id)
+
+    @override
     def get_config(self) -> SubmitConfig:
         return self.config
 

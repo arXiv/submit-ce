@@ -53,6 +53,20 @@ def test_review_files_empty_workspace_skips_preflight(
     mock_load.assert_not_called()
 
 
+def test_review_files_html_advances_without_preflight(
+        app, authorized_client, sub_files_html, mocker):
+    """HTML, like PDF-only, has no files to review: review_files moves on
+    instead of bouncing back to file_upload. [SUBMISSION-127]"""
+    mock_load = mocker.patch.object(review, '_load_or_create_preflight')
+
+    url = f"/{sub_files_html.submission_id}/review_files"
+    resp = authorized_client.get(url)
+
+    assert resp.status_code == status.SEE_OTHER
+    assert not resp.headers['Location'].endswith('/file_upload')
+    mock_load.assert_not_called()
+
+
 def test_review_files_unsupported_method_raises(mocker):
     """Controller raises MethodNotAllowed for methods other than GET/POST."""
     mocker.patch.object(review, 'user_and_client_from_session',

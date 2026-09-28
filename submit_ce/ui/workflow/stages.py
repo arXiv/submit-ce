@@ -23,6 +23,8 @@ class Stage:
     must_see: bool
     required: bool
     completed: List[SubmissionCheck]
+    skipped: List[SubmissionCheck] = []
+    """When any of these holds, the stage does not apply and is passed over."""
 
     def __init__(self, required: bool = True, must_see: bool = False) -> None:
         """
@@ -39,6 +41,9 @@ class Stage:
 
     def is_complete(self, submission: Submission, events: List[Event]) -> bool:
         return all([fn(submission, events) for fn in self.completed])
+
+    def is_skipped(self, submission: Submission, events: List[Event]) -> bool:
+        return any(fn(submission, events) for fn in self.skipped)
 
     def incomplete(self, submission: Submission, events: List[Event]) -> list[str]:
         """Returns names of conditions that caused incomplete, or empty list if completed."""
@@ -110,6 +115,7 @@ class ReviewFiles(Stage):
     completed = [conditions.OR(conditions.source_format_pdf,
                                conditions.source_format_html,
                                conditions.has_current_directives)]
+    skipped = [conditions.source_format_html]
 
 class Process(Stage):
     """Uploaded files are processed; this is primarily to compile LaTeX."""
@@ -120,6 +126,8 @@ class Process(Stage):
     display = "Process Files"
     """We need to re-process every time the source is updated."""
     completed = [conditions.is_source_processed]
+    # HTML has no compile step: its source is served as the preview.
+    skipped = [conditions.source_format_html]
 
 
 class Metadata(Stage):

@@ -78,6 +78,9 @@ class PubsubEventSubmitImplementation(SubmitApi):
             exclude_no_email=exclude_no_email,
             exclude_no_reply_to=exclude_no_reply_to)
 
+    def is_moderator(self, user_id: str) -> bool:
+        return self.inner_api.is_moderator(user_id)
+
     def get_config(self) -> SubmitConfig:
         return self.inner_api.get_config()
 

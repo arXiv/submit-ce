@@ -175,9 +175,9 @@ def test_project_makes_a_jref(creator, document):
     assert after.creator == creator
     assert after.owner == creator
 
-    assert after.metadata.journal_ref == None
-    assert after.metadata.doi == None
-    assert after.metadata.report_num == None
+    assert after.metadata.journal_ref is None
+    assert after.metadata.doi is None
+    assert after.metadata.report_num is None
     # Seeded metadata survives.
     assert after.metadata.title == 'A paper about things'
     assert after.metadata.msc_class == '11F03'
@@ -200,7 +200,7 @@ def test_project_leaves_unset_fields_alone(creator, document):
     seed = document.seed_submission(creator)
     event = CreateJrefSubmission(creator=creator, paper_id=PAPER_ID)
     after = event.apply(seed)
-    assert after.metadata.doi == None
+    assert after.metadata.doi is None
     assert after.metadata.journal_ref == 'existing journal ref 1999'
 
 

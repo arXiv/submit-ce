@@ -100,3 +100,9 @@ def moderator_emails(
     """Sorted, de-duplicated moderator email addresses for the categories."""
     return [m.email for m in
             moderators_for_categories(session, categories, **kwargs)]
+
+
+def is_moderator(session: SQLAlchemySession, user_id: str) -> bool:
+    """Whether the user has any ``arXiv_moderators`` row."""
+    return session.query(models.Moderator.user_id) \
+        .filter(models.Moderator.user_id == int(user_id)).first() is not None

@@ -293,6 +293,9 @@ class NullImplementation(SubmitApi):  # pragma: no cover
     ) -> List[Moderator]:
         return []
 
+    def is_moderator(self, user_id: str) -> bool:
+        return False
+
     def get(self, submission_id: str) -> Submission:
         Submission(submission_id)
 

@@ -163,7 +163,7 @@ def to_stage(stage: Optional[Stage], ident: str) -> Response:
 
 def to_previous(wfs: WorkflowProcessor, stage: Stage, ident: str) -> Response:
     """Return a flask redirect to the previous stage."""
-    return to_stage(wfs.workflow.previous_stage(stage), ident)
+    return to_stage(wfs.previous_stage(stage), ident)
 
 
 def to_next(wfs: WorkflowProcessor, stage: Stage, ident: str) -> Response:
@@ -227,6 +227,9 @@ def flow_control(blueprint_this_stage: Optional[Stage] = None,
 
             if workflow.is_complete() and not endpoint_name() == workflow.workflow.confirmation.endpoint:
                 return to_stage(workflow.workflow.confirmation, submission_id)
+
+            if workflow.is_skipped(this_stage):
+                return to_next(workflow, this_stage, submission_id)
 
             if blocked := workflow.blocked(this_stage):
                 logger.debug("sub %s proceed to %s blocked by %s",
