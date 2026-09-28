@@ -70,7 +70,10 @@ def verify(method: str, params: MultiDict, session: Session,
     if not form.validate() or not form.verify_user.data:
         return stay_on_this_stage((response_data, status.BAD_REQUEST, {}))
 
-    if may_proxy:
+    # A proxy submitting as themselves ticks submit_as_self; then no proxy
+    # information is required or recorded.
+    proxying = may_proxy and not form.submit_as_self.data
+    if proxying:
         ok = True
         if not (form.proxy_name.data or "").strip():
             form.proxy_name.errors.append("Proxy for name is required.")
@@ -89,7 +92,7 @@ def verify(method: str, params: MultiDict, session: Session,
     # if submission.submitter_contact_verified:
     #    return ready_for_next((response_data, status.OK,{}))
 
-    if may_proxy and (form.proxy_name.data or form.proxy_email.data):
+    if proxying and (form.proxy_name.data or form.proxy_email.data):
 
         proxied_name=form.proxy_name.data.strip()
         proxied_email=form.proxy_email.data.strip()
@@ -133,6 +136,9 @@ class VerifyUserForm(csrf.CSRFForm):
         'I confirm that my contact information is correct',
         [InputRequired('Please confirm your user information')],
     )
+
+    submit_as_self = BooleanField(
+        'Check to fill in your own contact information (when submitting as yourself).')
 
     proxy_name = StringField('Proxy for name',
                              validators=[Optional(), Length(max=200)])
