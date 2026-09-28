@@ -62,6 +62,9 @@ def test_decided_severities():
     assert PREFLIGHT_ISSUE_DIRECTIVES["conflicting_file_type"]["severity"] == "danger"
     assert PREFLIGHT_ISSUE_DIRECTIVES["file_not_found"]["severity"] == "warning"
     assert PREFLIGHT_ISSUE_DIRECTIVES["issue_in_subfile"]["severity"] == SILENT
+    # POLICY: TeX-generated PDF is a non-blocking nudge (1.5 rejected it).
+    assert PREFLIGHT_ISSUE_DIRECTIVES["pdf_is_tex_generated"]["severity"] == "warning"
+    assert not PREFLIGHT_ISSUE_DIRECTIVES["pdf_is_tex_generated"].get("show_info")
 
 
 def test_policy_defaults():

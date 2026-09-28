@@ -193,6 +193,22 @@ PREFLIGHT_ISSUE_DIRECTIVES: Dict[str, Dict[str, Any]] = {
         "message": "The scan found JavaScript embedded in {n} PDF(s). arXiv does "
                    "not accept PDFs containing JavaScript.",
     },
+    # pdf_is_tex_generated: plugin-defined (not in the public IssueType enum),
+    # emitted by the compile service for a PDF-only submission whose PDF looks
+    # TeX-generated. Listed here on purpose: unlisted plugin codes are hidden
+    # from the submitter, but this one is a nudge the submitter should see. The
+    # producer's info text is not shown (no show_info); the copy below is ours.
+    # POLICY: warning, not blocking. 1.5 rejected TeX-produced PDFs outright
+    # (with an admin override, allow_tex_produced). Revisit to danger once the
+    # detector's false-positive rate on real PDF-only submissions is known.
+    "pdf_is_tex_generated": {  # NEW; warning (proposed) -- 1.5 rejected
+        "severity": "warning",
+        "message": "Your PDF appears to have been generated from TeX/LaTeX. "
+                   "arXiv prefers the TeX source for such submissions; please "
+                   "upload your TeX source files instead of the PDF.",
+        "url": "https://info.arxiv.org/help/submit_tex.html",
+        "link_text": "Read about submitting TeX source",
+    },
     "graphics_driver_option": {  # NEW since 1.5 (no precedent); proposed info
         "severity": "info",
         "message": "A graphics package was loaded with an explicit driver "

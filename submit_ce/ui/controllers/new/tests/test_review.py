@@ -860,3 +860,19 @@ def test_pdf_blocked_cannot_skip_to_process(
     assert resp.status_code == status.SEE_OTHER
     assert 'review_files' in resp.headers['Location']
     mock_install.assert_not_called()
+
+
+def test_pdf_review_tex_generated_pdf_is_a_visible_nudge(
+        app, authorized_client, sub_files_pdf, mocker):
+    """pdf_is_tex_generated is listed in the issue table, so the submitter sees
+    our message (not the producer's info text) and may still continue."""
+    pf = _pdf_preflight()
+    pf['detected_toplevel_files'][0]['issues'] = [
+        {'key': 'pdf_is_tex_generated', 'info': 'producer text'}]
+    mocker.patch.object(review, '_get_preflight_data', return_value=pf)
+    resp = authorized_client.get(f"/{sub_files_pdf.submission_id}/review_files")
+    assert resp.status_code == status.OK
+    assert b'generated from TeX/LaTeX' in resp.data
+    assert b'producer text' not in resp.data
+    assert b'Cannot continue' not in resp.data
+    assert _passed(app, sub_files_pdf.submission_id)
