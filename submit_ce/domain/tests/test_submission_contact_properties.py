@@ -11,6 +11,8 @@ The properties are documented as "should eventually replace creator" — these
 tests pin the current contract so any future refactor that decouples them
 from ``creator`` will surface intentionally.
 """
+from arxiv.auth.auth import scopes
+
 from submit_ce.domain import Submission
 from submit_ce.domain.agent import PublicUser
 from submit_ce.domain.event import SetProxyInformation
@@ -21,6 +23,7 @@ def _make_submitter() -> PublicUser:
         user_id="123",
         name="David Submitter",
         email="david@example.org",
+        scopes=[scopes.PROXY_SUBMISSION],
     )
 
 
@@ -51,7 +54,7 @@ def test_contact_properties_reflect_proxied_values_after_event():
         proxied_email="bob@proxied.org",
         proxy_name="David Submitter",
     )
-    event.apply(submission)
+    submission = event.apply(submission)
 
     assert submission.contact_name == "Bob Proxied"
     assert submission.contact_email == "bob@proxied.org"

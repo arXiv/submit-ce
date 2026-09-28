@@ -428,7 +428,12 @@ class SetProxyInformation(Event):
     proxied_email: str
     proxy_name: str
 
-    def apply(self, submission: Submission) -> Submission:
+    def validate_pre_lock(self, submission: Submission) -> None:
+        """Only a user who may submit as a proxy can set proxy information."""
+        if not getattr(self.creator, "is_proxy", False):
+            raise InvalidEvent(self, "Submitter may not submit as a proxy")
+
+    def project(self, submission: Submission) -> Submission:
         # We need to use the Creator dataclass. This holds
         # submitter_name and submitter_email (from legacy).
         # Proxy name setting indicates that these fields are
