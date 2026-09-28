@@ -23,6 +23,7 @@ STAMP_TAG = b'<address><p>S</p></address>'
 PNG = b'\x89PNG\r\n\x1a\n'
 PAGE = (b'<html><head><title>T</title></head>'
         b'<body><img src="/image1.png"></body></html>')
+CSP = "sandbox allow-same-origin; default-src 'self' data:; style-src 'self' 'unsafe-inline'"
 
 
 def _preprocess(html: bytes) -> bytes:
@@ -96,11 +97,20 @@ def test_html_preview_serves_preprocessed_page(authorized_client, html_source):
     resp = authorized_client.get(f'/{sid}/preview/html/index.html')
     assert resp.status_code == status.OK
     assert resp.headers['Content-Type'] == 'text/html; charset=utf-8'
-    assert resp.headers['Content-Security-Policy'] == 'sandbox allow-same-origin'
+    assert resp.headers['Content-Security-Policy'] == CSP
     assert resp.headers['Cache-Control'] == 'no-store'
     assert f'<base href="http://localhost/{sid}/preview/html/" />'.encode() in resp.data
     assert f'arXiv:submit/{sid}</a>'.encode() in resp.data
     assert b'src="image1.png"' in resp.data
+
+
+def test_html_preview_loads_nothing_from_other_sites(authorized_client, html_source):
+    """An image or stylesheet from elsewhere would tell the submitter when a
+    moderator opened the page. Inline styles are harmless and kept."""
+    sid, _ = html_source
+    csp = authorized_client.get(f'/{sid}/preview/html/index.html').headers['Content-Security-Policy']
+    assert "default-src 'self' data:" in csp
+    assert "style-src 'self' 'unsafe-inline'" in csp
 
 
 def test_html_preview_records_the_preview_as_viewed(app, authorized_client, html_source):
@@ -118,7 +128,7 @@ def test_html_preview_serves_assets_unchanged(authorized_client, html_source):
     assert resp.status_code == status.OK
     assert resp.data == PNG
     assert resp.mimetype == 'image/png'
-    assert resp.headers['Content-Security-Policy'] == 'sandbox allow-same-origin'
+    assert resp.headers['Content-Security-Policy'] == CSP
 
 
 def test_html_preview_missing_file_is_404(authorized_client, html_source):

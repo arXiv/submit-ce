@@ -503,8 +503,12 @@ def html_preview(submission_id: str, path: str) -> Response:
     rv = make_response(data)
     rv.headers['Content-Type'] = headers['Content-Type']
     # The files come from the submitter and are opened by admins and
-    # moderators too, so never let them run scripts on this origin.
-    rv.headers['Content-Security-Policy'] = 'sandbox allow-same-origin'
+    # moderators too, so never let them run scripts on this origin, or load
+    # anything from other sites, which would tell the submitter who opened
+    # the page and when. Inline styles are harmless and kept.
+    rv.headers['Content-Security-Policy'] = ("sandbox allow-same-origin; "
+                                             "default-src 'self' data:; "
+                                             "style-src 'self' 'unsafe-inline'")
     rv.headers['Cache-Control'] = 'no-store'
     return rv
 
