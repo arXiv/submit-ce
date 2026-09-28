@@ -143,7 +143,10 @@ def _check_status(params: MultiDict, session: Session,  submission_id: str,
             return stay_on_this_stage(({'form': form}, status.OK, {}))
 
         # TODO rename this SourceProcessedCompleted() Confirm is ambiguous with the user confirming
-        command = ConfirmSourceProcessed(creator=submitter, client=client)
+        # Records which PDF the submitter must view before submitting.
+        preview_checksum = current_app.api.get_file_store().get_preview_checksum(submission_id)
+        command = ConfirmSourceProcessed(creator=submitter, client=client,
+                                         preview_checksum=preview_checksum)
         try:
             submission, _ = current_app.api.save(command, submission_id=submission_id)
             return ready_for_next(({}, status.OK, {}))

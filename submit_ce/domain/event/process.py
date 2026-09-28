@@ -72,7 +72,14 @@ class StartCompileSource(EventWithSideEffect):
         self.result = result
 
     def project(self, submission: Submission) -> Submission:
-        """Add the process status to the submission."""
+        """Add the process status to the submission.
+
+        A compile replaces the PDF, so the new one has to be confirmed past
+        Process and viewed again.
+        """
+        submission.is_source_processed = False
+        submission.preview = None
+        submission.submitter_confirmed_preview = False
         assert self.created is not None
         #assert self.process is not None
         #assert self.status is not None and self.status in ProcessStatus.Status

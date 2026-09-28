@@ -49,7 +49,9 @@ from sqlalchemy.orm import Session as SQLAlchemySession
 from sqlalchemy.orm.exc import NoResultFound
 
 from submit_ce.domain.agent import Client, HttpClient, System
+from submit_ce.domain.event import ConfirmSourceProcessed
 from submit_ce.domain.event.legacy import Withdraw
+from submit_ce.domain.event.process import InstallPdfPreview
 from submit_ce.domain.event.request import CancelRequest, RequestWithdrawal
 
 from . import models, interpolate, log
@@ -840,6 +842,24 @@ def _get_db_submission_rows(session: SQLAlchemySession, submission_id: str) -> L
     if not dbss:
         raise NoSuchSubmission('No submission found')
     return dbss
+
+
+# The events whose projection sets ``is_source_processed``.
+_MARKS_PROCESSED = (ConfirmSourceProcessed, InstallPdfPreview, Withdraw)
+
+
+def preview_from_events(submission: domain.Submission, events: List[Event]) -> None:
+    """Restore the preview record kept only by the events.
+
+    The classic row keeps only that the source was processed, not which PDF
+    Process built, and ``ConfirmPreview`` compares against that PDF. So if a
+    ``ConfirmSourceProcessed`` is what marked the row processed, replay it.
+    """
+    if not submission.is_source_processed:
+        return
+    marked = next((e for e in reversed(events) if isinstance(e, _MARKS_PROCESSED)), None)
+    if isinstance(marked, ConfirmSourceProcessed):
+        marked.project(submission)
 
 
 def to_submission(row: models.Submission,

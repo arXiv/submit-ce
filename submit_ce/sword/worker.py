@@ -417,7 +417,9 @@ def advance(api: SubmitApi, submission_id: str, *, creator: User,
         _require_preview(api, submission)
 
         if not submission.is_source_processed:
-            api.save(ConfirmSourceProcessed(creator=creator, client=client),
+            preview_checksum = api.get_file_store().get_preview_checksum(submission_id)
+            api.save(ConfirmSourceProcessed(creator=creator, client=client,
+                                            preview_checksum=preview_checksum),
                      submission_id=submission_id)
             steps.append("source_processed")
             submission, events = api.get_with_history(submission_id)

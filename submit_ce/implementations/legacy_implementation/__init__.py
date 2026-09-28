@@ -188,7 +188,9 @@ class LegacySubmitImplementation(SubmitApi):
             events = db.get_family_events(session, submission)
             if not events:
                 raise
-        return (to_submission(head, submission_id=submission_id), events)
+        loaded = to_submission(head, submission_id=submission_id)
+        db.preview_from_events(loaded, events)
+        return (loaded, events)
 
 
     @override
