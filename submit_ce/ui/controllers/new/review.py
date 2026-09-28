@@ -312,6 +312,7 @@ def _review_pdf(method, params, session, submission_id, token, rdata,
             logger.warning("Could not run preflight for PDF-only submission %s: %s",
                            submission_id, exc)
         preflight_data = _get_preflight_data(submission_id)
+        _log_moderator_findings(preflight_data, submission_id)
 
     if preflight_data is None and PDF_PREFLIGHT_REQUIRED:
         alerts.flash_warning(

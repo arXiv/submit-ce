@@ -876,3 +876,31 @@ def test_pdf_review_tex_generated_pdf_is_a_visible_nudge(
     assert b'producer text' not in resp.data
     assert b'Cannot continue' not in resp.data
     assert _passed(app, sub_files_pdf.submission_id)
+
+
+def test_pdf_review_logs_moderator_findings_once(
+        app, authorized_client, sub_files_pdf, mocker):
+    """A fresh preflight of a PDF-only submission logs the findings hidden from
+    the submitter (plugin-defined codes), like the TeX path does."""
+    pf = _pdf_preflight('some_plugin_defined_code')
+    mocker.patch.object(review, '_get_preflight_data', side_effect=[None, pf])
+    mocker.patch.object(review, 'start_preflight')
+    mock_log = mocker.patch.object(review, '_log_moderator_findings')
+    resp = authorized_client.get(f"/{sub_files_pdf.submission_id}/review_files")
+    mock_log.assert_called_once_with(pf, str(sub_files_pdf.submission_id))
+    # Hidden by policy: no banner, and it does not block.
+    assert resp.status_code == status.SEE_OTHER
+
+
+def test_pdf_review_preflight_error_blocks_with_reason(
+        app, authorized_client, sub_files_pdf, mocker):
+    """A lone file that is not a real PDF aborts preflight (status error); the
+    PDF path blocks with the reason, as the TeX path does."""
+    pf = {'status': {'key': 'error', 'info': "QA check failed: Found 1 PDFs that don't look like a PDF."},
+          'detected_toplevel_files': [], 'tex_files': []}
+    mocker.patch.object(review, '_get_preflight_data', return_value=pf)
+    resp = authorized_client.get(f"/{sub_files_pdf.submission_id}/review_files")
+    assert resp.status_code == status.OK
+    assert b'Cannot continue' in resp.data
+    assert b"look like a PDF" in resp.data
+    assert not _passed(app, sub_files_pdf.submission_id)
