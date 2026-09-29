@@ -17,6 +17,7 @@ from datetime import datetime, timezone
 from typing import Optional
 
 import pytest
+from arxiv.auth.auth import scopes
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -248,6 +249,7 @@ def test_full_pipeline_event_through_db_to_domain(db_session):
         user_id="123",
         name="David Submitter",
         email="david@example.org",
+        scopes=[scopes.PROXY_SUBMISSION],
     )
     client = HttpClient(remote_addr="127.0.0.1", remote_host="localhost")
     submission = DomainSubmission(
@@ -261,13 +263,14 @@ def test_full_pipeline_event_through_db_to_domain(db_session):
     # 2. Apply SetProxyInformation: David is now submitting for Bob.
     event = SetProxyInformation(
         creator=proxy_submitter,
+        created=datetime(2026, 1, 2, tzinfo=timezone.utc),  # save() stamps it
         proxied_name="Bob Proxied",
         proxied_email="bob@proxied.org",
         proxy_name=proxy_submitter.name,
     )
-    event.apply(submission)
+    submission = event.apply(submission)
 
-    # Sanity check: the event mutated the in-memory submission as expected.
+    # Sanity check: the event updated the in-memory submission as expected.
     assert submission.contact_name == "Bob Proxied"
     assert submission.contact_email == "bob@proxied.org"
     assert submission.proxy == "David Submitter"

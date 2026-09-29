@@ -22,6 +22,7 @@ import logging
 from contextlib import contextmanager
 
 from arxiv import db
+from arxiv.auth.auth import scopes
 from arxiv.config import settings as base_settings
 from arxiv.taxonomy.definitions import GROUPS
 from fastapi import Body, Depends, FastAPI, Request, Response
@@ -662,11 +663,14 @@ def depositor_user(depositor, endorsements) -> PublicUser:
 
     ``endorsements`` comes from `collections.endorsement_wildcards`, which turns the
     depositor's group flags into the wildcards `SetPrimaryClassification` expects.
+    Depositing requires ``flag_proxy`` (`auth.authorize`), so the depositor may
+    always submit as a proxy.
     """
     return PublicUser(user_id=str(depositor.user_id),
                       name=depositor.nickname,
                       email=depositor.email,
-                      endorsements=list(endorsements))
+                      endorsements=list(endorsements),
+                      scopes=[scopes.PROXY_SUBMISSION])
 
 
 def deposit_client(request: Request, headers) -> HttpClient:

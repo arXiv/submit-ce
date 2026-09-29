@@ -13,12 +13,16 @@ The legacy DB schema stores the contact name/email in the ``submitter_name``/
 than introducing a separate field. ``submission.proxy`` is a free-form string
 flagging that the submission was proxied.
 """
+import pytest
+from arxiv.auth.auth import scopes
+
 from submit_ce.domain import Submission
 from submit_ce.domain.agent import PublicUser
 from submit_ce.domain.event import SetProxyInformation
+from submit_ce.domain.exceptions import InvalidEvent
 
 
-def _make_submitter() -> PublicUser:
+def _make_normal_submitter() -> PublicUser:
     return PublicUser(
         user_id="123",
         name="David Submitter",
@@ -26,13 +30,34 @@ def _make_submitter() -> PublicUser:
     )
 
 
+def _make_proxy_submitter() -> PublicUser:
+    submitter = _make_normal_submitter()
+    submitter.scopes = [scopes.PROXY_SUBMISSION]
+    return submitter
+
+
 def _make_submission(submitter: PublicUser) -> Submission:
     """Build a minimal Submission owned by ``submitter`` with no proxy set."""
     return Submission(creator=submitter, owner=submitter)
 
 
+def test_apply_rejects_a_creator_who_may_not_proxy():
+    """Verify User and SWORD check this too, but both go through the event."""
+    submitter = _make_normal_submitter()
+
+    event = SetProxyInformation(
+        creator=submitter,
+        proxied_name="Bob Proxied",
+        proxied_email="bob@proxied.org",
+        proxy_name="David Submitter",
+    )
+
+    with pytest.raises(InvalidEvent):
+        event.apply(_make_submission(submitter))
+
+
 def test_apply_overwrites_creator_name_and_email():
-    submitter = _make_submitter()
+    submitter = _make_proxy_submitter()
     submission = _make_submission(submitter)
 
     event = SetProxyInformation(
@@ -49,7 +74,7 @@ def test_apply_overwrites_creator_name_and_email():
 
 
 def test_apply_sets_proxy_string():
-    submitter = _make_submitter()
+    submitter = _make_proxy_submitter()
     submission = _make_submission(submitter)
 
     event = SetProxyInformation(
@@ -72,7 +97,7 @@ def test_apply_preserves_creator_user_id():
     Only the displayed contact name/email change. ``user_id`` is the legacy
     ``submitter_id`` and must stay tied to the proxy submitter's account.
     """
-    submitter = _make_submitter()
+    submitter = _make_proxy_submitter()
     submission = _make_submission(submitter)
 
     event = SetProxyInformation(
@@ -88,9 +113,9 @@ def test_apply_preserves_creator_user_id():
     assert result.owner.user_id == "123"
 
 
-def test_apply_returns_submission_instance():
-    """``apply`` should return the (mutated) Submission instance."""
-    submitter = _make_submitter()
+def test_apply_leaves_the_given_submission_unchanged():
+    """Like every event, ``apply`` returns the updated copy."""
+    submitter = _make_proxy_submitter()
     submission = _make_submission(submitter)
 
     event = SetProxyInformation(
@@ -102,12 +127,13 @@ def test_apply_returns_submission_instance():
 
     result = event.apply(submission)
 
-    assert result is submission
+    assert result.creator.name == "Bob Proxied"
+    assert submission.creator.name == "David Submitter"
 
 
 def test_apply_overwrites_existing_proxy_information():
     """Applying the event a second time replaces previous proxy values."""
-    submitter = _make_submitter()
+    submitter = _make_proxy_submitter()
     submission = _make_submission(submitter)
 
     first = SetProxyInformation(
@@ -133,7 +159,7 @@ def test_apply_overwrites_existing_proxy_information():
 
 def test_apply_does_not_modify_unrelated_submission_fields():
     """Only creator name/email and proxy should change."""
-    submitter = _make_submitter()
+    submitter = _make_proxy_submitter()
     submission = _make_submission(submitter)
     submission.submitter_is_author = True
     submission.submitter_accepts_policy = True
@@ -153,4 +179,4 @@ def test_apply_does_not_modify_unrelated_submission_fields():
     assert result.submitter_accepts_policy is True
     assert result.version == 2
     assert result.arxiv_id == "2401.00001"
-    assert result.owner is submitter
+    assert result.owner.user_id == submitter.user_id
