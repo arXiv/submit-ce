@@ -3,6 +3,8 @@
 from typing import Optional
 from dataclasses import dataclass
 
+from arxiv.taxonomy.definitions import CATEGORIES
+
 
 @dataclass
 class Classification:
@@ -26,7 +28,8 @@ class Classification:
 
     def display(self):
         """Returns a `str` to use to display the category."""
-        #TODO Should Classification.dislpay get the full name of the category?
+        if self.category in CATEGORIES:
+            return CATEGORIES[self.category].display()
         return self.category
 
 
