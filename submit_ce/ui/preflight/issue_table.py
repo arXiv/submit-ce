@@ -39,6 +39,40 @@ SILENT = "silent"
 # Severity ordering for danger-first grouping in the banner area.
 SEVERITY_RANK = {"danger": 0, "warning": 1, "info": 2}
 
+# POLICY: show the reason text of a preflight ``status: error``.
+# The error itself always blocks (``preflight_error`` below); this switch only
+# controls whether the producer's ``status.info`` (e.g. "QA check failed:
+# exe-in-submission", "No TeX files found") is shown to the submitter as the
+# banner body. Producer text is rendered escaped, never as HTML.
+# Revisit (set False) if the compile service is configured to hard-reject on
+# plugin-defined checks: their failure reason then lands in this text, and
+# showing it tells the submitter exactly which check to work around.
+SHOW_PREFLIGHT_ERROR_DETAIL = True
+
+# POLICY: what the submitter sees of findings this table does not describe.
+#
+# The compile service can run plugin-defined checks whose issue codes are
+# deliberately NOT part of the public ``IssueType`` enum, so they never appear
+# in this table. Some of them look for deliberate abuse rather than honest
+# mistakes. Showing such a finding to the submitter right after upload turns
+# the check into a test oracle: re-upload until the finding goes away. So by
+# default these codes are collected but not shown, and moderators are pointed
+# at them instead (see ``moderator_findings`` in issues.py).
+#
+# Why this cannot silence a public code by accident:
+# ``test_directives_cover_every_producer_issue_type`` fails when a public
+# IssueType has no entry here, so every code the public producer knows about
+# must be listed (and gets its own severity) before CI passes.
+#
+# Revisit / switch:
+# * SHOW_UNLISTED_CODES = True restores the previous behaviour: any unlisted
+#   code is shown as a generic, non-blocking warning.
+# * SHOW_SUSPICIOUS_STATUS = True shows preflight ``status: suspicious`` (set by
+#   the compile service when a plugin-defined source check flags a file) as a
+#   non-blocking warning. Same oracle concern as above.
+SHOW_UNLISTED_CODES = False
+SHOW_SUSPICIOUS_STATUS = False
+
 # reason code -> {severity, message?, url?, link_text?}
 PREFLIGHT_ISSUE_DIRECTIVES: Dict[str, Dict[str, Any]] = {
     # --- bibliography ---
@@ -183,6 +217,24 @@ PREFLIGHT_ISSUE_DIRECTIVES: Dict[str, Dict[str, Any]] = {
     # NO `message` key (invariant asserted in test_issue_table.py); the former
     # copy lives in git history if we ever want to resurface it.
     "hyperref_not_found": {"severity": SILENT},
+    # preflight_error is synthesized from ``status.key == "error"``. The producer
+    # then returns no files at all (a failed QA check aborts the scan), so
+    # without this the page showed an empty scan with no reason. ``show_info``
+    # puts ``status.info`` in the banner body (see SHOW_PREFLIGHT_ERROR_DETAIL).
+    "preflight_error": {  # NEW; danger -- the scan was aborted, nothing to compile
+        "severity": "danger",
+        "message": "The scan could not process your submission. Please check "
+                   "the files you uploaded and try again.",
+        "show_info": SHOW_PREFLIGHT_ERROR_DETAIL,
+    },
+    # preflight_suspicious is synthesized from ``status.key == "suspicious"``.
+    # See the POLICY block at the top (SHOW_SUSPICIOUS_STATUS).
+    "preflight_suspicious": (
+        {"severity": "warning",
+         "message": "The scan flagged your submission for a closer look by "
+                    "arXiv staff. You may continue."}
+        if SHOW_SUSPICIOUS_STATUS else {"severity": SILENT}
+    ),
     # no_top_level_file: 1.5 kept this silent (deferred to a legacy system
     # message). 2.0 has no such message and the flow already blocks advancing
     # without a top-level, so we surface it as a blocking danger with a reason.
@@ -198,8 +250,12 @@ PREFLIGHT_ISSUE_DIRECTIVES: Dict[str, Dict[str, Any]] = {
     },
 }
 
-# Unknown codes (e.g. plugin-defined) fall back to a visible warning.
-DEFAULT_DIRECTIVE: Dict[str, Any] = {"severity": "warning", "message": None}
+# Unknown codes (e.g. plugin-defined): see the POLICY block at the top
+# (SHOW_UNLISTED_CODES). Hidden by default; a generic warning when switched on.
+DEFAULT_DIRECTIVE: Dict[str, Any] = (
+    {"severity": "warning", "message": None} if SHOW_UNLISTED_CODES
+    else {"severity": SILENT}
+)
 
 # Danger codes that must block regardless of whether their file is used in the
 # selected compilation (SUBMISSION-247). These are safety/policy concerns, not
@@ -211,6 +267,7 @@ ALWAYS_ACT: frozenset = frozenset({
     "pdf_not_pdf",             # policy: an invalid PDF is unacceptable regardless
     "unsupported_zzrm_format",  # submission-level 00README config, not a source file
     "no_top_level_file",       # submission-level: there is no compilable top-level
+    "preflight_error",         # submission-level: the scan was aborted
 })
 
 

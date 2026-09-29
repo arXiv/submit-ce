@@ -286,3 +286,79 @@ def test_tex_file_issue_without_filename_uses_container():
     _, file_issues = build_issue_context(preflight)
     assert 'main.tex' in file_issues
     assert file_issues['main.tex'][0]['severity'] == 'danger'
+
+
+# --- preflight status "error" -----------------------------------------------------
+
+def _pf_error(info="QA check failed: exe-in-submission"):
+    """Payload the producer returns when the scan is aborted: no files at all."""
+    return {"status": {"key": "error", "info": info},
+            "detected_toplevel_files": [], "tex_files": []}
+
+
+def test_preflight_error_status_blocks():
+    assert has_blocking_issues(_pf_error()) is True
+    # Selection-aware downgrading never applies: the error has no file.
+    assert has_blocking_issues(_pf_error(), {"main.tex"}) is True
+
+
+def test_preflight_error_status_shows_reason():
+    notes, file_issues = build_issue_context(_pf_error())
+    assert len(notes) == 1
+    assert notes[0]["severity"] == "danger"
+    assert "exe-in-submission" in notes[0]["body"]
+    assert file_issues == {}
+
+
+def test_preflight_error_reason_can_be_hidden(monkeypatch):
+    # POLICY switch SHOW_PREFLIGHT_ERROR_DETAIL: still blocks, no reason text.
+    monkeypatch.setitem(PREFLIGHT_ISSUE_DIRECTIVES["preflight_error"],
+                        "show_info", False)
+    notes, _ = build_issue_context(_pf_error())
+    assert notes[0]["severity"] == "danger"
+    assert "exe-in-submission" not in notes[0]["body"]
+
+
+def test_success_status_adds_nothing():
+    pf = _pf()
+    pf["status"] = {"key": "success", "info": None}
+    assert build_issue_context(pf) == ([], {})
+
+
+# --- POLICY: unlisted codes and status "suspicious" are hidden from submitters ----
+
+def test_unlisted_code_is_hidden_and_does_not_block():
+    pf = _pf("some_plugin_defined_code")
+    assert build_issue_context(pf) == ([], {})
+    assert has_blocking_issues(pf) is False
+
+
+def test_unlisted_code_shown_as_warning_when_switched_on(monkeypatch):
+    # POLICY switch SHOW_UNLISTED_CODES=True: the previous behaviour.
+    # Flipping the switch rebinds DEFAULT_DIRECTIVE at import time; both modules
+    # hold that object, so patch both names here.
+    from submit_ce.ui.preflight import issue_table, issues
+    shown = {"severity": "warning", "message": None}
+    monkeypatch.setattr(issue_table, "DEFAULT_DIRECTIVE", shown)
+    monkeypatch.setattr(issues, "DEFAULT_DIRECTIVE", shown)
+    notes, file_issues = build_issue_context(_pf("some_plugin_defined_code"))
+    assert [n["severity"] for n in notes] == ["warning"]
+    assert file_issues["main.tex"][0]["severity"] == "warning"
+
+
+def test_suspicious_status_is_hidden():
+    pf = _pf()
+    pf["status"] = {"key": "suspicious", "info": None}
+    assert build_issue_context(pf) == ([], {})
+    assert has_blocking_issues(pf) is False
+
+
+def test_moderator_findings_lists_unlisted_codes_and_suspicious():
+    from submit_ce.ui.preflight.issues import moderator_findings
+    pf = _pf("some_plugin_defined_code", "file_not_found",
+             "some_plugin_defined_code")
+    pf["status"] = {"key": "suspicious", "info": None}
+    assert moderator_findings(pf) == ["some_plugin_defined_code",
+                                      "preflight_suspicious"]
+    assert moderator_findings(_pf("file_not_found")) == []
+    assert moderator_findings(None) == []

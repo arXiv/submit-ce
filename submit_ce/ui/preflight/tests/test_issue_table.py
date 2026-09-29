@@ -5,6 +5,7 @@
 to catch drift while the team reviews severities and copy.
 """
 from submit_ce.ui.preflight.issue_table import (
+    ALWAYS_ACT,
     DEFAULT_DIRECTIVE,
     PREFLIGHT_ISSUE_DIRECTIVES,
     SEVERITY_RANK,
@@ -61,3 +62,11 @@ def test_decided_severities():
     assert PREFLIGHT_ISSUE_DIRECTIVES["conflicting_file_type"]["severity"] == "danger"
     assert PREFLIGHT_ISSUE_DIRECTIVES["file_not_found"]["severity"] == "warning"
     assert PREFLIGHT_ISSUE_DIRECTIVES["issue_in_subfile"]["severity"] == SILENT
+
+
+def test_policy_defaults():
+    # POLICY defaults documented at the top of issue_table.py; change deliberately.
+    assert DEFAULT_DIRECTIVE["severity"] == SILENT
+    assert PREFLIGHT_ISSUE_DIRECTIVES["preflight_suspicious"]["severity"] == SILENT
+    assert PREFLIGHT_ISSUE_DIRECTIVES["preflight_error"]["severity"] == "danger"
+    assert "preflight_error" in ALWAYS_ACT

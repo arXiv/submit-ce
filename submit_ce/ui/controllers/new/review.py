@@ -32,6 +32,7 @@ from submit_ce.domain.exceptions import InvalidEvent, SaveError
 from submit_ce.ui.controllers.util import validate_command
 from submit_ce.ui.preflight.issues import (
     build_issue_context, has_blocking_issues, group_notifications_by_severity,
+    moderator_findings,
 )
 from submit_ce.ui.preflight.file_context import build_file_rows
 from submit_ce.ui.routes.flow_control import (
@@ -555,6 +556,7 @@ def _load_or_create_preflight(
             )
         preflight_data = _get_preflight_data(submission_id)
         _store_source_format(preflight_data, session, submission_id)
+        _log_moderator_findings(preflight_data, submission_id)
 
 
     # If there is no zzrm found above, then check if there is a user decisions file,
@@ -582,6 +584,22 @@ def _store_source_format(preflight_data: Optional[dict], session: Session,
     except SaveError as e:
         logger.warning(
             f"Could not save SetSourceFormat for {submission_id}: {e}")
+
+
+def _log_moderator_findings(preflight_data: Optional[dict],
+                            submission_id: str) -> None:
+    """Log findings hidden from the submitter so moderators can find them.
+
+    POLICY (see issue_table.py): these are not shown on Review Files. Until
+    they are forwarded to the QA pipeline (e.g. via the submission snapshot,
+    qa_metadata.py), this log line is the moderator channel; query Cloud
+    Logging for "Preflight moderator findings". Logged once per preflight
+    run, not per page view.
+    """
+    findings = moderator_findings(preflight_data)
+    if findings:
+        logger.warning("Preflight moderator findings for submission %s: %s",
+                       submission_id, ", ".join(findings))
 
 
 def _load_or_create_directives(params: MultiDict, session: Session, submission_id: str, token: str) -> None:
