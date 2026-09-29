@@ -15,55 +15,11 @@ from submit_ce.domain.exceptions import NoSuchDocument
 from submit_ce.domain.uploads import SourceFormat
 from submit_ce.implementations.file_store.mock_file_store import MockFileStore
 from submit_ce.ui.controllers.new import final
-from submit_ce.ui.controllers.new.preview import postprocess_html, preprocess_html
 
-BASE = 'https://submit.example.org/1/preview/html/'
-BASE_TAG = b'<base href="https://submit.example.org/1/preview/html/" />'
-STAMP_TAG = b'<address><p>S</p></address>'
 PNG = b'\x89PNG\r\n\x1a\n'
 PAGE = (b'<html><head><title>T</title></head>'
         b'<body><img src="/image1.png"></body></html>')
 CSP = "sandbox allow-same-origin; default-src 'self' data:; style-src 'self' 'unsafe-inline'"
-
-
-def _preprocess(html: bytes) -> bytes:
-    return preprocess_html(html, base_url=BASE, stamp='S', link_site='arxiv.org')
-
-
-def test_preprocess_html_replaces_user_base_href():
-    html = (b'<html><head><base href="http://example.com/"><title>T</title>'
-            b'</head><body class="x">text</body></html>')
-    assert _preprocess(html) == (
-        b'<html><head>' + BASE_TAG + b'<title>T</title></head><body class="x">'
-        + STAMP_TAG + b'text</body></html>')
-
-
-@pytest.mark.parametrize('html, expected', [
-    (b'<title>T</title><p>x</p>',
-     b'<title>T</title>' + STAMP_TAG + BASE_TAG + b'<p>x</p>'),
-    (b'<html><p>x</p></html>',
-     b'<html>' + STAMP_TAG + BASE_TAG + b'<p>x</p></html>'),
-    (b'<p>x</p>',
-     STAMP_TAG + b'\n' + BASE_TAG + b'\n<p>x</p>'),
-])
-def test_preprocess_html_falls_back_like_legacy(html, expected):
-    """Without <head> or <body>, legacy inserts after </title> or <html>,
-    else at the top."""
-    assert _preprocess(html) == expected
-
-
-def test_preprocess_html_makes_absolute_links_relative():
-    html = (b'<body><img src="/figs/a.png"><img src="//cdn.example.com/b.png">'
-            b'<a href="/c.html">c</a></body>')
-    out = _preprocess(html)
-    assert b'src="figs/a.png"' in out
-    assert b'src="cdn.example.com/b.png"' in out
-    assert b'href="c.html"' in out
-
-
-def test_preprocess_html_rewrites_old_arxiv_hosts():
-    html = b'<body><a href="http://xxx.lanl.gov/abs/hep-th/9901001">x</a></body>'
-    assert b'href="http://arxiv.org/abs/hep-th/9901001"' in _preprocess(html)
 
 
 @pytest.fixture
@@ -205,66 +161,48 @@ def documents(app, mocker):
     return papers
 
 
-def _postprocess(app, html: bytes) -> bytes:
-    with app.test_request_context('/'):
-        return postprocess_html(html, link_site='arxiv.org')
-
-
-def test_postprocess_html_expands_list_lines(app, documents):
-    out = _postprocess(app, b'<p>x</p>\nLIST:arXiv:1203.3462\n<p>y</p>\n')
-    assert out.startswith(b'<p>x</p>\n<dl>\n') and out.endswith(b'</dl>\n<p>y</p>\n')
-    assert b'<a href="https://arxiv.org/abs/1203.3462"' in out
-    assert b'Gaussian Process Topic Models' in out
-    assert b'Amrudin Agovic, Arindam Banerjee' in out
-    assert b'Machine Learning (cs.LG)' in out
-    assert b'We introduce a model.' not in out
-
-
-def test_postprocess_html_abs_lines_include_the_abstract(app, documents):
-    assert b'We introduce a model.' in _postprocess(app, b'ABS:1203.3462\n')
-
-
-def test_postprocess_html_uses_the_version_asked_for(app, documents):
-    out = _postprocess(app, b'LIST:arXiv:1203.3462v1\n')
-    assert b'First version' in out
-    assert b'<a href="https://arxiv.org/abs/1203.3462v1"' in out
-
-
-def test_postprocess_html_reports_unknown_papers(app, documents):
-    out = _postprocess(app, b'LIST:arXiv:9999.99999\n')
-    assert out == b'<dl>\n<dd>9999.99999 [failed to get metadata for paper]</dd>\n</dl>\n'
-
-
-def test_postprocess_html_escapes_metadata(app, documents):
-    documents['1203.3462'].metadata[1].title = '<script>alert(1)</script>'
-    out = _postprocess(app, b'LIST:1203.3462\n')
-    assert b'<script>' not in out and b'&lt;script&gt;' in out
-
-
-def test_postprocess_html_needs_directives_at_line_start(app, documents):
-    """As arxiv-browse does, so the preview matches the announced paper."""
-    html = b'  LIST:arXiv:1203.3462\n<p>see LIST:arXiv:1203.3462</p>\n'
-    assert _postprocess(app, html) == html
-
-
-def test_postprocess_html_links_report_numbers(app):
-    out = _postprocess(app, b'(paper\n  REPORT-NO:SampleWS/2026/01\n)\n')
-    assert out == (b'(paper\n<a href="https://arxiv.org/search/?searchtype=report_num'
-                   b'&query=SampleWS%2F2026%2F01">SampleWS/2026/01</a>\n)\n')
+def _preview(client, html_source, page: bytes) -> bytes:
+    """The preview of an HTML submission whose only page is ``page``."""
+    sid, store = html_source
+    store._source[sid]['index.html'] = page
+    return client.get(f'/{sid}/preview/html/index.html').data
 
 
 def test_html_preview_expands_list_lines(authorized_client, html_source, documents):
-    sid, store = html_source
-    store._source[sid]['index.html'] = b'<html><body>\nLIST:arXiv:1203.3462\n</body></html>'
-    resp = authorized_client.get(f'/{sid}/preview/html/index.html')
-    assert b'Gaussian Process Topic Models' in resp.data
+    """arxiv-base expands the lines; the preview lists each paper from its
+    announced metadata, and links to arxiv.org."""
+    data = _preview(authorized_client, html_source,
+                    b'<body>\nLIST:arXiv:1203.3462\nABS:1203.3462v1\n'
+                    b'REPORT-NO:SampleWS/2026/01\n</body>')
+    assert b'<a href="https://arxiv.org/abs/1203.3462" title="Abstract">' in data
+    assert b'Gaussian Process Topic Models' in data
+    assert b'Amrudin Agovic, Arindam Banerjee' in data
+    assert b'Machine Learning (cs.LG)' in data
+    assert b'<a href="https://arxiv.org/abs/1203.3462v1" title="Abstract">' in data
+    assert b'First version' in data
+    assert data.count(b'We introduce a model.') == 1
+    assert (b'<a href="https://arxiv.org/search/?searchtype=report_num'
+            b'&query=SampleWS%2F2026%2F01">') in data
 
 
-def test_postprocess_html_survives_a_paper_that_fails_to_load(app, mocker, caplog):
+def test_html_preview_leaves_unknown_papers_as_browse_does(authorized_client, html_source,
+                                                           documents):
+    lines = b'\nLIST:arXiv:1203.9999\nLIST:arXiv:1203.3462v3\n'
+    assert lines in _preview(authorized_client, html_source, b'<body>' + lines + b'</body>')
+
+
+def test_html_preview_escapes_listing_metadata(authorized_client, html_source, documents):
+    documents['1203.3462'].metadata[1].title = '<script>alert(1)</script>'
+    data = _preview(authorized_client, html_source, b'<body>\nLIST:1203.3462\n</body>')
+    assert b'<script>' not in data and b'&lt;script&gt;' in data
+
+
+def test_html_preview_survives_a_paper_that_fails_to_load(app, authorized_client, html_source,
+                                                          mocker, caplog):
     """A listing that cannot be built must not break the rest of the page."""
     mocker.patch.object(app.api, 'get_document', side_effect=ValueError('bad row'))
-    out = _postprocess(app, b'<p>x</p>\nLIST:arXiv:1203.3462\n')
-    assert out == b'<p>x</p>\n<dl>\n<dd>1203.3462 [failed to get metadata for paper]</dd>\n</dl>\n'
+    lines = b'\n<p>x</p>\nLIST:arXiv:1203.3462\n'
+    assert lines in _preview(authorized_client, html_source, b'<body>' + lines + b'</body>')
     assert 'bad row' in caplog.text
 
 
