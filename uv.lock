@@ -3,7 +3,7 @@ revision = 3
 requires-python = "==3.11.*"
 
 [manifest]
-overrides = [{ name = "arxiv-base", git = "https://github.com/arXiv/arxiv-base.git?branch=SUBMISSION-80-LicenseDataUpdate" }]
+overrides = [{ name = "arxiv-base", git = "https://github.com/arXiv/arxiv-base.git?branch=develop" }]
 
 [[package]]
 name = "annotated-types"
@@ -30,7 +30,7 @@ wheels = [
 [[package]]
 name = "arxiv-base"
 version = "1.0.1"
-source = { git = "https://github.com/arXiv/arxiv-base.git?branch=SUBMISSION-80-LicenseDataUpdate#4f574284a39a1de5f88fefd6d2ec687e08a65f86" }
+source = { git = "https://github.com/arXiv/arxiv-base.git?branch=develop#ca6500ecac556325cc00ed9c7229886bee44993b" }
 dependencies = [
     { name = "bleach" },
     { name = "fastly" },
@@ -49,8 +49,6 @@ dependencies = [
     { name = "pydantic-settings" },
     { name = "pyjwt" },
     { name = "pytz" },
-    { name = "redis" },
-    { name = "redis-py-cluster" },
     { name = "retry" },
     { name = "ruamel-yaml" },
     { name = "setuptools" },
@@ -1785,7 +1783,7 @@ wheels = [
 [[package]]
 name = "qa"
 version = "0.1.0"
-source = { git = "https://github.com/arXiv/arxiv-base.git?subdirectory=qa&branch=develop#4f79630115a6153a54e1efb3b10b2d24e8a5c72c" }
+source = { git = "https://github.com/arXiv/arxiv-base.git?subdirectory=qa&branch=develop#ca6500ecac556325cc00ed9c7229886bee44993b" }
 dependencies = [
     { name = "arxiv-base" },
     { name = "bleach" },
@@ -1816,24 +1814,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/22/20/9d30b4a1ab26aac22fff17d21dec7e9089ccddfe25151d0a8bb57001dc3d/rapidfuzz-3.14.3-pp311-pypy311_pp73-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:1e6eefec45625c634926a9fd46c9e4f31118ac8f3156fff9494422cee45207e6", size = 3101472, upload-time = "2025-11-01T11:54:47.255Z" },
     { url = "https://files.pythonhosted.org/packages/b1/ad/fa2d3e5c29a04ead7eaa731c7cd1f30f9ec3c77b3a578fdf90280797cbcb/rapidfuzz-3.14.3-pp311-pypy311_pp73-win_amd64.whl", hash = "sha256:56fefb4382bb12250f164250240b9dd7772e41c5c8ae976fd598a32292449cc5", size = 1511361, upload-time = "2025-11-01T11:54:49.057Z" },
 ]
-
-[[package]]
-name = "redis"
-version = "2.10.6"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/09/8d/6d34b75326bf96d4139a2ddd8e74b80840f800a0a79f9294399e212cb9a7/redis-2.10.6.tar.gz", hash = "sha256:a22ca993cea2962dbb588f9f30d0015ac4afcc45bee27d3978c0dbe9e97c6c0f", size = 97299, upload-time = "2017-08-16T23:37:35.011Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/3b/f6/7a76333cf0b9251ecf49efff635015171843d9b977e4ffcf59f9c4428052/redis-2.10.6-py2.py3-none-any.whl", hash = "sha256:8a1900a9f2a0a44ecf6e8b5eb3e967a9909dfed219ad66df094f27f7d6f330fb", size = 64960, upload-time = "2017-08-16T23:37:33.302Z" },
-]
-
-[[package]]
-name = "redis-py-cluster"
-version = "1.3.6"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "redis" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/6d/02/b2458f900496d1e573ada7ffd882efe62aeee992eab1222411fe08aa5f75/redis-py-cluster-1.3.6.tar.gz", hash = "sha256:7db54b1de60bd34da3806676b112f07fc9afae556d8260ac02c3335d574ee42c", size = 33854, upload-time = "2018-11-16T14:55:22.977Z" }
 
 [[package]]
 name = "referencing"
@@ -2302,7 +2282,7 @@ dev = [
 requires-dist = [
     { name = "annotated-types", specifier = "==0.7.0" },
     { name = "anyio", specifier = "==4.5.0" },
-    { name = "arxiv-base", git = "https://github.com/arXiv/arxiv-base.git?branch=SUBMISSION-80-LicenseDataUpdate" },
+    { name = "arxiv-base", git = "https://github.com/arXiv/arxiv-base.git?branch=develop" },
     { name = "arxiv-tex2pdf-tools", git = "https://github.com/arXiv/submission-tools.git?subdirectory=tex2pdf-tools&branch=master" },
     { name = "astroid", specifier = "==1.6.6" },
     { name = "attrs", specifier = "==24.2.0" },
