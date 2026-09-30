@@ -465,7 +465,7 @@ class Submission(Base):    # type: ignore
         thing that removes it is the publish pipeline.
         """
         # Remove any categories that have been removed from the Submission.
-        for db_cat in self.categories:
+        for db_cat in list(self.categories):
             if db_cat.is_primary == 1 or db_cat.is_published:
                 continue
             if db_cat.category not in submission.secondary_categories:
