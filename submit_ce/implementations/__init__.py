@@ -296,6 +296,9 @@ class NullImplementation(SubmitApi):  # pragma: no cover
     def is_moderator(self, user_id: str) -> bool:
         return False
 
+    def routes_to_general_category(self, user_id: str, email: str) -> bool:
+        return False
+
     def get(self, submission_id: str) -> Submission:
         Submission(submission_id)
 

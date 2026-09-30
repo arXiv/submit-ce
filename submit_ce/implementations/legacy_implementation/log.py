@@ -2,9 +2,12 @@
 
 from typing import Optional, Callable
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session as SQLAlchemySession
 
-from submit_ce.domain.event import Event, UnFinalizeSubmission, AddContentFlag, AddClassifierResults
+from submit_ce.domain.agent import System
+from submit_ce.domain.event import Event, UnFinalizeSubmission, AddContentFlag, \
+    AddClassifierResults, RouteToGeneralCategory
 from submit_ce.domain.flag import ContentFlag
 from submit_ce.domain.submission import Submission
 from . import models
@@ -50,11 +53,26 @@ def log_classifier_failed(session: SQLAlchemySession, event: Event, before: Opti
                   paper_id=after.arxiv_id)
 
 
+def log_route_to_gen(session: SQLAlchemySession, event: Event, before: Optional[Submission],
+                     after: Submission) -> None:
+    """Log a submission routed to a general category, as legacy ``route_to_gen`` does."""
+    assert isinstance(event, RouteToGeneralCategory)
+    creator = after.creator
+    if event.category and not isinstance(creator, System):
+        nickname = session.scalar(select(models.Username.nickname).where(
+            models.Username.user_id == int(creator.user_id)))
+        admin_log(session, "Submission", "submit", "route to gen",
+                  username=nickname,
+                  submission_id=after.submission_id,
+                  paper_id=after.arxiv_id)
+
+
 Callback = Callable[[SQLAlchemySession, Event, Optional[Submission], Submission], None]
 
 ON_EVENT: dict[type, list[Callback]] = {
     UnFinalizeSubmission: [log_unfinalize],
-    AddContentFlag: [log_stopwords]
+    AddContentFlag: [log_stopwords],
+    RouteToGeneralCategory: [log_route_to_gen],
 }
 """Logging functions to call when an event is comitted."""
 

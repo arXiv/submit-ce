@@ -789,6 +789,16 @@ class Moderator(Base):    # type: ignore
     user = relationship('User')
 
 
+class SuspectEmail(Base):  # type: ignore
+    """Patterns in ``arXiv_suspect_emails`` (legacy ``arXiv::Submit::Suspect``)."""
+
+    __tablename__ = 'arXiv_suspect_emails'
+
+    id = Column(Integer, primary_key=True)
+    type = Column(String(10), nullable=False)
+    pattern = Column(Text, nullable=False)
+
+
 class Username(Base):  # type: ignore
     """
     Users' usernames (because why not have a separate table).

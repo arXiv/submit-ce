@@ -81,6 +81,9 @@ class PubsubEventSubmitImplementation(SubmitApi):
     def is_moderator(self, user_id: str) -> bool:
         return self.inner_api.is_moderator(user_id)
 
+    def routes_to_general_category(self, user_id: str, email: str) -> bool:
+        return self.inner_api.routes_to_general_category(user_id, email)
+
     def get_config(self) -> SubmitConfig:
         return self.inner_api.get_config()
 

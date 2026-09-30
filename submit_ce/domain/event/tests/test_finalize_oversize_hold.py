@@ -10,7 +10,7 @@ from pytz import UTC
 
 from submit_ce.domain import agent
 from submit_ce.domain.meta import Classification
-from submit_ce.domain.event import FinalizeSubmission, AddHold, \
+from submit_ce.domain.event import FinalizeSubmission, AddHold, RouteToGeneralCategory, \
     EmailSubmitterFinalizeMsg, EmailModeratorsFinalizeMsg
 from submit_ce.domain.submission import Submission, Hold, Waiver, SubmissionType
 
@@ -70,7 +70,8 @@ def test_finalize_always_emails_submitter():
 
 def test_declared_consequence_type():
     assert FinalizeSubmission.CONSEQUENCE_TYPES == frozenset(
-        {AddHold, EmailSubmitterFinalizeMsg, EmailModeratorsFinalizeMsg})
+        {RouteToGeneralCategory, AddHold, EmailSubmitterFinalizeMsg,
+         EmailModeratorsFinalizeMsg})
 
 
 def test_new_finalize_emails_moderators():
