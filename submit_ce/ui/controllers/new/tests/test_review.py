@@ -36,7 +36,6 @@ def test_review_files_get_warning_via_http(app, authorized_client, sub_files_tex
         mock_flash.call_args[0][0])
 
 
-
 def test_review_files_empty_workspace_skips_preflight(
         app, authorized_client, sub_files, mocker):
     """End-to-end: when get_workspace returns None, the controller short-circuits
@@ -745,3 +744,163 @@ def test_log_moderator_findings(caplog):
     with caplog.at_level('WARNING', logger=review.logger.name):
         review._log_moderator_findings({'tex_files': []}, '123')
     assert 'moderator findings' not in caplog.text
+
+
+# --- PDF-only submissions go through preflight ---------------------------------
+
+@pytest.fixture
+def sub_files_pdf(app, authorized_user, sub_files):
+    """sub_files with source_format PDF (a lone uploaded PDF)."""
+    from submit_ce.domain.agent import InternalClient
+    with app.app_context():
+        submission, _ = app.api.save(
+            SetSourceFormat(creator=authorized_user,
+                            client=InternalClient(name="test_review_pdf"),
+                            source_format="pdf"),
+            submission_id=sub_files.submission_id,
+        )
+        return submission
+
+
+def _pdf_preflight(*keys):
+    return {'status': {'key': 'success', 'info': None},
+            'detected_toplevel_files': [
+                {'filename': 'paper.pdf',
+                 'issues': [{'key': k, 'info': ''} for k in keys]}],
+            'tex_files': []}
+
+
+def _passed(app, submission_id):
+    with app.app_context():
+        _, events = app.api.get_with_history(submission_id)
+    return any(isinstance(e, review.PassPdfPreflight) for e in events)
+
+
+def test_pdf_review_no_issues_records_pass_and_advances(
+        app, authorized_client, sub_files_pdf, mocker):
+    mocker.patch.object(review, '_get_preflight_data', return_value=_pdf_preflight())
+    resp = authorized_client.get(f"/{sub_files_pdf.submission_id}/review_files")
+    assert resp.status_code == status.SEE_OTHER
+    assert 'review_files' not in resp.headers['Location']
+    assert _passed(app, sub_files_pdf.submission_id)
+
+
+def test_pdf_review_runs_preflight_when_missing(
+        app, authorized_client, sub_files_pdf, mocker):
+    mocker.patch.object(review, '_get_preflight_data',
+                        side_effect=[None, _pdf_preflight()])
+    mock_start = mocker.patch.object(review, 'start_preflight')
+    authorized_client.get(f"/{sub_files_pdf.submission_id}/review_files")
+    mock_start.assert_called_once()
+
+
+def test_pdf_review_danger_issue_blocks(
+        app, authorized_client, sub_files_pdf, mocker):
+    mocker.patch.object(review, '_get_preflight_data',
+                        return_value=_pdf_preflight('pdf_not_pdf'))
+    url = f"/{sub_files_pdf.submission_id}/review_files"
+    resp = authorized_client.get(url)
+    assert resp.status_code == status.OK
+    assert b'Cannot continue' in resp.data
+    assert b'File analysis is unavailable' not in resp.data
+    assert not _passed(app, sub_files_pdf.submission_id)
+
+    resp = authorized_client.post(url, data={'csrf_token': parse_csrf_token(resp),
+                                             'action': 'next'})
+    assert resp.status_code == status.OK        # still blocked
+    assert not _passed(app, sub_files_pdf.submission_id)
+
+
+def test_pdf_review_warning_shows_page_then_continues(
+        app, authorized_client, sub_files_pdf, mocker):
+    mocker.patch.object(review, '_get_preflight_data',
+                        return_value=_pdf_preflight('contents_decode_error'))
+    url = f"/{sub_files_pdf.submission_id}/review_files"
+    resp = authorized_client.get(url)
+    assert resp.status_code == status.OK
+    assert b'could not decode' in resp.data
+    assert b'Cannot continue' not in resp.data
+    assert _passed(app, sub_files_pdf.submission_id)
+
+    resp = authorized_client.post(url, data={'csrf_token': parse_csrf_token(resp),
+                                             'action': 'next'})
+    assert resp.status_code == status.SEE_OTHER
+
+
+def test_pdf_review_preflight_unavailable_blocks(
+        app, authorized_client, sub_files_pdf, mocker):
+    mocker.patch.object(review, '_get_preflight_data', return_value=None)
+    mocker.patch.object(review, 'start_preflight', side_effect=RuntimeError("down"))
+    mock_flash = mocker.patch.object(review.alerts, 'flash_warning')
+    resp = authorized_client.get(f"/{sub_files_pdf.submission_id}/review_files")
+    assert resp.status_code == status.OK
+    assert mock_flash.call_args[1].get('title') == 'Preflight unavailable'
+    assert not _passed(app, sub_files_pdf.submission_id)
+
+
+def test_pdf_review_preflight_unavailable_passes_when_not_required(
+        app, authorized_client, sub_files_pdf, mocker):
+    # POLICY switch PDF_PREFLIGHT_REQUIRED=False: let PDFs through unchecked.
+    mocker.patch.object(review, 'PDF_PREFLIGHT_REQUIRED', False)
+    mocker.patch.object(review, '_get_preflight_data', return_value=None)
+    mocker.patch.object(review, 'start_preflight', side_effect=RuntimeError("down"))
+    resp = authorized_client.get(f"/{sub_files_pdf.submission_id}/review_files")
+    assert resp.status_code == status.SEE_OTHER
+    assert _passed(app, sub_files_pdf.submission_id)
+
+
+def test_pdf_blocked_cannot_skip_to_process(
+        app, authorized_client, sub_files_pdf, mocker):
+    """Without PassPdfPreflight, Review Files is incomplete for a PDF, so the
+    workflow does not let the submitter jump to Process (which installs the
+    PDF as the preview)."""
+    mock_install = mocker.patch(
+        'submit_ce.ui.controllers.new.process._install_pdf_only_preview')
+    resp = authorized_client.get(f"/{sub_files_pdf.submission_id}/file_process")
+    assert resp.status_code == status.SEE_OTHER
+    assert 'review_files' in resp.headers['Location']
+    mock_install.assert_not_called()
+
+
+def test_pdf_review_tex_generated_pdf_is_a_visible_nudge(
+        app, authorized_client, sub_files_pdf, mocker):
+    """pdf_is_tex_generated is listed in the issue table, so the submitter sees
+    our message (not the producer's info text) and may still continue."""
+    pf = _pdf_preflight()
+    pf['detected_toplevel_files'][0]['issues'] = [
+        {'key': 'pdf_is_tex_generated', 'info': 'producer text'}]
+    mocker.patch.object(review, '_get_preflight_data', return_value=pf)
+    resp = authorized_client.get(f"/{sub_files_pdf.submission_id}/review_files")
+    assert resp.status_code == status.OK
+    assert b'generated from TeX/LaTeX' in resp.data
+    assert b'producer text' not in resp.data
+    assert b'Cannot continue' not in resp.data
+    assert _passed(app, sub_files_pdf.submission_id)
+
+
+def test_pdf_review_logs_moderator_findings_once(
+        app, authorized_client, sub_files_pdf, mocker):
+    """A fresh preflight of a PDF-only submission logs the findings hidden from
+    the submitter (plugin-defined codes), like the TeX path does."""
+    pf = _pdf_preflight('some_plugin_defined_code')
+    mocker.patch.object(review, '_get_preflight_data', side_effect=[None, pf])
+    mocker.patch.object(review, 'start_preflight')
+    mock_log = mocker.patch.object(review, '_log_moderator_findings')
+    resp = authorized_client.get(f"/{sub_files_pdf.submission_id}/review_files")
+    mock_log.assert_called_once_with(pf, str(sub_files_pdf.submission_id))
+    # Hidden by policy: no banner, and it does not block.
+    assert resp.status_code == status.SEE_OTHER
+
+
+def test_pdf_review_preflight_error_blocks_with_reason(
+        app, authorized_client, sub_files_pdf, mocker):
+    """A lone file that is not a real PDF aborts preflight (status error); the
+    PDF path blocks with the reason, as the TeX path does."""
+    pf = {'status': {'key': 'error', 'info': "QA check failed: Found 1 PDFs that don't look like a PDF."},
+          'detected_toplevel_files': [], 'tex_files': []}
+    mocker.patch.object(review, '_get_preflight_data', return_value=pf)
+    resp = authorized_client.get(f"/{sub_files_pdf.submission_id}/review_files")
+    assert resp.status_code == status.OK
+    assert b'Cannot continue' in resp.data
+    assert b"look like a PDF" in resp.data
+    assert not _passed(app, sub_files_pdf.submission_id)

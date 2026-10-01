@@ -8,6 +8,7 @@ from submit_ce.domain.event.file import (
     UploadFiles,
 )
 from submit_ce.domain.event.process import (
+    PassPdfPreflight,
     PreflightStatus,
     SetDecisions,
     StartCompileSource,
@@ -132,9 +133,10 @@ def has_current_directives(submission: Submission, events: List[Event]) -> bool:
     `_common_file_change_execute` in event/file.py), so a `StartDirectives`
     only counts if no file-change event has occurred since the most recent
     one. `events` is in chronological order (oldest first).
+
+    PDF-only submissions never generate directives; their Review Files gate is
+    `has_passed_pdf_preflight`.
     """
-    if submission.source_format == SourceFormat.PDF:
-        return True
     last_directives = None
     for i, event in enumerate(events):
         if isinstance(event, StartDirectives):
@@ -143,6 +145,26 @@ def has_current_directives(submission: Submission, events: List[Event]) -> bool:
         return False
     return not any(isinstance(event, _FILE_CHANGE_EVENTS)
                    for event in events[last_directives + 1:])
+
+def has_passed_pdf_preflight(submission: Submission, events: List[Event]) -> bool:
+    """Determine whether a PDF-only submission passed preflight for its current file.
+
+    The PDF-only counterpart of `has_current_directives`: Review Files saves a
+    `PassPdfPreflight` once preflight of the lone PDF shows no blocking issue,
+    and any later file-change event invalidates it. `events` is in
+    chronological order (oldest first).
+    """
+    if submission.source_format != SourceFormat.PDF:
+        return False
+    last_pass = None
+    for i, event in enumerate(events):
+        if isinstance(event, PassPdfPreflight):
+            last_pass = i
+    if last_pass is None:
+        return False
+    return not any(isinstance(event, _FILE_CHANGE_EVENTS)
+                   for event in events[last_pass + 1:])
+
 
 def has_compiled_current_source(submission: Submission, events: List[Event]) -> bool:
     """Determine whether a compile has been attempted against the *current* source.

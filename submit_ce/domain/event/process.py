@@ -376,6 +376,30 @@ class InstallPdfPreview(EventWithSideEffect):
         return submission
 
 
+class PassPdfPreflight(Event):
+    """Record that a PDF-only submission's preflight has no blocking issues.
+
+    The PDF-only counterpart of ``StartDirectives`` as a Review Files gate: a
+    TeX submission only completes Review Files once ``StartDirectives`` was
+    saved after passing the preflight gate; a PDF-only submission has no
+    directives, so this event marks the same point. Any later file-change
+    event invalidates it (see ``has_passed_pdf_preflight`` in
+    ``ui/workflow/conditions.py``). Carries no data and has no side effect;
+    the history entry is the record.
+    """
+
+    NAME = "pass PDF preflight"
+    NAMED = "passed PDF preflight"
+
+    def validate_pre_lock(self, submission: Submission) -> None:
+        if submission.source_format != SourceFormat.PDF:
+            raise InvalidEvent(
+                self, "PassPdfPreflight only applies to PDF-only submissions.")
+
+    def project(self, submission: Submission) -> Submission:
+        return submission
+
+
 class StartDirectives(EventWithSideEffect):
     """Start directives generation for a submission."""
 
