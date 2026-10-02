@@ -39,7 +39,7 @@ def session():
 @pytest.mark.parametrize("email, routed", [
     ("baloo@example.org", True),
     ("Baloo@Example.ORG", True),        # case-insensitive
-    ("xbaloo@example.org.example", True),  # not anchored
+    ("xbaloo@example.org.uk", True),    # not anchored
     ("bagheera@mailXexample", True),    # a bare dot matches any character
     ("pooh@hundred-acre.example", True),
     ("eeyore@wood.example", True),
