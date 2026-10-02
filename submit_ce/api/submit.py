@@ -312,6 +312,17 @@ class SubmitApi(ABC):
         """
         ...
 
+    @abstractmethod
+    def routes_to_general_category(self, user_id: str, email: str) -> bool:
+        """Whether this submitter's new submissions go to a general category.
+
+        Legacy ``route_to_gen`` checks this when a submission is submitted; see
+        :class:`.RouteToGeneralCategory`. ``email`` is the address on the
+        submission (legacy ``submitter_email``; the contact email for a proxy or
+        SWORD deposit), not necessarily the account's.
+        """
+        ...
+
     # Ex what happens on a Command like CompileSource What about longer
     # commands? or things like compile source that may have a later result?  In
     # legacy compile source is just synchronous.

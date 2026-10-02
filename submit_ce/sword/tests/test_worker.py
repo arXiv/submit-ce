@@ -1093,3 +1093,64 @@ def test_a_replaced_paper_reads_as_its_newest_version(compiling_app, depositor,
     submission, _ = compiling_app.state.api.get_with_history(str(origin))
     assert submission.version == 2, "still reporting the version it replaced"
     assert submission.submission_id == str(origin), "identity changed with version"
+
+
+# ----------------------------------------------- general-category routing (1.5)
+
+
+@pytest.fixture
+def deposited_physics(client, depositor):
+    """A hep-th deposit with a gr-qc secondary, whose contact is Baloo."""
+    from submit_ce.sword.tests import client as sword_client
+
+    auth = basic_auth(depositor.nickname, depositor.password)
+    media = client.post("/sword-app/physics-collection", content=ZIP,
+                        headers={"Authorization": auth, "Content-Type": "application/zip"})
+    assert media.status_code == 201, media.text
+    document = wrapper_entry(
+        title="A strangely unique title",
+        summary="A concise abstract of the important findings herein",
+        primary_category="hep-th", categories=["gr-qc"], author_name="B. Editor",
+        contributors=[Contributor("Baloo", email="baloo@example.org")],
+        links=[MediaLink(sword_client.edit_media_link(media.content), "application/zip")])
+    wrapper = client.post("/sword-app/physics-collection", content=document,
+                          headers={"Authorization": auth, "Content-Type": ATOM_ENTRY_TYPE})
+    assert wrapper.status_code == 202, wrapper.text
+
+    import arxiv.db.models as models
+    sword_id = sword_client.sword_id(wrapper.content)
+    tracking = Session.query(models.Tracking).filter_by(sword_id=sword_id).one()
+    return tracking.paper_id.removeprefix("submit/")
+
+
+def _genph_pattern(email):
+    import re
+    from datetime import UTC, datetime
+    import arxiv.db.models as models
+    Session.add(models.SuspectEmail(type="GENPH", pattern=re.escape(email).replace("@", r"\@"),
+                                    comment=__name__, updated=datetime.now(UTC)))
+    Session.commit()
+
+
+def test_a_flagged_contact_email_routes_the_deposit(compiling_app, deposited_physics,
+                                                    actor):
+    """1.5 matches the deposit's contact email and logs the depositor (AtomPP.pm:1193-1195)."""
+    from submit_ce.implementations.legacy_implementation.models import AdminLogEntry
+    _genph_pattern("baloo@example.org")
+
+    assert _advance(compiling_app, deposited_physics, actor).finalized
+
+    submission = compiling_app.state.api.get(deposited_physics)
+    assert (submission.primary_category, submission.secondary_categories) == ("physics.gen-ph", [])
+    log = Session.query(AdminLogEntry).filter_by(logtext="route to gen").one()
+    assert log.username == "vtex"
+
+
+def test_the_depositor_account_email_does_not_route(compiling_app, deposited_physics,
+                                                    actor, depositor):
+    _genph_pattern(depositor.email)
+
+    assert _advance(compiling_app, deposited_physics, actor).finalized
+
+    submission = compiling_app.state.api.get(deposited_physics)
+    assert (submission.primary_category, submission.secondary_categories) == ("hep-th", ["gr-qc"])

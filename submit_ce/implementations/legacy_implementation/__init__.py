@@ -26,6 +26,7 @@ from .db import to_submission
 from .models import Submission
 from . import models
 from . import moderators
+from . import suspect
 
 from ...domain.event.base import Event, EventWithSideEffect
 from ...domain.util import get_tzaware_utc_now
@@ -514,6 +515,10 @@ class LegacySubmitImplementation(SubmitApi):
     @override
     def is_moderator(self, user_id: str) -> bool:
         return moderators.is_moderator(self.get_session(), user_id)
+
+    @override
+    def routes_to_general_category(self, user_id: str, email: str) -> bool:
+        return suspect.routes_to_general_category(self.get_session(), user_id, email)
 
     @override
     def get_config(self) -> SubmitConfig:

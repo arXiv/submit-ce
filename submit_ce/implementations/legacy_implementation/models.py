@@ -465,7 +465,7 @@ class Submission(Base):    # type: ignore
         thing that removes it is the publish pipeline.
         """
         # Remove any categories that have been removed from the Submission.
-        for db_cat in self.categories:
+        for db_cat in list(self.categories):
             if db_cat.is_primary == 1 or db_cat.is_published:
                 continue
             if db_cat.category not in submission.secondary_categories:
@@ -787,6 +787,16 @@ class Moderator(Base):    # type: ignore
     daily_update = Column(Integer, nullable=True, server_default=text("'0'"))
 
     user = relationship('User')
+
+
+class SuspectEmail(Base):  # type: ignore
+    """Patterns in ``arXiv_suspect_emails`` (legacy ``arXiv::Submit::Suspect``)."""
+
+    __tablename__ = 'arXiv_suspect_emails'
+
+    id = Column(Integer, primary_key=True)
+    type = Column(String(10), nullable=False)
+    pattern = Column(Text, nullable=False)
 
 
 class Username(Base):  # type: ignore

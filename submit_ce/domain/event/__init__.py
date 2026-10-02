@@ -66,6 +66,7 @@ from .email_mods import EmailProposalModeratorsMsg
 from .file import UploadFiles, RemoveFiles, RemoveAllFiles
 from .flag import AddMetadataFlag, AddUserFlag, AddContentFlag, RemoveFlag, \
     AddHold, RemoveHold
+from .route_to_general import RouteToGeneralCategory, general_category
 from .request import RequestWithdrawal, ApplyRequest, \
     RejectRequest, ApproveRequest, CancelRequest
 from ..agent import System
@@ -1101,7 +1102,8 @@ class FinalizeSubmission(Event):
     ]
     REQUIRED_METADATA: ClassVar[str] = ['title', 'abstract', 'authors_display']
 
-    CONSEQUENCE_TYPES = frozenset({AddHold, EmailSubmitterFinalizeMsg,
+    CONSEQUENCE_TYPES = frozenset({RouteToGeneralCategory, AddHold,
+                                   EmailSubmitterFinalizeMsg,
                                    EmailModeratorsFinalizeMsg})
 
     MOD_EMAIL_TYPES: ClassVar[frozenset] = frozenset({
@@ -1133,12 +1135,14 @@ class FinalizeSubmission(Event):
     def consequences(self, submission: Submission) -> List[Event]:
         """Follow-on events when a submission is finalized.
 
-        1. Place an oversize submission on hold. Recording a `SOURCE_OVERSIZE`
+        1. Route a new submission to its general category if its submitter
+           is flagged for that. First, as in legacy, so the emails see it.
+        2. Place an oversize submission on hold. Recording a `SOURCE_OVERSIZE`
            hold (while status stays `SUBMITTED`) is what makes
            :attr:`Submission.is_on_hold` report true; there is no separate hold
            status in this model. Skipped if a waiver already exists.
-        2. Send the submitter the on-submit confirmation email.
-        3. Notify the affected categories' moderators, but only for submission
+        3. Send the submitter the on-submit confirmation email.
+        4. Notify the affected categories' moderators, but only for submission
            types (`new`/`rep`/`wdr`/`cross`) and only when the submission is not
            auto-held. An auto-held submission (e.g. oversize)
            is not sent to moderators until the problems are fixed.
@@ -1146,6 +1150,10 @@ class FinalizeSubmission(Event):
         events: List[Event] = []
         sid = submission.submission_id
         sid_str = str(sid) if sid is not None else None
+        if submission.submission_type == SubmissionType.NEW \
+                and general_category(submission.primary_category):
+            events.append(RouteToGeneralCategory(creator=System(name=__name__),
+                                                 submission_id=sid_str))
         if submission.is_oversize \
                 and not submission.has_waiver_for(Hold.Type.SOURCE_OVERSIZE):
             events.append(AddHold(creator=System(name=__name__),
