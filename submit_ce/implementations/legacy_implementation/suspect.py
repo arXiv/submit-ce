@@ -3,7 +3,7 @@
 Ported from ``arXiv::Schema::Result::Submission::route_to_gen`` and
 ``arXiv::Submit::Suspect::route_to_genph`` (``Suspect.pm:37-56``). SUBMISSION-39.
 Unlike the Perl, a pattern Python cannot compile is skipped rather than fatal,
-and Perl-only regex syntax would not match.
+and some Perl regex syntax may not match as it does in Perl.
 """
 
 import logging

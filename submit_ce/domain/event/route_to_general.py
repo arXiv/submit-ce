@@ -8,7 +8,8 @@ decided by :meth:`.SubmitApi.routes_to_general_category`. SUBMISSION-39.
 from typing import Optional, TYPE_CHECKING
 
 from ..agent import System
-from ..submission import Classification, Submission
+from ..meta import Classification
+from ..submission import Submission
 from .base import EventWithSideEffect
 
 if TYPE_CHECKING:
@@ -28,8 +29,8 @@ class RouteToGeneralCategory(EventWithSideEffect):
 
     Only when the submitter is routed; legacy drops the secondaries too. It is an
     `EventWithSideEffect` only because `execute` is the hook given the `SubmitApi`.
-    It checks the submission's submitter, not this event's `System` creator, and
-    a failed lookup fails the finalize.
+    It checks the submission's submitter, not this event's `System` creator. A
+    failed lookup fails the finalize; legacy proceeds unrouted (``Suspect.pm:41-46``).
     """
 
     NAME = "route to general category"

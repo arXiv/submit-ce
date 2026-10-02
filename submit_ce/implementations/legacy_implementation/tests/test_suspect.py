@@ -5,7 +5,7 @@ with ``\\@``, escaped and bare dots, ``.*``, groups, alternation, one domain.
 Names are fictional animals, never real people.
 """
 import pytest
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 
 from submit_ce.implementations.legacy_implementation import models
@@ -39,7 +39,7 @@ def session():
 @pytest.mark.parametrize("email, routed", [
     ("baloo@example.org", True),
     ("Baloo@Example.ORG", True),        # case-insensitive
-    ("xbaloo@example.org.uk", True),    # not anchored
+    ("xbaloo@example.org.example", True),  # not anchored
     ("bagheera@mailXexample", True),    # a bare dot matches any character
     ("pooh@hundred-acre.example", True),
     ("eeyore@wood.example", True),
@@ -47,7 +47,7 @@ def session():
     ("roo@pouch.example", True),
     ("baloo@example.com", False),
     ("shere-khan@example.org", False),  # SUSPECT patterns flag authors instead
-    ("hathi@physics.example.edu", False),
+    ("hathi@physics.example", False),
 ])
 def test_genph_patterns(session, email, routed):
     assert routes_to_general_category(session, "1", email) is routed
@@ -55,6 +55,8 @@ def test_genph_patterns(session, email, routed):
 
 def test_invalid_pattern_is_logged_by_id(session, caplog):
     """A pattern is a flagged person's address; the log names only its row."""
-    routes_to_general_category(session, "1", "hathi@physics.example.edu")
+    routes_to_general_category(session, "1", "hathi@physics.example")
+    row_id = session.scalar(select(models.SuspectEmail.id)
+                            .where(models.SuspectEmail.pattern.startswith("heffalump")))
     assert "heffalump" not in caplog.text
-    assert "arXiv_suspect_emails id 7" in caplog.text
+    assert f"arXiv_suspect_emails id {row_id}" in caplog.text
